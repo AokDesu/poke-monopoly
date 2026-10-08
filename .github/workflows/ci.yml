@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Guard - pull request cites a spec section
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if ! grep -qE '^Spec:.*§[0-9]' <<<"$PR_BODY"; then
+            echo "::error::The pull request description needs a line starting with 'Spec:' that names a spec section, for example 'Spec: §7'."
+            exit 1
+          fi
+
+      - name: Guard - no committed Jev key
+        run: |
+          if git grep -nE 'TYPESAFE_API_KEY[[:space:]]*[=][[:space:]]*["'\'']?[A-Za-z0-9_-]'; then
+            echo "::error::A tracked file sets TYPESAFE_API_KEY to a value. Remove it and rotate the key."
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run sim -- --games 100 --seed 1
+      - run: npm run eval:jev -- --offline

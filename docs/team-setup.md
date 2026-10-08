@@ -42,7 +42,7 @@ Install these before the tools in §3.
 |---|---|---|---|
 | git | any current release | everyone | Required by no-mistakes and treehouse. |
 | GitHub CLI `gh` | any current release; **2.99.0** only for `--attach` on issues and PRs | everyone | Run `gh auth login`, then `gh auth status`. gh-axi, no-mistakes (PRs and CI) and firstmate all use it. |
-| Node.js | **22.19 or newer** | everyone | The highest minimum among the tools: quota-axi needs 22.19, lavish-axi 22, chrome-devtools-axi 20, gh-axi 20, tasks-axi 20. The project's own Node version is set later by the repository-setup issue; use that one for project work. |
+| Node.js | **22.19 or newer** | everyone | The highest minimum among the tools: quota-axi needs 22.19, lavish-axi 22, chrome-devtools-axi 20, gh-axi 20, tasks-axi 20. The project itself uses Node 24 (`.node-version`; see the README); use that one for project work. |
 | npm | the one shipped with Node | everyone | Used for `npm install -g` and `npx`. Set up a user-level prefix or a version manager (mise, nvm, fnm) so you never need `sudo`. |
 | A coding agent | Claude Code or Codex at minimum | everyone | no-mistakes needs at least one runnable agent; `agent: auto` in `~/.no-mistakes/config.yaml` picks one it finds. |
 | Chrome | stable channel | stream C; others if they check the UI | chrome-devtools-axi drives a local Chrome. Its default is the stable channel (`CHROME_DEVTOOLS_AXI_CHANNEL` selects another). |
@@ -92,7 +92,7 @@ The `npm install -g` commands are the "session hook" install route in each READM
 
 ## 4. Agent skills to install
 
-Skills teach your agent when and how to use each tool. Install them **globally** (`-g`) so nothing lands inside the repository: a project-level install would add `.claude/` or `.agents/` files to your clone that must never go into a feature PR (those directories belong to the repository-setup issue).
+Skills teach your agent when and how to use each tool. Install them **globally** (`-g`) so nothing lands inside the repository: a project-level install would add `.claude/` or `.agents/` files to your clone that must never go into a feature PR (the repository git-ignores them; see `AGENTS.md`).
 
 The installer for most skills is [`npx skills`](https://github.com/vercel-labs/skills). It writes Claude Code skills to `~/.claude/skills/` and Codex skills to `~/.agents/skills/`. Use `-a` to name the agents; add more `-a` flags for other agents. Restart your agent session afterwards so it sees the new skills.
 
@@ -147,7 +147,7 @@ npx impeccable install --providers=claude,codex --scope=global --no-hooks
 Then, inside your agent, run `/impeccable init` in Claude Code (`$impeccable init` in Codex) once to set up design context.
 
 - `--scope=global` installs under `~/.claude` and `~/.agents`, and we checked that it writes nothing into the current project when combined with `--no-hooks`.
-- Without those two flags the installer asks whether to install per-project and offers to add edit-time hook manifests (`.claude/…`, `.codex/hooks.json`) and an `.impeccable/` folder to the repo. Don't commit those in a feature PR. If the team wants the hooks, that is a repository-setup decision.
+- Without those two flags the installer asks whether to install per-project and offers to add edit-time hook manifests (`.claude/…`, `.codex/hooks.json`) and an `.impeccable/` folder to the repo. The repository git-ignores `.claude/`, `.codex/` and `.impeccable/` (see `AGENTS.md`), so per-project hooks stay local to you.
 - If you do install hooks, Codex requires you to open `/hooks` and approve them once.
 - Claude Code can also use the plugin route: run `/plugin marketplace add pbakaus/impeccable` inside Claude Code, then install from `/plugin`.
 - Refresh later with `npx impeccable update`.
@@ -178,11 +178,7 @@ no-mistakes doctor
 
 `init` creates a local gate repo, adds a `no-mistakes` git remote, starts the background daemon and installs the `/no-mistakes` skill. `origin` is unchanged. `doctor` must show git and gh as OK, at least one agent you actually use (for example `claude` or `codex`) and the daemon running. Rows for tools you don't use, such as `az`, may show a dash; that is fine.
 
-Keep local-only files out of git without touching a tracked file (the repository-setup issue adds the real `.gitignore`):
-
-```sh
-printf '%s\n' .env .lavish/ >> "$(git rev-parse --git-common-dir)/info/exclude"
-```
+The repository's `.gitignore` already keeps `.env` and local tool folders such as `.lavish/` out of git.
 
 ### 5.3 The Jev key: `.env`, and keeping it away from agents
 
@@ -195,7 +191,7 @@ printf 'Jev key: '; stty -echo; IFS= read -r JEV_KEY; stty echo; echo
 printf 'TYPESAFE_API_KEY=%s\nJEV_ENABLED=true\n' "$JEV_KEY" > .env
 unset JEV_KEY
 chmod 600 .env
-git check-ignore -v .env      # must print a rule; if it prints nothing, fix §5.2 before continuing
+git check-ignore -v .env      # must print a .gitignore rule; if it prints nothing, update from main before continuing
 ```
 
 These commands work in bash and zsh (macOS default) on macOS, Linux and WSL. On native Windows, create `.env` in an editor instead of pasting the key into a terminal, and don't add a trailing space or quotes to the value.
@@ -266,7 +262,7 @@ offline fixtures: run `npm run eval:jev -- --offline`. There is no API key in th
 environment and you must not look for one.
 ```
 
-Run the loops yourself first (`npm test`, then `npm run sim -- --games 100 --seed 1`). Their script names come from spec §7 and are created by the repository-setup issue.
+Run the loops yourself first (`npm test`, then `npm run sim -- --games 100 --seed 1`). Their script names come from spec §7.
 
 ### Step 4: validate through no-mistakes
 
@@ -348,7 +344,7 @@ Or to your agent: `Use gh-axi to list my open issues for the current milestone a
 
 ### chrome-devtools-axi: check the web UI
 
-Start the web app first (the command is defined by the repository-setup issue), then:
+Start the web app first (`npm run dev`; see the README), then:
 
 ```
 Use chrome-devtools-axi to open <dev server URL>, start a 2-seat game, and check that the
@@ -376,7 +372,7 @@ Keep screenshots out of commits unless the PR is about them. Never point the bro
 plus screenshots of what the web app shows today. I'll annotate what is unclear.
 ```
 
-(In Codex, use `$lavish`.) Your agent writes an HTML file under `.lavish/`, runs `lavish-axi .lavish/<file>.html` to open it in your browser, and then `lavish-axi poll` to wait for your annotations. Select an element or text, add a note, and send it. Lavish runs locally; `.lavish/` is already excluded in §5.2.
+(In Codex, use `$lavish`.) Your agent writes an HTML file under `.lavish/`, runs `lavish-axi .lavish/<file>.html` to open it in your browser, and then `lavish-axi poll` to wait for your annotations. Select an element or text, add a note, and send it. Lavish runs locally; `.lavish/` is git-ignored.
 
 Do **not** run `lavish-axi share` for this project. It publishes the page to the third-party ht-ml.app service, public by default, and the repository is private.
 
@@ -475,7 +471,6 @@ git -C "$(git remote get-url no-mistakes)" config --local rerere.enabled false
 | `quota-axi` or `lavish-axi` refuses to run | Check `node --version`; you need Node 22.19 or newer. |
 | `chrome-devtools-axi` hangs or reports a dead browser | Run `chrome-devtools-axi stop`, then open the page again. It restarts a bridge whose browser has died. |
 | `gh-axi` says a command needs a newer `gh` | Only `--attach` needs `gh` 2.99.0 or newer. Upgrade `gh`. |
-| `git status` shows `.claude/`, `.agents/`, `.codex/`, `.impeccable/` or `.lavish/` | Don't commit them (§4). Stage files by name instead of `git add -A`. |
 | `treehouse` can't reuse a worktree | It only reuses clean, idle slots. See `treehouse status`; ask before removing anything another agent might be using. |
 
 ## 9. Keeping this page current

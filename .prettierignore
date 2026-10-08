@@ -1,0 +1,10 @@
+node_modules
+web/dist
+sim/out
+package-lock.json
+# Verbatim copies of externally supplied documents.
+docs/
+# Local tool folders, never tracked.
+.claude
+.agents
+.lavish

@@ -1,0 +1,15 @@
+node_modules/
+web/dist/
+.env
+.env.*
+!.env.example
+saves/
+logs/
+sim/out/
+
+# Local tool and agent folders: never tracked (decision recorded in AGENTS.md).
+.claude/
+.agents/
+.codex/
+.impeccable/
+.lavish/
