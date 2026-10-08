@@ -124,6 +124,30 @@ test('short log sequences player and engine actions together and records sourced
   ]);
 });
 
+test('short log’s intermediate resolve phase is valid in state and seat observations', () => {
+  const fixture = fixtureSchema.parse(fixtures['./fixtures/log-short.json']);
+  expect(fixture.log[3]?.events).toContainEqual({
+    kind: 'phase_changed',
+    from: 'move',
+    to: 'resolve',
+  });
+  expect(
+    fixtureSchema.safeParse({
+      ...fixture,
+      state: { ...fixture.state, stateRevision: 4, phase: { kind: 'resolve' } },
+      observation: Object.fromEntries(
+        Object.entries(fixture.observation).map(([seat, observation]) => [
+          seat,
+          {
+            ...observation,
+            public: { ...observation.public, stateRevision: 4, phase: { kind: 'resolve' } },
+          },
+        ]),
+      ),
+    }).success,
+  ).toBe(true);
+});
+
 test('every shipped fixture validates and agrees with the exported observation and action seams', () => {
   expect(Object.values(fixtures)).toHaveLength(9);
   for (const input of Object.values(fixtures)) {
