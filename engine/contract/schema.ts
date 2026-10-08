@@ -92,6 +92,7 @@ export const phaseSchema = z.discriminatedUnion('kind', [
       'social',
       'strategy',
       'move',
+      'resolve',
       'end',
       'finished',
       'combat',
