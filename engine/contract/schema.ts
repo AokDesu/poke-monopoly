@@ -65,6 +65,21 @@ export const gameConfigSchema = z.strictObject({
   contentVersion: id,
   rngVersion: id,
 });
+export const logHeaderSchema = z
+  .strictObject({
+    initialConfig: gameConfigSchema,
+    seed: gameConfigSchema.shape.seed,
+    engineVersion: id,
+    contentVersion: id,
+    rngVersion: id,
+  })
+  .superRefine((header, ctx) => {
+    for (const field of ['seed', 'engineVersion', 'contentVersion', 'rngVersion'] as const) {
+      if (header[field] !== header.initialConfig[field]) {
+        ctx.addIssue({ code: 'custom', path: [field], message: 'Must match initialConfig' });
+      }
+    }
+  });
 const privateResultSchema = z.strictObject({ kind: z.literal('peek'), eventId: id });
 export const playerSchema = z.strictObject({
   actorId: id,
@@ -193,6 +208,8 @@ export const engineEventSchema = z.discriminatedUnion('kind', [
     kind: z.literal('random_result'),
     purpose: id,
     result: z.union([z.int(), id, z.array(id)]),
+    // Issue #3 fixtures predate counted draws; new RNG events always supply this.
+    drawCounter: z.int().positive().optional(),
   }),
   z.strictObject({
     kind: z.literal('coin_transfer'),
@@ -262,6 +279,7 @@ export const fixtureSchema = z.strictObject({
 });
 
 export type GameConfig = z.infer<typeof gameConfigSchema>;
+export type LogHeader = z.infer<typeof logHeaderSchema>;
 export type GameState = z.infer<typeof gameStateSchema>;
 export type Player = z.infer<typeof playerSchema>;
 export type Phase = z.infer<typeof phaseSchema>;

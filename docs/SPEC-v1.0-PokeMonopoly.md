@@ -260,6 +260,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 **Deck and randomness**
 
 - The deck is shuffled at setup. All randomness lives in the engine and is logged.
+- The seeded engine generator is versioned as `mulberry32-v1`. Each draw returns a `random_result` with its purpose, result and one-based `drawCounter` for the command pipeline to log; rejected RNG inputs consume no draws. Shuffle logs each Fisher-Yates index choice and weighted picks log the selected entry index.
 
 ### 4.7 Selling at Start, Laps and game end
 
@@ -450,6 +451,7 @@ TypeScript plus a web app with API routes. The folders are `engine/`, `content/`
    - Postgres/Docker are out of scope.
 8. **Replay:**
    - Requires the full initialConfig, seed, `engineVersion`, `contentVersion`, the action log, and the random results used. Alternatively, the same RNG version with a verified cursor.
+   - A log header includes `initialConfig`, seed, `engineVersion`, `contentVersion` and `rngVersion`; header seed and versions must match the initial config. The RNG returns immutable decimal uint32 state and cursor, matching the private snapshot shape, so retaining that state continues the sequence without rerolling. Numeric seeds wrap to uint32; nonempty string seeds use FNV-1a over UTF-16 code units. Changes to seed mapping, helpers or the sequence require a new RNG version.
    - Jev answers that affect state are logged as events `{requestId, model, questionId, choice, probabilities, confidence, sampled, fallbackReason}`.
    - **Replay never calls Jev again.**
 9. **Resume:** start from the last committed action. Pending requests are cancelled and re-asked from the same state.
