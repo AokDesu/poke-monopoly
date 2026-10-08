@@ -438,7 +438,7 @@ TypeScript plus a web app with API routes. The folders are `engine/`, `content/`
 
 1. **`engine/`** has no IO. The same engine runs in the web app, sim and eval, and human and AI commands pass the same validation.
 2. **`ai/`** is a server-side endpoint. It holds `TYPESAFE_API_KEY`, validates payload shape and size, builds questions from state, calls Jev and returns only action IDs and line IDs.
-3. **Action records:** every action carries `actorId`, `actionSeq`, `stateRevisionBefore` and `payload`. `actionSeq` increments on every state change, including dice results and deal confirmations.
+3. **Action records:** fields, accepted-action sequencing and revision semantics are defined in [Engine contract v1](engine-contract.md#records-and-counters), including the approved clarification.
 4. **Turn counters:** `globalTurnNo` counts turns and `ownTurnNo` counts each player's turns, both separate from `seatIndex`.
 5. **Movement and Laps:** movement stores a signed `routeProgress` and a monotonic `creditedLap`.
    - Position = `((routeProgress % 24) + 24) % 24`.
