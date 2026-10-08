@@ -460,6 +460,21 @@ git -C "$(git remote get-url no-mistakes)" config --local rerere.enabled false
 
 `git remote get-url no-mistakes` prints the gate repo's path (it is also shown by `no-mistakes init`). This one is **not in upstream's docs**; we reproduced the behaviour with plain git 2.55.0 on 2026-10-07 and confirmed the fix, but we did not run a full no-mistakes pipeline against it.
 
+### Windows clones fail `format:check` on files nobody changed
+
+Symptom: on Windows, `npm run format:check` (and so the no-mistakes pipeline, which runs on your machine) lists dozens of files you never touched, such as `web/src/main.tsx` and `web/vite.config.ts`. `npx prettier --write .` "fixes" them, but the only change is line endings.
+
+Cause: Git for Windows sets `core.autocrlf=true` by default, so git checks text files out with CRLF line endings. Prettier expects LF (its default `endOfLine: "lf"`). CI runs on Linux and never sees CRLF.
+
+Fix: the root `.gitattributes` (`* text=auto eol=lf`) makes git check text files out with LF on every platform, whatever `core.autocrlf` says. A fresh clone, or a new worktree of a branch that contains the file, needs nothing. A checkout made before the file landed keeps its CRLF files even after you pull. Commit or stash your work first, because `reset --hard` discards uncommitted changes, then run from the checkout's root:
+
+```sh
+git rm --cached -r -q .
+git reset --hard
+```
+
+Untracked and ignored files such as `.env` are left alone. Afterwards `git status` is clean and `git ls-files --eol` shows `w/lf` for every text file. `git checkout -- .` and `git restore .` do **not** fix it: git treats the CRLF files as unchanged and skips them. We reproduced this with Git for Windows 2.55.0 on 2026-10-08.
+
 ### Other problems you may hit
 
 | Symptom | Fix |
