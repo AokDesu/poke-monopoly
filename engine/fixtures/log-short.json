@@ -1,0 +1,893 @@
+{
+  "name": "log-short",
+  "state": {
+    "config": {
+      "seats": [
+        {
+          "actorId": "player-0",
+          "seatIndex": 0,
+          "classId": "main-character",
+          "controller": "human"
+        },
+        {
+          "actorId": "player-1",
+          "seatIndex": 1,
+          "classId": "rival",
+          "controller": "ai"
+        }
+      ],
+      "seed": 3,
+      "lapTarget": 3,
+      "engineVersion": "0.0.0",
+      "contentVersion": "fixture-v1",
+      "rngVersion": "fixture-rng-v1"
+    },
+    "content": {
+      "board": [
+        {
+          "position": 0,
+          "kind": "start",
+          "name": "Start"
+        },
+        {
+          "position": 1,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "position": 2,
+          "kind": "event",
+          "name": "Event"
+        },
+        {
+          "position": 3,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "position": 4,
+          "kind": "shop",
+          "name": "Shop"
+        },
+        {
+          "position": 5,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "position": 6,
+          "kind": "gym",
+          "name": "Gym"
+        },
+        {
+          "position": 7,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "position": 8,
+          "kind": "event",
+          "name": "Event"
+        },
+        {
+          "position": 9,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "position": 10,
+          "kind": "shop",
+          "name": "Shop"
+        },
+        {
+          "position": 11,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "position": 12,
+          "kind": "gym",
+          "name": "Gym"
+        },
+        {
+          "position": 13,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "position": 14,
+          "kind": "event",
+          "name": "Event"
+        },
+        {
+          "position": 15,
+          "kind": "shop",
+          "name": "Shop"
+        },
+        {
+          "position": 16,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "position": 17,
+          "kind": "event",
+          "name": "Event"
+        },
+        {
+          "position": 18,
+          "kind": "gym",
+          "name": "Gym"
+        },
+        {
+          "position": 19,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "position": 20,
+          "kind": "shop",
+          "name": "Shop"
+        },
+        {
+          "position": 21,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "position": 22,
+          "kind": "event",
+          "name": "Event"
+        },
+        {
+          "position": 23,
+          "kind": "wild",
+          "name": "Wild"
+        }
+      ],
+      "species": [
+        {
+          "id": "bulbasaur",
+          "name": "Bulbasaur",
+          "rarity": "uncommon",
+          "dc": 3,
+          "battle": 2,
+          "base": 8,
+          "tags": ["grass"]
+        },
+        {
+          "id": "eevee",
+          "name": "Eevee",
+          "rarity": "uncommon",
+          "dc": 4,
+          "battle": 2,
+          "base": 12,
+          "tags": ["normal", "cute"]
+        },
+        {
+          "id": "caterpie",
+          "name": "Caterpie",
+          "rarity": "common",
+          "dc": 2,
+          "battle": 0,
+          "base": 4,
+          "tags": ["bug", "cute"]
+        },
+        {
+          "id": "pidgey",
+          "name": "Pidgey",
+          "rarity": "common",
+          "dc": 2,
+          "battle": 1,
+          "base": 5,
+          "tags": ["flying"]
+        }
+      ],
+      "classes": [
+        {
+          "id": "main-character",
+          "name": "Main Character",
+          "starterSpeciesIds": ["bulbasaur"],
+          "classItemId": "great-ball"
+        },
+        {
+          "id": "rival",
+          "name": "Rival",
+          "starterSpeciesIds": ["eevee"],
+          "classItemId": "lucky-egg"
+        }
+      ],
+      "items": [
+        {
+          "id": "poke-ball",
+          "name": "Poké Ball",
+          "kind": "ball",
+          "price": 1,
+          "ballType": "poke"
+        },
+        {
+          "id": "great-ball",
+          "name": "Great Ball",
+          "kind": "ball",
+          "price": 2,
+          "ballType": "great"
+        },
+        {
+          "id": "ultra-ball",
+          "name": "Ultra Ball",
+          "kind": "ball",
+          "price": 3,
+          "ballType": "ultra"
+        },
+        {
+          "id": "potion",
+          "name": "Potion",
+          "kind": "utility",
+          "price": 2
+        },
+        {
+          "id": "repel",
+          "name": "Repel",
+          "kind": "utility",
+          "price": 3
+        },
+        {
+          "id": "lucky-egg",
+          "name": "Lucky Egg",
+          "kind": "utility",
+          "price": 3
+        }
+      ]
+    },
+    "stateRevision": 6,
+    "globalTurnNo": 2,
+    "activeSeatIndex": 1,
+    "players": [
+      {
+        "actorId": "player-0",
+        "seatIndex": 0,
+        "classId": "main-character",
+        "coins": 26,
+        "routeProgress": 2,
+        "creditedLap": 0,
+        "ownTurnNo": 1,
+        "team": [
+          {
+            "instanceId": "pokemon-0",
+            "speciesId": "bulbasaur",
+            "origin": "original_starter",
+            "evolutionStage": 0,
+            "tired": false,
+            "abilityReady": true
+          }
+        ],
+        "balls": {
+          "poke": 5,
+          "great": 1,
+          "ultra": 0
+        },
+        "items": [],
+        "badges": 0,
+        "abilityUsedGlobalTurnNo": null,
+        "privateResults": []
+      },
+      {
+        "actorId": "player-1",
+        "seatIndex": 1,
+        "classId": "rival",
+        "coins": 20,
+        "routeProgress": 0,
+        "creditedLap": 0,
+        "ownTurnNo": 1,
+        "team": [
+          {
+            "instanceId": "pokemon-1",
+            "speciesId": "eevee",
+            "origin": "original_starter",
+            "evolutionStage": 0,
+            "tired": false,
+            "abilityReady": true
+          }
+        ],
+        "balls": {
+          "poke": 5,
+          "great": 0,
+          "ultra": 0
+        },
+        "items": [
+          {
+            "instanceId": "item-1",
+            "itemId": "lucky-egg",
+            "name": "Lucky Egg",
+            "visibility": "public"
+          }
+        ],
+        "badges": 0,
+        "abilityUsedGlobalTurnNo": null,
+        "privateResults": []
+      }
+    ],
+    "phase": {
+      "kind": "strategy"
+    },
+    "turnBudgets": {
+      "tacticalAction": 1,
+      "catchAttempt": 1,
+      "pokemonAbility": 1
+    },
+    "finalTableRound": null,
+    "rng": {
+      "cursor": 3,
+      "state": "fixture-rng-after-event"
+    },
+    "eventDeck": {
+      "drawPile": ["e3", "e1"],
+      "discardPile": ["e2"]
+    }
+  },
+  "legalActions": {
+    "0": {
+      "enabled": [],
+      "disabled": [
+        {
+          "id": "skip",
+          "kind": "skip",
+          "payload": {},
+          "reasonCode": "NOT_YOUR_TURN",
+          "reasonText": "Not your turn"
+        }
+      ]
+    },
+    "1": {
+      "enabled": [
+        {
+          "id": "use-item:item-1",
+          "kind": "use_item",
+          "payload": {
+            "itemInstanceId": "item-1"
+          }
+        },
+        {
+          "id": "skip",
+          "kind": "skip",
+          "payload": {}
+        }
+      ],
+      "disabled": []
+    }
+  },
+  "observation": {
+    "0": {
+      "public": {
+        "board": [
+          {
+            "position": 0,
+            "kind": "start",
+            "name": "Start"
+          },
+          {
+            "position": 1,
+            "kind": "wild",
+            "name": "Wild"
+          },
+          {
+            "position": 2,
+            "kind": "event",
+            "name": "Event"
+          },
+          {
+            "position": 3,
+            "kind": "wild",
+            "name": "Wild"
+          },
+          {
+            "position": 4,
+            "kind": "shop",
+            "name": "Shop"
+          },
+          {
+            "position": 5,
+            "kind": "wild",
+            "name": "Wild"
+          },
+          {
+            "position": 6,
+            "kind": "gym",
+            "name": "Gym"
+          },
+          {
+            "position": 7,
+            "kind": "wild",
+            "name": "Wild"
+          },
+          {
+            "position": 8,
+            "kind": "event",
+            "name": "Event"
+          },
+          {
+            "position": 9,
+            "kind": "wild",
+            "name": "Wild"
+          },
+          {
+            "position": 10,
+            "kind": "shop",
+            "name": "Shop"
+          },
+          {
+            "position": 11,
+            "kind": "wild",
+            "name": "Wild"
+          },
+          {
+            "position": 12,
+            "kind": "gym",
+            "name": "Gym"
+          },
+          {
+            "position": 13,
+            "kind": "wild",
+            "name": "Wild"
+          },
+          {
+            "position": 14,
+            "kind": "event",
+            "name": "Event"
+          },
+          {
+            "position": 15,
+            "kind": "shop",
+            "name": "Shop"
+          },
+          {
+            "position": 16,
+            "kind": "wild",
+            "name": "Wild"
+          },
+          {
+            "position": 17,
+            "kind": "event",
+            "name": "Event"
+          },
+          {
+            "position": 18,
+            "kind": "gym",
+            "name": "Gym"
+          },
+          {
+            "position": 19,
+            "kind": "wild",
+            "name": "Wild"
+          },
+          {
+            "position": 20,
+            "kind": "shop",
+            "name": "Shop"
+          },
+          {
+            "position": 21,
+            "kind": "wild",
+            "name": "Wild"
+          },
+          {
+            "position": 22,
+            "kind": "event",
+            "name": "Event"
+          },
+          {
+            "position": 23,
+            "kind": "wild",
+            "name": "Wild"
+          }
+        ],
+        "players": [
+          {
+            "actorId": "player-0",
+            "seatIndex": 0,
+            "classId": "main-character",
+            "coins": 26,
+            "position": 2,
+            "creditedLap": 0,
+            "ownTurnNo": 1,
+            "team": [
+              {
+                "instanceId": "pokemon-0",
+                "speciesId": "bulbasaur",
+                "origin": "original_starter",
+                "evolutionStage": 0,
+                "tired": false,
+                "abilityReady": true
+              }
+            ],
+            "itemCount": 0,
+            "knownItems": [],
+            "badges": 0,
+            "abilityReady": true
+          },
+          {
+            "actorId": "player-1",
+            "seatIndex": 1,
+            "classId": "rival",
+            "coins": 20,
+            "position": 0,
+            "creditedLap": 0,
+            "ownTurnNo": 1,
+            "team": [
+              {
+                "instanceId": "pokemon-1",
+                "speciesId": "eevee",
+                "origin": "original_starter",
+                "evolutionStage": 0,
+                "tired": false,
+                "abilityReady": true
+              }
+            ],
+            "itemCount": 1,
+            "knownItems": [
+              {
+                "instanceId": "item-1",
+                "itemId": "lucky-egg",
+                "name": "Lucky Egg",
+                "visibility": "public"
+              }
+            ],
+            "badges": 0,
+            "abilityReady": true
+          }
+        ],
+        "globalTurnNo": 2,
+        "stateRevision": 6,
+        "activeSeatIndex": 1,
+        "phase": {
+          "kind": "strategy"
+        },
+        "lapTarget": 3,
+        "finalTableRound": null
+      },
+      "own": {
+        "seatIndex": 0,
+        "items": [],
+        "balls": {
+          "poke": 5,
+          "great": 1,
+          "ultra": 0
+        },
+        "privateResults": []
+      }
+    },
+    "1": {
+      "public": {
+        "board": [
+          {
+            "position": 0,
+            "kind": "start",
+            "name": "Start"
+          },
+          {
+            "position": 1,
+            "kind": "wild",
+            "name": "Wild"
+          },
+          {
+            "position": 2,
+            "kind": "event",
+            "name": "Event"
+          },
+          {
+            "position": 3,
+            "kind": "wild",
+            "name": "Wild"
+          },
+          {
+            "position": 4,
+            "kind": "shop",
+            "name": "Shop"
+          },
+          {
+            "position": 5,
+            "kind": "wild",
+            "name": "Wild"
+          },
+          {
+            "position": 6,
+            "kind": "gym",
+            "name": "Gym"
+          },
+          {
+            "position": 7,
+            "kind": "wild",
+            "name": "Wild"
+          },
+          {
+            "position": 8,
+            "kind": "event",
+            "name": "Event"
+          },
+          {
+            "position": 9,
+            "kind": "wild",
+            "name": "Wild"
+          },
+          {
+            "position": 10,
+            "kind": "shop",
+            "name": "Shop"
+          },
+          {
+            "position": 11,
+            "kind": "wild",
+            "name": "Wild"
+          },
+          {
+            "position": 12,
+            "kind": "gym",
+            "name": "Gym"
+          },
+          {
+            "position": 13,
+            "kind": "wild",
+            "name": "Wild"
+          },
+          {
+            "position": 14,
+            "kind": "event",
+            "name": "Event"
+          },
+          {
+            "position": 15,
+            "kind": "shop",
+            "name": "Shop"
+          },
+          {
+            "position": 16,
+            "kind": "wild",
+            "name": "Wild"
+          },
+          {
+            "position": 17,
+            "kind": "event",
+            "name": "Event"
+          },
+          {
+            "position": 18,
+            "kind": "gym",
+            "name": "Gym"
+          },
+          {
+            "position": 19,
+            "kind": "wild",
+            "name": "Wild"
+          },
+          {
+            "position": 20,
+            "kind": "shop",
+            "name": "Shop"
+          },
+          {
+            "position": 21,
+            "kind": "wild",
+            "name": "Wild"
+          },
+          {
+            "position": 22,
+            "kind": "event",
+            "name": "Event"
+          },
+          {
+            "position": 23,
+            "kind": "wild",
+            "name": "Wild"
+          }
+        ],
+        "players": [
+          {
+            "actorId": "player-0",
+            "seatIndex": 0,
+            "classId": "main-character",
+            "coins": 26,
+            "position": 2,
+            "creditedLap": 0,
+            "ownTurnNo": 1,
+            "team": [
+              {
+                "instanceId": "pokemon-0",
+                "speciesId": "bulbasaur",
+                "origin": "original_starter",
+                "evolutionStage": 0,
+                "tired": false,
+                "abilityReady": true
+              }
+            ],
+            "itemCount": 0,
+            "knownItems": [],
+            "badges": 0,
+            "abilityReady": true
+          },
+          {
+            "actorId": "player-1",
+            "seatIndex": 1,
+            "classId": "rival",
+            "coins": 20,
+            "position": 0,
+            "creditedLap": 0,
+            "ownTurnNo": 1,
+            "team": [
+              {
+                "instanceId": "pokemon-1",
+                "speciesId": "eevee",
+                "origin": "original_starter",
+                "evolutionStage": 0,
+                "tired": false,
+                "abilityReady": true
+              }
+            ],
+            "itemCount": 1,
+            "knownItems": [
+              {
+                "instanceId": "item-1",
+                "itemId": "lucky-egg",
+                "name": "Lucky Egg",
+                "visibility": "public"
+              }
+            ],
+            "badges": 0,
+            "abilityReady": true
+          }
+        ],
+        "globalTurnNo": 2,
+        "stateRevision": 6,
+        "activeSeatIndex": 1,
+        "phase": {
+          "kind": "strategy"
+        },
+        "lapTarget": 3,
+        "finalTableRound": null
+      },
+      "own": {
+        "seatIndex": 1,
+        "items": [
+          {
+            "instanceId": "item-1",
+            "itemId": "lucky-egg",
+            "name": "Lucky Egg",
+            "visibility": "public"
+          }
+        ],
+        "balls": {
+          "poke": 5,
+          "great": 0,
+          "ultra": 0
+        },
+        "privateResults": []
+      }
+    }
+  },
+  "log": [
+    {
+      "action": {
+        "actorId": "engine",
+        "actionSeq": 1,
+        "stateRevisionBefore": 0,
+        "kind": "shuffle",
+        "payload": {
+          "deckId": "events",
+          "order": ["e2", "e3", "e1"]
+        }
+      },
+      "events": [
+        {
+          "kind": "random_result",
+          "purpose": "event_shuffle",
+          "result": ["e2", "e3", "e1"]
+        }
+      ]
+    },
+    {
+      "action": {
+        "actorId": "player-0",
+        "actionSeq": 2,
+        "stateRevisionBefore": 1,
+        "kind": "skip",
+        "payload": {}
+      },
+      "events": [
+        {
+          "kind": "phase_changed",
+          "from": "strategy",
+          "to": "move"
+        }
+      ]
+    },
+    {
+      "action": {
+        "actorId": "player-0",
+        "actionSeq": 3,
+        "stateRevisionBefore": 2,
+        "kind": "roll",
+        "payload": {}
+      },
+      "events": []
+    },
+    {
+      "action": {
+        "actorId": "engine",
+        "actionSeq": 4,
+        "stateRevisionBefore": 3,
+        "kind": "dice_result",
+        "payload": {
+          "purpose": "movement",
+          "value": 2
+        }
+      },
+      "events": [
+        {
+          "kind": "random_result",
+          "purpose": "movement",
+          "result": 2
+        },
+        {
+          "kind": "space_resolved",
+          "seatIndex": 0,
+          "position": 2
+        },
+        {
+          "kind": "phase_changed",
+          "from": "move",
+          "to": "resolve"
+        }
+      ]
+    },
+    {
+      "action": {
+        "actorId": "engine",
+        "actionSeq": 5,
+        "stateRevisionBefore": 4,
+        "kind": "event_draw",
+        "payload": {
+          "eventId": "e2"
+        }
+      },
+      "events": [
+        {
+          "kind": "random_result",
+          "purpose": "event_draw",
+          "result": "e2"
+        },
+        {
+          "kind": "coin_transfer",
+          "source": {
+            "kind": "bank"
+          },
+          "destination": {
+            "kind": "player",
+            "actorId": "player-0"
+          },
+          "amount": 6,
+          "reason": "event:e2"
+        },
+        {
+          "kind": "phase_changed",
+          "from": "resolve",
+          "to": "end"
+        }
+      ]
+    },
+    {
+      "action": {
+        "actorId": "player-0",
+        "actionSeq": 6,
+        "stateRevisionBefore": 5,
+        "kind": "skip",
+        "payload": {}
+      },
+      "events": [
+        {
+          "kind": "phase_changed",
+          "from": "end",
+          "to": "strategy"
+        }
+      ]
+    }
+  ]
+}
