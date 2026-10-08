@@ -45,4 +45,9 @@ Install with `npm ci`. Optionally copy `.env.example` to `.env`; the Jev key is 
 
 ## Install scripts
 
-npm 11 blocks dependency install scripts that are not approved. The only one is esbuild's (`postinstall: node install.js`, pulled in by `tsx` and `vite`), which checks and finalises the platform binary. We approved it with `npm install-scripts approve esbuild`, which records `"allowScripts": { "esbuild@0.28.2": true }` in `package.json`. The entry is pinned to the version, so an esbuild upgrade asks for review again.
+npm 11 blocks dependency install scripts that are not approved. Two dependencies have one, and both are approved in `"allowScripts"` in `package.json`:
+
+- esbuild (`postinstall: node install.js`, pulled in by `tsx` and `vite`) checks and finalises the platform binary. We approved it with `npm install-scripts approve esbuild`, which records `"esbuild@0.28.2": true`.
+- fsevents (`install: node-gyp rebuild`, an optional dependency of `tsx` and `vite`) builds the macOS file-watching binding. It is installed on macOS only, so Linux, Windows and CI never run it. Approved as `"fsevents@2.3.3": true`.
+
+Each entry is pinned to the version, so an upgrade of either package asks for review again.

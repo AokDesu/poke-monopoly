@@ -49,7 +49,16 @@ const enginePurity = {
 };
 
 export default defineConfig([
-  globalIgnores(['node_modules', 'web/dist', 'sim/out']),
+  globalIgnores([
+    'node_modules',
+    'web/dist',
+    'sim/out',
+    '.claude',
+    '.agents',
+    '.codex',
+    '.impeccable',
+    '.lavish',
+  ]),
   js.configs.recommended,
   tseslint.configs.recommended,
   { files: ['engine/**/*.{ts,tsx}'], rules: enginePurity },

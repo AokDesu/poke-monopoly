@@ -36,7 +36,7 @@ jobs:
 
       - name: Guard - no committed Jev key
         run: |
-          if git grep -nE 'TYPESAFE_API_KEY[=]["'\'']?[A-Za-z0-9_-]' -- ':!.env.example'; then
+          if git grep -nE 'TYPESAFE_API_KEY[[:space:]]*[=][[:space:]]*["'\'']?[A-Za-z0-9_-]'; then
             echo "::error::A tracked file sets TYPESAFE_API_KEY to a value. Remove it and rotate the key."
             exit 1
           fi
