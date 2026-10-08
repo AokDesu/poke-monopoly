@@ -1,0 +1,3 @@
+# Store and check out text files with LF on every platform, so Prettier's
+# default endOfLine "lf" holds on Windows clones with core.autocrlf=true.
+* text=auto eol=lf
