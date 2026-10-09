@@ -6,6 +6,14 @@ import tseslint from 'typescript-eslint';
 const FOLDERS = ['ai', 'web', 'sim', 'eval'];
 const folderImport = (names) => `^(\\.{1,2}/)+(${names.join('|')})(/|$)`;
 
+// The Jev key lives only on the server, so only ai/ may name it (spec §7, §9).
+const KEY_MESSAGE = 'TYPESAFE_API_KEY is read only inside ai/.';
+const keyOutsideAi = [
+  { selector: "Identifier[name='TYPESAFE_API_KEY']", message: KEY_MESSAGE },
+  { selector: "Literal[value='TYPESAFE_API_KEY']", message: KEY_MESSAGE },
+  { selector: 'TemplateElement[value.raw=/TYPESAFE_API_KEY/]', message: KEY_MESSAGE },
+];
+
 // Engine is pure rules with no IO (spec §6 item 1, §7 house rules).
 const enginePurity = {
   'no-restricted-properties': [
@@ -31,6 +39,7 @@ const enginePurity = {
       message: 'The engine has no clock.',
     },
     { selector: 'ImportExpression', message: 'The engine has no dynamic imports.' },
+    ...keyOutsideAi,
   ],
   'no-restricted-imports': [
     'error',
@@ -61,6 +70,7 @@ export default defineConfig([
   ]),
   js.configs.recommended,
   tseslint.configs.recommended,
+  { ignores: ['ai/**'], rules: { 'no-restricted-syntax': ['error', ...keyOutsideAi] } },
   { files: ['engine/**/*.{ts,tsx}'], rules: enginePurity },
   {
     files: ['web/**/*.{ts,tsx}'],

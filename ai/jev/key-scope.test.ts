@@ -1,40 +1,34 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { join } from 'node:path';
+import { ESLint } from 'eslint';
 import { expect, test } from 'vitest';
 
-const ROOT = join(import.meta.dirname, '..', '..');
-const SKIP = new Set([
-  'node_modules',
-  '.git',
-  'dist',
-  'out',
-  '.claude',
-  '.agents',
-  '.codex',
-  '.impeccable',
-  '.lavish',
-]);
-const CODE = /\.(c|m)?(t|j)sx?$/;
+const eslint = new ESLint({ cwd: join(import.meta.dirname, '..', '..') });
+const KEY_MESSAGE = 'TYPESAFE_API_KEY is read only inside ai/.';
 
-const codeFiles = (dir: string): string[] =>
-  readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    if (SKIP.has(entry.name)) return [];
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) return codeFiles(path);
-    return CODE.test(entry.name) ? [relative(ROOT, path).split(sep).join('/')] : [];
-  });
+const keyErrors = async (filePath: string, code: string) => {
+  const [result] = await eslint.lintText(code, { filePath });
+  return result?.messages.filter((message) => message.message === KEY_MESSAGE).length;
+};
 
-// Spec §9: the key lives only on the server, so only ai/ may name it.
-test('the Jev key is read only from the environment, only inside ai/', () => {
-  const naming = codeFiles(ROOT).filter((file) =>
-    readFileSync(join(ROOT, file), 'utf8').includes('TYPESAFE_API_KEY'),
-  );
-  expect(naming.length).toBeGreaterThan(0);
-  expect(naming.filter((file) => !file.startsWith('ai/'))).toEqual([]);
+const reads = [
+  'export const key = process.env.TYPESAFE_API_KEY;',
+  "export const key = process.env['TYPESAFE_API_KEY'];",
+  'export const { TYPESAFE_API_KEY: key } = process.env;',
+  'export const key = process.env[`TYPESAFE_API_KEY`];',
+];
 
-  const readers = naming.filter((file) => !file.endsWith('.test.ts'));
-  expect(readers).toEqual(['ai/jev/client.ts']);
-  const source = readFileSync(join(ROOT, 'ai/jev/client.ts'), 'utf8');
-  // Exactly one read, straight from the server's environment.
-  expect(source.match(/process\.env\.TYPESAFE_API_KEY\b/g)).toHaveLength(1);
+// Spec §9: the key lives only on the server, so lint rejects any mention of it outside ai/.
+test.each([
+  'web/key.tsx',
+  'engine/key.ts',
+  'sim/key.ts',
+  'eval/jev/key.ts',
+  'content/key.ts',
+  'key.js',
+])('lint rejects reading the Jev key in %s', async (filePath) => {
+  for (const code of reads) expect(await keyErrors(filePath, code)).toBeGreaterThan(0);
+});
+
+test('lint allows reading the Jev key inside ai/', async () => {
+  for (const code of reads) expect(await keyErrors('ai/jev/key.ts', code)).toBe(0);
 });

@@ -322,6 +322,12 @@ describe('success results', () => {
 });
 
 describe('the API key', () => {
+  test('is read from TYPESAFE_API_KEY in the environment', async () => {
+    const { fetch, seen } = fakeFetch(() => json(okBody));
+    expect((await ask(fetch)).ok).toBe(true);
+    expect(seen[0]?.headers.get('authorization')).toBe(`Bearer ${PLACEHOLDER_KEY}`);
+  });
+
   test('never appears in thrown errors, results or logged output', async () => {
     const logged: unknown[] = [];
     for (const method of ['debug', 'info', 'log', 'warn', 'error'] as const) {
