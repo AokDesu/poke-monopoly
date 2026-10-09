@@ -16,7 +16,8 @@ export const createFakeJevClient = (
   return {
     requests,
     async ask(request, { decisionSignal }) {
-      if (decisionSignal.aborted) return { ok: false, fallbackReason: 'timeout' };
+      if (decisionSignal.aborted)
+        return { ok: false, fallbackReason: 'timeout', requestSent: false };
       requests.push(request);
       const result = await respond(request);
       return decisionSignal.aborted ? { ok: false, fallbackReason: 'timeout' } : result;

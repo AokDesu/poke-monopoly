@@ -27,6 +27,14 @@ test('a disabled result is not a call', () => {
   expect(meter.totals().calls).toBe(0);
 });
 
+test('a failure that sent no request is not a call', () => {
+  const meter = new UsageMeter();
+  meter.record({ ok: false, fallbackReason: 'timeout', requestSent: false });
+  meter.record({ ok: false, fallbackReason: 'schema_mismatch', requestSent: false });
+  meter.record({ ok: false, fallbackReason: 'schema_mismatch', status: 422 });
+  expect(meter.totals().calls).toBe(1);
+});
+
 test('each game has its own meter', () => {
   const first = new UsageMeter();
   const second = new UsageMeter();

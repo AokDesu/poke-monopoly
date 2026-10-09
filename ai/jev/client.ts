@@ -76,6 +76,8 @@ export interface JevFailure {
   fallbackReason: FallbackReason;
   status?: number;
   retryAfterMs?: number;
+  /** `false` when the failure happened before any request went out, so it is not a call. */
+  requestSent?: false;
 }
 
 export type JevResult = JevSuccess | JevFailure;
@@ -107,6 +109,11 @@ const fail = (fallbackReason: FallbackReason, status?: number, retryAfterMs?: nu
   if (retryAfterMs !== undefined) failure.retryAfterMs = retryAfterMs;
   return failure;
 };
+
+const notSent = (fallbackReason: FallbackReason): JevFailure => ({
+  ...fail(fallbackReason),
+  requestSent: false,
+});
 
 export const disabledJevClient: JevClient = { ask: async () => fail('disabled') };
 
@@ -155,7 +162,7 @@ const askSdk = async (
   request: JevRequest,
   decisionSignal: AbortSignal,
 ): Promise<JevResult> => {
-  if (decisionSignal.aborted) return fail('timeout');
+  if (decisionSignal.aborted) return notSent('timeout');
   const requestDeadline = new AbortController();
   const signal = AbortSignal.any([decisionSignal, requestDeadline.signal]);
   const timer = setTimeout(() => requestDeadline.abort(), REQUEST_TIMEOUT_MS);
@@ -240,6 +247,6 @@ const toFailure = (error: unknown): JevFailure => {
     return fail('timeout');
   if (error instanceof APIConnectionError) return fail('network');
   // The SDK rejects malformed questions (none, or a bad score rubric) before sending.
-  if (error instanceof TypeSafeError) return fail('schema_mismatch');
+  if (error instanceof TypeSafeError) return notSent('schema_mismatch');
   return fail('network');
 };

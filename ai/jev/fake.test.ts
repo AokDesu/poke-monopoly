@@ -32,6 +32,7 @@ test('discards an answer once the decision signal has fired', async () => {
   expect(await client.ask(request, { decisionSignal: decision.signal })).toEqual({
     ok: false,
     fallbackReason: 'timeout',
+    requestSent: false,
   });
   expect(client.requests).toHaveLength(1);
 });

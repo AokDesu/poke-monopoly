@@ -10,9 +10,10 @@ export interface UsageTotals {
 export class UsageMeter {
   #totals: UsageTotals = { calls: 0, inputTokens: 0, outputTokens: 0 };
 
-  /** Every result except `disabled` counts as a call; only successes report tokens. */
+  /** Only requests that went out count as calls; only successes report tokens. */
   record(result: JevResult): void {
-    if (!result.ok && result.fallbackReason === 'disabled') return;
+    if (!result.ok && (result.fallbackReason === 'disabled' || result.requestSent === false))
+      return;
     this.#totals.calls += 1;
     if (!result.ok) return;
     this.#totals.inputTokens += result.usage.inputTokens;

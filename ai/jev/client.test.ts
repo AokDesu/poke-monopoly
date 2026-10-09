@@ -164,7 +164,11 @@ describe('deadlines', () => {
 
   test('a decision already past its deadline sends nothing', async () => {
     const { fetch, seen } = fakeFetch(() => json(okBody));
-    expect(await ask(fetch, AbortSignal.abort())).toEqual({ ok: false, fallbackReason: 'timeout' });
+    expect(await ask(fetch, AbortSignal.abort())).toEqual({
+      ok: false,
+      fallbackReason: 'timeout',
+      requestSent: false,
+    });
     expect(seen).toHaveLength(0);
   });
 });
@@ -252,7 +256,7 @@ describe('error taxonomy', () => {
       { state: null, questions: {} },
       { decisionSignal: decisionDeadline() },
     );
-    expect(result).toEqual({ ok: false, fallbackReason: 'schema_mismatch' });
+    expect(result).toEqual({ ok: false, fallbackReason: 'schema_mismatch', requestSent: false });
     expect(seen).toHaveLength(0);
   });
 });
