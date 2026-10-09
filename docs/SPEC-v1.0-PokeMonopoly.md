@@ -260,6 +260,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 **Deck and randomness**
 
 - The deck is shuffled at setup. All randomness lives in the engine and is logged.
+- The seeded engine generator is versioned. Draw events, seed mapping and helper contracts are defined in [Engine contract v1](engine-contract.md#public-seam-and-visibility).
 
 ### 4.7 Selling at Start, Laps and game end
 
@@ -450,6 +451,7 @@ TypeScript plus a web app with API routes. The folders are `engine/`, `content/`
    - Postgres/Docker are out of scope.
 8. **Replay:**
    - Requires the full initialConfig, seed, `engineVersion`, `contentVersion`, the action log, and the random results used. Alternatively, the same RNG version with a verified cursor.
+   - Version-stamped configuration and log headers, and the RNG state used to continue a sequence, are defined in [Engine contract v1](engine-contract.md#public-seam-and-visibility).
    - Jev answers that affect state are logged as events `{requestId, model, questionId, choice, probabilities, confidence, sampled, fallbackReason}`.
    - **Replay never calls Jev again.**
 9. **Resume:** start from the last committed action. Pending requests are cancelled and re-asked from the same state.
