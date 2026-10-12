@@ -11,10 +11,9 @@ AI opponents and does not generate text, selects a line ID from that bank.
 
 This change is necessary because Jev answers structured multiple-choice and
 yes/no questions and returns probabilities and confidence; it cannot generate
-text. The line bank provides
-dialogue suited to each opponent’s personality, the game situation and their
-trust in the player. If Jev is unavailable, the game selects a line using a seeded
-random fallback.
+text. The line bank provides dialogue suited to each opponent’s personality, the
+game situation and their trust in the player. If Jev is unavailable, the game
+selects a line using a seeded random fallback.
 
 Players still see short Thai lines that react to the game, such as accepting or
 rejecting a deal, reacting to a kept or broken promise, or responding to a Gym
