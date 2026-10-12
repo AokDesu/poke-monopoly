@@ -1,3 +1,5 @@
+import { mkdtempSync, realpathSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, test, vi } from 'vitest';
@@ -209,6 +211,20 @@ describe('runSpike with a fake fetch', () => {
     });
     expect(result.calls).toHaveLength(1);
   });
+
+  test('a models.list() slower than the request deadline is still checked', async () => {
+    const { fetch } = fakeFetch();
+    const slowModels = async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/v1/models')) await new Promise((done) => setTimeout(done, 1100));
+      return fetch(url, init);
+    };
+    const result = await runSpike({ client: client(slowModels), calls: 1 });
+    expect(result.modelCheck).toEqual({
+      pinnedModelListed: true,
+      models: [PINNED],
+      errorClass: null,
+    });
+  });
 });
 
 const record = (latencyMs: number, overrides: Partial<CallRecord> = {}): CallRecord => ({
@@ -251,6 +267,23 @@ describe('summarize', () => {
     expect(summary.errorClasses).toEqual({ none: 90, APITimeoutError: 10 });
   });
 
+  test('a timeout cut off just under the deadline still counts as past it', () => {
+    const timeout = (latencyMs: number) =>
+      record(latencyMs, {
+        status: null,
+        inputTokens: null,
+        outputTokens: null,
+        errorClass: 'APITimeoutError',
+      });
+    const records = [
+      ...Array.from({ length: 94 }, () => record(300)),
+      ...[999, 1000, 1001, 1002, 1003, 1004].map(timeout),
+    ];
+    const summary = summarize(records);
+    expect(summary.latencyMs).toEqual({ p50: 300, p95: 1000, max: 1004 });
+    expect(summary.p95AboveRequestDeadline).toBe(true);
+  });
+
   test('the spec §9 estimate: 2,500 tokens × 140 requests is about $0.015 per game', () => {
     expect(estimateCost(2500)).toEqual([
       { games: 1, inputTokens: 350_000, usd: 0.0147, thb: 0.4851 },
@@ -280,9 +313,16 @@ describe('command line', () => {
 
   test('the script only runs when invoked directly', () => {
     const script = join(import.meta.dirname, 'spike.ts');
-    const url = pathToFileURL(script).href;
+    const url = pathToFileURL(realpathSync(script)).href;
     expect(isEntryPoint(url, script)).toBe(true);
-    expect(isEntryPoint(url, join(import.meta.dirname, 'other.ts'))).toBe(false);
+    expect(isEntryPoint(url, join(import.meta.dirname, 'spike.test.ts'))).toBe(false);
     expect(isEntryPoint(url, undefined)).toBe(false);
+  });
+
+  test('the script runs when invoked through a symlinked path', () => {
+    const script = join(import.meta.dirname, 'spike.ts');
+    const link = join(mkdtempSync(join(tmpdir(), 'spike-')), 'spike.ts');
+    symlinkSync(script, link);
+    expect(isEntryPoint(pathToFileURL(realpathSync(script)).href, link)).toBe(true);
   });
 });

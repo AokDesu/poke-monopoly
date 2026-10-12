@@ -3,8 +3,8 @@
  * re-estimate the cost per game. Live only and never run in CI: a person with the key in a
  * git-ignored `.env` runs `npx tsx eval/jev/spike.ts --calls 100` from the repository root.
  */
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import {
@@ -38,6 +38,7 @@ const CHARS_PER_TOKEN = 4;
 // Spec §12: honour retry-after between calls after a 429, within reason.
 const DEFAULT_RETRY_AFTER_MS = 1000;
 const MAX_RETRY_AFTER_MS = 60_000;
+const MODEL_CHECK_TIMEOUT_MS = 10_000;
 
 /** What the results file keeps of a request: its shape, never its state body. */
 export interface RequestShape {
@@ -85,7 +86,7 @@ export interface CostEstimate {
 export interface SpikeSummary {
   calls: number;
   okCalls: number;
-  /** Every call, with timeouts counted at their elapsed time, so p95 is comparable to §5.6. */
+  /** Every call, with timeouts counted at no less than the deadline, so p95 is comparable to §5.6. */
   latencyMs: LatencyStats | null;
   okLatencyMs: LatencyStats | null;
   meanInputTokens: number | null;
@@ -328,6 +329,11 @@ const latencyStats = (values: number[]): LatencyStats | null => {
   };
 };
 
+const deadlineLatency = (record: CallRecord): number =>
+  record.errorClass === 'APITimeoutError'
+    ? Math.max(record.latencyMs, REQUEST_TIMEOUT_MS)
+    : record.latencyMs;
+
 const mean = (values: number[]): number | null =>
   values.length === 0 ? null : values.reduce((sum, value) => sum + value, 0) / values.length;
 
@@ -349,7 +355,7 @@ const tally = (keys: string[]): Record<string, number> => {
 
 export const summarize = (records: CallRecord[]): SpikeSummary => {
   const ok = records.filter((record) => record.errorClass === null);
-  const latencyMs = latencyStats(records.map((record) => record.latencyMs));
+  const latencyMs = latencyStats(records.map(deadlineLatency));
   const meanInputTokens = mean(ok.map((record) => record.inputTokens ?? 0));
   const meanOutputTokens = mean(ok.map((record) => record.outputTokens ?? 0));
   return {
@@ -366,14 +372,16 @@ export const summarize = (records: CallRecord[]): SpikeSummary => {
     retryAfterMs: records.flatMap((record) =>
       record.retryAfterMs === null ? [] : [record.retryAfterMs],
     ),
-    p95AboveRequestDeadline: (latencyMs?.p95 ?? 0) > REQUEST_TIMEOUT_MS,
+    p95AboveRequestDeadline: (latencyMs?.p95 ?? 0) >= REQUEST_TIMEOUT_MS,
     cost: meanInputTokens === null ? null : estimateCost(meanInputTokens),
   };
 };
 
 export const checkModels = async (client: TypeSafeClient): Promise<ModelCheck> => {
   try {
-    const models = (await client.models.list()).map((model) => model.name);
+    const models = (await client.models.list({ timeout: MODEL_CHECK_TIMEOUT_MS })).map(
+      (model) => model.name,
+    );
     return { pinnedModelListed: models.includes(PINNED_JEV_MODEL), models, errorClass: null };
   } catch (error) {
     return { pinnedModelListed: false, models: [], errorClass: errorName(error) };
@@ -490,7 +498,7 @@ const main = async (): Promise<void> => {
 };
 
 export const isEntryPoint = (moduleUrl: string, scriptPath: string | undefined): boolean =>
-  scriptPath !== undefined && moduleUrl === pathToFileURL(resolve(scriptPath)).href;
+  scriptPath !== undefined && moduleUrl === pathToFileURL(realpathSync(scriptPath)).href;
 
 if (isEntryPoint(import.meta.url, process.argv[1])) {
   main().catch((error: unknown) => {
