@@ -51,7 +51,10 @@ export const gameConfigSchema = z.strictObject({
   seats: z
     .array(
       z.strictObject({
-        actorId: id,
+        actorId: id.refine(
+          (value) => value !== 'engine',
+          'engine is reserved for generated actions',
+        ),
         seatIndex: count,
         classId: id,
         controller: z.enum(['human', 'ai']),
@@ -277,6 +280,25 @@ export const fixtureSchema = z.strictObject({
   observation: z.record(z.string(), observationSchema),
   log: z.array(z.strictObject({ action: actionSchema, events: z.array(engineEventSchema) })),
 });
+export const actionRecordSchema = z.strictObject({
+  action: actionSchema,
+  events: z.array(engineEventSchema),
+  auto: z.literal(true).optional(),
+});
+export const gameLogSchema = z
+  .strictObject({
+    ...logHeaderSchema.shape,
+    logVersion: z.literal('command-log-v1'),
+    initialState: gameStateSchema,
+    actions: z.array(actionRecordSchema),
+  })
+  .superRefine((log, ctx) => {
+    for (const field of ['seed', 'engineVersion', 'contentVersion', 'rngVersion'] as const) {
+      if (log[field] !== log.initialConfig[field]) {
+        ctx.addIssue({ code: 'custom', path: [field], message: 'Must match initialConfig' });
+      }
+    }
+  });
 
 export type GameConfig = z.infer<typeof gameConfigSchema>;
 export type LogHeader = z.infer<typeof logHeaderSchema>;
@@ -295,6 +317,17 @@ export type LegalActions = z.infer<typeof legalActionsSchema>;
 export type ReasonCode = z.infer<typeof reasonCodeSchema>;
 export type Content = z.infer<typeof contentSchema>;
 export type Fixture = z.infer<typeof fixtureSchema>;
+export type ActionRecord = z.infer<typeof actionRecordSchema>;
+export type GameLog = z.infer<typeof gameLogSchema>;
 export type ApplyActionResult =
-  | { accepted: true; state: GameState; events: EngineEvent[] }
-  | { rejected: true; reason: 'not_implemented' };
+  | { accepted: true; state: GameState; events: EngineEvent[]; record: ActionRecord }
+  | {
+      rejected: true;
+      state: GameState;
+      reason:
+        | 'stale_revision'
+        | 'wrong_actor'
+        | 'malformed_action'
+        | 'illegal_action'
+        | 'invalid_sequence';
+    };

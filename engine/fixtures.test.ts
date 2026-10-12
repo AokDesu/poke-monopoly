@@ -78,10 +78,10 @@ test('Final Table Round exposes its target and keeps seat, turn, progress and La
   expect(legalActions(fixture.state, 1)).toEqual(fixture.legalActions['1']);
 });
 
-test('applyAction scaffold rejects commands and stale records without changing the snapshot (spec §8)', () => {
+test('stale records are rejected without changing the fixture snapshot (spec §8)', () => {
   const fixture = fixtureSchema.parse(fixtures['./fixtures/start-of-game-2p.json']);
   const before = structuredClone(fixture.state);
-  for (const stateRevisionBefore of [0, 99]) {
+  for (const stateRevisionBefore of [99, 100]) {
     expect(
       applyAction(fixture.state, {
         actorId: 'player-0',
@@ -90,7 +90,7 @@ test('applyAction scaffold rejects commands and stale records without changing t
         kind: 'roll',
         payload: {},
       }),
-    ).toEqual({ rejected: true, reason: 'not_implemented' });
+    ).toEqual({ rejected: true, reason: 'stale_revision', state: fixture.state });
     expect(fixture.state).toEqual(before);
   }
 });
