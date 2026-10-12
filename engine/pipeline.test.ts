@@ -198,6 +198,39 @@ test('an engine shuffle is one accepted action with a separate event per draw (�
   expect(state.eventDeck.drawPile).toEqual(['a', 'b', 'c']);
 });
 
+test.each([{ drawPile: [] }, { drawPile: ['a'] }])(
+  'no-draw shuffle snapshots isolate RNG mutations for $drawPile (§6.3, §6.8)',
+  ({ drawPile }) => {
+    const state = randomState();
+    state.eventDeck.drawPile = drawPile;
+    const before = stateHash(state);
+    const result = applyAction(state, {
+      actorId: 'engine',
+      actionSeq: 1,
+      stateRevisionBefore: 0,
+      kind: 'shuffle',
+      payload: { deckId: 'events', order: drawPile },
+    });
+    if (!('accepted' in result)) throw new Error(result.reason);
+    expect(result.state.stateRevision).toBe(1);
+    expect(result.state.eventDeck.drawPile).toEqual(drawPile);
+    expect(result.state.rng).toEqual({ state: '1', cursor: 0 });
+    expect(result.events).toEqual([]);
+    expect(result.record.events).toEqual([]);
+
+    result.state.rng.cursor = 7;
+    result.state.rng.state = '2';
+    expect(state.rng).toEqual({ state: '1', cursor: 0 });
+    expect(stateHash(state)).toBe(before);
+
+    const after = stateHash(result.state);
+    state.rng.cursor = 9;
+    state.rng.state = '3';
+    expect(result.state.rng).toEqual({ state: '2', cursor: 7 });
+    expect(stateHash(result.state)).toBe(after);
+  },
+);
+
 test('engine event draws record the current top card without applying event effects (§6.3)', () => {
   const state = randomState();
   state.eventDeck = { drawPile: ['a', 'b'], discardPile: [] };

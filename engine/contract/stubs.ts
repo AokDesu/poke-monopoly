@@ -158,7 +158,7 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
     }
     const next = structuredClone(state);
     next.stateRevision = action.actionSeq;
-    next.rng = draw.rng;
+    next.rng = { ...draw.rng };
     next.eventDeck.drawPile = draw.value;
     return {
       accepted: true,
