@@ -450,11 +450,10 @@ TypeScript plus a web app with API routes. The folders are `engine/`, `content/`
    - It holds the current state plus the action log, with no log nested inside the snapshot, and no key.
    - Postgres/Docker are out of scope.
 8. **Replay:**
-   - Requires the full initialConfig, seed, `engineVersion`, `contentVersion`, the action log, and the random results used. Alternatively, the same RNG version with a verified cursor.
+   - Executable command-log requirements and validation are defined in [Engine contract v1](engine-contract.md#command-log-and-replay-issue-20).
    - Version-stamped configuration and log headers, and the RNG state used to continue a sequence, are defined in [Engine contract v1](engine-contract.md#public-seam-and-visibility).
    - Jev answers that affect state are logged as events `{requestId, model, questionId, choice, probabilities, confidence, sampled, fallbackReason}`.
    - **Replay never calls Jev again.**
-   - The issue #20 command-log contract is defined in [Engine contract v1](engine-contract.md#command-log-and-replay-issue-20): a versioned log carries an explicit revision-zero initial snapshot/content, ordered accepted records, counted random events and optional `auto: true` markers. Pure replay validates records and seeded outcomes and retains the verified RNG cursor. This plumbing does not implement gameplay effects; automatic advancement performs a single legal-choice step.
 9. **Resume:** start from the last committed action. Pending requests are cancelled and re-asked from the same state.
 
 ## 7. Development harness (team + coding agents)
