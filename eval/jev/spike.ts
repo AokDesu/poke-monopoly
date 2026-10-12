@@ -17,7 +17,7 @@ import {
   type JsonValue,
   type Questions,
 } from '@typesafe-ai/sdk';
-import { PINNED_JEV_MODEL, REQUEST_TIMEOUT_MS, jevEnabled } from '../../ai/jev/client.ts';
+import { PINNED_JEV_MODEL, REQUEST_TIMEOUT_MS } from '../../ai/jev/client.ts';
 
 // Spec §9: the price and the per-game estimate this spike re-measures.
 export const USD_PER_MILLION_INPUT_TOKENS = 0.042;
@@ -475,9 +475,6 @@ const main = async (): Promise<void> => {
   const calls = parseCalls(values.calls);
   // The key stays in the git-ignored `.env`; the SDK reads it from the environment.
   if (existsSync('.env')) process.loadEnvFile('.env');
-  if (!jevEnabled()) {
-    throw new Error('JEV_ENABLED=false: the spike makes live calls, so it does not run.');
-  }
   const result = await runSpike({
     client: createSpikeClient(),
     calls,
