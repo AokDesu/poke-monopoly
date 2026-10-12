@@ -497,8 +497,11 @@ const main = async (): Promise<void> => {
   console.log(`Wrote ${path}`);
 };
 
-export const isEntryPoint = (moduleUrl: string, scriptPath: string | undefined): boolean =>
-  scriptPath !== undefined && moduleUrl === pathToFileURL(realpathSync(scriptPath)).href;
+export const isEntryPoint = (
+  moduleUrl: string,
+  scriptPath: string | undefined,
+  realpath: (path: string) => string = realpathSync,
+): boolean => scriptPath !== undefined && moduleUrl === pathToFileURL(realpath(scriptPath)).href;
 
 if (isEntryPoint(import.meta.url, process.argv[1])) {
   main().catch((error: unknown) => {

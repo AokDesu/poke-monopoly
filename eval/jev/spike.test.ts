@@ -1,5 +1,4 @@
-import { mkdtempSync, realpathSync, symlinkSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, test, vi } from 'vitest';
@@ -321,8 +320,8 @@ describe('command line', () => {
 
   test('the script runs when invoked through a symlinked path', () => {
     const script = join(import.meta.dirname, 'spike.ts');
-    const link = join(mkdtempSync(join(tmpdir(), 'spike-')), 'spike.ts');
-    symlinkSync(script, link);
-    expect(isEntryPoint(pathToFileURL(realpathSync(script)).href, link)).toBe(true);
+    const link = join('linked', 'spike.ts');
+    const realpath = (path: string) => (path === link ? script : path);
+    expect(isEntryPoint(pathToFileURL(script).href, link, realpath)).toBe(true);
   });
 });
