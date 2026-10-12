@@ -6,11 +6,12 @@ Reply: no reply yet
 
 The original proposal said AI opponents would “generate brief dialogue.” The
 final v1.0 specification changes how that dialogue is produced: the team writes
-short Thai lines in a line bank, and Jev selects a line ID instead of writing new
-text.
+short Thai lines in a line bank, and Jev, the decision model that now drives the
+AI opponents and does not generate text, selects a line ID from that bank.
 
-This change is necessary because Jev answers typed questions and returns
-probabilities and confidence; it cannot generate text. The line bank provides
+This change is necessary because Jev answers structured multiple-choice and
+yes/no questions and returns probabilities and confidence; it cannot generate
+text. The line bank provides
 dialogue suited to each opponent’s personality, the game situation and their
 trust in the player. If Jev is unavailable, the game selects a line using a seeded
 random fallback.
