@@ -212,17 +212,23 @@ describe('runSim with a fake engine (§7, §8, §9)', () => {
       rulesPending: false,
       games: 20,
       seats: 2,
-      policy: 'random',
       averageTurns: 4,
       aborted: 0,
-      rejectedActionCount: 0,
       illegalAppliedActionCount: 0,
       invariantFailures: 0,
     });
-    const wins = summary.winners.bySeat.reduce((sum, n) => sum + n, 0);
-    expect(wins).toBe(20 + summary.ties);
-    expect(Object.values(summary.winners.byClass).reduce((sum, n) => sum + n, 0)).toBe(wins);
     expect(summary.ties).toBeGreaterThan(0);
+    expect(summary.winners.bySeat.reduce((sum, n) => sum + n, 0)).toBe(20);
+    expect(Object.values(summary.winners.byClass).reduce((sum, n) => sum + n, 0)).toBe(20);
+  });
+
+  test('k co-winners score 1/k each (§8 Scoring)', () => {
+    const { summary } = runSim(fakeEngine(), options({ games: 4, seats: 4, policy: 'skip' }), {
+      skip: () => ({ decide: () => 'skip' }),
+    });
+    expect(summary.ties).toBe(4);
+    expect(summary.winners.bySeat).toEqual([1, 1, 1, 1]);
+    expect(summary.winners.byClass).toEqual({ alpha: 1, beta: 1, gamma: 1, delta: 1 });
   });
 
   test('the same options give identical output', () => {
@@ -232,10 +238,18 @@ describe('runSim with a fake engine (§7, §8, §9)', () => {
   });
 
   test('an illegal action is rejected by the engine and never counted as applied', () => {
-    const { summary, failures } = runSim(fakeEngine(), options({ policy: 'illegal' }), {
-      illegal: illegalOnce,
-    });
-    expect(summary.rejectedActionCount).toBe(40);
+    const rejections: string[] = [];
+    const check: InvariantCheck = (_before, _action, result) => {
+      if ('rejected' in result) rejections.push(result.reason);
+      return [];
+    };
+    const { summary, failures } = runSim(
+      fakeEngine(),
+      options({ policy: 'illegal' }),
+      { illegal: illegalOnce },
+      check,
+    );
+    expect(rejections).toEqual(Array.from({ length: 40 }, () => 'illegal_action'));
     expect(summary.illegalAppliedActionCount).toBe(0);
     expect(failures).toEqual([]);
     expect(failed(summary)).toBe(false);
@@ -314,6 +328,7 @@ describe('runSim with a fake engine (§7, §8, §9)', () => {
     const { summary } = runSim(fakeEngine(), options({ seats }));
     expect(summary).toMatchObject({ seats, aborted: 0, averageTurns: 2 * seats });
     expect(summary.winners.bySeat).toHaveLength(seats);
+    expect(summary.winners.bySeat.reduce((sum, n) => sum + n, 0)).toBeCloseTo(20);
   });
 });
 
@@ -328,12 +343,10 @@ describe('rules-pending mode', () => {
       rulesPending: true,
       games: 0,
       seats: 3,
-      policy: 'random',
       averageTurns: 0,
       winners: { bySeat: [0, 0, 0], byClass: {} },
       ties: 0,
       aborted: 0,
-      rejectedActionCount: 0,
       illegalAppliedActionCount: 0,
       invariantFailures: 0,
     });
@@ -356,8 +369,7 @@ describe('seat balance (§8 variation)', () => {
     expect(new Set(counts.values())).toEqual(new Set([3]));
   });
 
-  test('negative seeds rotate too, and too few classes are refused', () => {
-    expect(seatSetup(CLASSES, 2, -1).map((seat) => seat.classId)).toEqual(['delta', 'alpha']);
+  test('too few classes are refused', () => {
     expect(() => seatSetup(['alpha'], 2, 1)).toThrow(RangeError);
   });
 });

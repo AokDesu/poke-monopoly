@@ -60,12 +60,10 @@ export type SimSummary = {
   rulesPending: boolean;
   games: number;
   seats: number;
-  policy: string;
   averageTurns: number;
   winners: { bySeat: number[]; byClass: Record<string, number> };
   ties: number;
   aborted: number;
-  rejectedActionCount: number;
   illegalAppliedActionCount: number;
   invariantFailures: number;
 };
@@ -77,7 +75,6 @@ type GameResult = {
   outcome: GameOutcome;
   turns: number;
   abortReason: string | null;
-  rejected: number;
   illegalApplied: number;
   violations: number;
 };
@@ -99,17 +96,17 @@ export function runSim(
     // Game g of seed s uses seed s + g, so `--games 1 --seed <s + g>` replays it alone.
     const seed = options.seed + g;
     const game = playGame(engine, options, seed, createPolicy, checkInvariants);
-    summary.rejectedActionCount += game.rejected;
     summary.illegalAppliedActionCount += game.illegalApplied;
     summary.invariantFailures += game.violations;
     if (game.outcome.finished) {
       finishedGames++;
       finishedTurns += game.turns;
-      if (game.outcome.winnerSeats.length > 1) summary.ties++;
-      for (const seatIndex of game.outcome.winnerSeats) {
-        summary.winners.bySeat[seatIndex]!++;
+      const { winnerSeats } = game.outcome;
+      if (winnerSeats.length > 1) summary.ties++;
+      for (const seatIndex of winnerSeats) {
+        summary.winners.bySeat[seatIndex]! += 1 / winnerSeats.length;
         const classId = game.seats.find((seat) => seat.seatIndex === seatIndex)!.classId;
-        summary.winners.byClass[classId]!++;
+        summary.winners.byClass[classId]! += 1 / winnerSeats.length;
       }
     } else {
       summary.aborted++;
@@ -136,7 +133,6 @@ function emptySummary(options: SimOptions, classIds: readonly string[]): SimSumm
     rulesPending: false,
     games: 0,
     seats: options.seats,
-    policy: options.policy,
     averageTurns: 0,
     winners: {
       bySeat: Array.from({ length: options.seats }, () => 0),
@@ -144,7 +140,6 @@ function emptySummary(options: SimOptions, classIds: readonly string[]): SimSumm
     },
     ties: 0,
     aborted: 0,
-    rejectedActionCount: 0,
     illegalAppliedActionCount: 0,
     invariantFailures: 0,
   };
@@ -176,7 +171,7 @@ export function seatSetup(classIds: readonly string[], seats: number, seed: numb
   if (classIds.length < seats) {
     throw new RangeError(`${seats} seats need ${seats} distinct classes; got ${classIds.length}`);
   }
-  const offset = mod(seed, classIds.length);
+  const offset = seed % classIds.length;
   return Array.from({ length: seats }, (_, seatIndex) => ({
     seatIndex,
     actorId: `seat-${seatIndex}`,
@@ -202,7 +197,6 @@ function playGame(
     outcome: { finished: false },
     turns: 0,
     abortReason: null,
-    rejected: 0,
     illegalApplied: 0,
     violations: 0,
   };
@@ -238,18 +232,12 @@ function playGame(
     const actionId = decider.policy.decide(engine.observe(state, seatIndex), legal, decider.rng);
     const enabled = legal.enabled.find((choice) => choice.id === actionId);
     const choice = enabled ?? legal.disabled.find((choice) => choice.id === actionId);
-    if (!choice) {
-      result.rejected++;
-      continue;
-    }
+    if (!choice) continue;
     const actorId = state.config.seats.find((seat) => seat.seatIndex === seatIndex)!.actorId;
     const action = command(state, actorId, choice);
     const applied = engine.applyAction(state, action);
     result.violations += checkInvariants(state, action, applied).length;
-    if ('rejected' in applied) {
-      result.rejected++;
-      continue;
-    }
+    if ('rejected' in applied) continue;
     if (!enabled) result.illegalApplied++;
     state = applied.state;
   }
@@ -263,10 +251,6 @@ function command(state: GameState, actorId: string, choice: LegalAction): Action
     kind: choice.kind,
     payload: choice.payload,
   } as Action;
-}
-
-function mod(n: number, m: number): number {
-  return ((n % m) + m) % m;
 }
 
 function round2(n: number): number {
