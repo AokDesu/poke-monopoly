@@ -31,7 +31,9 @@ const base = fixtureSchema.parse(fixture).state;
  * or (disabled, too expensive) take five coins; the roll then passes the turn. The game ends
  * after `lapTarget` turns per seat; the most coins win.
  */
-function fakeEngine(options: { acceptIllegal?: boolean; neverFinish?: boolean } = {}): SimEngine {
+function fakeEngine(
+  options: { acceptIllegal?: boolean; neverFinish?: boolean; crashSeed?: number } = {},
+): SimEngine {
   const legalActions = (state: GameState, seatIndex: number): LegalActions => {
     if (seatIndex !== state.activeSeatIndex || state.phase.kind === 'finished') {
       return { enabled: [], disabled: [] };
@@ -114,7 +116,12 @@ function fakeEngine(options: { acceptIllegal?: boolean; neverFinish?: boolean } 
         phase: { kind: 'strategy' },
       };
     },
-    observe,
+    observe(state, seatIndex) {
+      if (state.config.seed === options.crashSeed && state.globalTurnNo === 3) {
+        throw new RangeError('Unknown seat index');
+      }
+      return observe(state, seatIndex);
+    },
     legalActions,
     applyAction,
     advanceAutomatically(state) {
@@ -222,13 +229,13 @@ describe('runSim with a fake engine (§7, §8, §9)', () => {
     expect(Object.values(summary.winners.byClass).reduce((sum, n) => sum + n, 0)).toBe(20);
   });
 
-  test('k co-winners score 1/k each (§8 Scoring)', () => {
-    const { summary } = runSim(fakeEngine(), options({ games: 4, seats: 4, policy: 'skip' }), {
+  test('k co-winners score 1/k each (§8 Scoring), rounded to 2 decimals', () => {
+    const { summary } = runSim(fakeEngine(), options({ games: 6, seats: 3, policy: 'skip' }), {
       skip: () => ({ decide: () => 'skip' }),
     });
-    expect(summary.ties).toBe(4);
-    expect(summary.winners.bySeat).toEqual([1, 1, 1, 1]);
-    expect(summary.winners.byClass).toEqual({ alpha: 1, beta: 1, gamma: 1, delta: 1 });
+    expect(summary.ties).toBe(6);
+    expect(summary.winners.bySeat).toEqual([2, 2, 2]);
+    expect(summary.winners.byClass).toEqual({ alpha: 1.33, beta: 1.33, gamma: 1.67, delta: 1.67 });
   });
 
   test('the same options give identical output', () => {
@@ -293,6 +300,26 @@ describe('runSim with a fake engine (§7, §8, §9)', () => {
     ]);
   });
 
+  test('a game that throws is aborted with its reproduce command and the rest still play', () => {
+    const violation: InvariantCheck = (before, action) =>
+      action.kind === 'roll' && before.globalTurnNo === 1 ? ['first roll'] : [];
+    const { summary, failures } = runSim(
+      fakeEngine({ crashSeed: 3 }),
+      options({ games: 4 }),
+      POLICIES,
+      violation,
+    );
+    expect(summary).toMatchObject({ games: 4, aborted: 1, invariantFailures: 4 });
+    expect(summary.winners.bySeat.reduce((sum, n) => sum + n, 0)).toBe(3);
+    expect(failed(summary)).toBe(true);
+    expect(failures.find((failure) => failure.seed === 3)).toEqual({
+      seed: 3,
+      reasons: ['aborted: error: Unknown seat index', 'invariant failures: 1'],
+      reproduce:
+        'npm run sim -- --games 1 --seed 3 --seats 2 --max-steps 5000 --lap-target 2 --policy random',
+    });
+  });
+
   test('a failing game re-runs alone with the printed seed', () => {
     const engine = fakeEngine({ acceptIllegal: true });
     const full = runSim(engine, options({ games: 5, seed: 30, policy: 'illegal' }), {
@@ -328,7 +355,6 @@ describe('runSim with a fake engine (§7, §8, §9)', () => {
     const { summary } = runSim(fakeEngine(), options({ seats }));
     expect(summary).toMatchObject({ seats, aborted: 0, averageTurns: 2 * seats });
     expect(summary.winners.bySeat).toHaveLength(seats);
-    expect(summary.winners.bySeat.reduce((sum, n) => sum + n, 0)).toBeCloseTo(20);
   });
 });
 

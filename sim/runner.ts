@@ -120,6 +120,10 @@ export function runSim(
       failures.push({ seed, reasons, reproduce: reproduceCommand(options, seed) });
   }
   summary.averageTurns = finishedGames === 0 ? 0 : round2(finishedTurns / finishedGames);
+  summary.winners.bySeat = summary.winners.bySeat.map(round2);
+  summary.winners.byClass = Object.fromEntries(
+    Object.entries(summary.winners.byClass).map(([classId, wins]) => [classId, round2(wins)]),
+  );
   return { summary, failures };
 }
 
@@ -187,11 +191,6 @@ function playGame(
   checkInvariants: InvariantCheck,
 ): GameResult {
   const seats = seatSetup(engine.classIds, options.seats, seed);
-  const deciders = seats.map((seat) => ({
-    policy: createPolicy(),
-    rng: createPolicyRng(`policy:${seed}:${seat.seatIndex}`),
-  }));
-  let state = engine.createGame({ seed, seats, lapTarget: options.lapTarget });
   const result: GameResult = {
     seats,
     outcome: { finished: false },
@@ -200,46 +199,56 @@ function playGame(
     illegalApplied: 0,
     violations: 0,
   };
-  for (let steps = 0; ; steps++) {
-    result.outcome = engine.outcome(state);
-    result.turns = state.globalTurnNo;
-    if (result.outcome.finished) return result;
-    if (steps >= options.maxSteps) {
-      result.abortReason = `max steps ${options.maxSteps}`;
-      return result;
+  try {
+    const deciders = seats.map((seat) => ({
+      policy: createPolicy(),
+      rng: createPolicyRng(`policy:${seed}:${seat.seatIndex}`),
+    }));
+    let state = engine.createGame({ seed, seats, lapTarget: options.lapTarget });
+    for (let steps = 0; ; steps++) {
+      result.outcome = engine.outcome(state);
+      result.turns = state.globalTurnNo;
+      if (result.outcome.finished) return result;
+      if (steps >= options.maxSteps) {
+        result.abortReason = `max steps ${options.maxSteps}`;
+        return result;
+      }
+      const automatic = engine.advanceAutomatically(state);
+      const record = automatic.records[0];
+      if (record) {
+        // The contract advances one step per call, so a single record describes it.
+        const applied: ApplyActionResult = {
+          accepted: true,
+          state: automatic.state,
+          events: automatic.events,
+          record,
+        };
+        result.violations += checkInvariants(state, record.action, applied).length;
+        state = automatic.state;
+        continue;
+      }
+      const seatIndex = state.activeSeatIndex;
+      const legal = engine.legalActions(state, seatIndex);
+      if (legal.enabled.length === 0) {
+        result.abortReason = `no enabled action for seat ${seatIndex}`;
+        return result;
+      }
+      const decider = deciders[seatIndex]!;
+      const actionId = decider.policy.decide(engine.observe(state, seatIndex), legal, decider.rng);
+      const enabled = legal.enabled.find((choice) => choice.id === actionId);
+      const choice = enabled ?? legal.disabled.find((choice) => choice.id === actionId);
+      if (!choice) continue;
+      const actorId = state.config.seats.find((seat) => seat.seatIndex === seatIndex)!.actorId;
+      const action = command(state, actorId, choice);
+      const applied = engine.applyAction(state, action);
+      result.violations += checkInvariants(state, action, applied).length;
+      if ('rejected' in applied) continue;
+      if (!enabled) result.illegalApplied++;
+      state = applied.state;
     }
-    const automatic = engine.advanceAutomatically(state);
-    const record = automatic.records[0];
-    if (record) {
-      // The contract advances one step per call, so a single record describes it.
-      const applied: ApplyActionResult = {
-        accepted: true,
-        state: automatic.state,
-        events: automatic.events,
-        record,
-      };
-      result.violations += checkInvariants(state, record.action, applied).length;
-      state = automatic.state;
-      continue;
-    }
-    const seatIndex = state.activeSeatIndex;
-    const legal = engine.legalActions(state, seatIndex);
-    if (legal.enabled.length === 0) {
-      result.abortReason = `no enabled action for seat ${seatIndex}`;
-      return result;
-    }
-    const decider = deciders[seatIndex]!;
-    const actionId = decider.policy.decide(engine.observe(state, seatIndex), legal, decider.rng);
-    const enabled = legal.enabled.find((choice) => choice.id === actionId);
-    const choice = enabled ?? legal.disabled.find((choice) => choice.id === actionId);
-    if (!choice) continue;
-    const actorId = state.config.seats.find((seat) => seat.seatIndex === seatIndex)!.actorId;
-    const action = command(state, actorId, choice);
-    const applied = engine.applyAction(state, action);
-    result.violations += checkInvariants(state, action, applied).length;
-    if ('rejected' in applied) continue;
-    if (!enabled) result.illegalApplied++;
-    state = applied.state;
+  } catch (error) {
+    result.abortReason = `error: ${error instanceof Error ? error.message : String(error)}`;
+    return result;
   }
 }
 
