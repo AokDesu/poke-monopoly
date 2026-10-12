@@ -1,10 +1,11 @@
 import { positionOf } from './position.ts';
+import { actionSchema } from './schema.ts';
+import { d6, shuffle, RNG_VERSION } from '../rng.ts';
 import type {
   GameState,
   Observation,
   LegalActions,
   LegalAction,
-  Action,
   ApplyActionResult,
 } from './schema.ts';
 
@@ -118,9 +119,78 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   return result;
 }
 
-/** Rules and acceptance validation are intentionally deferred to later engine issues. */
-export function applyAction(state: GameState, action: Action): ApplyActionResult {
-  void state;
-  void action;
-  return { rejected: true, reason: 'not_implemented' };
+/** Immutable command plumbing; gameplay effects are deferred to later rule issues. */
+export function applyAction(state: GameState, input: unknown): ApplyActionResult {
+  const parsed = actionSchema.safeParse(input);
+  if (!parsed.success) return { rejected: true, reason: 'malformed_action', state };
+  const action = parsed.data;
+  if (action.stateRevisionBefore !== state.stateRevision) {
+    return { rejected: true, reason: 'stale_revision', state };
+  }
+  if (action.actionSeq !== state.stateRevision + 1) {
+    return { rejected: true, reason: 'invalid_sequence', state };
+  }
+  if (action.actorId === 'engine' && action.kind === 'dice_result') {
+    if (state.config.rngVersion !== RNG_VERSION) {
+      return { rejected: true, reason: 'illegal_action', state };
+    }
+    const draw = d6(state.rng, action.payload.purpose);
+    if (draw.value !== action.payload.value) {
+      return { rejected: true, reason: 'illegal_action', state };
+    }
+    const next = structuredClone(state);
+    next.stateRevision = action.actionSeq;
+    next.rng = draw.rng;
+    return {
+      accepted: true,
+      state: next,
+      events: draw.events,
+      record: { action, events: structuredClone(draw.events) },
+    };
+  }
+  if (action.actorId === 'engine' && action.kind === 'shuffle') {
+    if (action.payload.deckId !== 'events' || state.config.rngVersion !== RNG_VERSION) {
+      return { rejected: true, reason: 'illegal_action', state };
+    }
+    const draw = shuffle(state.rng, state.eventDeck.drawPile, 'shuffle:events');
+    if (JSON.stringify(draw.value) !== JSON.stringify(action.payload.order)) {
+      return { rejected: true, reason: 'illegal_action', state };
+    }
+    const next = structuredClone(state);
+    next.stateRevision = action.actionSeq;
+    next.rng = { ...draw.rng };
+    next.eventDeck.drawPile = draw.value;
+    return {
+      accepted: true,
+      state: next,
+      events: draw.events,
+      record: { action, events: structuredClone(draw.events) },
+    };
+  }
+  if (action.actorId === 'engine' && action.kind === 'event_draw') {
+    if (state.eventDeck.drawPile[0] !== action.payload.eventId) {
+      return { rejected: true, reason: 'illegal_action', state };
+    }
+    const next = structuredClone(state);
+    next.stateRevision = action.actionSeq;
+    next.eventDeck.drawPile.shift();
+    next.eventDeck.discardPile.push(action.payload.eventId);
+    return { accepted: true, state: next, events: [], record: { action, events: [] } };
+  }
+  const actor = state.config.seats.find((seat) => seat.seatIndex === state.activeSeatIndex);
+  if (!actor || action.actorId !== actor.actorId) {
+    return { rejected: true, reason: 'wrong_actor', state };
+  }
+  if (
+    !legalActions(state, state.activeSeatIndex).enabled.some(
+      (choice) =>
+        choice.kind === action.kind &&
+        JSON.stringify(choice.payload) === JSON.stringify(action.payload),
+    )
+  ) {
+    return { rejected: true, reason: 'illegal_action', state };
+  }
+  const next = structuredClone(state);
+  next.stateRevision = action.actionSeq;
+  return { accepted: true, state: next, events: [], record: { action, events: [] } };
 }

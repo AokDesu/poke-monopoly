@@ -21,7 +21,7 @@ export function createGameConfig(
   });
 }
 
-/** Only a header contract; command application and log storage remain out of scope. */
+/** Detached versioned header, shared by command logs and historical metadata. */
 export function createLogHeader(config: GameConfig): LogHeader {
   return logHeaderSchema.parse({
     initialConfig: config,
