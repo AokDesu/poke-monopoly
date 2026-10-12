@@ -1,6 +1,7 @@
 import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { check, resolveConfig } from 'prettier';
 import { describe, expect, test, vi } from 'vitest';
 import {
   MAX_INPUT_TOKENS,
@@ -8,6 +9,7 @@ import {
   buildSpikeRequest,
   createSpikeClient,
   estimateCost,
+  formatResults,
   isEntryPoint,
   parseCalls,
   resultsPath,
@@ -214,7 +216,12 @@ describe('runSpike with a fake fetch', () => {
   test('a models.list() slower than the request deadline is still checked', async () => {
     const { fetch } = fakeFetch();
     const slowModels = async (url: string, init?: RequestInit) => {
-      if (url.endsWith('/v1/models')) await new Promise((done) => setTimeout(done, 1100));
+      if (url.endsWith('/v1/models')) {
+        await new Promise<void>((done, reject) => {
+          setTimeout(done, 1100);
+          init?.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+        });
+      }
       return fetch(url, init);
     };
     const result = await runSpike({ client: client(slowModels), calls: 1 });
@@ -303,6 +310,21 @@ describe('command line', () => {
       join('r', 'spike-2026-10-12-3.json'),
     );
     expect(resultsPath('r', '2026-10-13', () => false)).toBe(join('r', 'spike-2026-10-13.json'));
+  });
+
+  test('the results file passes format:check as written', async () => {
+    const { fetch } = fakeFetch((body, call) =>
+      call === 0
+        ? json({ error: 'slow down' }, 429, { 'retry-after': '2' })
+        : json(answerFor(body)),
+    );
+    const result = await runSpike({ client: client(fetch), calls: 2, sleep: async () => {} });
+    expect(result.modelCheck.models).toEqual([PINNED]);
+    expect(result.summary.retryAfterMs).toEqual([2000]);
+    const path = join(import.meta.dirname, 'results', 'spike-2026-10-12.json');
+    const text = await formatResults(result, path);
+    expect(await check(text, { ...(await resolveConfig(path)), filepath: path })).toBe(true);
+    expect(JSON.parse(text)).toEqual(result);
   });
 
   test('--calls takes a positive whole number', () => {

@@ -7,6 +7,7 @@ import { existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
+import { format, resolveConfig } from 'prettier';
 import {
   APIError,
   RateLimitError,
@@ -446,6 +447,10 @@ export const parseCalls = (value: string): number => {
   return calls;
 };
 
+/** The results file as `npm run format:check` expects it, so it can be committed as written. */
+export const formatResults = async (result: SpikeResult, path: string): Promise<string> =>
+  format(JSON.stringify(result), { ...(await resolveConfig(path)), parser: 'json' });
+
 const ms = (stats: LatencyStats | null) =>
   stats ? `p50 ${stats.p50} ms, p95 ${stats.p95} ms, max ${stats.max} ms` : 'none';
 
@@ -492,7 +497,7 @@ const main = async (): Promise<void> => {
   const dir = join(import.meta.dirname, 'results');
   mkdirSync(dir, { recursive: true });
   const path = resultsPath(dir, result.startedAt.slice(0, 10));
-  writeFileSync(path, `${JSON.stringify(result, null, 2)}\n`);
+  writeFileSync(path, await formatResults(result, path));
   console.log(formatSummary(result));
   console.log(`Wrote ${path}`);
 };
