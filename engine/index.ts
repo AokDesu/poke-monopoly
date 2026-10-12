@@ -6,3 +6,5 @@ export { observe, legalActions, applyAction } from './contract/stubs.ts';
 export { advanceAutomatically, createGameLog, replay } from './pipeline.ts';
 export { stateHash } from './state-hash.ts';
 export { createGame } from './setup.ts';
+export { checkInvariants, createInvariantChecker, INVARIANTS } from './invariants.ts';
+export type { InvariantDefinition, InvariantId, Violation, ApplyActionFn } from './invariants.ts';
