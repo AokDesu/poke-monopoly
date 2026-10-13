@@ -10,7 +10,6 @@ import {
   createGameLog,
   replay,
   stateHash,
-  advanceTurn,
   type GameState,
   type GameLog,
   applyAction,
@@ -200,7 +199,7 @@ test('the logged phase skeleton passes through social/strategy and returns to St
   const before = structuredClone(state);
   const phases = [state.phase.kind];
   for (let step = 0; step < 7; step++) {
-    const result = step === 6 ? advanceTurn(state) : advanceAutomatically(state);
+    const result = advanceAutomatically(state);
     expect(result.records).toHaveLength(1);
     log.actions.push(...result.records);
     state = result.state;
@@ -310,7 +309,7 @@ test('turn start replaces spent and leftover budgets with one, without accumulat
   ]) {
     const withLeftovers = { ...structuredClone(state), turnBudgets };
     const before = structuredClone(withLeftovers);
-    const result = advanceTurn(withLeftovers);
+    const result = advanceAutomatically(withLeftovers);
     expect(result.state.turnBudgets).toEqual({
       tacticalAction: 1,
       catchAttempt: 1,
@@ -341,7 +340,6 @@ test('reserved dice results require an outstanding roll and its exact purpose (Â
     payload: { purpose, value: d6(state.rng, purpose).value },
   });
   expect(forged).toEqual({ rejected: true, reason: 'illegal_action', state });
-  expect(advanceTurn(state)).toEqual({ state, records: [], events: [] });
   let move = state;
   for (let step = 0; step < 3; step++) move = advanceAutomatically(move).state;
   expect(move.phase.kind).toBe('move');

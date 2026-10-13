@@ -1,6 +1,6 @@
 # Engine contract v1
 
-Issues #3, #11, #20 and #21 supply compile-ready contracts, deterministic command execution, setup/turn flow and self-contained decision fixtures for streams B/C. Import types, Zod schemas, `positionOf`, `createGame`, `applyAction`, `legalActions`, `observe`, `advanceAutomatically`, `advanceTurn` and `replay` from `engine/index.ts`. Spec: v1.0 §3.1, §4.2, §6.1, §6.3, §6.4, §6.5, §6.6, §8; observations also follow §5.4.
+Issues #3, #11, #20 and #21 supply compile-ready contracts, deterministic command execution, setup/turn flow and self-contained decision fixtures for streams B/C. Import types, Zod schemas, `positionOf`, `createGame`, `applyAction`, `legalActions`, `observe`, `advanceAutomatically` and `replay` from `engine/index.ts`. Spec: v1.0 §3.1, §4.2, §6.1, §6.3, §6.4, §6.5, §6.6, §8; observations also follow §5.4.
 
 ## Records and counters
 
@@ -49,8 +49,6 @@ Every player starts at route progress and credited Lap zero, with 20 coins, an o
 Create the log immediately with `createGameLog(createGame(config, content))` and retain each subsequent returned record. `first_player_roll` carries the current contenders, completed rolls in that round and `awaitingResult`. Each configured contender, in seat order, accepts `roll`, then an engine `dice_result` with purpose `first-player:<seatIndex>`. No second player roll is enabled while awaiting the result. Once the round finishes, only tied highest rollers remain; their next round starts with no prior rolls. A unique leader starts the first turn. Every die result consumes one seeded draw, logs its counted random event and advances the accepted-action sequence separately from its roll command.
 
 Starting a turn enters Start, increments `globalTurnNo` and only the active player's `ownTurnNo`, and **replaces** all three budgets with 1. The current skeleton is Start → Social → Strategy → Move → Resolve → End. The social window and Strategy pass through via the sole skip choice. Start/Resolve/End also use skip to drive the skeleton. Move accepts roll, waits for the engine result with purpose `move:<seatIndex>:<globalTurnNo>`, then enters Resolve. Every phase change emits `phase_changed`. Resolve does no space effect yet; no movement, Start crossing, passives, items, Abilities, chat or end-effect settlement is implemented by this issue. End starts the next configured seat, wrapping to seat zero after the last seat; the highest roller never reorders the seats.
-
-`advanceTurn(state)` is an End-only shorthand for one automatic skip acceptance, returning the same `{ state, records, events }` shape as `advanceAutomatically`. Outside End it returns the original state and empty arrays. Every transition is executed through `applyAction`, so callers retain the returned snapshot and append records just as for other commands. An existing spent or leftover budget never accumulates into the next turn.
 
 The engine stamp is now `0.1.0` because accepted commands execute these new transitions. Unchanged historical `0.0.0` decision fixtures remain illustrative projections; they are not executable logs under this version.
 

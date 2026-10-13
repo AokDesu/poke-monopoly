@@ -3,6 +3,6 @@ export * from './rng.ts';
 export { positionOf } from './contract/position.ts';
 export * from './contract/schema.ts';
 export { observe, legalActions, applyAction } from './contract/stubs.ts';
-export { advanceAutomatically, advanceTurn, createGameLog, replay } from './pipeline.ts';
+export { advanceAutomatically, createGameLog, replay } from './pipeline.ts';
 export { stateHash } from './state-hash.ts';
 export { createGame } from './setup.ts';

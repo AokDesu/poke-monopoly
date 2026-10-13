@@ -54,12 +54,6 @@ export function advanceAutomatically(state: GameState): {
   };
 }
 
-/** End-only convenience; advancing another phase never skips a turn. */
-export function advanceTurn(state: GameState): ReturnType<typeof advanceAutomatically> {
-  if (state.phase.kind !== 'end') return { state, records: [], events: [] };
-  return advanceAutomatically(state);
-}
-
 /** Retain exact content and the pre-roll snapshot from createGame (or a contract scenario). */
 export function createGameLog(initialState: GameState): GameLog {
   const log = gameLogSchema.parse({
