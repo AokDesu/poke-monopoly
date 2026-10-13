@@ -1,6 +1,14 @@
 import { positionOf } from './position.ts';
 import { actionSchema } from './schema.ts';
 import { d6, shuffle, RNG_VERSION } from '../rng.ts';
+import {
+  firstPlayerRollPurpose,
+  pendingRollPurpose,
+  recordFirstPlayerRoll,
+  recordMoveRoll,
+  recordTurnCommand,
+} from '../turns.ts';
+import { ENGINE_VERSION } from '../versions.ts';
 import type {
   GameState,
   Observation,
@@ -48,7 +56,7 @@ export function observe(state: GameState, seatIndex: number): Observation {
   });
 }
 
-/** Minimal fixture-facing choices; this scaffold does not execute game rules. */
+/** Turn-skeleton choices plus historical fixture-facing choices for later gameplay. */
 export function legalActions(state: GameState, seatIndex: number): LegalActions {
   const player = state.players.find((candidate) => candidate.seatIndex === seatIndex);
   if (!player) throw new RangeError('Unknown seat index');
@@ -63,8 +71,11 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
     });
     return result;
   }
+  if (state.phase.kind === 'first_player_roll' && !state.phase.awaitingResult) {
+    result.enabled.push({ id: 'roll', kind: 'roll', payload: {} });
+  }
   if (state.phase.kind === 'strategy') {
-    for (const item of player.items) {
+    for (const item of state.config.engineVersion === ENGINE_VERSION ? [] : player.items) {
       result.enabled.push({
         id: `use-item:${item.instanceId}`,
         kind: 'use_item',
@@ -73,8 +84,14 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
     }
     result.enabled.push({ id: 'skip', kind: 'skip', payload: {} });
   }
-  if (state.phase.kind === 'move') {
+  if (state.phase.kind === 'move' && !state.phase.awaitingResult) {
     result.enabled.push({ id: 'roll', kind: 'roll', payload: {} });
+  }
+  if (
+    state.config.engineVersion === ENGINE_VERSION &&
+    ['start', 'social', 'resolve', 'end'].includes(state.phase.kind)
+  ) {
+    result.enabled.push({ id: 'skip', kind: 'skip', payload: {} });
   }
   if (state.phase.kind === 'encounter') {
     for (const ballType of ['poke', 'great', 'ultra'] as const) {
@@ -119,7 +136,7 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   return result;
 }
 
-/** Immutable command plumbing; gameplay effects are deferred to later rule issues. */
+/** Immutable command executor; setup/turn flow is live, other gameplay remains deferred. */
 export function applyAction(state: GameState, input: unknown): ApplyActionResult {
   const parsed = actionSchema.safeParse(input);
   if (!parsed.success) return { rejected: true, reason: 'malformed_action', state };
@@ -131,6 +148,23 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
     return { rejected: true, reason: 'invalid_sequence', state };
   }
   if (action.actorId === 'engine' && action.kind === 'dice_result') {
+    if (
+      state.phase.kind === 'first_player_roll' &&
+      (!state.phase.awaitingResult || action.payload.purpose !== firstPlayerRollPurpose(state))
+    ) {
+      return { rejected: true, reason: 'illegal_action', state };
+    }
+    const pendingPurpose = pendingRollPurpose(state);
+    if (
+      (action.payload.purpose.startsWith('first-player:') ||
+        action.payload.purpose.startsWith('move:')) &&
+      action.payload.purpose !== pendingPurpose
+    ) {
+      return { rejected: true, reason: 'illegal_action', state };
+    }
+    if (pendingPurpose && action.payload.purpose !== pendingPurpose) {
+      return { rejected: true, reason: 'illegal_action', state };
+    }
     if (state.config.rngVersion !== RNG_VERSION) {
       return { rejected: true, reason: 'illegal_action', state };
     }
@@ -141,11 +175,16 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
     const next = structuredClone(state);
     next.stateRevision = action.actionSeq;
     next.rng = draw.rng;
+    const events = [
+      ...draw.events,
+      ...recordFirstPlayerRoll(next, draw.value),
+      ...recordMoveRoll(next),
+    ];
     return {
       accepted: true,
       state: next,
-      events: draw.events,
-      record: { action, events: structuredClone(draw.events) },
+      events,
+      record: { action, events: structuredClone(events) },
     };
   }
   if (action.actorId === 'engine' && action.kind === 'shuffle') {
@@ -192,5 +231,14 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
   }
   const next = structuredClone(state);
   next.stateRevision = action.actionSeq;
-  return { accepted: true, state: next, events: [], record: { action, events: [] } };
+  if (next.phase.kind === 'first_player_roll' && action.kind === 'roll') {
+    next.phase.awaitingResult = true;
+  }
+  const events = recordTurnCommand(next, action.kind);
+  return {
+    accepted: true,
+    state: next,
+    events,
+    record: { action, events: structuredClone(events) },
+  };
 }

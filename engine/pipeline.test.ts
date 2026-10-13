@@ -7,6 +7,7 @@ import {
   fixtureSchema,
   createRng,
   RNG_VERSION,
+  ENGINE_VERSION,
   stateHash,
   createGameLog,
   replay,
@@ -149,6 +150,7 @@ test('automatic advancement applies exactly one choice once and marks its record
 
 function randomState() {
   const state = initialState();
+  state.config.engineVersion = ENGINE_VERSION;
   state.config.rngVersion = RNG_VERSION;
   state.config.seed = 1;
   state.rng = createRng(1);
@@ -275,7 +277,7 @@ test('a versioned log replays player and generated records to the live state (§
       actionSeq: 2,
       stateRevisionBefore: 1,
       kind: 'dice_result',
-      payload: { purpose: 'test-die', value: 4 },
+      payload: { purpose: 'move:0:1', value: 4 },
     });
     expect('accepted' in die).toBe(true);
     if (!('accepted' in die)) throw new Error('die rejected');
@@ -344,7 +346,7 @@ test('replay rejects altered or missing random results before returning a state 
 
 test('an auto marker is valid only for the sole enabled player choice (§3.1)', () => {
   const state = randomState();
-  state.phase = { kind: 'strategy' };
+  state.phase = fixtureSchema.parse(shopFixture).state.phase;
   state.players[0]!.items.push({
     instanceId: 'owned',
     itemId: 'repel',
@@ -424,6 +426,7 @@ fcTest.prop([fc.jsonValue()])(
 test('200 accepted player and generated records have no sequence gaps and replay deterministically (§6.3, §6.8)', () => {
   function play() {
     let state = randomState();
+    state.phase = { kind: 'shop', offers: [] };
     state.eventDeck = { drawPile: ['a', 'b', 'c'], discardPile: [] };
     const log = createGameLog(state);
     function accept(body: { actorId: string; kind: string; payload: unknown }) {
@@ -446,7 +449,7 @@ test('200 accepted player and generated records have no sequence gaps and replay
     });
     accept({ actorId: 'engine', kind: 'event_draw', payload: { eventId: 'c' } });
     for (let i = 0; i < 99; i++) {
-      accept({ actorId: 'player-0', kind: 'roll', payload: {} });
+      accept({ actorId: 'player-0', kind: 'skip', payload: {} });
       accept({
         actorId: 'engine',
         kind: 'dice_result',

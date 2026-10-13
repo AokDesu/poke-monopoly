@@ -5,3 +5,4 @@ export * from './contract/schema.ts';
 export { observe, legalActions, applyAction } from './contract/stubs.ts';
 export { advanceAutomatically, createGameLog, replay } from './pipeline.ts';
 export { stateHash } from './state-hash.ts';
+export { createGame } from './setup.ts';

@@ -162,6 +162,8 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 - `catchAttempt = 1`.
 - `pokemonAbility = 1`.
 
+**C1 engine scope (#21):** see the [engine contract](engine-contract.md#setup-and-turn-flow-issue-21) for implemented setup/turn flow and deferred effects. This implementation scope does not change the full turn rules above.
+
 **Social window**
 
 - One offer plus at most one counteroffer, or one general message plus one reply.
