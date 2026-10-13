@@ -8,7 +8,8 @@ import {
   type GameLog,
 } from './contract/schema.ts';
 import { createLogHeader, ENGINE_VERSION } from './versions.ts';
-import { createRng, RNG_VERSION } from './rng.ts';
+import { createRng, d6, RNG_VERSION } from './rng.ts';
+import { pendingRollPurpose } from './turns.ts';
 import { canonicalJson } from './state-hash.ts';
 
 /** A single step: later gameplay transitions may expose another decision. */
@@ -17,6 +18,22 @@ export function advanceAutomatically(state: GameState): {
   records: ActionRecord[];
   events: EngineEvent[];
 } {
+  const purpose = pendingRollPurpose(state);
+  if (purpose) {
+    const result = applyAction(state, {
+      actorId: 'engine',
+      actionSeq: state.stateRevision + 1,
+      stateRevisionBefore: state.stateRevision,
+      kind: 'dice_result',
+      payload: { purpose, value: d6(state.rng, purpose).value },
+    });
+    if ('rejected' in result) return { state, records: [], events: [] };
+    return {
+      state: result.state,
+      records: [{ ...result.record, auto: true }],
+      events: result.events,
+    };
+  }
   const choices = legalActions(state, state.activeSeatIndex).enabled;
   if (choices.length !== 1) return { state, records: [], events: [] };
   const actor = state.config.seats.find((seat) => seat.seatIndex === state.activeSeatIndex);
@@ -37,7 +54,13 @@ export function advanceAutomatically(state: GameState): {
   };
 }
 
-/** Explicit initial state retains exact content; setup rules are a later issue. */
+/** End-only convenience; advancing another phase never skips a turn. */
+export function advanceTurn(state: GameState): ReturnType<typeof advanceAutomatically> {
+  if (state.phase.kind !== 'end') return { state, records: [], events: [] };
+  return advanceAutomatically(state);
+}
+
+/** Retain exact content and the pre-roll snapshot from createGame (or a contract scenario). */
 export function createGameLog(initialState: GameState): GameLog {
   const log = gameLogSchema.parse({
     ...createLogHeader(initialState.config),

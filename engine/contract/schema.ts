@@ -57,6 +57,7 @@ export const gameConfigSchema = z.strictObject({
         ),
         seatIndex: count,
         classId: id,
+        starterSpeciesId: id.optional(),
         controller: z.enum(['human', 'ai']),
       }),
     )
@@ -104,12 +105,18 @@ const shopOfferSchema = z.discriminatedUnion('kind', [
   z.strictObject({ id, itemId: id, kind: z.literal('utility'), price: count }),
 ]);
 export const phaseSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('move'), awaitingResult: z.boolean().optional() }),
+  z.strictObject({
+    kind: z.literal('first_player_roll'),
+    contenders: z.array(count).min(1),
+    rolls: z.array(z.strictObject({ seatIndex: count, value: z.int().min(1).max(6) })),
+    awaitingResult: z.boolean(),
+  }),
   z.strictObject({
     kind: z.enum([
       'start',
       'social',
       'strategy',
-      'move',
       'resolve',
       'end',
       'finished',
