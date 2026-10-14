@@ -48,6 +48,7 @@ export function createGame(inputConfig: GameConfig, inputContent: Content): Game
       coins: 20,
       routeProgress: 0,
       creditedLap: 0,
+      highestRewardedMilestone: 0,
       ownTurnNo: 0,
       team: [
         {

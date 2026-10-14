@@ -105,7 +105,7 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
     result.enabled.push({ id: 'release', kind: 'release', payload: {} });
   }
   if (state.phase.kind === 'sell') {
-    for (const pokemon of player.team) {
+    for (const pokemon of state.config.engineVersion === ENGINE_VERSION ? [] : player.team) {
       result.enabled.push({
         id: `sell:${pokemon.instanceId}`,
         kind: 'sell',
@@ -178,7 +178,7 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
     const events = [
       ...draw.events,
       ...recordFirstPlayerRoll(next, draw.value),
-      ...recordMoveRoll(next),
+      ...recordMoveRoll(next, draw.value),
     ];
     return {
       accepted: true,
