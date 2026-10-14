@@ -97,6 +97,7 @@ describe('registry (spec §8)', () => {
       'rejected-or-stale-unchanged': 'active',
       'catch-consumes-one-ball': 'active',
       'credited-lap-monotonic': 'active',
+      'credited-lap-pays-once': 'pending',
       'replay-reproduces-state': 'active',
       'game-can-finish': 'active',
       'ability-once-per-instance-per-lap': 'pending',
@@ -130,7 +131,7 @@ test('reports no violations over every fixture in engine/fixtures/', () => {
     const actions = [
       command(state, 'skip', {}, 7),
       { ...command(state, 'skip'), actorId: 'not-a-player' },
-      // The scaffold accepts catch without spending a Ball until the catch rule lands (issue #23).
+      // Carve-out until issue #23: the engine accepts catch without spending a Ball yet.
       ...choices
         .filter((choice) => choice.kind !== 'catch')
         .map((choice) => command(state, choice.kind, choice.payload)),
@@ -140,6 +141,15 @@ test('reports no violations over every fixture in engine/fixtures/', () => {
       expect(checkInvariants(state, action, result), `${name} ${action.kind}`).toEqual([]);
     }
   }
+});
+
+test('carve-out until #23: catches do not spend a Ball yet', () => {
+  // Fails once issue #23 makes catches spend a Ball; then drop the catch filter above and this test.
+  const before = encounter();
+  const action = command(before, 'catch', { ballType: 'poke' });
+  expect(ids(checkInvariants(before, action, applyAction(before, action)))).toEqual([
+    'catch-consumes-one-ball',
+  ]);
 });
 
 describe('coins-non-negative', () => {
@@ -248,6 +258,36 @@ describe('uid-lifecycle-logged', () => {
     expect(checkFromEngine(before, action, result)).toEqual([]);
   });
 
+  test('the wild encounter’s Pokémon gets its instance ID at the catch', () => {
+    const before = start();
+    const action = command(before, 'roll');
+    const wild = encounter().phase;
+    const drawn = acceptedResult(before, action, (state) => (state.phase = wild));
+    expect(checkFromEngine(before, action, drawn)).toEqual([]);
+
+    const atEncounter = encounter();
+    const catchAction = command(atEncounter, 'catch', { ballType: 'poke' });
+    const caught = acceptedResult(
+      atEncounter,
+      catchAction,
+      (state) => {
+        if (state.phase.kind === 'encounter') state.players[0]!.team.push(state.phase.pokemon);
+        state.players[0]!.balls.poke -= 1;
+        state.phase = { kind: 'move' };
+      },
+      [{ kind: 'uid_created', instanceId: 'encounter-0', entity: 'pokemon', ownerId: 'player-0' }],
+    );
+    expect(checkFromEngine(atEncounter, catchAction, caught)).toEqual([]);
+
+    const release = command(atEncounter, 'release');
+    const released = acceptedResult(
+      atEncounter,
+      release,
+      (state) => (state.phase = { kind: 'move' }),
+    );
+    expect(checkFromEngine(atEncounter, release, released)).toEqual([]);
+  });
+
   test('an unlogged creation and destruction are reported', () => {
     const before = start();
     const action = command(before, 'roll');
@@ -339,7 +379,7 @@ describe('credited-lap-monotonic', () => {
     expect(crossStart(1)).toEqual([]);
   });
 
-  test('crediting the same milestone twice is reported', () => {
+  test('a creditedLap beyond the milestone reached is reported', () => {
     expect(ids(crossStart(2))).toEqual(['credited-lap-monotonic']);
   });
 

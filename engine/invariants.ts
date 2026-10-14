@@ -8,7 +8,7 @@ import {
 } from './contract/schema.ts';
 import { canonicalJson, stateHash } from './state-hash.ts';
 
-/** Spec §8 engine invariants, plus the §6.5 Lap credit rule that issue #14 makes active. */
+/** Spec §8 engine invariants, plus the §6.5 Lap credit rules that issue #14 names. */
 export type InvariantId =
   | 'coins-non-negative'
   | 'coin-transfer-sourced'
@@ -17,6 +17,7 @@ export type InvariantId =
   | 'rejected-or-stale-unchanged'
   | 'catch-consumes-one-ball'
   | 'credited-lap-monotonic'
+  | 'credited-lap-pays-once'
   | 'replay-reproduces-state'
   | 'game-can-finish'
   | 'deals-atomic'
@@ -59,13 +60,12 @@ export type InvariantDefinition =
 
 const accepted = (result: ApplyActionResult) => 'accepted' in result;
 
-function instanceIds(state: GameState): string[] {
-  const ids = state.players.flatMap((player) => [
+/** Instance IDs that players own. An instance ID is created at the catch (issue #23). */
+function ownedInstanceIds(state: GameState): string[] {
+  return state.players.flatMap((player) => [
     ...player.team.map((pokemon) => pokemon.instanceId),
     ...player.items.map((item) => item.instanceId),
   ]);
-  if (state.phase.kind === 'encounter') ids.push(state.phase.pokemon.instanceId);
-  return ids;
 }
 
 function eventsOf<K extends EngineEvent['kind']>(events: EngineEvent[], kind: K) {
@@ -113,15 +113,18 @@ function checkCoinTransfers({ before, result }: Step): string[] {
 function checkUidUnique({ result }: Step): string[] {
   const seen = new Set<string>();
   const duplicates = new Set<string>();
-  for (const id of instanceIds(result.state)) (seen.has(id) ? duplicates : seen).add(id);
+  const ids = ownedInstanceIds(result.state);
+  // The wild encounter's Pokémon must not reuse an owned ID, but it is not created until caught.
+  if (result.state.phase.kind === 'encounter') ids.push(result.state.phase.pokemon.instanceId);
+  for (const id of ids) (seen.has(id) ? duplicates : seen).add(id);
   return [...duplicates].map((id) => `instance ID ${id} appears more than once`);
 }
 
 function checkUidLifecycle({ before, result }: Step): string[] {
   if (!accepted(result)) return [];
   const problems: string[] = [];
-  const was = new Set(instanceIds(before));
-  const now = new Set(instanceIds(result.state));
+  const was = new Set(ownedInstanceIds(before));
+  const now = new Set(ownedInstanceIds(result.state));
   const created = new Set(eventsOf(result.events, 'uid_created').map((event) => event.instanceId));
   const destroyed = new Set(
     eventsOf(result.events, 'uid_destroyed').map((event) => event.instanceId),
@@ -267,9 +270,15 @@ export const INVARIANTS: readonly InvariantDefinition[] = [
     id: 'credited-lap-monotonic',
     status: 'active',
     section: '§6.5',
-    specLine:
-      "Start credit is granted only when the owner's forward movement crosses a milestone above the previous `creditedLap`.",
+    specLine: 'movement stores a signed `routeProgress` and a monotonic `creditedLap`.',
     check: checkCreditedLap,
+  },
+  {
+    // Pending until coin_transfer events carry an agreed Start-income reason code (issue #22).
+    id: 'credited-lap-pays-once',
+    status: 'pending',
+    section: '§6.5',
+    specLine: 'Being pushed or pulled, or re-crossing an old milestone, gives no reward.',
   },
   {
     id: 'replay-reproduces-state',
