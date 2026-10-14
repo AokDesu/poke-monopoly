@@ -57,7 +57,7 @@ export function summarizeObservation(observation: Observation) {
   const rank = 1 + players.filter((player) => player.coins > you.coins).length;
   const summary = (player: (typeof players)[number]) => ({
     lap: `${Math.min(player.creditedLap + 1, lapTarget)} of ${lapTarget}`,
-    squares_to_start: bucketSquaresToStart((board.length - player.position) % board.length),
+    squares_to_start: bucketSquaresToStart(board.length - player.position),
     team_count: bucketCount(player.team.length),
     item_count: bucketCount(player.itemCount),
   });

@@ -92,13 +92,34 @@ test('ranking uses cash only and tied seats share their rank; current Lap is cap
   expect(summarizeObservation(observation).you).toMatchObject({
     coins_rank: '1st of 4',
     lap: '3 of 3',
-    squares_to_start: 'near',
+    squares_to_start: 'far',
   });
   first.coins = 15;
   second.coins = 10;
   expect(summarizeObservation(observation).you.coins_rank).toBe('2nd of 4');
   first.coins = 0;
   expect(summarizeObservation(observation).you.coins_rank).toBe('4th of 4');
+});
+
+test.each([
+  [0, 'far'],
+  [11, 'far'],
+  [12, 'middle'],
+  [17, 'middle'],
+  [18, 'near'],
+  [23, 'near'],
+])('position %s on a 24-square board maps squares to Start to %s', (position, expected) => {
+  const observation = observationSchema.parse(fixture.observation['0']);
+  observation.public.players[0]!.position = Number(position);
+  expect(summarizeObservation(observation).you.squares_to_start).toBe(expected);
+});
+
+test('start-of-game-2p places every seat far from its next pass of Start', () => {
+  for (const seat of ['0', '1'] as const) {
+    const summary = summarizeObservation(observationSchema.parse(fixture.observation[seat]));
+    expect(summary.you.squares_to_start).toBe('far');
+    expect(summary.opponents.map((opponent) => opponent.squares_to_start)).toEqual(['far']);
+  }
 });
 
 test('missing own seat cannot silently build a state for another seat', () => {
