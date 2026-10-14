@@ -359,7 +359,7 @@ describe('runSim with a fake engine (§7, §8, §9)', () => {
 });
 
 describe('rules-pending mode', () => {
-  test('the CLI plays no games while the engine cannot create or finish one (#21, #25)', () => {
+  test('the CLI plays no games while the engine cannot finish one (#25)', () => {
     expect(realEngine).toBeNull();
   });
 

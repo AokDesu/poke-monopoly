@@ -12,6 +12,6 @@ npm run sim -- --games <n> --seed <n> [--seats 2|3|4] [--max-steps 5000] [--lap-
 - Exits non-zero when `illegalAppliedActionCount` or `invariantFailures` is above zero or a game aborted (at `--max-steps`, or because the engine, policy or invariant check threw; the other games still run).
 - `runner.ts` drives the `SimEngine` seam and accepts an invariant check (`checkInvariants(before, action, result)`, issue #14) called after every action. Tests use a fake engine.
 
-**Rules-pending mode:** the engine cannot yet create a game (#21) or finish one (#25), so `engine.ts` binds no engine and the summary says `"rulesPending": true` with 0 games played. Bind the real engine there once both land.
+**Rules-pending mode:** the engine can create a game (#21) but cannot yet finish one (#25), so `engine.ts` binds no engine and the summary says `"rulesPending": true` with 0 games played. Bind the real engine there once #25 lands.
 
 Spec: §7, §8 (Simulation), §9 (sim limits).

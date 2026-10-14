@@ -127,7 +127,7 @@ export function runSim(
   return { summary, failures };
 }
 
-/** Until the engine can create and finish games (issues #21, #25), the CLI plays none. */
+/** Until the engine can finish games (issue #25; creation landed in #21), the CLI plays none. */
 export function rulesPendingSummary(options: SimOptions): SimSummary {
   return { ...emptySummary(options, []), rulesPending: true };
 }
