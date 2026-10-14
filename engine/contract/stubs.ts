@@ -136,7 +136,7 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   return result;
 }
 
-/** Immutable command executor; setup/turn flow is live, other gameplay remains deferred. */
+/** Immutable command executor; implemented gameplay scope is documented in docs/engine-contract.md. */
 export function applyAction(state: GameState, input: unknown): ApplyActionResult {
   const parsed = actionSchema.safeParse(input);
   if (!parsed.success) return { rejected: true, reason: 'malformed_action', state };

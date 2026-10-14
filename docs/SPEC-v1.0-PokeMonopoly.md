@@ -152,7 +152,7 @@ Turn order:
 2. **Social window:** talk to one opponent per human turn. This does not cost the tactical action.
 3. **Strategy:** use pre-move Abilities and one utility item or PvP, or skip.
 4. **Move:** roll a d6 or use an Ability that replaces the roll. Slowing effects clear after the actual move.
-5. **Start crossing:** collect 5 coins, add 1 to `creditedLap`, reset Abilities, then open the Sell Phase before resolving the destination space.
+5. **Start crossing:** for a qualifying crossing (§6.5), follow the income, Ability reset and Sell order in §4.7 before resolving the destination space.
 6. **Resolve:** reveal the space. If a Pokémon appears, spend 1 Ball or release it.
 7. **End:** close expired effects and settle promises that are due.
 
@@ -164,7 +164,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 
 **C1 engine scope (#21):** see the [engine contract](engine-contract.md#setup-and-turn-flow-issue-21) for implemented setup/turn flow and deferred effects. This implementation scope does not change the full turn rules above.
 
-**C1 movement scope (#22):** the logged d6 updates route progress and pays qualifying Start income, then opens Sell before Resolve. Sell currently supports only finishing without sales; Ability reset remains a stub. Resolve logs the destination space by type with no effect, including Wild until the encounter issue. Sales, Rescue Starter creation, encounters, real push/pull effects, slowing and game-end settlement remain deferred. See the [movement contract](engine-contract.md#movement-and-start-crossing-issue-22).
+**C1 movement scope (#22):** see the [movement contract](engine-contract.md#movement-and-start-crossing-issue-22) for implemented movement/Start flow and deferred effects. This implementation scope does not change the full turn rules above.
 
 **Social window**
 
@@ -268,7 +268,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 
 ### 4.7 Selling at Start, Laps and game end
 
-1. **Order when passing Start:**
+1. **Order when owner movement crosses or lands on a qualifying Start milestone (§6.5):**
    - +5 coins
    - `creditedLap` +1
    - reset Abilities
