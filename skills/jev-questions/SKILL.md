@@ -18,7 +18,7 @@ Source: spec §5.4 (`docs/SPEC-v1.0-PokeMonopoly.md`). Decision points and their
   - `squares_to_start`: **near** at 0–6 squares, **middle** at 7–12, **far** at 13 or more. It is the forward distance on the observed board to the next pass of Start, so a player standing on Start is the full board length away (**far**).
   - `team_count`, `item_count` and own Ball counts (`poke`, `great`, `ultra`): **none** at 0, **one** at 1, **few** at 2–3, **many** at 4 or more.
   - `coins_rank` is an ordinal label such as **2nd of 4**; tied cash totals share the same rank, and badges do not contribute. `lap` is the current Lap label (credited crossings + 1), capped at the target, such as **2 of 3**.
-  - Raw numbers are allowed only at explicit seat/board identifier paths. The builder runs `assertNoComparableNumbers` and the JSON characters ÷ 4 size guard before returning; rank and Lap labels are descriptive strings, not numeric values.
+  - Raw numbers are allowed only at explicit seat/board identifier paths, and numeric-looking strings only at explicit opaque engine-ID paths (actor, class, Pokémon, species, item and event IDs). The builder runs `assertNoComparableNumbers` and the JSON characters ÷ 4 size guard before returning; rank and Lap labels are descriptive strings, not numeric values.
 - **Keep value types apart:** cash, expected sale value, benefit of keeping the team, risk and promises are separate buckets. They are never merged into one coin figure, and badges are never counted as coins.
 - **Wording:** questions and criteria are written **in English**, literally, with boundary cases spelled out in the criteria.
 - **One question = one decision.** Multi-item work is split into one question per item and combined in code.
