@@ -3,7 +3,6 @@ import { describe, expect, test } from 'vitest';
 import {
   applyAction,
   checkInvariants,
-  createInvariantChecker,
   fixtureSchema,
   INVARIANTS,
   legalActions,
@@ -11,6 +10,7 @@ import {
   type EngineEvent,
   type GameState,
 } from './index.ts';
+import { createInvariantChecker } from './invariants.ts';
 import spec from '../docs/SPEC-v1.0-PokeMonopoly.md?raw';
 import source from './invariants.ts?raw';
 import startFixture from './fixtures/start-of-game-2p.json';
