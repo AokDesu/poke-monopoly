@@ -6,7 +6,6 @@ try {
     options: {
       offline: { type: 'boolean' },
       record: { type: 'boolean' },
-      fixtures: { type: 'string' },
       input: { type: 'string' },
       output: { type: 'string' },
     },
@@ -15,9 +14,8 @@ try {
     throw new Error('Choose exactly one mode: --offline or --record.');
   if (values.offline) {
     if (values.input || values.output) throw new Error('--input and --output require --record.');
-    console.log(formatReport(await runOffline(values.fixtures)));
+    console.log(formatReport(await runOffline()));
   } else {
-    if (values.fixtures) throw new Error('--fixtures requires --offline.');
     if (!values.input || !values.output)
       throw new Error('--record requires --input scenario.json --output fixture.json.');
     await recordFixture(values.input, values.output);

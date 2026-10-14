@@ -3,9 +3,8 @@
 Spec: v1.0 §7, §8 (Eval set).
 
 Run `npm run eval:jev -- --offline` to replay every JSON fixture in `eval/jev/fixtures/`
-without a key or network. `--fixtures <directory>` selects a different fixture directory.
-The report prints per-question accuracy and a confidence-versus-correctness table.
-A legal answer outside its acceptable set lowers accuracy; malformed fixtures,
+without a key or network. The report prints per-question accuracy and a
+confidence-versus-correctness table. A legal answer outside its acceptable set lowers accuracy; malformed fixtures,
 illegal answers and changed requests fail the command. The three C1 samples are
 marked `synthetic: true`: invented answers that prove the harness, not Jev quality.
 Real scenarios and personality separation/calibration curves arrive in later cycles.

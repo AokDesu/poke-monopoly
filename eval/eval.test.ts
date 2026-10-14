@@ -77,7 +77,7 @@ test('fixture client replays the full response, ignores object key order, reject
   });
 });
 
-test.each(['request', 'schema', 'illegal', 'json'])('CLI fails for %s corruption', async (kind) => {
+test.each(['request', 'schema', 'illegal', 'json'])('run fails for %s corruption', async (kind) => {
   const fixture = await sample();
   if (kind === 'request')
     fixture.request.questions.strategy!.instructions = 'Changed question text.';
@@ -91,9 +91,7 @@ test.each(['request', 'schema', 'illegal', 'json'])('CLI fails for %s corruption
   const dir = await directory();
   const path = await write(kind === 'schema' ? { ...fixture, synthetic: 'yes' } : fixture, dir);
   if (kind === 'json') await writeFile(path, '{broken JSON');
-  const result = cli(['--offline', '--fixtures', dir]);
-  expect(result.status).toBe(1);
-  expect(result.stderr).toContain(
+  await expect(runOffline(dir)).rejects.toThrow(
     kind === 'request'
       ? 'request changed, re-record'
       : kind === 'illegal'
@@ -108,7 +106,6 @@ test('legal but unacceptable answers reduce accuracy without failing the run', a
   const dir = await directory();
   await write(fixture, dir);
   expect(formatReport(await runOffline(dir))).toContain('Accuracy: 0/1 (0.0%)');
-  expect(cli(['--offline', '--fixtures', dir]).status).toBe(0);
 });
 
 test('validates acceptable sets, response types and probability labels', async () => {
