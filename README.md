@@ -28,7 +28,7 @@ Install with `npm ci`. Optionally copy `.env.example` to `.env`; the Jev key is 
 | `npm run sim -- --games 100 --seed 1`     | Simulation CLI; prints one JSON line (`npm run -s` hides npm's banner) |
 | `npm run eval:jev -- --offline`           | Jev eval on recorded fixtures; no network, no key                      |
 
-`sim` and `eval:jev` are stubs until issues #13 and #15 replace them. CI (job `ci`) runs typecheck, lint, format check, tests, the sim and the offline eval on every pull request.
+`eval:jev` is a stub until issue #15 replaces it; `sim` plays no games until the engine can finish one (see [sim/README.md](sim/README.md)). CI (job `ci`) runs typecheck, lint, format check, tests, the sim and the offline eval on every pull request.
 
 ## Folders
 
