@@ -7,6 +7,7 @@ import {
   type GameState,
 } from './contract/schema.ts';
 import { canonicalJson, stateHash } from './state-hash.ts';
+import { pendingRollPurpose } from './turns.ts';
 
 /** Spec §8 engine invariants, plus the §6.5 Lap credit rules that issue #14 names. */
 export type InvariantId =
@@ -213,6 +214,7 @@ function checkGameCanFinish({ result }: Step): string[] {
     state.config.seats.some((seat) => seat.seatIndex === state.activeSeatIndex) &&
     state.players.some((player) => player.seatIndex === state.activeSeatIndex);
   if (!seated) return [`active seat ${state.activeSeatIndex} is not a configured player`];
+  if (pendingRollPurpose(state)) return [];
   if (legalActions(state, state.activeSeatIndex).enabled.length === 0) {
     return [`seat ${state.activeSeatIndex} has no enabled choice in phase ${state.phase.kind}`];
   }

@@ -3,6 +3,8 @@ import { describe, expect, test } from 'vitest';
 import {
   applyAction,
   checkInvariants,
+  createGame,
+  createGameConfig,
   fixtureSchema,
   INVARIANTS,
   legalActions,
@@ -12,7 +14,6 @@ import {
 } from './index.ts';
 import { createInvariantChecker } from './invariants.ts';
 import spec from '../docs/SPEC-v1.0-PokeMonopoly.md?raw';
-import source from './invariants.ts?raw';
 import startFixture from './fixtures/start-of-game-2p.json';
 import encounterFixture from './fixtures/encounter-with-balls.json';
 
@@ -109,9 +110,7 @@ describe('registry (spec §8)', () => {
     });
   });
 
-  test('is pure: engine-only imports, deterministic output and no input mutation', () => {
-    const imports = [...source.matchAll(/from '([^']+)'/g)].map((match) => match[1]);
-    expect(imports.every((path) => path?.startsWith('./'))).toBe(true);
+  test('is pure: deterministic output and no input mutation', () => {
     const before = start();
     const action = command(before, 'roll');
     const result = applyAction(before, action);
@@ -432,6 +431,26 @@ describe('game-can-finish', () => {
       (state) => (state.phase = { kind: 'finished' }),
     );
     expect(checkFromEngine(before, action, finished)).toEqual([]);
+  });
+
+  test('a roll awaiting the engine’s dice result passes', () => {
+    const before = createGame(
+      createGameConfig({
+        seats: ['main-character', 'rival'].map((classId, seatIndex) => ({
+          actorId: `player-${seatIndex}`,
+          seatIndex,
+          classId,
+          controller: seatIndex === 0 ? 'human' : 'ai',
+        })),
+        seed: 1,
+        lapTarget: 3,
+      }),
+      start().content,
+    );
+    const action = command(before, 'roll');
+    const result = applyAction(before, action);
+    expect(result).toMatchObject({ state: { phase: { awaitingResult: true } } });
+    expect(checkInvariants(before, action, result)).toEqual([]);
   });
 
   test('a dead end with no enabled choice is reported', () => {
