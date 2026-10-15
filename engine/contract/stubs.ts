@@ -8,6 +8,7 @@ import {
   recordMoveRoll,
   recordTurnCommand,
 } from '../turns.ts';
+import { confirmCatch, recordCatchRoll } from '../catching.ts';
 import { ENGINE_VERSION } from '../versions.ts';
 import { recordSale, validSale } from '../selling.ts';
 import type {
@@ -94,11 +95,20 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   ) {
     result.enabled.push({ id: 'skip', kind: 'skip', payload: {} });
   }
-  if (state.phase.kind === 'encounter') {
+  if (state.phase.kind === 'encounter' && !state.phase.catchRoll) {
     for (const ballType of ['poke', 'great', 'ultra'] as const) {
       const action: LegalAction = { id: `catch:${ballType}`, kind: 'catch', payload: { ballType } };
       if (player.balls[ballType] === 0) {
         result.disabled.push({ ...action, reasonCode: 'NO_BALL', reasonText: 'No Ball' });
+      } else if (
+        state.config.engineVersion === ENGINE_VERSION &&
+        state.turnBudgets.catchAttempt === 0
+      ) {
+        result.disabled.push({
+          ...action,
+          reasonCode: 'ALREADY_USED_THIS_TURN',
+          reasonText: 'Catch already used this turn',
+        });
       } else {
         result.enabled.push(action);
       }
@@ -164,7 +174,8 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
     const pendingPurpose = pendingRollPurpose(state);
     if (
       (action.payload.purpose.startsWith('first-player:') ||
-        action.payload.purpose.startsWith('move:')) &&
+        action.payload.purpose.startsWith('move:') ||
+        action.payload.purpose.startsWith('catch:')) &&
       action.payload.purpose !== pendingPurpose
     ) {
       return { rejected: true, reason: 'illegal_action', state };
@@ -186,6 +197,7 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       ...draw.events,
       ...recordFirstPlayerRoll(next, draw.value),
       ...recordMoveRoll(next, draw.value),
+      ...recordCatchRoll(next, draw.value),
     ];
     return {
       accepted: true,
@@ -254,7 +266,11 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
     next.phase.awaitingResult = true;
   }
   const events =
-    saleIds !== undefined ? recordSale(next, saleIds) : recordTurnCommand(next, action.kind);
+    saleIds !== undefined
+      ? recordSale(next, saleIds)
+      : next.config.engineVersion === ENGINE_VERSION && next.phase.kind === 'encounter'
+        ? confirmCatch(next, action)
+        : recordTurnCommand(next, action.kind);
   return {
     accepted: true,
     state: next,

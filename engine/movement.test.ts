@@ -92,7 +92,6 @@ test('landing exactly on Start pays once, while setup and a move before Start pa
 
 test.each([
   { progress: 18, position: 0, space: 'start' },
-  { progress: 19, position: 1, space: 'wild' },
   { progress: 20, position: 2, space: 'event' },
   { progress: 22, position: 4, space: 'shop' },
   { progress: 24, position: 6, space: 'gym' },
@@ -156,14 +155,18 @@ test('10,000 random single moves keep credit monotonic, positions bounded and mi
       (deltas) => {
         let state = movementState(0, 22);
         const rewarded = new Set<number>();
-        for (const delta of deltas) {
+        // Collect per-move violations and assert once, so 10,000 moves do not pay for 60,000 expects.
+        const violations: string[] = [];
+        deltas.forEach((delta, index) => {
           const previous = state.players[0]!;
           if (delta <= 0 || delta % 2 === 0) {
             state = forceMove(state, 0, delta);
-            expect(state.players[0]!.coins).toBe(previous.coins);
-            expect(state.players[0]!.highestRewardedMilestone).toBe(
-              previous.highestRewardedMilestone,
-            );
+            if (state.players[0]!.coins !== previous.coins) {
+              violations.push(`move ${index}: forced move changed coins`);
+            }
+            if (state.players[0]!.highestRewardedMilestone !== previous.highestRewardedMilestone) {
+              violations.push(`move ${index}: forced move changed the watermark`);
+            }
           } else {
             state.phase = { kind: 'move' };
             const result = move(state);
@@ -171,17 +174,25 @@ test('10,000 random single moves keep credit monotonic, positions bounded and mi
             for (const event of result.events) {
               if (event.kind !== 'coin_transfer') continue;
               const milestone = Math.floor(state.players[0]!.routeProgress / 24);
-              expect(rewarded.has(milestone)).toBe(false);
+              if (rewarded.has(milestone)) violations.push(`move ${index}: repaid ${milestone}`);
               rewarded.add(milestone);
             }
           }
           const player = state.players[0]!;
-          expect(player.creditedLap).toBeGreaterThanOrEqual(previous.creditedLap);
-          expect(player.creditedLap).toBe(rewarded.size);
-          expect(player.coins).toBe(20 + 5 * rewarded.size);
-          expect(positionOf(player.routeProgress)).toBeGreaterThanOrEqual(0);
-          expect(positionOf(player.routeProgress)).toBeLessThanOrEqual(23);
-        }
+          if (player.creditedLap < previous.creditedLap) {
+            violations.push(`move ${index}: credit decreased`);
+          }
+          if (player.creditedLap !== rewarded.size) {
+            violations.push(`move ${index}: credit ${player.creditedLap} != ${rewarded.size}`);
+          }
+          if (player.coins !== 20 + 5 * rewarded.size) {
+            violations.push(`move ${index}: coins ${player.coins}`);
+          }
+          const position = positionOf(player.routeProgress);
+          if (position < 0 || position > 23) violations.push(`move ${index}: position ${position}`);
+        });
+        expect(violations).toEqual([]);
+        expect(rewarded.size).toBeGreaterThan(0);
       },
     ),
     { numRuns: 1, seed: 22 },
@@ -282,4 +293,32 @@ test('a forced forward crossing earns nothing and cannot make a later paid miles
   const recrossed = move(pushed);
   expect(recrossed.state.players[0]).toMatchObject({ routeProgress: 48, coins: 25 });
   expect(recrossed.events.filter((event) => event.kind === 'coin_transfer')).toEqual([]);
+});
+
+test('Start income and Sell precede the Wild draw, whose release and movement replay exactly (§4.2, §4.5, §8)', () => {
+  const initial = movementState(19);
+  const log = createGameLog(initial);
+  const moved = move(initial);
+  log.actions.push(...moved.records);
+  expect(moved.state.phase).toEqual({ kind: 'sell', destinationPosition: 1 });
+  expect(moved.state.rng.cursor).toBe(1);
+  const sold = command(moved.state, 'finish_sell');
+  log.actions.push(sold.record);
+  expect(sold.state.phase).toEqual({ kind: 'resolve' });
+  expect(sold.state.rng.cursor).toBe(1);
+  const resolved = command(sold.state, 'skip');
+  log.actions.push(resolved.record);
+  expect(resolved.state.phase.kind).toBe('encounter');
+  expect(resolved.events).toEqual([
+    { kind: 'space_resolved', seatIndex: 0, position: 1 },
+    { kind: 'random_result', purpose: 'encounter:rarity', result: 0, drawCounter: 2 },
+    { kind: 'random_result', purpose: 'encounter:species', result: 0, drawCounter: 3 },
+    { kind: 'phase_changed', from: 'resolve', to: 'encounter' },
+  ]);
+  const released = command(resolved.state, 'release');
+  log.actions.push(released.record);
+  expect(released.state.phase.kind).toBe('end');
+  expect(released.state.players[0]).toMatchObject({ coins: 25, creditedLap: 1 });
+  expect(released.state.players[0]!.team).toEqual(initial.players[0]!.team);
+  expect(replay(JSON.parse(JSON.stringify(log)))).toEqual(released.state);
 });

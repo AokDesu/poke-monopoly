@@ -182,6 +182,8 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 - Every attempt consumes 1 Ball, success or failure. With no Ball the Pokémon must be released. The UI shows the success % for every Ball type held.
 - Main Character's first-catch bonus is used whenever a real roll is made, even on failure. Skipping an encounter does not use it.
 
+**C1 catching scope (#23):** the engine snapshots the chosen Ball and all modifiers before the logged roll, consuming one Ball and the turn's catch budget at confirmation. Ball bonuses are Poké +0, Great +1 and Ultra +2; class, Ability and item hooks return 0 this cycle. Success percentages and real modifier effects remain deferred. Caught instance IDs and `uid_created` events are created only when the Pokémon joins the team; encounter draws, failures and releases create no assets. See the [catching contract](engine-contract.md#wild-encounters-and-catching-issue-23).
+
 ### 4.4 Combat, Gym and Tired
 
 - Combat = `d6 + highest battle among non-tired members + classBonus + abilityBonus + itemBonus − debuffs`. Both sides confirm Abilities and reactions before the snapshot. No modifier may be added after seeing the result, except Porygon's reroll.
