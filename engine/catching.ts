@@ -1,10 +1,8 @@
+import { classBonus } from './classes.ts';
 import { int, weightedPick } from './rng.ts';
 import type { Action, EngineEvent, GameState } from './contract/schema.ts';
 
-// Reserved hooks: real class, Ability and item effects are deferred beyond this cycle.
-function classBonus(): number {
-  return 0;
-}
+// Reserved hooks: real Ability and item effects are deferred beyond this cycle.
 function abilityBonus(): number {
   return 0;
 }
@@ -28,7 +26,7 @@ export function confirmCatch(next: GameState, action: Action): EngineEvent[] {
   next.phase.catchRoll = {
     ballType: action.payload.ballType,
     catchDC: definition.dc,
-    classBonus: classBonus(),
+    classBonus: classBonus(next.content, player.classId, { kind: 'catch' }),
     ballBonus,
     abilityBonus: abilityBonus(),
     itemBonus: itemBonus(),

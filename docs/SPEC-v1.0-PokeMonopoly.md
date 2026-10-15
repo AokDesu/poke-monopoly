@@ -280,6 +280,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
    - `saleBasis`: Rescue = 0; an Original Starter still in base form = 5; everything else uses the Base Sale of its current form.
    - A tired Pokémon uses `round(saleBasis×0.8)` before the class bonus.
    - Class bonuses apply only in the Sell Phase at Start.
+   - **Approved rule (captain, 2026-10-07):** a once-per-Lap sale bonus such as the Researcher's applies once per Sell Phase, to the sold Pokémon with the highest `saleBasis` (ties broken by lowest instance ID), so the result never depends on the order the player lists them. A Rescue Starter never receives it, and selling nothing does not use it.
 3. **Game end:**
    - When the first player reaches the Lap target, announce the Final Table Round and play until every seat has had the same number of turns.
    - Remaining Pokémon are then auto-sold at `round(saleBasis×0.5)` with no class bonus.

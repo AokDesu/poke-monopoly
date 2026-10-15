@@ -40,7 +40,14 @@ export const contentSchema = z.strictObject({
     }),
   ),
   classes: z.array(
-    z.strictObject({ id, name: id, starterSpeciesIds: z.array(id).min(1), classItemId: id }),
+    z.strictObject({
+      id,
+      name: id,
+      starterSpeciesIds: z.array(id).min(1),
+      classItemId: id,
+      // Names an engine-owned passive; its numbers and timing live in engine/classes.ts.
+      passive: z.enum(['lap_first_sale_bonus']).optional(),
+    }),
   ),
   items: z.array(
     z.discriminatedUnion('kind', [
@@ -219,6 +226,7 @@ export const reasonCodeSchema = z.enum([
   'ITEMS_FULL',
   'NOT_YOUR_TURN',
   'ALREADY_USED_THIS_TURN',
+  'NO_VALID_TARGET',
 ]);
 export const disabledActionSchema = legalActionSchema.and(
   z.object({ reasonCode: reasonCodeSchema, reasonText: id }),
@@ -245,6 +253,8 @@ export const engineEventSchema = z.discriminatedUnion('kind', [
     destination: coinEndpointSchema,
     amount: count,
     reason: id,
+    // Current-version Pokémon sales show their parts, e.g. base 8 + class bonus 3.
+    sale: z.strictObject({ basePrice: count, classBonus: count }).optional(),
   }),
   z.strictObject({
     kind: z.literal('uid_created'),
