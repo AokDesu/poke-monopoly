@@ -85,40 +85,56 @@ test('Wild resolution draws a species with two logged RNG results and creates no
   expect(state).toEqual(before);
 });
 
-test('10,000 seed-1 Wild draws exclude starters/Porygon and preserve 50/33/17 rarity weights (§4.5, §8)', () => {
-  let state = encounter(1);
-  // Include each excluded species so exclusion is actually exercised.
-  for (const id of ['charmander', 'squirtle', 'porygon']) {
-    state.content.species.push({
-      ...state.content.species.find((entry) => entry.id === 'bulbasaur')!,
-      id,
-    });
-  }
-  const counts = { common: 0, uncommon: 0, rare: 0 };
-  const speciesCounts: Record<string, number> = {};
-  for (let draw = 0; draw < 10_000; draw++) {
-    state.phase = { kind: 'resolve' };
-    state.players[0]!.routeProgress = 1;
-    const result = command(state, 'skip');
-    state = result.state;
-    if (state.phase.kind !== 'encounter') throw new Error('Missing encounter');
-    const id = state.phase.pokemon.speciesId;
-    expect(['bulbasaur', 'charmander', 'squirtle', 'porygon']).not.toContain(id);
-    const species = state.content.species.find((entry) => entry.id === id)!;
-    counts[species.rarity]++;
-    speciesCounts[id] = (speciesCounts[id] ?? 0) + 1;
-    expect(result.events.filter((event) => event.kind === 'uid_created')).toEqual([]);
-    expect(state.rng.cursor).toBe((draw + 1) * 2);
-    state = command(state, 'release').state;
-  }
-  expect(Math.abs(counts.common / 10_000 - 0.5)).toBeLessThanOrEqual(0.03);
-  expect(Math.abs(counts.uncommon / 10_000 - 0.33)).toBeLessThanOrEqual(0.03);
-  expect(Math.abs(counts.rare / 10_000 - 0.17)).toBeLessThanOrEqual(0.03);
-  // The two common species must be picked uniformly, rather than by weight or DC.
-  expect(Math.abs(speciesCounts.caterpie! / counts.common - 0.5)).toBeLessThanOrEqual(0.03);
-  expect(Math.abs(speciesCounts.pidgey! / counts.common - 0.5)).toBeLessThanOrEqual(0.03);
-  expect(state.players[0]!.team).toHaveLength(1);
-});
+// 20,000 commands through the public applyAction seam, each structuredClone-ing state,
+// take ~4-6s depending on the runner, so this test gets an explicit budget above the 5s default.
+test(
+  '10,000 seed-1 Wild draws exclude starters/Porygon and preserve 50/33/17 rarity weights (§4.5, §8)',
+  {
+    timeout: 30_000,
+  },
+  () => {
+    let state = encounter(1);
+    // Include each excluded species so exclusion is actually exercised.
+    for (const id of ['charmander', 'squirtle', 'porygon']) {
+      state.content.species.push({
+        ...state.content.species.find((entry) => entry.id === 'bulbasaur')!,
+        id,
+      });
+    }
+    const excluded = new Set(['bulbasaur', 'charmander', 'squirtle', 'porygon']);
+    const rarityOf = new Map(state.content.species.map((entry) => [entry.id, entry.rarity]));
+    const counts = { common: 0, uncommon: 0, rare: 0 };
+    const speciesCounts: Record<string, number> = {};
+    // Collect per-draw violations and assert once, so 10,000 iterations do not pay for 40,000 expects.
+    const violations: string[] = [];
+    for (let draw = 0; draw < 10_000; draw++) {
+      state.phase = { kind: 'resolve' };
+      state.players[0]!.routeProgress = 1;
+      const result = command(state, 'skip');
+      state = result.state;
+      if (state.phase.kind !== 'encounter') throw new Error('Missing encounter');
+      const id = state.phase.pokemon.speciesId;
+      if (excluded.has(id)) violations.push(`draw ${draw}: excluded species ${id}`);
+      if (result.events.some((event) => event.kind === 'uid_created')) {
+        violations.push(`draw ${draw}: uid_created on encounter`);
+      }
+      if (state.rng.cursor !== (draw + 1) * 2) {
+        violations.push(`draw ${draw}: rng cursor ${state.rng.cursor}`);
+      }
+      counts[rarityOf.get(id)!]++;
+      speciesCounts[id] = (speciesCounts[id] ?? 0) + 1;
+      state = command(state, 'release').state;
+    }
+    expect(violations).toEqual([]);
+    expect(Math.abs(counts.common / 10_000 - 0.5)).toBeLessThanOrEqual(0.03);
+    expect(Math.abs(counts.uncommon / 10_000 - 0.33)).toBeLessThanOrEqual(0.03);
+    expect(Math.abs(counts.rare / 10_000 - 0.17)).toBeLessThanOrEqual(0.03);
+    // The two common species must be picked uniformly, rather than by weight or DC.
+    expect(Math.abs(speciesCounts.caterpie! / counts.common - 0.5)).toBeLessThanOrEqual(0.03);
+    expect(Math.abs(speciesCounts.pidgey! / counts.common - 0.5)).toBeLessThanOrEqual(0.03);
+    expect(state.players[0]!.team).toHaveLength(1);
+  },
+);
 
 test.each([
   { ballType: 'poke', seed: 1, die: 4, bonus: 0, succeeds: true },
