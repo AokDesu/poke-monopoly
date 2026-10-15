@@ -10,7 +10,7 @@ Source: spec §5.4 (`docs/SPEC-v1.0-PokeMonopoly.md`). Decision points and their
 - **Role-scoped:** send only what that seat can really see.
   - Public: board, coins, teams, Lap, ability readiness.
   - Own: hand, Balls, peek results, interactions.
-  - Never: Event order, opponents' secret items or RNG state.
+  - Never: Event order, opponents' secret items or Ball counts (§4.1), or RNG state.
 - **Numbers become named buckets**, e.g. `"win_chance": "low"` or `"coins_vs_you": "far ahead"`. Never send numbers for Jev to compare.
 - **Keep value types apart:** cash, expected sale value, benefit of keeping the team, risk and promises are separate buckets. They are never merged into one coin figure, and badges are never counted as coins.
 - **Wording:** questions and criteria are written **in English**, literally, with boundary cases spelled out in the criteria.
