@@ -295,6 +295,11 @@ test('repeated species get distinct team UIDs and pending/resolved catches resum
         state = result.state;
         log.actions.push(result.record);
       }
+    } else if (state.phase.kind === 'strategy') {
+      // Rival's Lucky Egg makes Strategy a real decision; this scenario uses no items.
+      const result = command(state, 'skip');
+      state = result.state;
+      log.actions.push(result.record);
     } else {
       const result = advanceAutomatically(state);
       expect(result.records).toHaveLength(1);
@@ -347,13 +352,13 @@ test('random legal turn sequences spend exactly the selected Ball on every attem
             expect(result.events.filter((event) => event.kind === 'uid_created')).toEqual([]);
             state = result.state;
             log.actions.push(result.record);
-          } else if (state.phase.kind === 'sell' || state.phase.kind === 'shop') {
-            // Sell (#24) and Shop (#29) are real decisions; this property keeps the team
-            // and buys nothing, so only catches change the pouch.
+          } else if (['sell', 'shop', 'strategy'].includes(state.phase.kind)) {
+            // Sell (#24), Shop (#29) and item use (#31) are real decisions; this property
+            // keeps the team, buys nothing and uses no items, so only catches change the pouch.
             const result =
               state.phase.kind === 'sell'
                 ? command(state, 'sell', { pokemonInstanceIds: [] })
-                : command(state, 'skip_shop');
+                : command(state, state.phase.kind === 'shop' ? 'skip_shop' : 'skip');
             expect(result.state.players.map((player) => player.balls)).toEqual(
               before.players.map((player) => player.balls),
             );
