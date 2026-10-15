@@ -132,7 +132,21 @@ export const phaseSchema = z.discriminatedUnion('kind', [
       'chat',
     ]),
   }),
-  z.strictObject({ kind: z.literal('encounter'), pokemon: pokemonInstanceSchema }),
+  z.strictObject({
+    kind: z.literal('encounter'),
+    // Historical fixtures used an instance; live draws have only a species until caught.
+    pokemon: z.union([pokemonInstanceSchema, z.strictObject({ speciesId: id })]),
+    catchRoll: z
+      .strictObject({
+        ballType,
+        catchDC: count,
+        classBonus: z.int(),
+        ballBonus: z.int(),
+        abilityBonus: z.int(),
+        itemBonus: z.int(),
+      })
+      .optional(),
+  }),
   z.strictObject({ kind: z.literal('sell'), destinationPosition: z.int().min(0).max(23) }),
   z.strictObject({ kind: z.literal('shop'), offers: z.array(shopOfferSchema) }),
 ]);
