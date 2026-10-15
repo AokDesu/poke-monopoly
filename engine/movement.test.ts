@@ -222,13 +222,14 @@ test('executors reject old turn-only version snapshots instead of silently chang
   expect(() => createGameLog(initial)).toThrow(/unsupported/i);
 });
 
-test('Sell finishes before the destination is resolved, with sales deferred (§4.2 steps 4–6, §4.7, §8)', () => {
+test('an empty Sell finishes before the destination is resolved (§4.2 steps 4–6, §4.7, §8)', () => {
   const movement = move(movementState());
   const finished = command(movement.state, 'finish_sell');
   expect(finished.state.phase).toEqual({ kind: 'resolve' });
   expect(finished.state.players).toEqual(movement.state.players);
   expect(legalActions(movement.state, 0).enabled.map((choice) => choice.kind)).toEqual([
-    'finish_sell',
+    'sell',
+    'sell',
   ]);
   const resolved = command(finished.state, 'skip');
   expect(resolved.state.phase).toEqual({ kind: 'end' });

@@ -9,6 +9,7 @@ import {
   recordTurnCommand,
 } from '../turns.ts';
 import { ENGINE_VERSION } from '../versions.ts';
+import { recordSale, validSale } from '../selling.ts';
 import type {
   GameState,
   Observation,
@@ -105,14 +106,20 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
     result.enabled.push({ id: 'release', kind: 'release', payload: {} });
   }
   if (state.phase.kind === 'sell') {
-    for (const pokemon of state.config.engineVersion === ENGINE_VERSION ? [] : player.team) {
+    for (const pokemon of player.team) {
+      if (state.config.engineVersion === ENGINE_VERSION && !validSale(state, [pokemon.instanceId]))
+        continue;
       result.enabled.push({
         id: `sell:${pokemon.instanceId}`,
         kind: 'sell',
         payload: { pokemonInstanceIds: [pokemon.instanceId] },
       });
     }
-    result.enabled.push({ id: 'finish-sell', kind: 'finish_sell', payload: {} });
+    result.enabled.push(
+      state.config.engineVersion === ENGINE_VERSION
+        ? { id: 'finish-sell', kind: 'sell', payload: { pokemonInstanceIds: [] } }
+        : { id: 'finish-sell', kind: 'finish_sell', payload: {} },
+    );
   }
   if (state.phase.kind === 'shop') {
     for (const offer of state.phase.offers) {
@@ -220,12 +227,24 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
   if (!actor || action.actorId !== actor.actorId) {
     return { rejected: true, reason: 'wrong_actor', state };
   }
+  // Batch selection is validated as a whole rather than enumerating a team's power set.
+  // Retain #22's finish_sell command as an empty-sale compatibility alias.
+  const saleIds =
+    state.config.engineVersion === ENGINE_VERSION
+      ? action.kind === 'sell'
+        ? action.payload.pokemonInstanceIds
+        : action.kind === 'finish_sell'
+          ? []
+          : undefined
+      : undefined;
   if (
-    !legalActions(state, state.activeSeatIndex).enabled.some(
-      (choice) =>
-        choice.kind === action.kind &&
-        JSON.stringify(choice.payload) === JSON.stringify(action.payload),
-    )
+    !(saleIds !== undefined
+      ? validSale(state, saleIds)
+      : legalActions(state, state.activeSeatIndex).enabled.some(
+          (choice) =>
+            choice.kind === action.kind &&
+            JSON.stringify(choice.payload) === JSON.stringify(action.payload),
+        ))
   ) {
     return { rejected: true, reason: 'illegal_action', state };
   }
@@ -234,7 +253,8 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
   if (next.phase.kind === 'first_player_roll' && action.kind === 'roll') {
     next.phase.awaitingResult = true;
   }
-  const events = recordTurnCommand(next, action.kind);
+  const events =
+    saleIds !== undefined ? recordSale(next, saleIds) : recordTurnCommand(next, action.kind);
   return {
     accepted: true,
     state: next,

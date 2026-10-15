@@ -280,6 +280,21 @@ test('40 turns with 3 seats keep global and own counters separate and replay exa
     expect(state.turnBudgets).toEqual({ tacticalAction: 1, catchAttempt: 1, pokemonAbility: 1 });
     if (turn === 40) break;
     for (let step = 0; step < 8; step++) {
+      // Sell now exposes a real decision; this turn-order scenario keeps the team.
+      if (state.phase.kind === 'sell') {
+        const kept = applyAction(state, {
+          actorId: state.players.find((player) => player.seatIndex === state.activeSeatIndex)!
+            .actorId,
+          actionSeq: state.stateRevision + 1,
+          stateRevisionBefore: state.stateRevision,
+          kind: 'sell',
+          payload: { pokemonInstanceIds: [] },
+        });
+        if ('rejected' in kept) throw new Error(kept.reason);
+        state = kept.state;
+        log.actions.push(kept.record);
+        continue;
+      }
       const result = advanceAutomatically(state);
       expect(result.records).toHaveLength(1);
       state = result.state;
