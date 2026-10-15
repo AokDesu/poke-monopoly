@@ -194,17 +194,26 @@ function startedGame(): { state: GameState; log: GameLog } {
 
 // Wild spaces now require a deliberate player choice; keep turn-flow tests on release.
 function advanceOrRelease(state: GameState) {
-  if (state.phase.kind !== 'encounter' && state.phase.kind !== 'sell') {
+  // Encounter, Sell, Shop and item use (Rival's Lucky Egg) are real decisions; these
+  // turn-flow scenarios decline all of them and keep the team.
+  if (!['encounter', 'sell', 'shop', 'strategy'].includes(state.phase.kind)) {
     return advanceAutomatically(state);
   }
-  // Sell and Encounter expose real decisions; these turn-order scenarios keep the team.
   const result = applyAction(state, {
     actorId: state.players[state.activeSeatIndex]!.actorId,
     actionSeq: state.stateRevision + 1,
     stateRevisionBefore: state.stateRevision,
     ...(state.phase.kind === 'sell'
       ? { kind: 'sell' as const, payload: { pokemonInstanceIds: [] } }
-      : { kind: 'release' as const, payload: {} }),
+      : {
+          kind:
+            state.phase.kind === 'shop'
+              ? ('skip_shop' as const)
+              : state.phase.kind === 'strategy'
+                ? ('skip' as const)
+                : ('release' as const),
+          payload: {},
+        }),
   });
   if ('rejected' in result) throw new Error(result.reason);
   return { state: result.state, records: [result.record], events: result.events };

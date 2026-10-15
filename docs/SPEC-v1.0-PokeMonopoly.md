@@ -115,6 +115,7 @@ Every case needs a test that can actually reach it ("You cannot test what you ca
 | Shortlist empty after personality filtering | Include at least one option per legal action kind; if still empty, skip |
 | Pokémon found but no Ball | The only option is to release; the catch button is greyed out with the reason "No Ball" |
 | Not enough coins for anything in the Shop | Items are greyed out with "Not enough coins", plus a skip button |
+| Holding 4 utility items in the Shop | Utility-item offers are greyed out with "Items full"; Balls stay buyable (approved 2026-10-07) |
 | Jev times out, returns 429 or errors mid-deal | The fallback policy decides under the same concession budget; the deal does not commit until re-confirmed |
 | Jev's answer is not among the options, or the revision does not match | Discard the answer, use the fallback, and log `fallbackReason` |
 | Confidence below the floor | Apply the rule in §5.6 |
@@ -182,7 +183,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 - Every attempt consumes 1 Ball, success or failure. With no Ball the Pokémon must be released. The UI shows the success % for every Ball type held.
 - Main Character's first-catch bonus is used whenever a real roll is made, even on failure. Skipping an encounter does not use it.
 
-**C1 catching scope (#23):** the engine snapshots the chosen Ball and all modifiers before the logged roll, consuming one Ball and the turn's catch budget at confirmation. Ball bonuses are Poké +0, Great +1 and Ultra +2; class, Ability and item hooks return 0 this cycle. Real modifier effects remain deferred; exact success percentages come from the engine's odds API (#32), which runs every d6 face through the same resolver. See also the [odds contract](engine-contract.md#catch-odds-and-disabled-reasons-issue-32). Caught instance IDs and `uid_created` events are created only when the Pokémon joins the team; encounter draws, failures and releases create no assets. See the [catching contract](engine-contract.md#wild-encounters-and-catching-issue-23).
+**C1 catching scope (#23):** the engine snapshots the chosen Ball and all modifiers before the logged roll, consuming one Ball and the turn's catch budget at confirmation. Ball bonuses are Poké +0, Great +1 and Ultra +2; class hooks go through the #30 dispatcher (no class has a catch passive yet), the Ability hook returns 0 this cycle, and the item hook returns Lucky Egg's +1 from C2 (#31, §4.6). Other real modifier effects remain deferred; exact success percentages come from the engine's odds API (#32), which runs every d6 face through the same resolver. See also the [odds contract](engine-contract.md#catch-odds-and-disabled-reasons-issue-32). Caught instance IDs and `uid_created` events are created only when the Pokémon joins the team; encounter draws, failures and releases create no assets. See the [catching contract](engine-contract.md#wild-encounters-and-catching-issue-23).
 
 ### 4.4 Combat, Gym and Tired
 
@@ -236,6 +237,10 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 
 - Always shows all 3 Balls plus 2 distinct random utility items.
 - Buy at most 1 unit or skip; no refresh.
+
+**C2 Shop scope (#29):** the utility-item pool this cycle is Lucky Egg, Repel and Pickpocket, and the 2 items are drawn with the logged RNG. Payment goes to the bank; bought items are secret. See the [Shop contract](engine-contract.md#shop-issue-29).
+
+**C2 item scope (#31), approved defaults (captain, 2026-10-07):** in Strategy a player may use one Lucky Egg, Repel or Pickpocket per turn, spending the turn's `tacticalAction`; the used item instance is removed and logged. **Lucky Egg** gives +1 to the user's own catch roll until the end of that turn and no movement bonus. **Repel** records a pending slow on the target: its next actual move is `max(1, d6 − 2)`, after which the slow clears. **Pickpocket** moves `min(5, target coins)` from the target to the user. The hostile-item and slowing rules below apply. A second item use in the same turn is greyed out with "Tactical action already used this turn"; an invalid target is greyed out with "Target has no coins" or "Target is already slowed". Each item has its own instance ID; class items are public and items bought after setup are secret. Combat bonuses, Price Shield, Sticky Web, Battle Ticket and Potion remain deferred. See the [item contract](engine-contract.md#utility-items-issue-31).
 
 **Hostile items: Repel, Sticky Web, Pickpocket and Battle Ticket**
 

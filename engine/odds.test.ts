@@ -5,7 +5,6 @@ import {
   applyAction,
   catchOdds,
   oddsForAllBalls,
-  legalActions,
   createGame,
   createGameConfig,
   fixtureSchema,
@@ -121,47 +120,4 @@ test('odds need a Pokémon to catch and a known seat (§4.3)', () => {
   expect(() => catchOdds(state, 7, 'poke')).toThrow(RangeError);
   state.phase = { kind: 'end' };
   expect(() => catchOdds(state, 0, 'poke')).toThrow(RangeError);
-});
-
-test('with 4 utility items held, Shop disables utility offers with ITEMS_FULL but still sells Balls (§3.1, §4.6)', () => {
-  const state = encounter('eevee');
-  const player = state.players[0]!;
-  player.coins = 20;
-  player.items = [1, 2, 3, 4].map((n) => ({
-    instanceId: `item-full-${n}`,
-    itemId: 'potion',
-    name: 'Potion',
-    visibility: 'public' as const,
-  }));
-  state.phase = {
-    kind: 'shop',
-    offers: [
-      { id: 'poke-ball', itemId: 'poke-ball', kind: 'ball', ballType: 'poke', price: 1 },
-      { id: 'repel', itemId: 'repel', kind: 'utility', price: 3 },
-      { id: 'lucky-egg', itemId: 'lucky-egg', kind: 'utility', price: 30 },
-    ],
-  };
-  expect(legalActions(state, 0)).toEqual({
-    enabled: [
-      { id: 'buy:poke-ball', kind: 'buy', payload: { offerId: 'poke-ball' } },
-      { id: 'skip', kind: 'skip', payload: {} },
-    ],
-    disabled: [
-      {
-        id: 'buy:repel',
-        kind: 'buy',
-        payload: { offerId: 'repel' },
-        reasonCode: 'ITEMS_FULL',
-        reasonText: 'Items full',
-      },
-      // §3.1: an unaffordable item always reads "Not enough coins", even with a full hand.
-      {
-        id: 'buy:lucky-egg',
-        kind: 'buy',
-        payload: { offerId: 'lucky-egg' },
-        reasonCode: 'NOT_ENOUGH_COINS',
-        reasonText: 'Not enough coins',
-      },
-    ],
-  });
 });

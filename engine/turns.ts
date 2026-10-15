@@ -1,6 +1,8 @@
 import type { GameState, EngineEvent } from './contract/schema.ts';
 import { ENGINE_VERSION } from './versions.ts';
 import { drawEncounter } from './catching.ts';
+import { openShop } from './shop.ts';
+import { slowedSteps } from './items.ts';
 import { positionOf } from './contract/position.ts';
 
 /** Internal transitions operate only on the executor's detached next snapshot. */
@@ -9,6 +11,7 @@ function startTurn(next: GameState, seatIndex: number): void {
   next.globalTurnNo++;
   next.players.find((player) => player.seatIndex === seatIndex)!.ownTurnNo++;
   next.turnBudgets = { tacticalAction: 1, catchAttempt: 1, pokemonAbility: 1 };
+  delete next.turnEffects;
   next.phase = { kind: 'start' };
 }
 
@@ -32,7 +35,7 @@ export function recordMoveRoll(next: GameState, value: number): EngineEvent[] {
   if (next.phase.kind !== 'move' || !next.phase.awaitingResult) return [];
   const player = next.players.find((entry) => entry.seatIndex === next.activeSeatIndex)!;
   const previousMilestone = Math.floor(player.routeProgress / 24);
-  player.routeProgress += value;
+  player.routeProgress += slowedSteps(player, value);
   const milestone = Math.floor(player.routeProgress / 24);
   const highestRewardedMilestone = player.highestRewardedMilestone ?? player.creditedLap;
   if (milestone > previousMilestone && milestone > highestRewardedMilestone) {
@@ -101,9 +104,10 @@ function resolveDestination(next: GameState): EngineEvent[] {
         { kind: 'space_resolved', seatIndex: player.seatIndex, position },
         ...drawEncounter(next),
       ];
+    case 'shop':
+      return [{ kind: 'space_resolved', seatIndex: player.seatIndex, position }, ...openShop(next)];
     case 'start':
     case 'event':
-    case 'shop':
     case 'gym':
       return [{ kind: 'space_resolved', seatIndex: player.seatIndex, position }];
   }

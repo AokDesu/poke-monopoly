@@ -6,12 +6,13 @@ type BallType = keyof Player['balls'];
 
 type CatchRoll = NonNullable<Extract<GameState['phase'], { kind: 'encounter' }>['catchRoll']>;
 
-// Reserved hooks: real Ability and item effects are deferred beyond this cycle.
+// Reserved hook: real Ability effects are deferred beyond this cycle.
 function abilityBonus(): number {
   return 0;
 }
-function itemBonus(): number {
-  return 0;
+/** Lucky Egg's +1 lasts until the end of the turn it was used in (Appendix A). */
+function itemBonus(state: GameState): number {
+  return state.turnEffects?.itemBonus ?? 0;
 }
 
 /**
@@ -29,7 +30,7 @@ export function catchSnapshot(state: GameState, player: Player, ballType: BallTy
     classBonus: classBonus(state.content, player.classId, { kind: 'catch' }),
     ballBonus: { poke: 0, great: 1, ultra: 2 }[ballType],
     abilityBonus: abilityBonus(),
-    itemBonus: itemBonus(),
+    itemBonus: itemBonus(state),
   };
 }
 
