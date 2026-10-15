@@ -264,6 +264,11 @@ export const engineEventSchema = z.discriminatedUnion('kind', [
     position: z.int().min(0).max(23),
   }),
   z.strictObject({ kind: z.literal('phase_changed'), from: id, to: id }),
+  z.strictObject({
+    kind: z.literal('final_table_round'),
+    triggerSeatIndex: count,
+    targetOwnTurnNo: count,
+  }),
 ]);
 export const observationSchema = z.strictObject({
   public: z.strictObject({

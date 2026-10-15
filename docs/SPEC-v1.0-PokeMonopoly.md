@@ -137,6 +137,8 @@ UI house rules (kept as `skills/ui-rules/SKILL.md`):
 
 All content tables are in Appendix A.
 
+Wherever this specification uses `round`, a half rounds up (approved 2026-10-07): `round(5×0.5)` is 3 and `round(12×0.5)` is 6.
+
 ### 4.1 Setup and board
 
 - **Board:** 24 spaces, made up of Start 1, Wild 11, Event 5, Shop 4 and Gym 3 (spaces 6/12/18).
