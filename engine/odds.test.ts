@@ -121,3 +121,45 @@ test('odds need a Pokémon to catch and a known seat (§4.3)', () => {
   state.phase = { kind: 'end' };
   expect(() => catchOdds(state, 0, 'poke')).toThrow(RangeError);
 });
+
+test('an active Lucky Egg lowers the roll needed by one for every Ball that turn (§4.3, §4.6)', () => {
+  const state = encounter('eevee');
+  state.phase = { kind: 'strategy' };
+  state.turnBudgets.tacticalAction = 1;
+  state.players[0]!.items.push({
+    instanceId: 'egg',
+    itemId: 'lucky-egg',
+    name: 'Lucky Egg',
+    visibility: 'secret',
+  });
+  const used = applyAction(state, {
+    actorId: 'player-0',
+    actionSeq: 1,
+    stateRevisionBefore: 0,
+    kind: 'use_item',
+    payload: { itemInstanceId: 'egg' },
+  });
+  if ('rejected' in used) throw new Error(used.reason);
+  // Same turn, now facing the DC 4 Eevee.
+  const facing = {
+    ...used.state,
+    phase: { kind: 'encounter' as const, pokemon: { speciesId: 'eevee' } },
+  };
+  expect(oddsForAllBalls(facing, 0)).toEqual([
+    { ballType: 'poke', needed: 3, successFaces: 4, probability: 4 / 6, percent: 67 },
+    { ballType: 'great', needed: 2, successFaces: 5, probability: 5 / 6, percent: 83 },
+  ]);
+});
+
+test("class bonuses reach the odds through the class dispatcher: the Researcher's sale bonus adds nothing to a catch (§4.3, §4.7)", () => {
+  const state = encounter('eevee');
+  state.content.classes.push({
+    id: 'researcher',
+    name: 'Researcher',
+    starterSpeciesIds: ['bulbasaur'],
+    classItemId: 'great-ball',
+    passive: 'lap_first_sale_bonus',
+  });
+  state.players[0]!.classId = 'researcher';
+  expect(catchOdds(state, 0, 'poke')).toMatchObject({ needed: 4, successFaces: 3, percent: 50 });
+});
