@@ -10,6 +10,7 @@ import {
 } from '../turns.ts';
 import { confirmCatch, recordCatchRoll } from '../catching.ts';
 import { confirmShop } from '../shop.ts';
+import { itemChoices, useItem } from '../items.ts';
 import { ENGINE_VERSION } from '../versions.ts';
 import { recordSale, validSale } from '../selling.ts';
 import type {
@@ -78,6 +79,8 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
     result.enabled.push({ id: 'roll', kind: 'roll', payload: {} });
   }
   if (state.phase.kind === 'strategy') {
+    if (state.config.engineVersion === ENGINE_VERSION) itemChoices(state, seatIndex, result);
+    // Historical fixtures retain their illustrative untargeted item choices.
     for (const item of state.config.engineVersion === ENGINE_VERSION ? [] : player.items) {
       result.enabled.push({
         id: `use-item:${item.instanceId}`,
@@ -298,7 +301,9 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
           ? confirmCatch(next, action)
           : next.phase.kind === 'shop'
             ? confirmShop(next, action)
-            : recordTurnCommand(next, action.kind);
+            : action.kind === 'use_item'
+              ? useItem(next, action)
+              : recordTurnCommand(next, action.kind);
   return {
     accepted: true,
     state: next,

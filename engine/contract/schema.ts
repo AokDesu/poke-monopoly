@@ -104,6 +104,8 @@ export const playerSchema = z.strictObject({
   // Optional only for historical contract snapshots; new games always initialize it.
   highestRewardedMilestone: count.optional(),
   ownTurnNo: count,
+  // Slowing effects waiting for this player's next actual move (§4.6); absent when none.
+  pendingSlows: z.array(z.enum(['repel'])).optional(),
   team: z.array(pokemonInstanceSchema),
   balls: ballPouchSchema,
   items: z.array(itemInstanceSchema).max(4),
@@ -176,6 +178,8 @@ export const gameStateSchema = z.strictObject({
     pokemonAbility: count,
   }),
   finalTableRound: finalTableRoundSchema,
+  // Active-turn item effects, cleared when the next turn starts; absent when none.
+  turnEffects: z.strictObject({ itemBonus: z.int() }).optional(),
   rng: z.strictObject({ cursor: count, state: id }),
   eventDeck: z.strictObject({ drawPile: z.array(id), discardPile: z.array(id) }),
 });
@@ -199,7 +203,10 @@ const actionBodySchema = z.discriminatedUnion('kind', [
     payload: z.strictObject({}),
   }),
   z.object({ kind: z.literal('catch'), payload: z.strictObject({ ballType }) }),
-  z.object({ kind: z.literal('use_item'), payload: z.strictObject({ itemInstanceId: id }) }),
+  z.object({
+    kind: z.literal('use_item'),
+    payload: z.strictObject({ itemInstanceId: id, targetSeatIndex: count.optional() }),
+  }),
   z.object({
     kind: z.literal('sell'),
     payload: z.strictObject({ pokemonInstanceIds: z.array(id) }),
