@@ -114,10 +114,14 @@ function resolveDestination(next: GameState): EngineEvent[] {
         { kind: 'space_resolved', seatIndex: player.seatIndex, position },
         ...drawEncounter(next),
       ];
-    case 'start':
     case 'event':
-    case 'shop':
     case 'gym':
+      // Events arrive in cycle 4 and Gyms in cycle 3; until then landing is a logged no-op.
+      return [
+        { kind: 'space_resolved', seatIndex: player.seatIndex, position, effect: 'none_yet' },
+      ];
+    case 'start':
+    case 'shop':
       return [{ kind: 'space_resolved', seatIndex: player.seatIndex, position }];
   }
 }

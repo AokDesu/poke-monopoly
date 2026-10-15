@@ -146,6 +146,8 @@ Wherever this specification uses `round`, a half rounds up (approved 2026-10-07)
 - **Hidden information:** the starting kit is public; utility items gained later are secret.
 - **Start income:** the owner's forward movement passing or landing on a new Start milestone pays 5 coins from the bank, once per rewarded milestone (§6.5). Forced movement pays nothing. Nothing is paid at setup.
 
+**C2 placeholder scope (#34, decided in that issue):** until Gyms (C3) and Events (C4) land, landing on an Event or Gym space is an explicit no-op logged as `space_resolved` with `effect: "none_yet"`, so the UI can say nothing happens there yet. It changes no coins, items or Pokémon. Setup offers the Quick 2 Laps preset; the Standard 3 Laps preset exists but is flagged closed until playtest (§1), and the sim can still run it with `--lap-target 3`. See the [engine contract](engine-contract.md#c2-presets-and-placeholder-spaces-issue-34).
+
 ### 4.2 Turn structure and action budgets
 
 Turn order:

@@ -1,8 +1,21 @@
 import type { EngineEvent, GameState } from './contract/schema.ts';
 import { saleBasis } from './selling.ts';
 
-/** Paid Laps that trigger the Final Table Round: Quick is core, Standard opens later (§1). */
-export const LAP_TARGETS = { quick: 2, standard: 3 } as const;
+/**
+ * Setup presets (§1): Quick 2 Laps is core; Standard 3 Laps stays closed to players until the
+ * playtest confirms the session length. `enabled` gates the setup screen only; the engine and
+ * sim still run any positive Lap target.
+ */
+export const GAME_PRESETS = {
+  quick: { lapTarget: 2, enabled: true },
+  standard: { lapTarget: 3, enabled: false },
+} as const;
+
+/** Paid Laps that trigger the Final Table Round for each preset. */
+export const LAP_TARGETS = {
+  quick: GAME_PRESETS.quick.lapTarget,
+  standard: GAME_PRESETS.standard.lapTarget,
+} as const;
 
 /**
  * Auto-sells every remaining non-Rescue Pokémon at half Sale Basis with no class bonus, then

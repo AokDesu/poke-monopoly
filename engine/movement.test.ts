@@ -91,19 +91,19 @@ test('landing exactly on Start pays once, while setup and a move before Start pa
 });
 
 test.each([
-  { progress: 18, position: 0, space: 'start' },
-  { progress: 20, position: 2, space: 'event' },
-  { progress: 22, position: 4, space: 'shop' },
-  { progress: 24, position: 6, space: 'gym' },
+  { progress: 18, position: 0, space: 'start', effect: {} },
+  { progress: 20, position: 2, space: 'event', effect: { effect: 'none_yet' } },
+  { progress: 22, position: 4, space: 'shop', effect: {} },
+  { progress: 24, position: 6, space: 'gym', effect: { effect: 'none_yet' } },
 ])(
   'the $space destination logs resolution without gameplay effects (§4.2)',
-  ({ progress, position }) => {
+  ({ progress, position, effect }) => {
     let state = move(movementState(progress)).state;
     if (state.phase.kind === 'sell') state = command(state, 'finish_sell').state;
     const before = structuredClone(state);
     const result = command(state, 'skip');
     expect(result.events).toEqual([
-      { kind: 'space_resolved', seatIndex: 0, position },
+      { kind: 'space_resolved', seatIndex: 0, position, ...effect },
       { kind: 'phase_changed', from: 'resolve', to: 'end' },
     ]);
     expect(result.state.players).toEqual(before.players);
@@ -255,7 +255,7 @@ test('an empty Sell finishes before the destination is resolved (§4.2 steps 4�
     'phase_changed',
   ]);
   expect(resolved.events).toEqual([
-    { kind: 'space_resolved', seatIndex: 0, position: 2 },
+    { kind: 'space_resolved', seatIndex: 0, position: 2, effect: 'none_yet' },
     { kind: 'phase_changed', from: 'resolve', to: 'end' },
   ]);
 });

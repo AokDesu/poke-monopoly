@@ -6,6 +6,7 @@ import {
   createGameConfig,
   createGameLog,
   fixtureSchema,
+  GAME_PRESETS,
   legalActions,
   LAP_TARGETS,
   replay,
@@ -219,6 +220,26 @@ test('leftover Pokémon auto-sell at half Sale Basis rounded half up, without Re
 
 test('Quick and Standard modes use Lap targets 2 and 3 (§1 delivery scope)', () => {
   expect(LAP_TARGETS).toEqual({ quick: 2, standard: 3 });
+});
+
+test('Quick 2 Laps is open; Standard 3 Laps exists but stays closed until playtest (§1)', () => {
+  expect(GAME_PRESETS).toEqual({
+    quick: { lapTarget: 2, enabled: true },
+    standard: { lapTarget: 3, enabled: false },
+  });
+});
+
+test('a 2-seat Quick game ends after two paid Laps with equal turns for every seat (§1, §4.7 step 3)', () => {
+  const { state: ended } = playToEnd(startedGame(2, GAME_PRESETS.quick.lapTarget, 5), 3000);
+  expect(ended.phase.kind).toBe('finished');
+  const trigger = ended.players.find(
+    (player) => player.seatIndex === ended.finalTableRound!.triggerSeatIndex,
+  )!;
+  expect(trigger.creditedLap).toBe(2);
+  expect(ended.players.map((player) => player.ownTurnNo)).toEqual([
+    trigger.ownTurnNo,
+    trigger.ownTurnNo,
+  ]);
 });
 
 test.each([1, LAP_TARGETS.quick, LAP_TARGETS.standard])(

@@ -262,6 +262,7 @@ export const engineEventSchema = z.discriminatedUnion('kind', [
     kind: z.literal('space_resolved'),
     seatIndex: count,
     position: z.int().min(0).max(23),
+    effect: z.literal('none_yet').optional(),
   }),
   z.strictObject({ kind: z.literal('phase_changed'), from: id, to: id }),
   z.strictObject({
