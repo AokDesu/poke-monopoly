@@ -115,6 +115,7 @@ Every case needs a test that can actually reach it ("You cannot test what you ca
 | Shortlist empty after personality filtering | Include at least one option per legal action kind; if still empty, skip |
 | Pokémon found but no Ball | The only option is to release; the catch button is greyed out with the reason "No Ball" |
 | Not enough coins for anything in the Shop | Items are greyed out with "Not enough coins", plus a skip button |
+| Holding 4 utility items in the Shop | Utility-item offers are greyed out with "Items full"; Balls stay buyable (approved 2026-10-07) |
 | Jev times out, returns 429 or errors mid-deal | The fallback policy decides under the same concession budget; the deal does not commit until re-confirmed |
 | Jev's answer is not among the options, or the revision does not match | Discard the answer, use the fallback, and log `fallbackReason` |
 | Confidence below the floor | Apply the rule in §5.6 |
@@ -236,6 +237,8 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 
 - Always shows all 3 Balls plus 2 distinct random utility items.
 - Buy at most 1 unit or skip; no refresh.
+
+**C2 Shop scope (#29):** the utility-item pool this cycle is Lucky Egg, Repel and Pickpocket, and the 2 items are drawn with the logged RNG. Payment goes to the bank; bought items are secret; item effects remain deferred. See the [Shop contract](engine-contract.md#shop-issue-29).
 
 **Hostile items: Repel, Sticky Web, Pickpocket and Battle Ticket**
 

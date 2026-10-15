@@ -1,6 +1,7 @@
 import type { GameState, EngineEvent } from './contract/schema.ts';
 import { ENGINE_VERSION } from './versions.ts';
 import { drawEncounter } from './catching.ts';
+import { openShop } from './shop.ts';
 import { positionOf } from './contract/position.ts';
 
 /** Internal transitions operate only on the executor's detached next snapshot. */
@@ -101,9 +102,10 @@ function resolveDestination(next: GameState): EngineEvent[] {
         { kind: 'space_resolved', seatIndex: player.seatIndex, position },
         ...drawEncounter(next),
       ];
+    case 'shop':
+      return [{ kind: 'space_resolved', seatIndex: player.seatIndex, position }, ...openShop(next)];
     case 'start':
     case 'event':
-    case 'shop':
     case 'gym':
       return [{ kind: 'space_resolved', seatIndex: player.seatIndex, position }];
   }

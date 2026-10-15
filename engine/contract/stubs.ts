@@ -9,6 +9,7 @@ import {
   recordTurnCommand,
 } from '../turns.ts';
 import { confirmCatch, recordCatchRoll } from '../catching.ts';
+import { confirmShop } from '../shop.ts';
 import { ENGINE_VERSION } from '../versions.ts';
 import { recordSale, validSale } from '../selling.ts';
 import type {
@@ -138,7 +139,10 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
         kind: 'buy',
         payload: { offerId: offer.id },
       };
-      if (player.coins < offer.price) {
+      // Approved §3.1 rule: a full hand disables item offers, never Balls.
+      if (offer.kind === 'utility' && player.items.length >= 4) {
+        result.disabled.push({ ...action, reasonCode: 'ITEMS_FULL', reasonText: 'Items full' });
+      } else if (player.coins < offer.price) {
         result.disabled.push({
           ...action,
           reasonCode: 'NOT_ENOUGH_COINS',
@@ -148,7 +152,11 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
         result.enabled.push(action);
       }
     }
-    result.enabled.push({ id: 'skip', kind: 'skip', payload: {} });
+    result.enabled.push(
+      state.config.engineVersion === ENGINE_VERSION
+        ? { id: 'skip-shop', kind: 'skip_shop', payload: {} }
+        : { id: 'skip', kind: 'skip', payload: {} },
+    );
   }
   return result;
 }
@@ -268,9 +276,13 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
   const events =
     saleIds !== undefined
       ? recordSale(next, saleIds)
-      : next.config.engineVersion === ENGINE_VERSION && next.phase.kind === 'encounter'
-        ? confirmCatch(next, action)
-        : recordTurnCommand(next, action.kind);
+      : next.config.engineVersion !== ENGINE_VERSION
+        ? recordTurnCommand(next, action.kind)
+        : next.phase.kind === 'encounter'
+          ? confirmCatch(next, action)
+          : next.phase.kind === 'shop'
+            ? confirmShop(next, action)
+            : recordTurnCommand(next, action.kind);
   return {
     accepted: true,
     state: next,

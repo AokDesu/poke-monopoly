@@ -12,8 +12,8 @@ import {
   createGameLog,
   replay,
   createGameConfig,
-  d6,
   gameLogSchema,
+  legalActions,
 } from './index.ts';
 import fixture from './fixtures/start-of-game-2p.json';
 import shopFixture from './fixtures/shop-low-coins.json';
@@ -358,10 +358,10 @@ test('an auto marker is valid only for the sole enabled player choice (§3.1)', 
     actorId: 'player-0',
     actionSeq: 1,
     stateRevisionBefore: 0,
-    kind: 'skip',
+    kind: 'skip_shop',
     payload: {},
   });
-  if (!('accepted' in result)) throw new Error('skip rejected');
+  if (!('accepted' in result)) throw new Error('skip_shop rejected');
   log.actions.push({ ...result.record, auto: true });
   expect(() => replay(log)).toThrow(/auto/i);
 });
@@ -426,7 +426,6 @@ fcTest.prop([fc.jsonValue()])(
 test('200 accepted player and generated records have no sequence gaps and replay deterministically (§6.3, §6.8)', () => {
   function play() {
     let state = randomState();
-    state.phase = { kind: 'shop', offers: [] };
     state.eventDeck = { drawPile: ['a', 'b', 'c'], discardPile: [] };
     const log = createGameLog(state);
     function accept(body: { actorId: string; kind: string; payload: unknown }) {
@@ -448,17 +447,30 @@ test('200 accepted player and generated records have no sequence gaps and replay
       payload: { deckId: 'events', order: ['c', 'a', 'b'] },
     });
     accept({ actorId: 'engine', kind: 'event_draw', payload: { eventId: 'c' } });
-    for (let i = 0; i < 99; i++) {
-      accept({ actorId: 'player-0', kind: 'skip', payload: {} });
+    // Walk real turns: generated dice and sole choices advance automatically; at a
+    // decision the active player takes the last enabled choice (keep, release or skip).
+    while (log.actions.length < 200) {
+      const automatic = advanceAutomatically(state);
+      if (automatic.records.length === 1) {
+        expect(automatic.records[0]!.action.actionSeq).toBe(state.stateRevision + 1);
+        log.actions.push(...automatic.records);
+        state = automatic.state;
+        continue;
+      }
+      const choice = legalActions(state, state.activeSeatIndex).enabled.at(-1)!;
       accept({
-        actorId: 'engine',
-        kind: 'dice_result',
-        payload: { purpose: 'synthetic-die', value: d6(state.rng).value },
+        actorId: state.players[state.activeSeatIndex]!.actorId,
+        kind: choice.kind,
+        payload: choice.payload,
       });
     }
     expect(log.actions).toHaveLength(200);
+    expect(log.actions.map((record) => record.action.actionSeq)).toEqual(
+      Array.from({ length: 200 }, (_, index) => index + 1),
+    );
+    expect(log.actions.some((record) => record.action.kind === 'dice_result')).toBe(true);
+    expect(log.actions.some((record) => record.action.actorId !== 'engine')).toBe(true);
     expect(state.stateRevision).toBe(200);
-    expect(state.rng.cursor).toBe(101);
     expect(stateHash(replay(log))).toBe(stateHash(state));
     expect(stateHash(replay(log))).toBe(stateHash(state));
     return stateHash(state);

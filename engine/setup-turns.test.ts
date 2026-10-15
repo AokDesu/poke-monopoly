@@ -194,12 +194,15 @@ function startedGame(): { state: GameState; log: GameLog } {
 
 // Wild spaces now require a deliberate player choice; keep turn-flow tests on release.
 function advanceOrRelease(state: GameState) {
-  if (state.phase.kind !== 'encounter') return advanceAutomatically(state);
+  // Encounter and Shop are real decisions; these turn-flow scenarios decline both.
+  if (state.phase.kind !== 'encounter' && state.phase.kind !== 'shop') {
+    return advanceAutomatically(state);
+  }
   const result = applyAction(state, {
     actorId: state.players[state.activeSeatIndex]!.actorId,
     actionSeq: state.stateRevision + 1,
     stateRevisionBefore: state.stateRevision,
-    kind: 'release',
+    kind: state.phase.kind === 'shop' ? 'skip_shop' : 'release',
     payload: {},
   });
   if ('rejected' in result) throw new Error(result.reason);
