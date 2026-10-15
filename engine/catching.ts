@@ -1,6 +1,10 @@
 import { classBonus, useCatchClassBonus } from './classes.ts';
 import { int, weightedPick } from './rng.ts';
-import type { Action, EngineEvent, GameState } from './contract/schema.ts';
+import type { Action, EngineEvent, GameState, Player } from './contract/schema.ts';
+
+type BallType = keyof Player['balls'];
+
+type CatchRoll = NonNullable<Extract<GameState['phase'], { kind: 'encounter' }>['catchRoll']>;
 
 // Reserved hook: real Ability effects are deferred beyond this cycle.
 function abilityBonus(): number {
@@ -11,6 +15,31 @@ function itemBonus(state: GameState): number {
   return state.turnEffects?.itemBonus ?? 0;
 }
 
+/**
+ * The modifiers a catch with `ballType` would snapshot for `player` in the current Encounter.
+ * Confirmation and the odds API share it, so displayed odds cannot drift from the real roll.
+ */
+export function catchSnapshot(state: GameState, player: Player, ballType: BallType): CatchRoll {
+  if (state.phase.kind !== 'encounter') throw new RangeError('No Pokémon to catch');
+  const { speciesId } = state.phase.pokemon;
+  // The encounter's species is fixed before the player confirms their chosen Ball.
+  const definition = state.content.species.find((entry) => entry.id === speciesId)!;
+  return {
+    ballType,
+    catchDC: definition.dc,
+    classBonus: classBonus(state.content, player.classId, { kind: 'catch', player }),
+    ballBonus: { poke: 0, great: 1, ultra: 2 }[ballType],
+    abilityBonus: abilityBonus(),
+    itemBonus: itemBonus(state),
+  };
+}
+
+/** The catch resolver: `d6 + bonuses >= catchDC`, so equality succeeds (§4.3). */
+export function catchSucceeds(roll: CatchRoll, face: number): boolean {
+  const { catchDC, classBonus, ballBonus, abilityBonus, itemBonus } = roll;
+  return face + classBonus + ballBonus + abilityBonus + itemBonus >= catchDC;
+}
+
 export function confirmCatch(next: GameState, action: Action): EngineEvent[] {
   if (next.phase.kind !== 'encounter') return [];
   if (action.kind === 'release') {
@@ -19,19 +48,7 @@ export function confirmCatch(next: GameState, action: Action): EngineEvent[] {
   }
   if (action.kind !== 'catch') return [];
   const player = next.players.find((entry) => entry.seatIndex === next.activeSeatIndex)!;
-  // The encounter's species is fixed before the player confirms their chosen Ball.
-  const definition = next.content.species.find(
-    (entry) => next.phase.kind === 'encounter' && entry.id === next.phase.pokemon.speciesId,
-  )!;
-  const ballBonus = { poke: 0, great: 1, ultra: 2 }[action.payload.ballType];
-  next.phase.catchRoll = {
-    ballType: action.payload.ballType,
-    catchDC: definition.dc,
-    classBonus: classBonus(next.content, player.classId, { kind: 'catch', player }),
-    ballBonus,
-    abilityBonus: abilityBonus(),
-    itemBonus: itemBonus(next),
-  };
+  next.phase.catchRoll = catchSnapshot(next, player, action.payload.ballType);
   player.balls[action.payload.ballType]--;
   next.turnBudgets.catchAttempt--;
   return [];
@@ -39,11 +56,10 @@ export function confirmCatch(next: GameState, action: Action): EngineEvent[] {
 
 export function recordCatchRoll(next: GameState, value: number): EngineEvent[] {
   if (next.phase.kind !== 'encounter' || !next.phase.catchRoll) return [];
-  const { catchDC, classBonus, ballBonus, abilityBonus, itemBonus } = next.phase.catchRoll;
   const events: EngineEvent[] = [];
   const player = next.players.find((entry) => entry.seatIndex === next.activeSeatIndex)!;
   useCatchClassBonus(next.content, player);
-  if (value + classBonus + ballBonus + abilityBonus + itemBonus >= catchDC) {
+  if (catchSucceeds(next.phase.catchRoll, value)) {
     const instanceId = `caught:${next.activeSeatIndex}:${next.stateRevision}`;
     player.team.push({
       instanceId,
