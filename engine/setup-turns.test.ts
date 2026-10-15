@@ -192,14 +192,28 @@ function startedGame(): { state: GameState; log: GameLog } {
   return { state, log };
 }
 
+// Wild spaces now require a deliberate player choice; keep turn-flow tests on release.
+function advanceOrRelease(state: GameState) {
+  if (state.phase.kind !== 'encounter') return advanceAutomatically(state);
+  const result = applyAction(state, {
+    actorId: state.players[state.activeSeatIndex]!.actorId,
+    actionSeq: state.stateRevision + 1,
+    stateRevisionBefore: state.stateRevision,
+    kind: 'release',
+    payload: {},
+  });
+  if ('rejected' in result) throw new Error(result.reason);
+  return { state: result.state, records: [result.record], events: result.events };
+}
+
 test('the logged phase skeleton passes through social/strategy and returns to Start in fixed seat order (§4.2)', () => {
   const game = startedGame();
   let state = game.state;
   const log = game.log;
   const before = structuredClone(state);
   const phases = [state.phase.kind];
-  for (let step = 0; step < 7; step++) {
-    const result = advanceAutomatically(state);
+  for (let step = 0; step < 8; step++) {
+    const result = advanceOrRelease(state);
     expect(result.records).toHaveLength(1);
     log.actions.push(...result.records);
     state = result.state;
@@ -212,6 +226,7 @@ test('the logged phase skeleton passes through social/strategy and returns to St
     'move',
     'move',
     'resolve',
+    'encounter',
     'end',
     'start',
   ]);
@@ -279,7 +294,7 @@ test('40 turns with 3 seats keep global and own counters separate and replay exa
     expect(state.globalTurnNo).toBe(turn);
     expect(state.turnBudgets).toEqual({ tacticalAction: 1, catchAttempt: 1, pokemonAbility: 1 });
     if (turn === 40) break;
-    for (let step = 0; step < 8; step++) {
+    for (let step = 0; step < 10; step++) {
       // Sell now exposes a real decision; this turn-order scenario keeps the team.
       if (state.phase.kind === 'sell') {
         const kept = applyAction(state, {
@@ -295,7 +310,7 @@ test('40 turns with 3 seats keep global and own counters separate and replay exa
         log.actions.push(kept.record);
         continue;
       }
-      const result = advanceAutomatically(state);
+      const result = advanceOrRelease(state);
       expect(result.records).toHaveLength(1);
       state = result.state;
       log.actions.push(...result.records);
@@ -316,7 +331,7 @@ test('40 turns with 3 seats keep global and own counters separate and replay exa
 
 test('turn start replaces spent and leftover budgets with one, without accumulation (§4.2)', () => {
   let { state } = startedGame();
-  for (let step = 0; step < 6; step++) state = advanceAutomatically(state).state;
+  for (let step = 0; step < 7; step++) state = advanceOrRelease(state).state;
   expect(state.phase.kind).toBe('end');
   for (const turnBudgets of [
     { tacticalAction: 0, catchAttempt: 5, pokemonAbility: 2 },
