@@ -245,6 +245,12 @@
           "name": "Lucky Egg",
           "kind": "utility",
           "price": 3
+        },
+        {
+          "id": "pickpocket",
+          "name": "Pickpocket",
+          "kind": "utility",
+          "price": 3
         }
       ]
     },

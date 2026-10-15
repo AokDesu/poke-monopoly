@@ -186,6 +186,7 @@ const actionBodySchema = z.discriminatedUnion('kind', [
       'skip',
       'release',
       'finish_sell',
+      'skip_shop',
       'combat',
       'gym',
       'ability',
