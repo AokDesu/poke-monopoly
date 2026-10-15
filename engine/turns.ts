@@ -1,5 +1,6 @@
 import type { GameState, EngineEvent } from './contract/schema.ts';
 import { ENGINE_VERSION } from './versions.ts';
+import { drawEncounter } from './catching.ts';
 import { positionOf } from './contract/position.ts';
 
 /** Internal transitions operate only on the executor's detached next snapshot. */
@@ -75,7 +76,7 @@ export function recordTurnCommand(next: GameState, kind: string): EngineEvent[] 
       break;
     case 'resolve':
       next.phase = { kind: 'end' };
-      return [...resolveDestination(next), { kind: 'phase_changed', from, to: 'end' }];
+      return [...resolveDestination(next), { kind: 'phase_changed', from, to: next.phase.kind }];
     case 'end': {
       const seats = [...next.config.seats].sort((a, b) => a.seatIndex - b.seatIndex);
       const current = seats.findIndex((seat) => seat.seatIndex === next.activeSeatIndex);
@@ -88,7 +89,7 @@ export function recordTurnCommand(next: GameState, kind: string): EngineEvent[] 
   return [{ kind: 'phase_changed', from, to: next.phase.kind }];
 }
 
-/** Space dispatch seam: Wild encounters arrive in the next issue; effects remain deferred. */
+/** Resolve the destination after any Start-crossing Sell phase. */
 function resolveDestination(next: GameState): EngineEvent[] {
   const player = next.players.find((entry) => entry.seatIndex === next.activeSeatIndex)!;
   const position = positionOf(player.routeProgress);
@@ -96,6 +97,10 @@ function resolveDestination(next: GameState): EngineEvent[] {
   if (!space) throw new RangeError('Destination space is missing');
   switch (space.kind) {
     case 'wild':
+      return [
+        { kind: 'space_resolved', seatIndex: player.seatIndex, position },
+        ...drawEncounter(next),
+      ];
     case 'start':
     case 'event':
     case 'shop':
