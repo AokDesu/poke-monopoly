@@ -19,6 +19,9 @@ import type {
   ApplyActionResult,
 } from './schema.ts';
 
+/** Balls sit in the counted pouch; only utility items count toward this limit (§4.6). */
+const UTILITY_ITEM_LIMIT = 4;
+
 /** Explicit allowlist: snapshots and logs must never be passed to AI as observations. */
 export function observe(state: GameState, seatIndex: number): Observation {
   const ownPlayer = state.players.find((player) => player.seatIndex === seatIndex);
@@ -152,12 +155,15 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
         kind: 'buy',
         payload: { offerId: offer.id },
       };
+      // Coins come first so an all-unaffordable Shop reads "Not enough coins" throughout (§3.1).
       if (player.coins < offer.price) {
         result.disabled.push({
           ...action,
           reasonCode: 'NOT_ENOUGH_COINS',
           reasonText: 'Not enough coins',
         });
+      } else if (offer.kind === 'utility' && player.items.length >= UTILITY_ITEM_LIMIT) {
+        result.disabled.push({ ...action, reasonCode: 'ITEMS_FULL', reasonText: 'Items full' });
       } else {
         result.enabled.push(action);
       }
