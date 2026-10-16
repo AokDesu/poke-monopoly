@@ -217,19 +217,18 @@ test('the logged phase skeleton passes through social/strategy and returns to St
   ]);
   expect(state).toMatchObject({ activeSeatIndex: 0, globalTurnNo: 2, phase: { kind: 'start' } });
   expect(state.players.map((player) => player.ownTurnNo)).toEqual([1, 0, 1]);
+  expect(state.players.map((player) => player.routeProgress)).toEqual([0, 0, 5]);
   expect(
-    state.players.map(({ coins, routeProgress, creditedLap, balls, items, team }) => ({
+    state.players.map(({ coins, creditedLap, balls, items, team }) => ({
       coins,
-      routeProgress,
       creditedLap,
       balls,
       items,
       team,
     })),
   ).toEqual(
-    before.players.map(({ coins, routeProgress, creditedLap, balls, items, team }) => ({
+    before.players.map(({ coins, creditedLap, balls, items, team }) => ({
       coins,
-      routeProgress,
       creditedLap,
       balls,
       items,
@@ -280,11 +279,12 @@ test('40 turns with 3 seats keep global and own counters separate and replay exa
     expect(state.globalTurnNo).toBe(turn);
     expect(state.turnBudgets).toEqual({ tacticalAction: 1, catchAttempt: 1, pokemonAbility: 1 });
     if (turn === 40) break;
-    for (let step = 0; step < 7; step++) {
+    for (let step = 0; step < 8; step++) {
       const result = advanceAutomatically(state);
       expect(result.records).toHaveLength(1);
       state = result.state;
       log.actions.push(...result.records);
+      if (state.phase.kind === 'start') break;
     }
   }
   expect(startedSeats).toEqual([

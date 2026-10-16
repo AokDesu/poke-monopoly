@@ -92,6 +92,8 @@ export const playerSchema = z.strictObject({
   coins: count,
   routeProgress: z.int(),
   creditedLap: count,
+  // Optional only for historical contract snapshots; new games always initialize it.
+  highestRewardedMilestone: count.optional(),
   ownTurnNo: count,
   team: z.array(pokemonInstanceSchema),
   balls: ballPouchSchema,

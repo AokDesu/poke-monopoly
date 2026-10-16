@@ -142,7 +142,7 @@ All content tables are in Appendix A.
 - **Board:** 24 spaces, made up of Start 1, Wild 11, Event 5, Shop 4 and Gym 3 (spaces 6/12/18).
 - **Starting kit:** 20 coins, the class Starter, 5 Poké Balls and 1 class item.
 - **Hidden information:** the starting kit is public; utility items gained later are secret.
-- **Start income:** passing or landing on Start by movement pays 5 coins, once per pass. Nothing is paid at setup.
+- **Start income:** the owner's forward movement passing or landing on a new Start milestone pays 5 coins from the bank, once per rewarded milestone (§6.5). Forced movement pays nothing. Nothing is paid at setup.
 
 ### 4.2 Turn structure and action budgets
 
@@ -152,7 +152,7 @@ Turn order:
 2. **Social window:** talk to one opponent per human turn. This does not cost the tactical action.
 3. **Strategy:** use pre-move Abilities and one utility item or PvP, or skip.
 4. **Move:** roll a d6 or use an Ability that replaces the roll. Slowing effects clear after the actual move.
-5. **Start crossing:** collect 5 coins, add 1 to `creditedLap`, reset Abilities, then open the Sell Phase before resolving the destination space.
+5. **Start crossing:** for a qualifying crossing (§6.5), follow the income, Ability reset and Sell order in §4.7 before resolving the destination space.
 6. **Resolve:** reveal the space. If a Pokémon appears, spend 1 Ball or release it.
 7. **End:** close expired effects and settle promises that are due.
 
@@ -163,6 +163,8 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 - `pokemonAbility = 1`.
 
 **C1 engine scope (#21):** see the [engine contract](engine-contract.md#setup-and-turn-flow-issue-21) for implemented setup/turn flow and deferred effects. This implementation scope does not change the full turn rules above.
+
+**C1 movement scope (#22):** see the [movement contract](engine-contract.md#movement-and-start-crossing-issue-22) for implemented movement/Start flow and deferred effects. This implementation scope does not change the full turn rules above.
 
 **Social window**
 
@@ -266,7 +268,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 
 ### 4.7 Selling at Start, Laps and game end
 
-1. **Order when passing Start:**
+1. **Order when owner movement crosses or lands on a qualifying Start milestone (§6.5):**
    - +5 coins
    - `creditedLap` +1
    - reset Abilities
@@ -443,10 +445,12 @@ TypeScript plus a web app with API routes. The folders are `engine/`, `content/`
 2. **`ai/`** is a server-side endpoint. It holds `TYPESAFE_API_KEY`, validates payload shape and size, builds questions from state, calls Jev and returns only action IDs and line IDs.
 3. **Action records:** fields, accepted-action sequencing and revision semantics are defined in [Engine contract v1](engine-contract.md#records-and-counters), including the approved clarification.
 4. **Turn counters:** `globalTurnNo` counts turns and `ownTurnNo` counts each player's turns, both separate from `seatIndex`.
-5. **Movement and Laps:** movement stores a signed `routeProgress` and a monotonic `creditedLap`.
+5. **Movement and Laps:** movement stores a signed `routeProgress`, a monotonic paid-lap count `creditedLap`, and a monotonic `highestRewardedMilestone`.
    - Position = `((routeProgress % 24) + 24) % 24`.
-   - Start credit is granted only when the owner's forward movement crosses a milestone above the previous `creditedLap`.
+   - Start milestones are positive multiples of 24; setup Start at route progress 0 is not an income milestone. Start credit is granted only when the owner's forward movement crosses or lands on a milestone above the previous `highestRewardedMilestone`.
+   - On payment, set `highestRewardedMilestone` to the crossed milestone's index and increment `creditedLap` by exactly 1. The Lap target continues to use the paid-lap count, not the route milestone index. Both fields begin at 0.
    - Being pushed or pulled, or re-crossing an old milestone, gives no reward.
+   - **Clarification (#22):** separate the paid count from the reward watermark. If a forced move skips milestone 1 without payment and an owner move later pays milestone 2, the count becomes 1 and the watermark becomes 2. Recrossing milestone 2 cannot pay again.
 6. **Instance IDs:** every Pokémon and item has its own instance ID.
 7. **Save:** a local save after each accepted action.
    - It holds the current state plus the action log, with no log nested inside the snapshot, and no key.
@@ -496,6 +500,7 @@ Each layer covers what the one below misses.
 **Engine invariants that must hold:**
 
 - Coins never go negative, and every transfer has a source.
+- Start income is a sourced bank transfer; paid laps and rewarded-milestone watermarks never decrease. Payment precedes Sell, and destination resolution follows Sell. Forced movement never grants Start income.
 - UIDs are unique, and every creation or destruction is logged.
 - Rejected or stale actions do not change state, and deals are atomic.
 - Move debuffs last until the next move. Tired and Nurse Joy each have real use cases. Promises close on the correct `ownTurnNo`.
