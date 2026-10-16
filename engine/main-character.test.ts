@@ -189,3 +189,35 @@ test('a first-catch bonus roll replays with the same snapshot and used-bonus rec
   expect(replay(JSON.parse(JSON.stringify(log)))).toEqual(rolled.state);
   expect(rolled.state.players[0]!.catchBonusUsedLap).toBe(0);
 });
+
+test('the Lap +1 decides the same catch roll: caught while available, missed once used (§4.3, Appendix A)', () => {
+  const available = encounter(mainCharacterGame());
+  const probe = advanceAutomatically(command(available, 'catch', { ballType: 'poke' }).state);
+  const face = probe.events.find(
+    (event) => event.kind === 'random_result' && event.purpose.startsWith('catch:'),
+  );
+  if (face?.kind !== 'random_result' || typeof face.result !== 'number') {
+    throw new Error('Missing catch roll');
+  }
+  available.content.species.push({
+    id: 'fixture-decisive',
+    name: 'Fixture Decisive',
+    rarity: 'rare',
+    dc: face.result + 1,
+    battle: 0,
+    base: 1,
+    tags: [],
+  });
+  available.phase = { kind: 'encounter', pokemon: { speciesId: 'fixture-decisive' } };
+  const spent = structuredClone(available);
+  spent.players[0]!.catchBonusUsedLap = spent.players[0]!.creditedLap;
+
+  const caught = catchWithPokeBall(available).state.players[0]!;
+  expect(caught.team.map((pokemon) => pokemon.speciesId)).toEqual([
+    'charmander',
+    'fixture-decisive',
+  ]);
+  const missed = catchWithPokeBall(spent).state.players[0]!;
+  expect(missed.team.map((pokemon) => pokemon.speciesId)).toEqual(['charmander']);
+  expect(missed.balls).toEqual(caught.balls);
+});
