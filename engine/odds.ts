@@ -12,13 +12,18 @@ export interface CatchOdds {
   percent: number;
 }
 
+/** Only the active seat faces the Encounter; its turn effects are the ones the snapshot reads. */
+function encounterPlayer(state: GameState, seatIndex: number): Player {
+  if (seatIndex !== state.activeSeatIndex) throw new RangeError('Seat is not in the Encounter');
+  return state.players.find((candidate) => candidate.seatIndex === seatIndex)!;
+}
+
 /**
  * Exact catch chance for `seatIndex` throwing `ballType` at the current Encounter.
  * Every d6 face runs through the real resolver, so the odds cannot drift from play.
  */
 export function catchOdds(state: GameState, seatIndex: number, ballType: BallType): CatchOdds {
-  const player = state.players.find((candidate) => candidate.seatIndex === seatIndex);
-  if (!player) throw new RangeError('Unknown seat index');
+  const player = encounterPlayer(state, seatIndex);
   const roll = catchSnapshot(state, player, ballType);
   const successFaces = [1, 2, 3, 4, 5, 6].filter((face) => catchSucceeds(roll, face)).length;
   const { catchDC, classBonus, ballBonus, abilityBonus, itemBonus } = roll;
@@ -35,8 +40,7 @@ export function oddsForAllBalls(
   state: GameState,
   seatIndex: number,
 ): ({ ballType: BallType } & CatchOdds)[] {
-  const player = state.players.find((candidate) => candidate.seatIndex === seatIndex);
-  if (!player) throw new RangeError('Unknown seat index');
+  const player = encounterPlayer(state, seatIndex);
   return (['poke', 'great', 'ultra'] as const)
     .filter((ballType) => player.balls[ballType] > 0)
     .map((ballType) => ({ ballType, ...catchOdds(state, seatIndex, ballType) }));
