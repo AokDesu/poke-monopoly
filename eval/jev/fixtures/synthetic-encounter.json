@@ -1,0 +1,55 @@
+{
+  "id": "synthetic-encounter",
+  "description": "Synthetic sample only; invented response, not a recording or evidence of Jev quality.",
+  "tags": {
+    "decisionPoint": "encounter",
+    "personality": "Greedy"
+  },
+  "request": {
+    "state": {
+      "you": {
+        "ball_supply": "scarce"
+      },
+      "encounter": {
+        "keep_value": "low",
+        "catch_chance": "low"
+      }
+    },
+    "questions": {
+      "encounter": {
+        "type": "choice",
+        "instructions": "Choose a Ball or release. Release when value and catch chance are low and Balls are scarce.",
+        "criteria": {
+          "release": "Release without using a Ball.",
+          "poke_ball": "Use a Poke Ball."
+        }
+      }
+    }
+  },
+  "recorded": {
+    "ok": true,
+    "answers": {
+      "encounter": {
+        "type": "choice",
+        "choice": "release",
+        "confidence": 0.7,
+        "probabilities": {
+          "release": 0.85,
+          "poke_ball": 0.15000000000000002
+        }
+      }
+    },
+    "requestId": "synthetic-encounter",
+    "model": "jev-1.13.0",
+    "latencyMs": 0,
+    "usage": {
+      "inputTokens": 0,
+      "outputTokens": 0
+    }
+  },
+  "acceptable": {
+    "encounter": ["release"]
+  },
+  "synthetic": true,
+  "requestHash": "5815e99dfdfde6d50d2b165ebfca6b8a46db13d4ce81816750e0b4873751307a"
+}
