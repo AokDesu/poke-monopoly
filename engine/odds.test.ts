@@ -188,6 +188,14 @@ test('odds need a Pokémon to catch and a known seat (§4.3)', () => {
   expect(() => catchOdds(state, 0, 'poke')).toThrow(RangeError);
 });
 
+test('odds outside an Encounter throw even when the seat holds no Balls (§4.3)', () => {
+  const state = encounter('eevee');
+  state.players[0]!.balls = { poke: 0, great: 0, ultra: 0 };
+  state.phase = { kind: 'strategy' };
+  expect(() => oddsForAllBalls(state, 0)).toThrow(RangeError);
+  expect(() => catchOdds(state, 0, 'poke')).toThrow(RangeError);
+});
+
 test('an active Lucky Egg lowers the roll needed by one for every Ball that turn (§4.3, §4.6)', () => {
   const state = encounter('eevee');
   state.phase = { kind: 'strategy' };
