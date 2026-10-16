@@ -408,3 +408,17 @@ test('pending catch rejects forged dice and late Ball changes without spending a
   expect(confirmed.state).toEqual(before);
   expect(advanceAutomatically(confirmed.state).state.players[0]!.team).toHaveLength(2);
 });
+
+test('setup rejects content that leaves a Wild rarity without an eligible species (§4.2)', () => {
+  const scenario = fixtureSchema.parse(fixture).state;
+  const config = createGameConfig({ seats: scenario.config.seats, seed: 1, lapTarget: 3 });
+  expect(() => createGame(config, scenario.content)).not.toThrow();
+  const noRare = structuredClone(scenario.content);
+  noRare.species = noRare.species.filter(({ id }) => id !== 'chansey');
+  expect(() => createGame(config, noRare)).toThrow(/lacks a rare species/i);
+  const excludedOnly = structuredClone(scenario.content);
+  excludedOnly.species = excludedOnly.species.map((species) =>
+    species.id === 'eevee' ? { ...species, rarity: 'common' as const } : species,
+  );
+  expect(() => createGame(config, excludedOnly)).toThrow(/lacks a uncommon species/i);
+});
