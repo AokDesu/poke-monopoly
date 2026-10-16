@@ -11,6 +11,8 @@ export const pokemonInstanceSchema = z.strictObject({
   evolutionStage: count,
   tired: z.boolean(),
   abilityReady: z.boolean(),
+  // Historical instances omit this; newly granted Rescue Starters explicitly forbid trading.
+  tradeable: z.boolean().optional(),
 });
 export const itemInstanceSchema = z.strictObject({
   instanceId: id,
@@ -176,7 +178,7 @@ const actionBodySchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('use_item'), payload: z.strictObject({ itemInstanceId: id }) }),
   z.object({
     kind: z.literal('sell'),
-    payload: z.strictObject({ pokemonInstanceIds: z.array(id).min(1) }),
+    payload: z.strictObject({ pokemonInstanceIds: z.array(id) }),
   }),
   z.object({ kind: z.literal('buy'), payload: z.strictObject({ offerId: id }) }),
   z.object({

@@ -58,10 +58,6 @@ export function recordTurnCommand(next: GameState, kind: string): EngineEvent[] 
     next.phase.awaitingResult = true;
     return [];
   }
-  if (kind === 'finish_sell' && next.phase.kind === 'sell') {
-    next.phase = { kind: 'resolve' };
-    return [{ kind: 'phase_changed', from: 'sell', to: 'resolve' }];
-  }
   if (kind !== 'skip') return [];
   const from = next.phase.kind;
   switch (from) {
