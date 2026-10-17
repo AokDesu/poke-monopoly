@@ -332,7 +332,7 @@ test('income, atomic sale, rescue, destination and resume replay without extra a
   expect(resumed).toEqual(committed.state);
   const destination = advanceAutomatically(resumed);
   expect(destination.events).toEqual([
-    { kind: 'space_resolved', seatIndex: 0, position: 2 },
+    { kind: 'space_resolved', seatIndex: 0, position: 2, effect: 'none_yet' },
     { kind: 'phase_changed', from: 'resolve', to: 'end' },
   ]);
   log.actions.push(...destination.records);
