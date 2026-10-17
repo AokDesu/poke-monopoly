@@ -4,6 +4,7 @@ import {
   applyAction,
   createGame,
   createGameConfig,
+  createGameLog,
   createRng,
   eventsVisibleTo,
   fixtureSchema,
@@ -264,4 +265,11 @@ test('an opponent observation shows coins, team, item count and the public class
 
 test('event visibility rejects an unknown seat like the other read seams (§5.4)', () => {
   expect(() => eventsVisibleTo(strategy('repel'), [], 2)).toThrow(RangeError);
+});
+
+test('pre-hostile-event executable versions reject instead of replaying without hostile_item_used (§6.8)', () => {
+  const state = strategy('repel');
+  state.config.engineVersion = '0.10.0';
+  expect(() => createGame(state.config, state.content)).toThrow(/unsupported/i);
+  expect(() => createGameLog(state)).toThrow(/unsupported/i);
 });
