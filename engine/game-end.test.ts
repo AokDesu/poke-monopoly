@@ -69,8 +69,9 @@ function command(state: GameState, kind: string, payload: object = {}) {
   return result;
 }
 
-/** One accepted step: keep the team at Sell, release at Encounter, leave the Shop, otherwise the single choice. */
+/** One accepted step: keep held items at Strategy, keep the team at Sell, release at Encounter, leave the Shop, otherwise the single choice. */
 function step(state: GameState) {
+  if (state.phase.kind === 'strategy') return command(state, 'skip');
   if (state.phase.kind === 'sell') return command(state, 'sell', { pokemonInstanceIds: [] });
   if (state.phase.kind === 'shop') return command(state, 'skip_shop');
   if (state.phase.kind === 'encounter' && !state.phase.catchRoll) return command(state, 'release');

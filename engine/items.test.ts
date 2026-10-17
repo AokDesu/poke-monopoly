@@ -344,6 +344,8 @@ test('1,000 random legal actions with items keep coins nonnegative, transfers ba
         const log = createGameLog(state);
         let used = 0;
         for (const selection of selections) {
+          // A finished game (§4.7 step 3) has no further actions.
+          if (state.phase.kind === 'finished') break;
           const choices = legalActions(state, state.activeSeatIndex).enabled;
           // A sole choice or pending roll advances automatically; otherwise pick at random.
           const step =
