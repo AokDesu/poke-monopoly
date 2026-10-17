@@ -245,3 +245,14 @@ test("class bonuses reach the odds through the class dispatcher: the Researcher'
   state.players[0]!.classId = 'researcher';
   expect(catchOdds(state, 0, 'poke')).toMatchObject({ needed: 4, successFaces: 3, percent: 50 });
 });
+
+test("the Main Character's first-catch bonus raises the odds only while it is unused this Lap (§4.3, §4.7)", () => {
+  const state = encounter('eevee');
+  state.content.classes.find((entry) => entry.id === 'main-character')!.passive =
+    'lap_first_catch_bonus';
+  const player = state.players[0]!;
+  player.classId = 'main-character';
+  expect(catchOdds(state, 0, 'poke')).toMatchObject({ needed: 3, successFaces: 4, percent: 67 });
+  player.catchBonusUsedLap = player.creditedLap;
+  expect(catchOdds(state, 0, 'poke')).toMatchObject({ needed: 4, successFaces: 3, percent: 50 });
+});
