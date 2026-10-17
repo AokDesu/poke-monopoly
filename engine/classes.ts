@@ -1,7 +1,7 @@
-import type { Content, PokemonInstance } from './contract/schema.ts';
+import type { Content, Player, PokemonInstance } from './contract/schema.ts';
 
 export type ClassBonusHook =
-  | { kind: 'catch' }
+  | { kind: 'catch'; player: Player }
   | {
       kind: 'sale';
       pokemon: PokemonInstance;
@@ -18,6 +18,10 @@ export function classBonus(content: Content, classId: string, hook: ClassBonusHo
     case 'lap_first_sale_bonus':
       return hook.kind === 'sale' && lapSaleBonusTarget(hook.batch) === hook.pokemon.instanceId
         ? 3
+        : 0;
+    case 'lap_first_catch_bonus':
+      return hook.kind === 'catch' && hook.player.catchBonusUsedLap !== hook.player.creditedLap
+        ? 1
         : 0;
     case undefined:
       return 0;
@@ -44,4 +48,13 @@ function lapSaleBonusTarget(
     }
   }
   return best?.pokemon.instanceId;
+}
+
+/**
+ * A real catch roll uses the Lap's first-catch bonus even when it fails; releasing never does.
+ * The next credited Start crossing advances `creditedLap`, which makes the bonus available again.
+ */
+export function useCatchClassBonus(content: Content, player: Player): void {
+  const passive = content.classes.find((entry) => entry.id === player.classId)?.passive;
+  if (passive === 'lap_first_catch_bonus') player.catchBonusUsedLap = player.creditedLap;
 }

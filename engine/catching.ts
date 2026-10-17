@@ -1,4 +1,4 @@
-import { classBonus } from './classes.ts';
+import { classBonus, useCatchClassBonus } from './classes.ts';
 import { int, weightedPick } from './rng.ts';
 import type { Action, EngineEvent, GameState } from './contract/schema.ts';
 
@@ -26,7 +26,7 @@ export function confirmCatch(next: GameState, action: Action): EngineEvent[] {
   next.phase.catchRoll = {
     ballType: action.payload.ballType,
     catchDC: definition.dc,
-    classBonus: classBonus(next.content, player.classId, { kind: 'catch' }),
+    classBonus: classBonus(next.content, player.classId, { kind: 'catch', player }),
     ballBonus,
     abilityBonus: abilityBonus(),
     itemBonus: itemBonus(),
@@ -40,8 +40,9 @@ export function recordCatchRoll(next: GameState, value: number): EngineEvent[] {
   if (next.phase.kind !== 'encounter' || !next.phase.catchRoll) return [];
   const { catchDC, classBonus, ballBonus, abilityBonus, itemBonus } = next.phase.catchRoll;
   const events: EngineEvent[] = [];
+  const player = next.players.find((entry) => entry.seatIndex === next.activeSeatIndex)!;
+  useCatchClassBonus(next.content, player);
   if (value + classBonus + ballBonus + abilityBonus + itemBonus >= catchDC) {
-    const player = next.players.find((entry) => entry.seatIndex === next.activeSeatIndex)!;
     const instanceId = `caught:${next.activeSeatIndex}:${next.stateRevision}`;
     player.team.push({
       instanceId,
