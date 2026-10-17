@@ -147,7 +147,7 @@ test('pending movement resumes once and paid movement/Sell/resolution replay exa
   expect(repeated.state).toBe(result.state);
 });
 
-// 100 fast-check runs of 10,000 moves each sit near the 5s default on a loaded
+// One fast-check run of 10,000 moves sits near the 5s default on a loaded
 // serialized runner, so this property gets an explicit budget above it.
 test(
   '10,000 random single moves keep credit monotonic, positions bounded and milestones paid once (§6.5, §8)',
