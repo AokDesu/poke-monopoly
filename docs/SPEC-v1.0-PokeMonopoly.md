@@ -187,7 +187,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 - Every attempt consumes 1 Ball, success or failure. With no Ball the Pokémon must be released. The UI shows the success % for every Ball type held.
 - Main Character's first-catch bonus is used whenever a real roll is made, even on failure. Skipping an encounter does not use it.
 
-**C1 catching scope (#23):** see the [catching contract](engine-contract.md#wild-encounters-and-catching-issue-23) for implemented catching and deferred effects. The item hook returns Lucky Egg's +1 from C2 (#31, §4.6). This implementation scope does not change the full catching rules above.
+**C1 catching scope (#23):** see the [catching contract](engine-contract.md#wild-encounters-and-catching-issue-23) for implemented catching and deferred effects. The item hook returns Lucky Egg's +1 from C2 (#31, §4.6). Exact success percentages come from the engine's odds API (#32), which runs every d6 face through the same resolver as the real roll; see the [odds contract](engine-contract.md#catch-odds-and-disabled-reasons-issue-32). This implementation scope does not change the full catching rules above.
 
 ### 4.4 Combat, Gym and Tired
 
