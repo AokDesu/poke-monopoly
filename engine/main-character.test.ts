@@ -175,7 +175,7 @@ test('other classes get no catch bonus from the Main Character passive (§4.3, A
 
 test('pre-Main-Character executable versions reject instead of replaying different catch rolls (§6.8)', () => {
   const state = mainCharacterGame();
-  state.config.engineVersion = '0.4.0';
+  state.config.engineVersion = '0.8.0';
   expect(() => createGame(state.config, state.content)).toThrow(/unsupported/i);
   expect(() => createGameLog(state)).toThrow(/unsupported/i);
 });
