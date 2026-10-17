@@ -1,4 +1,13 @@
-import type { EngineEvent, GameState } from './contract/schema.ts';
+import type { Action, ActionRecord, EngineEvent, GameState } from './contract/schema.ts';
+
+/** An action whose payload may have fields this seat must not see removed. */
+export type SeatAction = Action extends infer A
+  ? A extends { payload: infer P }
+    ? Omit<A, 'payload'> & { payload: Partial<P> }
+    : never
+  : never;
+/** A seat-safe copy of an `ActionRecord`. */
+export type SeatActionRecord = Omit<ActionRecord, 'action'> & { action: SeatAction };
 
 /**
  * Whether `seatIndex` may see an event produced by applying an action to `before` (§4.1, §5.4).
@@ -36,4 +45,27 @@ export function eventsVisibleTo(
     throw new RangeError('Unknown seat index');
   }
   return structuredClone(events.filter((event) => visibleTo(before, event, seatIndex)));
+}
+
+/** A copy of one accepted record that `seatIndex` may see; `before` is the state it was applied to. */
+export function actionVisibleTo(
+  before: GameState,
+  record: ActionRecord,
+  seatIndex: number,
+): SeatActionRecord {
+  const events = eventsVisibleTo(before, record.events, seatIndex);
+  const action: SeatAction = structuredClone(record.action);
+  const actor = before.players.find((player) => player.actorId === action.actorId);
+  // Another seat's purchase is secret: its price is public, the offer is not (§4.1).
+  if (action.kind === 'buy' && actor?.seatIndex !== seatIndex) delete action.payload.offerId;
+  if (action.kind === 'use_item' && actor?.seatIndex !== seatIndex) {
+    const item = actor?.items.find((entry) => entry.instanceId === action.payload.itemInstanceId);
+    if (item?.visibility !== 'public') delete action.payload.itemInstanceId;
+    // A hostile item use is its user's and target's alone (§4.1, §4.4).
+    if (action.payload.targetSeatIndex !== seatIndex) delete action.payload.targetSeatIndex;
+  }
+  // Deck order and the drawn card are nobody's until an effect makes them public (§4.6).
+  if (action.kind === 'shuffle') delete action.payload.order;
+  if (action.kind === 'event_draw') delete action.payload.eventId;
+  return { ...structuredClone(record), action, events };
 }
