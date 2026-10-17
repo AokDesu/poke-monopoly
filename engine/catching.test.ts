@@ -354,9 +354,13 @@ test(
               expect(result.events.filter((event) => event.kind === 'uid_created')).toEqual([]);
               state = result.state;
               log.actions.push(result.record);
-            } else if (state.phase.kind === 'sell') {
-              // Sell is a real decision once a catch grows the team; keep it to isolate Balls.
-              const result = command(state, 'sell', { pokemonInstanceIds: [] });
+            } else if (state.phase.kind === 'sell' || state.phase.kind === 'shop') {
+              // Sell (#24) and Shop (#29) are real decisions; this property keeps the team
+              // and buys nothing, so only catches change the pouch.
+              const result =
+                state.phase.kind === 'sell'
+                  ? command(state, 'sell', { pokemonInstanceIds: [] })
+                  : command(state, 'skip_shop');
               expect(result.state.players.map((player) => player.balls)).toEqual(
                 before.players.map((player) => player.balls),
               );
