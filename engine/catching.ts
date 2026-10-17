@@ -59,10 +59,13 @@ export function recordCatchRoll(next: GameState, value: number): EngineEvent[] {
   return [...events, { kind: 'phase_changed', from: 'encounter', to: 'end' }];
 }
 
+export const WILD_EXCLUDED_SPECIES_IDS = ['bulbasaur', 'charmander', 'squirtle', 'porygon'];
+export const WILD_RARITIES = ['common', 'uncommon', 'rare'] as const;
+
 /** Species only: an encounter is not an owned asset and has no instance UID. */
 export function drawEncounter(next: GameState): EngineEvent[] {
   const pool = next.content.species.filter(
-    (species) => !['bulbasaur', 'charmander', 'squirtle', 'porygon'].includes(species.id),
+    (species) => !WILD_EXCLUDED_SPECIES_IDS.includes(species.id),
   );
   const rarity = weightedPick(
     next.rng,
