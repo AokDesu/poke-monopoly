@@ -312,3 +312,44 @@ test('a finished game, including its announcement and auto-sell, replays exactly
   ).toBe(true);
   expect(replay(JSON.parse(JSON.stringify(log)))).toEqual(state);
 });
+
+test('a confirmed catch resumes on the final turn and pays final sales exactly once (§4.3, §4.7, §6.8–6.9)', () => {
+  const scenario = fixtureSchema.parse(fixture).state;
+  const initial = createGame(
+    createGameConfig({ seats: scenario.config.seats, seed: 4, lapTarget: 1 }),
+    scenario.content,
+  );
+  initial.activeSeatIndex = 1;
+  initial.globalTurnNo = 2;
+  initial.turnBudgets = { tacticalAction: 1, catchAttempt: 1, pokemonAbility: 1 };
+  for (const player of initial.players) player.ownTurnNo = 1;
+  initial.finalTableRound = { triggerSeatIndex: 0, targetOwnTurnNo: 1 };
+  initial.phase = { kind: 'encounter', pokemon: { speciesId: 'caterpie' } };
+  const log = createGameLog(initial);
+  const confirmed = command(initial, 'catch', { ballType: 'poke' });
+  log.actions.push(confirmed.record);
+  const resumed = replay(JSON.parse(JSON.stringify(log)));
+  expect(resumed).toEqual(confirmed.state);
+  expect(resumed.rng).toEqual(initial.rng);
+  expect(resumed.players[1]!.balls.poke).toBe(4);
+  expect(legalActions(resumed, 1).enabled).toEqual([]);
+
+  const liveRoll = advanceAutomatically(confirmed.state);
+  const resumedRoll = advanceAutomatically(resumed);
+  expect(resumedRoll).toEqual(liveRoll);
+  expect(resumedRoll.state.rng.cursor).toBe(1);
+  expect(resumedRoll.events).toContainEqual(
+    expect.objectContaining({ kind: 'uid_created', entity: 'pokemon' }),
+  );
+  log.actions.push(...resumedRoll.records);
+  const finished = advanceAutomatically(resumedRoll.state);
+  expect(finished).toEqual(advanceAutomatically(liveRoll.state));
+  expect(finished.state.phase).toEqual({ kind: 'finished' });
+  // Both starters pay 3; the caught base-4 Caterpie adds 2 for the last seat.
+  expect(finished.state.players.map((player) => player.coins)).toEqual([23, 25]);
+  expect(finished.state.players.map((player) => player.ownTurnNo)).toEqual([1, 1]);
+  log.actions.push(...finished.records);
+  const replayed = replay(JSON.parse(JSON.stringify(log)));
+  expect(replayed).toEqual(finished.state);
+  expect(advanceAutomatically(replayed)).toEqual({ state: replayed, records: [], events: [] });
+});
