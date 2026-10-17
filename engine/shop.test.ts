@@ -271,3 +271,11 @@ test('a Shop visit and purchase replay exactly from the command log (§6.8, §8)
   log.actions.push(opened.record, bought.record);
   expect(replay(JSON.parse(JSON.stringify(log)))).toEqual(bought.state);
 });
+
+test('setup rejects content with fewer than 2 Shop utility items (§4.6)', () => {
+  const scenario = fixtureSchema.parse(fixture).state;
+  const config = createGameConfig({ seats: scenario.config.seats, seed: 1, lapTarget: 3 });
+  const oneUtility = structuredClone(scenario.content);
+  oneUtility.items = oneUtility.items.filter(({ id }) => id !== 'repel' && id !== 'pickpocket');
+  expect(() => createGame(config, oneUtility)).toThrow(/Shop needs 2 utility items/);
+});

@@ -1,15 +1,21 @@
 import { int } from './rng.ts';
-import type { Action, EngineEvent, GameState } from './contract/schema.ts';
+import type { Action, Content, EngineEvent, GameState } from './contract/schema.ts';
 
 // This cycle's utility-item pool (§4.6); item effects arrive with item use.
 const UTILITY_POOL = ['lucky-egg', 'repel', 'pickpocket'];
 
-/** Offer every Ball plus 2 distinct utility items drawn with the logged RNG (§4.6). */
-export function openShop(next: GameState): EngineEvent[] {
-  const pool = next.content.items.filter(
+/** Utility items the Shop can offer; setup rejects content with fewer than 2 (§4.6). */
+export function shopUtilityPool(content: Content) {
+  const pool = content.items.filter(
     (item) => item.kind === 'utility' && UTILITY_POOL.includes(item.id),
   );
   if (pool.length < 2) throw new RangeError('Shop needs 2 utility items in content');
+  return pool;
+}
+
+/** Offer every Ball plus 2 distinct utility items drawn with the logged RNG (§4.6). */
+export function openShop(next: GameState): EngineEvent[] {
+  const pool = shopUtilityPool(next.content);
   const first = int(next.rng, pool.length, 'shop:item');
   const [picked] = pool.splice(first.value, 1);
   const second = int(first.rng, pool.length, 'shop:item');
