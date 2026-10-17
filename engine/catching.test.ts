@@ -422,3 +422,10 @@ test('setup rejects content that leaves a Wild rarity without an eligible specie
   );
   expect(() => createGame(config, excludedOnly)).toThrow(/lacks a uncommon species/i);
 });
+
+test('pre-catching executable versions reject instead of silently replaying different rules (§6.8)', () => {
+  const state = encounter();
+  state.config.engineVersion = '0.3.0';
+  expect(() => createGame(state.config, state.content)).toThrow(/unsupported/i);
+  expect(() => createGameLog(state)).toThrow(/unsupported/i);
+});
