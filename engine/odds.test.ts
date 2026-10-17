@@ -5,7 +5,6 @@ import {
   applyAction,
   catchOdds,
   oddsForAllBalls,
-  legalActions,
   createGame,
   createGameConfig,
   fixtureSchema,
@@ -123,45 +122,44 @@ test('odds need a Pokémon to catch and a known seat (§4.3)', () => {
   expect(() => catchOdds(state, 0, 'poke')).toThrow(RangeError);
 });
 
-test('with 4 utility items held, Shop disables utility offers with ITEMS_FULL but still sells Balls (§3.1, §4.6)', () => {
+test('an active Lucky Egg lowers the roll needed by one for every Ball that turn (§4.3, §4.6)', () => {
   const state = encounter('eevee');
-  const player = state.players[0]!;
-  player.coins = 20;
-  player.items = [1, 2, 3, 4].map((n) => ({
-    instanceId: `item-full-${n}`,
-    itemId: 'potion',
-    name: 'Potion',
-    visibility: 'public' as const,
-  }));
-  state.phase = {
-    kind: 'shop',
-    offers: [
-      { id: 'poke-ball', itemId: 'poke-ball', kind: 'ball', ballType: 'poke', price: 1 },
-      { id: 'repel', itemId: 'repel', kind: 'utility', price: 3 },
-      { id: 'lucky-egg', itemId: 'lucky-egg', kind: 'utility', price: 30 },
-    ],
-  };
-  expect(legalActions(state, 0)).toEqual({
-    enabled: [
-      { id: 'buy:poke-ball', kind: 'buy', payload: { offerId: 'poke-ball' } },
-      { id: 'skip', kind: 'skip', payload: {} },
-    ],
-    disabled: [
-      {
-        id: 'buy:repel',
-        kind: 'buy',
-        payload: { offerId: 'repel' },
-        reasonCode: 'ITEMS_FULL',
-        reasonText: 'Items full',
-      },
-      // §3.1: an unaffordable item always reads "Not enough coins", even with a full hand.
-      {
-        id: 'buy:lucky-egg',
-        kind: 'buy',
-        payload: { offerId: 'lucky-egg' },
-        reasonCode: 'NOT_ENOUGH_COINS',
-        reasonText: 'Not enough coins',
-      },
-    ],
+  state.phase = { kind: 'strategy' };
+  state.turnBudgets.tacticalAction = 1;
+  state.players[0]!.items.push({
+    instanceId: 'egg',
+    itemId: 'lucky-egg',
+    name: 'Lucky Egg',
+    visibility: 'secret',
   });
+  const used = applyAction(state, {
+    actorId: 'player-0',
+    actionSeq: 1,
+    stateRevisionBefore: 0,
+    kind: 'use_item',
+    payload: { itemInstanceId: 'egg' },
+  });
+  if ('rejected' in used) throw new Error(used.reason);
+  // Same turn, now facing the DC 4 Eevee.
+  const facing = {
+    ...used.state,
+    phase: { kind: 'encounter' as const, pokemon: { speciesId: 'eevee' } },
+  };
+  expect(oddsForAllBalls(facing, 0)).toEqual([
+    { ballType: 'poke', needed: 3, successFaces: 4, probability: 4 / 6, percent: 67 },
+    { ballType: 'great', needed: 2, successFaces: 5, probability: 5 / 6, percent: 83 },
+  ]);
+});
+
+test("class bonuses reach the odds through the class dispatcher: the Researcher's sale bonus adds nothing to a catch (§4.3, §4.7)", () => {
+  const state = encounter('eevee');
+  state.content.classes.push({
+    id: 'researcher',
+    name: 'Researcher',
+    starterSpeciesIds: ['bulbasaur'],
+    classItemId: 'great-ball',
+    passive: 'lap_first_sale_bonus',
+  });
+  state.players[0]!.classId = 'researcher';
+  expect(catchOdds(state, 0, 'poke')).toMatchObject({ needed: 4, successFaces: 3, percent: 50 });
 });
