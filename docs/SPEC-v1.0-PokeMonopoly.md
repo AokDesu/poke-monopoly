@@ -145,6 +145,7 @@ Wherever this specification uses `round`, a half rounds up (approved 2026-10-07)
 - **Board:** 24 spaces, made up of Start 1, Wild 11, Event 5, Shop 4 and Gym 3 (spaces 6/12/18).
 - **Starting kit:** 20 coins, the class Starter, 5 Poké Balls and 1 class item.
 - **Hidden information:** the starting kit is public; utility items gained later are secret.
+  - **Approved rule (#37, captain, 2026-10-07):** opponents' Ball counts are hidden. A seat sees each opponent's coins, position, team and item count, plus the public starting-kit items, but never their Balls or later items; only its own pouch and items are shown. Hiding is the safe default and can be relaxed later. See [Engine contract v1](engine-contract.md#public-seam-and-visibility).
 - **Start income:** the owner's forward movement passing or landing on a new Start milestone pays 5 coins from the bank, once per rewarded milestone (§6.5). Forced movement pays nothing. Nothing is paid at setup.
 
 **C2 placeholder scope (#34, decided in that issue):** until Gyms (C3) and Events (C4) land, landing on an Event or Gym space is an explicit no-op logged as `space_resolved` with `effect: "none_yet"`, so the UI can say nothing happens there yet. It changes no coins, items or Pokémon. Setup offers the Quick 2 Laps preset; the Standard 3 Laps preset exists but is flagged closed until playtest (§1), and the sim can still run it with `--lap-target 3`. See the [engine contract](engine-contract.md#c2-presets-and-placeholder-spaces-issue-34).
@@ -404,7 +405,7 @@ Kept as `skills/jev-questions/SKILL.md`.
 - **Role-scoped:** send only what that seat can really see.
   - Public: board, coins, teams, Lap, ability readiness.
   - Own: hand, Balls, peek results, interactions.
-  - Never: Event order, opponents' secret items or RNG state.
+  - Never: Event order, opponents' secret items or Ball counts (§4.1), or RNG state.
 - **Numbers become named buckets**, e.g. `"win_chance": "low"` or `"coins_vs_you": "far ahead"`. Never send numbers for Jev to compare.
 - **Keep value types apart:** cash, expected sale value, benefit of keeping the team, risk and promises are separate buckets. They are never merged into one coin figure, and badges are never counted as coins.
 - **Wording:** questions and criteria are written **in English**, literally, with boundary cases spelled out in the criteria.
