@@ -164,6 +164,8 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
   if (action.actionSeq !== state.stateRevision + 1) {
     return { rejected: true, reason: 'invalid_sequence', state };
   }
+  // A finished game accepts nothing more, including engine-generated records.
+  if (state.phase.kind === 'finished') return { rejected: true, reason: 'illegal_action', state };
   if (action.actorId === 'engine' && action.kind === 'dice_result') {
     if (
       state.phase.kind === 'first_player_roll' &&

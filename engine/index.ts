@@ -7,3 +7,4 @@ export { advanceAutomatically, createGameLog, replay } from './pipeline.ts';
 export { stateHash } from './state-hash.ts';
 export { createGame } from './setup.ts';
 export * from './observation-buckets.ts';
+export { LAP_TARGETS, winner, type WinnerResult } from './game-end.ts';
