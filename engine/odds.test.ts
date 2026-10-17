@@ -217,6 +217,14 @@ test('an active Lucky Egg lowers the roll needed by one for every Ball that turn
   ]);
 });
 
+test('only the seat in the Encounter has odds, so another seat never picks up its Lucky Egg (§4.3, §4.6)', () => {
+  const state = encounter('eevee');
+  state.turnEffects = { itemBonus: 1 };
+  expect(() => catchOdds(state, 1, 'poke')).toThrow(RangeError);
+  expect(() => oddsForAllBalls(state, 1)).toThrow(RangeError);
+  expect(catchOdds(state, 0, 'poke')).toMatchObject({ needed: 3, successFaces: 4 });
+});
+
 test("class bonuses reach the odds through the class dispatcher: the Researcher's sale bonus adds nothing to a catch (§4.3, §4.7)", () => {
   const state = encounter('eevee');
   state.content.classes.push({
