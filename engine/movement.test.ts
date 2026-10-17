@@ -148,44 +148,50 @@ test('pending movement resumes once and paid movement/Sell/resolution replay exa
   expect(repeated.state).toBe(result.state);
 });
 
-test('10,000 random single moves keep credit monotonic, positions bounded and milestones paid once (§6.5, §8)', () => {
-  fc.assert(
-    fc.property(
-      fc.array(fc.integer({ min: -6, max: 6 }), { minLength: 10_000, maxLength: 10_000 }),
-      (deltas) => {
-        let state = movementState(0, 22);
-        const rewarded = new Set<number>();
-        for (const delta of deltas) {
-          const previous = state.players[0]!;
-          if (delta <= 0 || delta % 2 === 0) {
-            state = forceMove(state, 0, delta);
-            expect(state.players[0]!.coins).toBe(previous.coins);
-            expect(state.players[0]!.highestRewardedMilestone).toBe(
-              previous.highestRewardedMilestone,
-            );
-          } else {
-            state.phase = { kind: 'move' };
-            const result = move(state);
-            state = result.state;
-            for (const event of result.events) {
-              if (event.kind !== 'coin_transfer') continue;
-              const milestone = Math.floor(state.players[0]!.routeProgress / 24);
-              expect(rewarded.has(milestone)).toBe(false);
-              rewarded.add(milestone);
+// 100 fast-check runs of 10,000 moves each sit near the 5s default on a loaded
+// serialized runner, so this property gets an explicit budget above it.
+test(
+  '10,000 random single moves keep credit monotonic, positions bounded and milestones paid once (§6.5, §8)',
+  { timeout: 20_000 },
+  () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.integer({ min: -6, max: 6 }), { minLength: 10_000, maxLength: 10_000 }),
+        (deltas) => {
+          let state = movementState(0, 22);
+          const rewarded = new Set<number>();
+          for (const delta of deltas) {
+            const previous = state.players[0]!;
+            if (delta <= 0 || delta % 2 === 0) {
+              state = forceMove(state, 0, delta);
+              expect(state.players[0]!.coins).toBe(previous.coins);
+              expect(state.players[0]!.highestRewardedMilestone).toBe(
+                previous.highestRewardedMilestone,
+              );
+            } else {
+              state.phase = { kind: 'move' };
+              const result = move(state);
+              state = result.state;
+              for (const event of result.events) {
+                if (event.kind !== 'coin_transfer') continue;
+                const milestone = Math.floor(state.players[0]!.routeProgress / 24);
+                expect(rewarded.has(milestone)).toBe(false);
+                rewarded.add(milestone);
+              }
             }
+            const player = state.players[0]!;
+            expect(player.creditedLap).toBeGreaterThanOrEqual(previous.creditedLap);
+            expect(player.creditedLap).toBe(rewarded.size);
+            expect(player.coins).toBe(20 + 5 * rewarded.size);
+            expect(positionOf(player.routeProgress)).toBeGreaterThanOrEqual(0);
+            expect(positionOf(player.routeProgress)).toBeLessThanOrEqual(23);
           }
-          const player = state.players[0]!;
-          expect(player.creditedLap).toBeGreaterThanOrEqual(previous.creditedLap);
-          expect(player.creditedLap).toBe(rewarded.size);
-          expect(player.coins).toBe(20 + 5 * rewarded.size);
-          expect(positionOf(player.routeProgress)).toBeGreaterThanOrEqual(0);
-          expect(positionOf(player.routeProgress)).toBeLessThanOrEqual(23);
-        }
-      },
-    ),
-    { numRuns: 1, seed: 22 },
-  );
-});
+        },
+      ),
+      { numRuns: 1, seed: 22 },
+    );
+  },
+);
 
 test('test-only displacement preserves other seats and rejects non-whole or unsafe movement (§6.5)', () => {
   const state = movementState(0);
