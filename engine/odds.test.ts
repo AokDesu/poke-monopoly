@@ -115,6 +115,72 @@ test('odds are 0 when the roll needed is above 6 and 1 when it is 1 or less (§4
   });
 });
 
+test('DC 2–5 with bonuses 0–3 agrees with actual catches on all six faces (#32)', () => {
+  // Literal d6 face counts indexed by the needed roll, including guaranteed success.
+  const successesByNeeded = [6, 6, 5, 4, 3, 2];
+  const percentByFaces = [0, 17, 33, 50, 67, 83, 100];
+  // These seeds yield faces 1 through 6 for the first catch roll, respectively.
+  const seedsByFace = new Map<number, number>();
+  for (let seed = 0; seedsByFace.size < 6 && seed < 100; seed++) {
+    const state = encounter('chansey', seed);
+    const confirmed = applyAction(state, {
+      actorId: 'player-0',
+      actionSeq: 1,
+      stateRevisionBefore: 0,
+      kind: 'catch',
+      payload: { ballType: 'poke' },
+    });
+    if ('rejected' in confirmed) throw new Error(confirmed.reason);
+    const rolled = advanceAutomatically(confirmed.state);
+    const face = rolled.events.find((event) => event.kind === 'random_result')!.result as number;
+    seedsByFace.set(face, seed);
+  }
+  expect(seedsByFace.size).toBe(6);
+  for (const dc of [2, 3, 4, 5]) {
+    for (const bonus of [0, 1, 2, 3]) {
+      for (const [ballType, ballBonus] of [
+        ['poke', 0],
+        ['great', 1],
+        ['ultra', 2],
+      ] as const) {
+        let succeeded = 0;
+        for (const seed of seedsByFace.values()) {
+          const state = encounter('chansey', seed);
+          state.content.species.find((species) => species.id === 'chansey')!.dc = dc;
+          // Synthetic modifier snapshots cover the arithmetic contract beyond today's +1 Egg.
+          state.turnEffects = { itemBonus: bonus };
+          state.players[0]!.balls[ballType] = 1;
+          const before = structuredClone(state);
+          const odds = catchOdds(state, 0, ballType);
+          const needed = dc - bonus - ballBonus;
+          const faces = successesByNeeded[Math.max(0, needed)]!;
+          expect(odds).toEqual({
+            needed,
+            successFaces: faces,
+            probability: faces / 6,
+            percent: percentByFaces[faces],
+          });
+          expect(state).toEqual(before);
+          const confirmed = applyAction(state, {
+            actorId: 'player-0',
+            actionSeq: 1,
+            stateRevisionBefore: 0,
+            kind: 'catch',
+            payload: { ballType },
+          });
+          if ('rejected' in confirmed) throw new Error(confirmed.reason);
+          const rolled = advanceAutomatically(confirmed.state);
+          if (rolled.state.players[0]!.team.length > before.players[0]!.team.length) succeeded++;
+        }
+        const state = encounter('chansey');
+        state.content.species.find((species) => species.id === 'chansey')!.dc = dc;
+        state.turnEffects = { itemBonus: bonus };
+        expect(catchOdds(state, 0, ballType).probability).toBe(succeeded / 6);
+      }
+    }
+  }
+});
+
 test('odds need a Pokémon to catch and a known seat (§4.3)', () => {
   const state = encounter('eevee');
   expect(() => catchOdds(state, 7, 'poke')).toThrow(RangeError);
