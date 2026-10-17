@@ -16,6 +16,9 @@ export function firstPlayerRollPurpose(state: GameState): string {
 }
 
 export function pendingRollPurpose(state: GameState): string | undefined {
+  if (state.phase.kind === 'encounter' && state.phase.catchRoll) {
+    return `catch:${state.activeSeatIndex}:${state.globalTurnNo}`;
+  }
   if (state.phase.kind === 'first_player_roll' && state.phase.awaitingResult) {
     return firstPlayerRollPurpose(state);
   }
