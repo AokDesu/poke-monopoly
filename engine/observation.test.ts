@@ -54,9 +54,51 @@ test("a used secret item's uid_destroyed is visible only to its owner (§4.1, §
     itemInstanceId: 'SENTINEL-0',
     targetSeatIndex: 1,
   });
-  const transfer = events.find((event) => event.kind === 'coin_transfer');
   expect(eventsVisibleTo(before, events, 0)).toEqual(events);
-  expect(eventsVisibleTo(before, events, 1)).toEqual([transfer]);
+  expect(eventsVisibleTo(before, events, 1)).toEqual(
+    events.filter((event) => event.kind !== 'uid_destroyed'),
+  );
+});
+
+/** `strategy` with a third seat, so a bystander can be checked. */
+function strategy3(itemId: string): GameState {
+  const scenario = fixtureSchema.parse(fixture).state;
+  const content = structuredClone(scenario.content);
+  content.classes.push({
+    id: 'team-rocket',
+    name: 'Team Rocket',
+    starterSpeciesIds: ['eevee'],
+    classItemId: 'pickpocket',
+  });
+  const seats = [
+    ...scenario.config.seats,
+    { actorId: 'player-2', seatIndex: 2, classId: 'team-rocket', controller: 'ai' as const },
+  ];
+  const state = createGame(createGameConfig({ seats, seed: 4, lapTarget: 3 }), content);
+  const two = strategy(itemId);
+  return { ...two, config: state.config, content, players: [...two.players, state.players[2]!] };
+}
+
+test('a secret hostile item use is told to its user and target only, not to bystanders (§4.1, §4.4, §5.4)', () => {
+  for (const itemId of ['repel', 'pickpocket']) {
+    const before = strategy3(itemId);
+    const { events } = accepted(before, 'use_item', {
+      itemInstanceId: 'SENTINEL-0',
+      targetSeatIndex: 1,
+    });
+    const used = { kind: 'hostile_item_used', userSeatIndex: 0, targetSeatIndex: 1, itemId };
+    expect(events).toContainEqual(used);
+    expect(eventsVisibleTo(before, events, 0)).toContainEqual(used);
+    expect(eventsVisibleTo(before, events, 1)).toContainEqual(used);
+    expect(eventsVisibleTo(before, events, 2)).toEqual(
+      events.filter((event) => event.kind === 'coin_transfer'),
+    );
+  }
+});
+
+test('a Lucky Egg, used on oneself, emits no hostile item event (§4.6)', () => {
+  const { events } = accepted(strategy('lucky-egg'), 'use_item', { itemInstanceId: 'SENTINEL-0' });
+  expect(events.map((event) => event.kind)).toEqual(['uid_destroyed']);
 });
 
 test("a bought item's uid_created is visible only to the buyer (§4.1, §4.6, §5.4)", () => {

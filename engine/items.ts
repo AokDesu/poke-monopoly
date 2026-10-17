@@ -74,9 +74,15 @@ export function useItem(next: GameState, action: Action): EngineEvent[] {
     return [destroyed];
   }
   const target = next.players.find((entry) => entry.seatIndex === action.payload.targetSeatIndex)!;
+  const used: EngineEvent = {
+    kind: 'hostile_item_used',
+    userSeatIndex: player.seatIndex,
+    targetSeatIndex: target.seatIndex,
+    itemId,
+  };
   if (itemId === 'repel') {
     target.pendingSlows = [...(target.pendingSlows ?? []), 'repel'];
-    return [destroyed];
+    return [used, destroyed];
   }
   const amount = Math.min(5, target.coins);
   target.coins -= amount;
@@ -89,6 +95,7 @@ export function useItem(next: GameState, action: Action): EngineEvent[] {
       amount,
       reason: 'pickpocket',
     },
+    used,
     destroyed,
   ];
 }
