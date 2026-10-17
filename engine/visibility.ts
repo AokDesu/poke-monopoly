@@ -5,7 +5,7 @@ import type { EngineEvent, GameState } from './contract/schema.ts';
  * A secret item's UID events are its owner's alone; shuffle draws, which reveal deck order, are
  * nobody's.
  */
-export function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): boolean {
+function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): boolean {
   if (event.kind === 'random_result' && event.purpose.startsWith('shuffle:')) return false;
   // Items created during play are bought, hence secret (§4.1).
   if (event.kind === 'uid_created' && event.entity === 'item') {

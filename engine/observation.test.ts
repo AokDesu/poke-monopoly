@@ -205,7 +205,7 @@ test('500 random mid-game states never show a seat another seat’s secrets, RNG
   expect(itemEvents).toEqual(new Set(['uid_created', 'uid_destroyed']));
 });
 
-test('an opponent shows coins, team and an item count, the public class item, and no Balls or secret items (§3, §4.1)', () => {
+test('an opponent observation shows coins, team, item count and the public class item, but omits the Ball pouch and secret items (§3, §4.1)', () => {
   const state = strategy('repel');
   state.players[1]!.balls = { poke: 2, great: 1, ultra: 3 };
   const rival = observe(state, 0).public.players[1]!;
