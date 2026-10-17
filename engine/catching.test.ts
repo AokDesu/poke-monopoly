@@ -317,57 +317,65 @@ test('repeated species get distinct team UIDs and pending/resolved catches resum
   expect(replay(log)).toEqual(state);
 });
 
-test('random legal turn sequences spend exactly the selected Ball on every attempt and none on release (§8)', () => {
-  fc.assert(
-    fc.property(
-      fc.integer({ min: 0, max: 100_000 }),
-      fc.array(fc.nat(), { minLength: 150, maxLength: 300 }),
-      (seed, selections) => {
-        let state = encounter(seed);
-        for (const player of state.players) player.balls = { poke: 3, great: 3, ultra: 3 };
-        const log = createGameLog(state);
-        for (const selection of selections) {
-          const before = state;
-          if (state.phase.kind === 'encounter' && !state.phase.catchRoll) {
-            const choices = legalActions(state, state.activeSeatIndex).enabled;
-            const choice = choices[selection % choices.length]!;
-            const result = command(state, choice.kind, choice.payload);
-            const expected = structuredClone(before.players.map((player) => player.balls));
-            if (choice.kind === 'catch') {
-              expected[before.activeSeatIndex]![choice.payload.ballType]--;
-              expect(result.state.turnBudgets.catchAttempt).toBe(0);
+// 30 property runs of up to 300 public-API turns each, with replay, take ~6-8s on Node 24,
+// so this test gets an explicit budget above the 5s default; runs and assertions are unchanged.
+test(
+  'random legal turn sequences spend exactly the selected Ball on every attempt and none on release (§8)',
+  {
+    timeout: 20_000,
+  },
+  () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 0, max: 100_000 }),
+        fc.array(fc.nat(), { minLength: 150, maxLength: 300 }),
+        (seed, selections) => {
+          let state = encounter(seed);
+          for (const player of state.players) player.balls = { poke: 3, great: 3, ultra: 3 };
+          const log = createGameLog(state);
+          for (const selection of selections) {
+            const before = state;
+            if (state.phase.kind === 'encounter' && !state.phase.catchRoll) {
+              const choices = legalActions(state, state.activeSeatIndex).enabled;
+              const choice = choices[selection % choices.length]!;
+              const result = command(state, choice.kind, choice.payload);
+              const expected = structuredClone(before.players.map((player) => player.balls));
+              if (choice.kind === 'catch') {
+                expected[before.activeSeatIndex]![choice.payload.ballType]--;
+                expect(result.state.turnBudgets.catchAttempt).toBe(0);
+              } else {
+                expect(choice.kind).toBe('release');
+                expect(result.state.turnBudgets).toEqual(before.turnBudgets);
+              }
+              expect(result.state.players.map((player) => player.balls)).toEqual(expected);
+              expect(result.state.players.map((player) => player.team)).toEqual(
+                before.players.map((player) => player.team),
+              );
+              expect(result.events.filter((event) => event.kind === 'uid_created')).toEqual([]);
+              state = result.state;
+              log.actions.push(result.record);
             } else {
-              expect(choice.kind).toBe('release');
-              expect(result.state.turnBudgets).toEqual(before.turnBudgets);
+              const result = advanceAutomatically(state);
+              expect(result.records).toHaveLength(1);
+              expect(result.state.players.map((player) => player.balls)).toEqual(
+                before.players.map((player) => player.balls),
+              );
+              state = result.state;
+              log.actions.push(...result.records);
             }
-            expect(result.state.players.map((player) => player.balls)).toEqual(expected);
-            expect(result.state.players.map((player) => player.team)).toEqual(
-              before.players.map((player) => player.team),
-            );
-            expect(result.events.filter((event) => event.kind === 'uid_created')).toEqual([]);
-            state = result.state;
-            log.actions.push(result.record);
-          } else {
-            const result = advanceAutomatically(state);
-            expect(result.records).toHaveLength(1);
-            expect(result.state.players.map((player) => player.balls)).toEqual(
-              before.players.map((player) => player.balls),
-            );
-            state = result.state;
-            log.actions.push(...result.records);
+            for (const player of state.players) {
+              expect(player.balls.poke).toBeGreaterThanOrEqual(0);
+              expect(player.balls.great).toBeGreaterThanOrEqual(0);
+              expect(player.balls.ultra).toBeGreaterThanOrEqual(0);
+            }
           }
-          for (const player of state.players) {
-            expect(player.balls.poke).toBeGreaterThanOrEqual(0);
-            expect(player.balls.great).toBeGreaterThanOrEqual(0);
-            expect(player.balls.ultra).toBeGreaterThanOrEqual(0);
-          }
-        }
-        expect(replay(JSON.parse(JSON.stringify(log)))).toEqual(state);
-      },
-    ),
-    { numRuns: 30, seed: 23 },
-  );
-});
+          expect(replay(JSON.parse(JSON.stringify(log)))).toEqual(state);
+        },
+      ),
+      { numRuns: 30, seed: 23 },
+    );
+  },
+);
 
 test('pending catch rejects forged dice and late Ball changes without spending again (§4.3, §8)', () => {
   const state = encounter(1);
