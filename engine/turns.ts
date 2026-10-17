@@ -1,6 +1,7 @@
-import type { GameState, EngineEvent } from './contract/schema.ts';
+import type { GameState, EngineEvent, Player } from './contract/schema.ts';
 import { ENGINE_VERSION } from './versions.ts';
 import { drawEncounter } from './catching.ts';
+import { finishGame } from './game-end.ts';
 import { positionOf } from './contract/position.ts';
 
 /** Internal transitions operate only on the executor's detached next snapshot. */
@@ -48,11 +49,19 @@ export function recordMoveRoll(next: GameState, value: number): EngineEvent[] {
         amount: 5,
         reason: 'start_income',
       },
+      ...announceFinalTableRound(next, player),
       { kind: 'phase_changed', from: 'move', to: 'sell' },
     ];
   }
   next.phase = { kind: 'resolve' };
   return [{ kind: 'phase_changed', from: 'move', to: 'resolve' }];
+}
+
+/** Only the first player to reach the Lap target fixes the round; later arrivals change nothing. */
+function announceFinalTableRound(next: GameState, player: Player): EngineEvent[] {
+  if (next.finalTableRound || player.creditedLap < next.config.lapTarget) return [];
+  next.finalTableRound = { triggerSeatIndex: player.seatIndex, targetOwnTurnNo: player.ownTurnNo };
+  return [{ kind: 'final_table_round', ...next.finalTableRound }];
 }
 
 export function recordTurnCommand(next: GameState, kind: string): EngineEvent[] {
@@ -78,6 +87,10 @@ export function recordTurnCommand(next: GameState, kind: string): EngineEvent[] 
       next.phase = { kind: 'end' };
       return [...resolveDestination(next), { kind: 'phase_changed', from, to: next.phase.kind }];
     case 'end': {
+      const round = next.finalTableRound;
+      if (round && next.players.every((player) => player.ownTurnNo >= round.targetOwnTurnNo)) {
+        return finishGame(next);
+      }
       const seats = [...next.config.seats].sort((a, b) => a.seatIndex - b.seatIndex);
       const current = seats.findIndex((seat) => seat.seatIndex === next.activeSeatIndex);
       startTurn(next, seats[(current + 1) % seats.length]!.seatIndex);
