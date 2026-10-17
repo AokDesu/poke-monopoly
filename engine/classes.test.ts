@@ -282,3 +282,10 @@ test('a Researcher crossing Start and selling replays with the same bonus events
   ]);
   expect(replay(JSON.parse(JSON.stringify(log)))).toEqual(sold.state);
 });
+
+test('pre-class-bonus executable versions reject instead of replaying without the Researcher bonus (§6.8)', () => {
+  const state = researcherGame();
+  state.config.engineVersion = '0.5.0';
+  expect(() => createGame(state.config, state.content)).toThrow(/unsupported/i);
+  expect(() => createGameLog(state)).toThrow(/unsupported/i);
+});
