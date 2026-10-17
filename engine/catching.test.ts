@@ -354,6 +354,14 @@ test(
               expect(result.events.filter((event) => event.kind === 'uid_created')).toEqual([]);
               state = result.state;
               log.actions.push(result.record);
+            } else if (state.phase.kind === 'sell') {
+              // Sell is a real decision once a catch grows the team; keep it to isolate Balls.
+              const result = command(state, 'sell', { pokemonInstanceIds: [] });
+              expect(result.state.players.map((player) => player.balls)).toEqual(
+                before.players.map((player) => player.balls),
+              );
+              state = result.state;
+              log.actions.push(result.record);
             } else {
               const result = advanceAutomatically(state);
               expect(result.records).toHaveLength(1);
