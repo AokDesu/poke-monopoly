@@ -14,6 +14,7 @@ export interface CatchOdds {
 
 /** Only the active seat faces the Encounter; its turn effects are the ones the snapshot reads. */
 function encounterPlayer(state: GameState, seatIndex: number): Player {
+  if (state.phase.kind !== 'encounter') throw new RangeError('No Pokémon to catch');
   if (seatIndex !== state.activeSeatIndex) throw new RangeError('Seat is not in the Encounter');
   return state.players.find((candidate) => candidate.seatIndex === seatIndex)!;
 }
