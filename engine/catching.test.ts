@@ -69,3 +69,56 @@ test('confirming a catch spends one chosen Ball and budget before the logged rol
   ]);
   expect(state).toEqual(before);
 });
+
+test('Wild resolution draws a species with two logged RNG results and creates no UID (§4.5)', () => {
+  const state = encounter(1);
+  state.phase = { kind: 'resolve' };
+  state.players[0]!.routeProgress = 1;
+  const before = structuredClone(state);
+  const resolved = command(state, 'skip');
+  expect(resolved.state.phase).toEqual({ kind: 'encounter', pokemon: { speciesId: 'eevee' } });
+  expect(resolved.events).toEqual([
+    { kind: 'space_resolved', seatIndex: 0, position: 1 },
+    { kind: 'random_result', purpose: 'encounter:rarity', result: 1, drawCounter: 1 },
+    { kind: 'random_result', purpose: 'encounter:species', result: 0, drawCounter: 2 },
+    { kind: 'phase_changed', from: 'resolve', to: 'encounter' },
+  ]);
+  expect(resolved.state.players).toEqual(state.players);
+  expect(state).toEqual(before);
+});
+
+test('10,000 seed-1 Wild draws exclude starters/Porygon and preserve 50/33/17 rarity weights (§4.5, §8)', () => {
+  let state = encounter(1);
+  // Include each excluded species so exclusion is actually exercised.
+  for (const id of ['charmander', 'squirtle', 'porygon']) {
+    state.content.species.push({
+      ...state.content.species.find((entry) => entry.id === 'bulbasaur')!,
+      id,
+    });
+  }
+  const counts = { common: 0, uncommon: 0, rare: 0 };
+  const speciesCounts: Record<string, number> = {};
+  for (let draw = 0; draw < 10_000; draw++) {
+    state.phase = { kind: 'resolve' };
+    state.players[0]!.routeProgress = 1;
+    const result = command(state, 'skip');
+    state = result.state;
+    if (state.phase.kind !== 'encounter') throw new Error('Missing encounter');
+    const id = state.phase.pokemon.speciesId;
+    expect(['bulbasaur', 'charmander', 'squirtle', 'porygon']).not.toContain(id);
+    const species = state.content.species.find((entry) => entry.id === id)!;
+    counts[species.rarity]++;
+    speciesCounts[id] = (speciesCounts[id] ?? 0) + 1;
+    expect(result.events.filter((event) => event.kind === 'uid_created')).toEqual([]);
+    expect(state.rng.cursor).toBe((draw + 1) * 2);
+    state = command(state, 'release').state;
+  }
+  expect(counts.common / 10_000).toBeCloseTo(0.5, 1);
+  expect(Math.abs(counts.common / 10_000 - 0.5)).toBeLessThanOrEqual(0.03);
+  expect(Math.abs(counts.uncommon / 10_000 - 0.33)).toBeLessThanOrEqual(0.03);
+  expect(Math.abs(counts.rare / 10_000 - 0.17)).toBeLessThanOrEqual(0.03);
+  // The two common species must be picked uniformly, rather than by weight or DC.
+  expect(Math.abs(speciesCounts.caterpie! / counts.common - 0.5)).toBeLessThanOrEqual(0.03);
+  expect(Math.abs(speciesCounts.pidgey! / counts.common - 0.5)).toBeLessThanOrEqual(0.03);
+  expect(state.players[0]!.team).toHaveLength(1);
+});

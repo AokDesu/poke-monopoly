@@ -1,3 +1,4 @@
+import { int, weightedPick } from './rng.ts';
 import type { Action, EngineEvent, GameState } from './contract/schema.ts';
 
 // Reserved hooks: real class, Ability and item effects are deferred beyond this cycle.
@@ -56,4 +57,25 @@ export function recordCatchRoll(next: GameState, value: number): EngineEvent[] {
   }
   next.phase = { kind: 'end' };
   return [...events, { kind: 'phase_changed', from: 'encounter', to: 'end' }];
+}
+
+/** Species only: an encounter is not an owned asset and has no instance UID. */
+export function drawEncounter(next: GameState): EngineEvent[] {
+  const pool = next.content.species.filter(
+    (species) => !['bulbasaur', 'charmander', 'squirtle', 'porygon'].includes(species.id),
+  );
+  const rarity = weightedPick(
+    next.rng,
+    [
+      { value: 'common', weight: 50 },
+      { value: 'uncommon', weight: 33 },
+      { value: 'rare', weight: 17 },
+    ],
+    'encounter:rarity',
+  );
+  const species = pool.filter((entry) => entry.rarity === rarity.value);
+  const pick = int(rarity.rng, species.length, 'encounter:species');
+  next.rng = pick.rng;
+  next.phase = { kind: 'encounter', pokemon: { speciesId: species[pick.value]!.id } };
+  return [...rarity.events, ...pick.events];
 }
