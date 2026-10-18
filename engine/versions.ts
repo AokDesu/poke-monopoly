@@ -7,7 +7,7 @@ import {
   type LogHeader,
 } from './contract/schema.ts';
 
-export const ENGINE_VERSION = '0.7.0';
+export const ENGINE_VERSION = '0.8.0';
 export { CONTENT_VERSION };
 
 export function createGameConfig(
