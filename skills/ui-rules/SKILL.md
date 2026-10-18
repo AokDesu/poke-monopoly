@@ -15,6 +15,7 @@ Source: spec §3.1 (`docs/SPEC-v1.0-PokeMonopoly.md`). Every case needs a test t
 | Shortlist empty after personality filtering                             | Include at least one option per legal action kind; if still empty, skip                                   |
 | Pokémon found but no Ball                                               | The only option is to release; the catch button is greyed out with the reason "No Ball"                   |
 | Not enough coins for anything in the Shop                               | Items are greyed out with "Not enough coins", plus a skip button                                          |
+| Holding 4 utility items in the Shop                                     | Utility-item offers are greyed out with "Items full"; Balls stay buyable (approved 2026-10-07)            |
 | Jev times out, returns 429 or errors mid-deal                           | The fallback policy decides under the same concession budget; the deal does not commit until re-confirmed |
 | Jev's answer is not among the options, or the revision does not match   | Discard the answer, use the fallback, and log `fallbackReason`                                            |
 | Confidence below the floor                                              | Apply the rule in §5.6                                                                                    |
