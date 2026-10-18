@@ -314,38 +314,48 @@ test('1,000 random legal actions with items keep coins nonnegative, transfers ba
       fc.tuple(fc.integer({ min: 0, max: 6 }), fc.integer({ min: 0, max: 6 })),
       fc.array(fc.nat(), { minLength: 1000, maxLength: 1000 }),
       (seed, coins, selections) => {
-        let state = strategy('repel', seed);
-        // Low balances put Pickpocket at its 0-coin and partial-take boundaries.
-        state.players[0]!.coins = coins[0];
-        state.players[1]!.coins = coins[1];
-        state.players[0]!.items.push(
-          {
-            instanceId: 'bought:0:2',
-            itemId: 'pickpocket',
-            name: 'Pickpocket',
-            visibility: 'secret',
-          },
-          {
-            instanceId: 'bought:0:3',
-            itemId: 'lucky-egg',
-            name: 'Lucky Egg',
-            visibility: 'secret',
-          },
-        );
-        state.players[1]!.items.push(
-          {
-            instanceId: 'bought:1:4',
-            itemId: 'pickpocket',
-            name: 'Pickpocket',
-            visibility: 'secret',
-          },
-          { instanceId: 'bought:1:5', itemId: 'repel', name: 'Repel', visibility: 'secret' },
-        );
-        const log = createGameLog(state);
+        const start = (gameSeed: number) => {
+          const game = strategy('repel', gameSeed);
+          // Low balances put Pickpocket at its 0-coin and partial-take boundaries.
+          game.players[0]!.coins = coins[0];
+          game.players[1]!.coins = coins[1];
+          game.players[0]!.items.push(
+            {
+              instanceId: 'bought:0:2',
+              itemId: 'pickpocket',
+              name: 'Pickpocket',
+              visibility: 'secret',
+            },
+            {
+              instanceId: 'bought:0:3',
+              itemId: 'lucky-egg',
+              name: 'Lucky Egg',
+              visibility: 'secret',
+            },
+          );
+          game.players[1]!.items.push(
+            {
+              instanceId: 'bought:1:4',
+              itemId: 'pickpocket',
+              name: 'Pickpocket',
+              visibility: 'secret',
+            },
+            { instanceId: 'bought:1:5', itemId: 'repel', name: 'Repel', visibility: 'secret' },
+          );
+          return game;
+        };
+        let games = 0;
+        let state = start(seed);
+        let log = createGameLog(state);
         let used = 0;
+        let checked = 0;
         for (const selection of selections) {
-          // A finished game (§4.7 step 3) has no further actions.
-          if (state.phase.kind === 'finished') break;
+          // A finished game (§4.7 step 3) has no further actions: replay it, then start a fresh one.
+          if (state.phase.kind === 'finished') {
+            expect(replay(JSON.parse(JSON.stringify(log)))).toEqual(state);
+            state = start(seed + ++games);
+            log = createGameLog(state);
+          }
           const choices = legalActions(state, state.activeSeatIndex).enabled;
           // A sole choice or pending roll advances automatically; otherwise pick at random.
           const step =
@@ -386,7 +396,9 @@ test('1,000 random legal actions with items keep coins nonnegative, transfers ba
           expect(new Set(uids).size).toBe(uids.length);
           state = next;
           log.actions.push(...records);
+          checked++;
         }
+        expect(checked).toBe(selections.length);
         expect(used).toBeGreaterThan(0);
         expect(replay(JSON.parse(JSON.stringify(log)))).toEqual(state);
       },

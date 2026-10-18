@@ -285,6 +285,13 @@ export const engineEventSchema = z.discriminatedUnion('kind', [
     effect: z.literal('none_yet').optional(),
   }),
   z.strictObject({ kind: z.literal('phase_changed'), from: id, to: id }),
+  // Told only to the user and target of a hostile item (§4.1, §4.4).
+  z.strictObject({
+    kind: z.literal('hostile_item_used'),
+    userSeatIndex: count,
+    targetSeatIndex: count,
+    itemId: id,
+  }),
   z.strictObject({
     kind: z.literal('final_table_round'),
     triggerSeatIndex: count,

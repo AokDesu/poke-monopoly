@@ -9,3 +9,9 @@ export { createGame } from './setup.ts';
 export * from './observation-buckets.ts';
 export { GAME_PRESETS, LAP_TARGETS, winner, type WinnerResult } from './game-end.ts';
 export { catchOdds, oddsForAllBalls, type BallType, type CatchOdds } from './odds.ts';
+export {
+  actionVisibleTo,
+  eventsVisibleTo,
+  type SeatAction,
+  type SeatActionRecord,
+} from './visibility.ts';

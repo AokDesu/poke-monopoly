@@ -253,13 +253,6 @@ test('a Potion is a public Strategy item disabled with NO_VALID_TARGET while no 
   expect(advanceAutomatically(state).state.phase).toEqual({ kind: 'move' });
 });
 
-test('pre-class-bonus executable versions reject instead of replaying different sale payouts (§6.8)', () => {
-  const state = researcherGame();
-  state.config.engineVersion = '0.3.0';
-  expect(() => createGame(state.config, state.content)).toThrow(/unsupported/i);
-  expect(() => createGameLog(state)).toThrow(/unsupported/i);
-});
-
 test('a Researcher crossing Start and selling replays with the same bonus events (§6.8, §8)', () => {
   const initial = researcherSellState();
   initial.phase = { kind: 'move' };

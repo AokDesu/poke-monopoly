@@ -10,7 +10,7 @@ Source: spec §5.4 (`docs/SPEC-v1.0-PokeMonopoly.md`). Decision points and their
 - **Role-scoped:** send only what that seat can really see.
   - Public: board, coins, teams, Lap, ability readiness.
   - Own: hand, Balls, peek results, interactions.
-  - Never: Event order, opponents' secret items or RNG state.
+  - Never: Event order, opponents' secret items or RNG state. Opponents' Ball counts are not exposed directly in observations but can be inferred from public play (§4.1).
 - **Numbers become named buckets**, e.g. `"win_chance": "low"` or `"coins_vs_you": "far ahead"`. Never send numbers for Jev to compare.
   - The state builder is `ai/state/buildJevState` (exported from `ai/state/index.ts`); its input is only the engine's `Observation` from `observe()`.
   - Numeric derivations live in `engine/observation-buckets.ts`, with thresholds in its single `STATE_BUCKET_CONFIG` object. These are presentation thresholds, not gameplay rules.
