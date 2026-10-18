@@ -2,4 +2,16 @@
 
 Browser UI: one Vite + React + Tailwind CSS single-page app. Must not import from `ai/` (or the Jev SDK); it only calls `/api` over HTTP. Every number on screen comes from the engine.
 
-Run with `npm run dev:web` (port 5173). Spec: §3, §3.1. Skill: `skills/ui-rules`.
+Run with `npm run dev:web` (port 5173). Spec: §3, §3.1, §6.1. Skill: `skills/ui-rules`.
+
+| Path                    | What it holds                                                                                                                    |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `src/screens.ts`        | The screen state: `home`, `setup`, `play`, `results`. A plain value in `App`, no router.                                         |
+| `src/i18n/th.ts`        | Every player-facing string, read with `t(key)`. `src/i18n/inline-text.test.ts` fails on Thai or English UI text typed elsewhere. |
+| `src/game/store.ts`     | The engine adapter: holds the state and action log. The only file that calls engine functions, and only from `engine/index.ts`.  |
+| `src/ErrorBoundary.tsx` | No blank screens: a render error shows what to do next and a retry button.                                                       |
+| `src/ui/`               | Shared controls.                                                                                                                 |
+
+The Noto Sans Thai font is self-hosted through `@fontsource/noto-sans-thai`; the page loads nothing from another host. Lint enforces the import rules: no `ai/`, and engine values only through the adapter (type imports from the engine are allowed in `web/` except in the adapter, which may import only `engine/index.ts`; test files may import the engine directly).
+
+Component tests run in the Vitest `web` project (jsdom, Testing Library); `npm test` runs them with the rest.
