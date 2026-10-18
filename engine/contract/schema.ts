@@ -40,7 +40,14 @@ export const contentSchema = z.strictObject({
     }),
   ),
   classes: z.array(
-    z.strictObject({ id, name: id, starterSpeciesIds: z.array(id).min(1), classItemId: id }),
+    z.strictObject({
+      id,
+      name: id,
+      starterSpeciesIds: z.array(id).min(1),
+      classItemId: id,
+      // Names an engine-owned passive; its numbers and timing live in engine/classes.ts.
+      passive: z.enum(['lap_first_sale_bonus', 'lap_first_catch_bonus']).optional(),
+    }),
   ),
   items: z.array(
     z.discriminatedUnion('kind', [
@@ -97,11 +104,15 @@ export const playerSchema = z.strictObject({
   // Optional only for historical contract snapshots; new games always initialize it.
   highestRewardedMilestone: count.optional(),
   ownTurnNo: count,
+  // Slowing effects waiting for this player's next actual move (§4.6); absent when none.
+  pendingSlows: z.array(z.enum(['repel'])).optional(),
   team: z.array(pokemonInstanceSchema),
   balls: ballPouchSchema,
   items: z.array(itemInstanceSchema).max(4),
   badges: count,
   abilityUsedGlobalTurnNo: count.nullable(),
+  // `creditedLap` whose first-catch class bonus a real catch roll has used; absent until then.
+  catchBonusUsedLap: count.optional(),
   privateResults: z.array(privateResultSchema),
 });
 const shopOfferSchema = z.discriminatedUnion('kind', [
@@ -132,7 +143,21 @@ export const phaseSchema = z.discriminatedUnion('kind', [
       'chat',
     ]),
   }),
-  z.strictObject({ kind: z.literal('encounter'), pokemon: pokemonInstanceSchema }),
+  z.strictObject({
+    kind: z.literal('encounter'),
+    // Historical fixtures used an instance; live draws have only a species until caught.
+    pokemon: z.union([pokemonInstanceSchema, z.strictObject({ speciesId: id })]),
+    catchRoll: z
+      .strictObject({
+        ballType,
+        catchDC: count,
+        classBonus: z.int(),
+        ballBonus: z.int(),
+        abilityBonus: z.int(),
+        itemBonus: z.int(),
+      })
+      .optional(),
+  }),
   z.strictObject({ kind: z.literal('sell'), destinationPosition: z.int().min(0).max(23) }),
   z.strictObject({ kind: z.literal('shop'), offers: z.array(shopOfferSchema) }),
 ]);
@@ -153,6 +178,8 @@ export const gameStateSchema = z.strictObject({
     pokemonAbility: count,
   }),
   finalTableRound: finalTableRoundSchema,
+  // Active-turn item effects, cleared when the next turn starts; absent when none.
+  turnEffects: z.strictObject({ itemBonus: z.int() }).optional(),
   rng: z.strictObject({ cursor: count, state: id }),
   eventDeck: z.strictObject({ drawPile: z.array(id), discardPile: z.array(id) }),
 });
@@ -165,6 +192,7 @@ const actionBodySchema = z.discriminatedUnion('kind', [
       'skip',
       'release',
       'finish_sell',
+      'skip_shop',
       'combat',
       'gym',
       'ability',
@@ -175,7 +203,10 @@ const actionBodySchema = z.discriminatedUnion('kind', [
     payload: z.strictObject({}),
   }),
   z.object({ kind: z.literal('catch'), payload: z.strictObject({ ballType }) }),
-  z.object({ kind: z.literal('use_item'), payload: z.strictObject({ itemInstanceId: id }) }),
+  z.object({
+    kind: z.literal('use_item'),
+    payload: z.strictObject({ itemInstanceId: id, targetSeatIndex: count.optional() }),
+  }),
   z.object({
     kind: z.literal('sell'),
     payload: z.strictObject({ pokemonInstanceIds: z.array(id) }),
@@ -205,6 +236,7 @@ export const reasonCodeSchema = z.enum([
   'ITEMS_FULL',
   'NOT_YOUR_TURN',
   'ALREADY_USED_THIS_TURN',
+  'NO_VALID_TARGET',
 ]);
 export const disabledActionSchema = legalActionSchema.and(
   z.object({ reasonCode: reasonCodeSchema, reasonText: id }),
@@ -231,6 +263,8 @@ export const engineEventSchema = z.discriminatedUnion('kind', [
     destination: coinEndpointSchema,
     amount: count,
     reason: id,
+    // Current-version Pokémon sales show their parts, e.g. base 8 + class bonus 3.
+    sale: z.strictObject({ basePrice: count, classBonus: count }).optional(),
   }),
   z.strictObject({
     kind: z.literal('uid_created'),
@@ -248,8 +282,21 @@ export const engineEventSchema = z.discriminatedUnion('kind', [
     kind: z.literal('space_resolved'),
     seatIndex: count,
     position: z.int().min(0).max(23),
+    effect: z.literal('none_yet').optional(),
   }),
   z.strictObject({ kind: z.literal('phase_changed'), from: id, to: id }),
+  // Told only to the user and target of a hostile item (§4.1, §4.4).
+  z.strictObject({
+    kind: z.literal('hostile_item_used'),
+    userSeatIndex: count,
+    targetSeatIndex: count,
+    itemId: id,
+  }),
+  z.strictObject({
+    kind: z.literal('final_table_round'),
+    triggerSeatIndex: count,
+    targetOwnTurnNo: count,
+  }),
 ]);
 export const observationSchema = z.strictObject({
   public: z.strictObject({

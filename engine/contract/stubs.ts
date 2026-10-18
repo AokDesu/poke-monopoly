@@ -8,6 +8,9 @@ import {
   recordMoveRoll,
   recordTurnCommand,
 } from '../turns.ts';
+import { confirmCatch, recordCatchRoll } from '../catching.ts';
+import { confirmShop } from '../shop.ts';
+import { itemChoices, useItem } from '../items.ts';
 import { ENGINE_VERSION } from '../versions.ts';
 import { recordSale, validSale } from '../selling.ts';
 import type {
@@ -76,11 +79,27 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
     result.enabled.push({ id: 'roll', kind: 'roll', payload: {} });
   }
   if (state.phase.kind === 'strategy') {
+    if (state.config.engineVersion === ENGINE_VERSION) itemChoices(state, seatIndex, result);
+    // Historical fixtures retain their illustrative untargeted item choices.
     for (const item of state.config.engineVersion === ENGINE_VERSION ? [] : player.items) {
       result.enabled.push({
         id: `use-item:${item.instanceId}`,
         kind: 'use_item',
         payload: { itemInstanceId: item.instanceId },
+      });
+    }
+    // Potion effects are deferred; only its no-target state is executable (debuffs do not exist yet).
+    const potions =
+      state.config.engineVersion === ENGINE_VERSION && !player.team.some((pokemon) => pokemon.tired)
+        ? player.items.filter((item) => item.itemId === 'potion')
+        : [];
+    for (const item of potions) {
+      result.disabled.push({
+        id: `use-item:${item.instanceId}`,
+        kind: 'use_item',
+        payload: { itemInstanceId: item.instanceId },
+        reasonCode: 'NO_VALID_TARGET',
+        reasonText: 'No tired or debuffed Pokémon to heal',
       });
     }
     result.enabled.push({ id: 'skip', kind: 'skip', payload: {} });
@@ -94,11 +113,20 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   ) {
     result.enabled.push({ id: 'skip', kind: 'skip', payload: {} });
   }
-  if (state.phase.kind === 'encounter') {
+  if (state.phase.kind === 'encounter' && !state.phase.catchRoll) {
     for (const ballType of ['poke', 'great', 'ultra'] as const) {
       const action: LegalAction = { id: `catch:${ballType}`, kind: 'catch', payload: { ballType } };
       if (player.balls[ballType] === 0) {
         result.disabled.push({ ...action, reasonCode: 'NO_BALL', reasonText: 'No Ball' });
+      } else if (
+        state.config.engineVersion === ENGINE_VERSION &&
+        state.turnBudgets.catchAttempt === 0
+      ) {
+        result.disabled.push({
+          ...action,
+          reasonCode: 'ALREADY_USED_THIS_TURN',
+          reasonText: 'Catch already used this turn',
+        });
       } else {
         result.enabled.push(action);
       }
@@ -128,7 +156,10 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
         kind: 'buy',
         payload: { offerId: offer.id },
       };
-      if (player.coins < offer.price) {
+      // Approved §3.1 rule: a full hand disables item offers, never Balls.
+      if (offer.kind === 'utility' && player.items.length >= 4) {
+        result.disabled.push({ ...action, reasonCode: 'ITEMS_FULL', reasonText: 'Items full' });
+      } else if (player.coins < offer.price) {
         result.disabled.push({
           ...action,
           reasonCode: 'NOT_ENOUGH_COINS',
@@ -138,7 +169,11 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
         result.enabled.push(action);
       }
     }
-    result.enabled.push({ id: 'skip', kind: 'skip', payload: {} });
+    result.enabled.push(
+      state.config.engineVersion === ENGINE_VERSION
+        ? { id: 'skip-shop', kind: 'skip_shop', payload: {} }
+        : { id: 'skip', kind: 'skip', payload: {} },
+    );
   }
   return result;
 }
@@ -154,6 +189,8 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
   if (action.actionSeq !== state.stateRevision + 1) {
     return { rejected: true, reason: 'invalid_sequence', state };
   }
+  // A finished game accepts nothing more, including engine-generated records.
+  if (state.phase.kind === 'finished') return { rejected: true, reason: 'illegal_action', state };
   if (action.actorId === 'engine' && action.kind === 'dice_result') {
     if (
       state.phase.kind === 'first_player_roll' &&
@@ -164,7 +201,8 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
     const pendingPurpose = pendingRollPurpose(state);
     if (
       (action.payload.purpose.startsWith('first-player:') ||
-        action.payload.purpose.startsWith('move:')) &&
+        action.payload.purpose.startsWith('move:') ||
+        action.payload.purpose.startsWith('catch:')) &&
       action.payload.purpose !== pendingPurpose
     ) {
       return { rejected: true, reason: 'illegal_action', state };
@@ -186,6 +224,7 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       ...draw.events,
       ...recordFirstPlayerRoll(next, draw.value),
       ...recordMoveRoll(next, draw.value),
+      ...recordCatchRoll(next, draw.value),
     ];
     return {
       accepted: true,
@@ -254,7 +293,17 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
     next.phase.awaitingResult = true;
   }
   const events =
-    saleIds !== undefined ? recordSale(next, saleIds) : recordTurnCommand(next, action.kind);
+    saleIds !== undefined
+      ? recordSale(next, saleIds)
+      : next.config.engineVersion !== ENGINE_VERSION
+        ? recordTurnCommand(next, action.kind)
+        : next.phase.kind === 'encounter'
+          ? confirmCatch(next, action)
+          : next.phase.kind === 'shop'
+            ? confirmShop(next, action)
+            : action.kind === 'use_item'
+              ? useItem(next, action)
+              : recordTurnCommand(next, action.kind);
   return {
     accepted: true,
     state: next,

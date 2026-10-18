@@ -38,6 +38,10 @@ Ids are lowercase kebab-case (`poke-ball`, `main-character`). The engine's `Cont
 4. If the species evolves, add a line (below). If it is a class Starter, put its id in that class's `starterSpeciesIds` in `classes.json`.
 5. Update the counts the test pins (19 species, 15 in the pool) in the same pull request, and bump `CONTENT_VERSION`.
 
+## Add a class passive
+
+A class row keeps its Appendix A prose in `passiveText`. If the engine implements the passive, `classes.json` also names it in `passive`, one of the values in `contentSchema` (`engine/contract/schema.ts`, for example `lap_first_catch_bonus`). The name is all content says: the amount and timing live in the engine (`engine/classes.ts`), so never copy a number into `passive`. Set `passive` only when the engine enum has the value; `parseContent` rejects any other string. A class whose passive is not implemented yet leaves `passive` out.
+
 ## Add an evolution line
 
 In `evolutions.json`, add `{ "speciesId": "<base>", "stages": [{ "forms": ["<form-id>"] }, ...] }` and the Appendix A bullet.
@@ -66,6 +70,6 @@ npm run sim -- --games 100 --seed 1
 ```
 
 - **Appendix A match:** the tests read the spec and compare the board square by square, the species, class, item and evolution tables, the events, and the 15-species encounter pool.
-- **Rejected data:** one broken copy per schema rule (missing field, unknown key, duplicate id, board counts and Gym squares, unknown species in a line or Starter, unknown class item, repeated Ball type, missing player choice, empty rarity pool) must be refused with a readable message.
-- **Engine fit:** `ParsedContent` must stay assignable to the engine's `Content` (a type-level test, checked by `npm run typecheck`); every `engine/fixtures/*.json` still passes with the real content swapped in; `createGame` builds every class's starting kit from it.
+- **Rejected data:** one broken copy per schema rule (missing field, unknown key, duplicate id, board counts and Gym squares, unknown species in a line or Starter, unknown class item, unknown class passive, repeated Ball type, missing player choice, empty rarity pool) must be refused with a readable message.
+- **Engine fit:** `ParsedContent` must stay assignable to the engine's `Content` (a type-level test, checked by `npm run typecheck`); every `engine/fixtures/*.json` still passes with the real content swapped in; `createGame` builds every class's starting kit from it; the engine's `classBonus` reads the Main Character and Researcher passives from it.
 - **Format:** JSON is formatted by Prettier (`npm run format`).

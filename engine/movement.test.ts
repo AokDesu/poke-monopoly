@@ -91,20 +91,18 @@ test('landing exactly on Start pays once, while setup and a move before Start pa
 });
 
 test.each([
-  { progress: 18, position: 0, space: 'start' },
-  { progress: 19, position: 1, space: 'wild' },
-  { progress: 20, position: 2, space: 'event' },
-  { progress: 22, position: 4, space: 'shop' },
-  { progress: 24, position: 6, space: 'gym' },
+  { progress: 18, position: 0, space: 'start', effect: {} },
+  { progress: 20, position: 2, space: 'event', effect: { effect: 'none_yet' } },
+  { progress: 24, position: 6, space: 'gym', effect: { effect: 'none_yet' } },
 ])(
   'the $space destination logs resolution without gameplay effects (§4.2)',
-  ({ progress, position }) => {
+  ({ progress, position, effect }) => {
     let state = move(movementState(progress)).state;
     if (state.phase.kind === 'sell') state = command(state, 'finish_sell').state;
     const before = structuredClone(state);
     const result = command(state, 'skip');
     expect(result.events).toEqual([
-      { kind: 'space_resolved', seatIndex: 0, position },
+      { kind: 'space_resolved', seatIndex: 0, position, ...effect },
       { kind: 'phase_changed', from: 'resolve', to: 'end' },
     ]);
     expect(result.state.players).toEqual(before.players);
@@ -149,44 +147,50 @@ test('pending movement resumes once and paid movement/Sell/resolution replay exa
   expect(repeated.state).toBe(result.state);
 });
 
-test('10,000 random single moves keep credit monotonic, positions bounded and milestones paid once (§6.5, §8)', () => {
-  fc.assert(
-    fc.property(
-      fc.array(fc.integer({ min: -6, max: 6 }), { minLength: 10_000, maxLength: 10_000 }),
-      (deltas) => {
-        let state = movementState(0, 22);
-        const rewarded = new Set<number>();
-        for (const delta of deltas) {
-          const previous = state.players[0]!;
-          if (delta <= 0 || delta % 2 === 0) {
-            state = forceMove(state, 0, delta);
-            expect(state.players[0]!.coins).toBe(previous.coins);
-            expect(state.players[0]!.highestRewardedMilestone).toBe(
-              previous.highestRewardedMilestone,
-            );
-          } else {
-            state.phase = { kind: 'move' };
-            const result = move(state);
-            state = result.state;
-            for (const event of result.events) {
-              if (event.kind !== 'coin_transfer') continue;
-              const milestone = Math.floor(state.players[0]!.routeProgress / 24);
-              expect(rewarded.has(milestone)).toBe(false);
-              rewarded.add(milestone);
+// One fast-check run of 10,000 moves sits near the 5s default on a loaded
+// serialized runner, so this property gets an explicit budget above it.
+test(
+  '10,000 random single moves keep credit monotonic, positions bounded and milestones paid once (§6.5, §8)',
+  { timeout: 20_000 },
+  () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.integer({ min: -6, max: 6 }), { minLength: 10_000, maxLength: 10_000 }),
+        (deltas) => {
+          let state = movementState(0, 22);
+          const rewarded = new Set<number>();
+          for (const delta of deltas) {
+            const previous = state.players[0]!;
+            if (delta <= 0 || delta % 2 === 0) {
+              state = forceMove(state, 0, delta);
+              expect(state.players[0]!.coins).toBe(previous.coins);
+              expect(state.players[0]!.highestRewardedMilestone).toBe(
+                previous.highestRewardedMilestone,
+              );
+            } else {
+              state.phase = { kind: 'move' };
+              const result = move(state);
+              state = result.state;
+              for (const event of result.events) {
+                if (event.kind !== 'coin_transfer') continue;
+                const milestone = Math.floor(state.players[0]!.routeProgress / 24);
+                expect(rewarded.has(milestone)).toBe(false);
+                rewarded.add(milestone);
+              }
             }
+            const player = state.players[0]!;
+            expect(player.creditedLap).toBeGreaterThanOrEqual(previous.creditedLap);
+            expect(player.creditedLap).toBe(rewarded.size);
+            expect(player.coins).toBe(20 + 5 * rewarded.size);
+            expect(positionOf(player.routeProgress)).toBeGreaterThanOrEqual(0);
+            expect(positionOf(player.routeProgress)).toBeLessThanOrEqual(23);
           }
-          const player = state.players[0]!;
-          expect(player.creditedLap).toBeGreaterThanOrEqual(previous.creditedLap);
-          expect(player.creditedLap).toBe(rewarded.size);
-          expect(player.coins).toBe(20 + 5 * rewarded.size);
-          expect(positionOf(player.routeProgress)).toBeGreaterThanOrEqual(0);
-          expect(positionOf(player.routeProgress)).toBeLessThanOrEqual(23);
-        }
-      },
-    ),
-    { numRuns: 1, seed: 22 },
-  );
-});
+        },
+      ),
+      { numRuns: 1, seed: 22 },
+    );
+  },
+);
 
 test('test-only displacement preserves other seats and rejects non-whole or unsafe movement (§6.5)', () => {
   const state = movementState(0);
@@ -244,7 +248,7 @@ test('an empty Sell finishes before the destination is resolved (§4.2 steps 4�
     'phase_changed',
   ]);
   expect(resolved.events).toEqual([
-    { kind: 'space_resolved', seatIndex: 0, position: 2 },
+    { kind: 'space_resolved', seatIndex: 0, position: 2, effect: 'none_yet' },
     { kind: 'phase_changed', from: 'resolve', to: 'end' },
   ]);
 });
@@ -282,4 +286,32 @@ test('a forced forward crossing earns nothing and cannot make a later paid miles
   const recrossed = move(pushed);
   expect(recrossed.state.players[0]).toMatchObject({ routeProgress: 48, coins: 25 });
   expect(recrossed.events.filter((event) => event.kind === 'coin_transfer')).toEqual([]);
+});
+
+test('Start income and Sell precede the Wild draw, whose release and movement replay exactly (§4.2, §4.5, §8)', () => {
+  const initial = movementState(19);
+  const log = createGameLog(initial);
+  const moved = move(initial);
+  log.actions.push(...moved.records);
+  expect(moved.state.phase).toEqual({ kind: 'sell', destinationPosition: 1 });
+  expect(moved.state.rng.cursor).toBe(1);
+  const sold = command(moved.state, 'finish_sell');
+  log.actions.push(sold.record);
+  expect(sold.state.phase).toEqual({ kind: 'resolve' });
+  expect(sold.state.rng.cursor).toBe(1);
+  const resolved = command(sold.state, 'skip');
+  log.actions.push(resolved.record);
+  expect(resolved.state.phase.kind).toBe('encounter');
+  expect(resolved.events).toEqual([
+    { kind: 'space_resolved', seatIndex: 0, position: 1 },
+    { kind: 'random_result', purpose: 'encounter:rarity', result: 0, drawCounter: 2 },
+    { kind: 'random_result', purpose: 'encounter:species', result: 0, drawCounter: 3 },
+    { kind: 'phase_changed', from: 'resolve', to: 'encounter' },
+  ]);
+  const released = command(resolved.state, 'release');
+  log.actions.push(released.record);
+  expect(released.state.phase.kind).toBe('end');
+  expect(released.state.players[0]).toMatchObject({ coins: 25, creditedLap: 1 });
+  expect(released.state.players[0]!.team).toEqual(initial.players[0]!.team);
+  expect(replay(JSON.parse(JSON.stringify(log)))).toEqual(released.state);
 });

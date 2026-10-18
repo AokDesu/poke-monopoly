@@ -57,6 +57,7 @@ test('one atomic batch pays each sale from the bank, destroys its UID, and finis
       destination: { kind: 'player', actorId: 'player-0' },
       amount: 12,
       reason: 'pokemon_sale',
+      sale: { basePrice: 12, classBonus: 0 },
     },
     { kind: 'uid_destroyed', instanceId: 'caught-eevee', entity: 'pokemon', reason: 'sold' },
     { kind: 'phase_changed', from: 'sell', to: 'resolve' },
@@ -165,6 +166,7 @@ test('rescue origin retains zero sale value after evolution, tired status and la
         destination: { kind: 'player', actorId: 'player-0' },
         amount: 0,
         reason: 'pokemon_sale',
+        sale: { basePrice: 0, classBonus: 0 },
       },
     ]);
     next = result.state;
@@ -215,6 +217,7 @@ test('a batch of distinct UIDs pays and destroys every selected instance once (Â
       destination: { kind: 'player', actorId: 'player-0' },
       amount: 12,
       reason: 'pokemon_sale',
+      sale: { basePrice: 12, classBonus: 0 },
     },
     {
       kind: 'coin_transfer',
@@ -222,6 +225,7 @@ test('a batch of distinct UIDs pays and destroys every selected instance once (Â
       destination: { kind: 'player', actorId: 'player-0' },
       amount: 10,
       reason: 'pokemon_sale',
+      sale: { basePrice: 10, classBonus: 0 },
     },
   ]);
   expect(
@@ -328,7 +332,7 @@ test('income, atomic sale, rescue, destination and resume replay without extra a
   expect(resumed).toEqual(committed.state);
   const destination = advanceAutomatically(resumed);
   expect(destination.events).toEqual([
-    { kind: 'space_resolved', seatIndex: 0, position: 2 },
+    { kind: 'space_resolved', seatIndex: 0, position: 2, effect: 'none_yet' },
     { kind: 'phase_changed', from: 'resolve', to: 'end' },
   ]);
   log.actions.push(...destination.records);

@@ -4,6 +4,7 @@
     "name": "Main Character",
     "starterSpeciesIds": ["bulbasaur", "charmander", "squirtle"],
     "classItemId": "great-ball",
+    "passive": "lap_first_catch_bonus",
     "passiveText": "+1 on the first catch roll each Lap"
   },
   {
@@ -39,6 +40,7 @@
     "name": "Researcher",
     "starterSpeciesIds": ["porygon"],
     "classItemId": "potion",
+    "passive": "lap_first_sale_bonus",
     "passiveText": "+3 on the first Pokémon sold at Start each Lap"
   },
   {

@@ -1,5 +1,9 @@
-import type { GameState, EngineEvent } from './contract/schema.ts';
+import type { GameState, EngineEvent, Player } from './contract/schema.ts';
 import { ENGINE_VERSION } from './versions.ts';
+import { drawEncounter } from './catching.ts';
+import { finishGame } from './game-end.ts';
+import { openShop } from './shop.ts';
+import { slowedSteps } from './items.ts';
 import { positionOf } from './contract/position.ts';
 
 /** Internal transitions operate only on the executor's detached next snapshot. */
@@ -8,6 +12,7 @@ function startTurn(next: GameState, seatIndex: number): void {
   next.globalTurnNo++;
   next.players.find((player) => player.seatIndex === seatIndex)!.ownTurnNo++;
   next.turnBudgets = { tacticalAction: 1, catchAttempt: 1, pokemonAbility: 1 };
+  delete next.turnEffects;
   next.phase = { kind: 'start' };
 }
 
@@ -16,6 +21,9 @@ export function firstPlayerRollPurpose(state: GameState): string {
 }
 
 export function pendingRollPurpose(state: GameState): string | undefined {
+  if (state.phase.kind === 'encounter' && state.phase.catchRoll) {
+    return `catch:${state.activeSeatIndex}:${state.globalTurnNo}`;
+  }
   if (state.phase.kind === 'first_player_roll' && state.phase.awaitingResult) {
     return firstPlayerRollPurpose(state);
   }
@@ -28,7 +36,7 @@ export function recordMoveRoll(next: GameState, value: number): EngineEvent[] {
   if (next.phase.kind !== 'move' || !next.phase.awaitingResult) return [];
   const player = next.players.find((entry) => entry.seatIndex === next.activeSeatIndex)!;
   const previousMilestone = Math.floor(player.routeProgress / 24);
-  player.routeProgress += value;
+  player.routeProgress += slowedSteps(player, value);
   const milestone = Math.floor(player.routeProgress / 24);
   const highestRewardedMilestone = player.highestRewardedMilestone ?? player.creditedLap;
   if (milestone > previousMilestone && milestone > highestRewardedMilestone) {
@@ -44,11 +52,19 @@ export function recordMoveRoll(next: GameState, value: number): EngineEvent[] {
         amount: 5,
         reason: 'start_income',
       },
+      ...announceFinalTableRound(next, player),
       { kind: 'phase_changed', from: 'move', to: 'sell' },
     ];
   }
   next.phase = { kind: 'resolve' };
   return [{ kind: 'phase_changed', from: 'move', to: 'resolve' }];
+}
+
+/** Only the first player to reach the Lap target fixes the round; later arrivals change nothing. */
+function announceFinalTableRound(next: GameState, player: Player): EngineEvent[] {
+  if (next.finalTableRound || player.creditedLap < next.config.lapTarget) return [];
+  next.finalTableRound = { triggerSeatIndex: player.seatIndex, targetOwnTurnNo: player.ownTurnNo };
+  return [{ kind: 'final_table_round', ...next.finalTableRound }];
 }
 
 export function recordTurnCommand(next: GameState, kind: string): EngineEvent[] {
@@ -72,8 +88,12 @@ export function recordTurnCommand(next: GameState, kind: string): EngineEvent[] 
       break;
     case 'resolve':
       next.phase = { kind: 'end' };
-      return [...resolveDestination(next), { kind: 'phase_changed', from, to: 'end' }];
+      return [...resolveDestination(next), { kind: 'phase_changed', from, to: next.phase.kind }];
     case 'end': {
+      const round = next.finalTableRound;
+      if (round && next.players.every((player) => player.ownTurnNo >= round.targetOwnTurnNo)) {
+        return finishGame(next);
+      }
       const seats = [...next.config.seats].sort((a, b) => a.seatIndex - b.seatIndex);
       const current = seats.findIndex((seat) => seat.seatIndex === next.activeSeatIndex);
       startTurn(next, seats[(current + 1) % seats.length]!.seatIndex);
@@ -85,7 +105,7 @@ export function recordTurnCommand(next: GameState, kind: string): EngineEvent[] 
   return [{ kind: 'phase_changed', from, to: next.phase.kind }];
 }
 
-/** Space dispatch seam: Wild encounters arrive in the next issue; effects remain deferred. */
+/** Resolve the destination after any Start-crossing Sell phase. */
 function resolveDestination(next: GameState): EngineEvent[] {
   const player = next.players.find((entry) => entry.seatIndex === next.activeSeatIndex)!;
   const position = positionOf(player.routeProgress);
@@ -93,10 +113,19 @@ function resolveDestination(next: GameState): EngineEvent[] {
   if (!space) throw new RangeError('Destination space is missing');
   switch (space.kind) {
     case 'wild':
-    case 'start':
+      return [
+        { kind: 'space_resolved', seatIndex: player.seatIndex, position },
+        ...drawEncounter(next),
+      ];
     case 'event':
-    case 'shop':
     case 'gym':
+      // Events arrive in cycle 4 and Gyms in cycle 3; until then landing is a logged no-op.
+      return [
+        { kind: 'space_resolved', seatIndex: player.seatIndex, position, effect: 'none_yet' },
+      ];
+    case 'shop':
+      return [{ kind: 'space_resolved', seatIndex: player.seatIndex, position }, ...openShop(next)];
+    case 'start':
       return [{ kind: 'space_resolved', seatIndex: player.seatIndex, position }];
   }
 }

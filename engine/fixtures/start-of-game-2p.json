@@ -147,6 +147,15 @@
       ],
       "species": [
         {
+          "id": "chansey",
+          "name": "Chansey",
+          "rarity": "rare",
+          "dc": 4,
+          "battle": 1,
+          "base": 16,
+          "tags": ["normal", "cute"]
+        },
+        {
           "id": "bulbasaur",
           "name": "Bulbasaur",
           "rarity": "uncommon",
@@ -234,6 +243,12 @@
         {
           "id": "lucky-egg",
           "name": "Lucky Egg",
+          "kind": "utility",
+          "price": 3
+        },
+        {
+          "id": "pickpocket",
+          "name": "Pickpocket",
           "kind": "utility",
           "price": 3
         }

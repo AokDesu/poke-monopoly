@@ -8,7 +8,9 @@ import {
   legalActions,
   observe,
   type Content,
+  type Player,
 } from '../engine/index.ts';
+import { classBonus } from '../engine/classes.ts';
 import { CONTENT_VERSION } from './index.ts';
 import { parseContent, toEngineContent, type ContentFiles, type ParsedContent } from './schema.ts';
 
@@ -279,6 +281,12 @@ describe('parseContent rejects broken files with a readable message', () => {
       'classes[0].classItemId',
     ],
     [
+      'a class passive the engine does not know',
+      (d) => (row(d.classes[0]).passive = 'double_coins'),
+      'Invalid option: expected one of',
+      'classes[0].passive',
+    ],
+    [
       'a Ball type listed twice',
       (d) => {
         const ultra = d.items[2]!;
@@ -398,5 +406,48 @@ describe('the parsed content is the engine’s Content', () => {
       );
       expect(player.items.length + pouch, entry.id).toBe(startingKit.classItems);
     }
+  });
+
+  test('the engine reads the Main Character and Researcher passives from the real content', () => {
+    // Only these two Appendix A passives have an engine implementation on main; the rest stay unset.
+    expect(
+      Object.fromEntries(
+        content.classes.flatMap((entry) => (entry.passive ? [[entry.id, entry.passive]] : [])),
+      ),
+    ).toEqual({
+      'main-character': 'lap_first_catch_bonus',
+      researcher: 'lap_first_sale_bonus',
+    });
+    const seat = (classId: string, seatIndex: number, starterSpeciesId: string) => ({
+      actorId: `player-${seatIndex}`,
+      seatIndex,
+      classId,
+      starterSpeciesId,
+      controller: 'human' as const,
+    });
+    const state = createGame(
+      createGameConfig({
+        seats: [seat('main-character', 0, 'bulbasaur'), seat('researcher', 1, 'porygon')],
+        seed: 1,
+        lapTarget: content.config.lapTargets.quick,
+      }),
+      engineContent,
+    );
+    const [main, researcher] = state.players as [Player, Player];
+    const sale = (player: Player) => {
+      const pokemon = player.team[0]!;
+      return classBonus(engineContent, player.classId, {
+        kind: 'sale',
+        pokemon,
+        batch: [{ pokemon, basis: 5 }],
+      });
+    };
+    // Appendix A: +1 on the first catch roll each Lap; +3 on the first Pokémon sold at Start each Lap.
+    expect(classBonus(engineContent, main.classId, { kind: 'catch', player: main })).toBe(1);
+    expect(
+      classBonus(engineContent, researcher.classId, { kind: 'catch', player: researcher }),
+    ).toBe(0);
+    expect(sale(researcher)).toBe(3);
+    expect(sale(main)).toBe(0);
   });
 });
