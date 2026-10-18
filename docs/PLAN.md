@@ -62,5 +62,3 @@ When a date in the calendar table becomes known, in the same pull request:
 1. Update the table: the date, the status, and the source of the date.
 2. Compare the date with the cycle dates and gates above, and list which cut-list items move and why. A cut-list item moves if keeping its scope no longer fits the cycles before the date.
 3. Record the list under the table as `YYYY-MM-DD: <date learned> → <cut-list items moved, or "none">`.
-
-Moving a cut-list item is a spec change under house rule 4 (`AGENTS.md`), so the same pull request also updates the spec.
