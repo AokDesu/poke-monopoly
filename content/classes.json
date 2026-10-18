@@ -1,0 +1,60 @@
+[
+  {
+    "id": "main-character",
+    "name": "Main Character",
+    "starterSpeciesIds": ["bulbasaur", "charmander", "squirtle"],
+    "classItemId": "great-ball",
+    "passiveText": "+1 on the first catch roll each Lap"
+  },
+  {
+    "id": "rival",
+    "name": "Rival",
+    "starterSpeciesIds": ["eevee"],
+    "classItemId": "lucky-egg",
+    "passiveText": "+1 combat when attacking and defending; may force PvP once per Lap"
+  },
+  {
+    "id": "fisherman",
+    "name": "Fisherman",
+    "starterSpeciesIds": ["magikarp"],
+    "classItemId": "great-ball",
+    "passiveText": "+2 catch against water"
+  },
+  {
+    "id": "nurse-joy",
+    "name": "Nurse Joy",
+    "starterSpeciesIds": ["chansey"],
+    "classItemId": "price-shield",
+    "passiveText": "Loses no coins on a PvP loss; removes the team's tired status at turn start"
+  },
+  {
+    "id": "bug-catcher",
+    "name": "Bug Catcher",
+    "starterSpeciesIds": ["caterpie"],
+    "classItemId": "sticky-web",
+    "passiveText": "+1 catch against bug; sells bug +2"
+  },
+  {
+    "id": "researcher",
+    "name": "Researcher",
+    "starterSpeciesIds": ["porygon"],
+    "classItemId": "potion",
+    "passiveText": "+3 on the first Pokémon sold at Start each Lap"
+  },
+  {
+    "id": "team-rocket",
+    "name": "Team Rocket",
+    "starterSpeciesIds": ["rattata"],
+    "classItemId": "pickpocket",
+    "passiveText": "Hostile items cost 2 less at the Shop (minimum 1)",
+    "stretch": true
+  },
+  {
+    "id": "collector",
+    "name": "Collector",
+    "starterSpeciesIds": ["pidgey"],
+    "classItemId": "great-ball",
+    "passiveText": "Sells rarity=rare +2",
+    "stretch": true
+  }
+]

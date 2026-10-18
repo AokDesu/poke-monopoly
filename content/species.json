@@ -1,0 +1,267 @@
+[
+  {
+    "id": "caterpie",
+    "name": "Caterpie",
+    "rarity": "common",
+    "dc": 2,
+    "battle": 0,
+    "base": 4,
+    "tags": ["bug", "cute"],
+    "inEncounterPool": true,
+    "ability": { "name": "String Shot", "text": "target's next move −1", "timing": "OWN_STRATEGY" }
+  },
+  {
+    "id": "pidgey",
+    "name": "Pidgey",
+    "rarity": "common",
+    "dc": 2,
+    "battle": 1,
+    "base": 5,
+    "tags": ["flying"],
+    "inEncounterPool": true,
+    "ability": {
+      "name": "Quick Flight",
+      "text": "move exactly 3 spaces instead of rolling",
+      "timing": "OWN_STRATEGY"
+    }
+  },
+  {
+    "id": "magikarp",
+    "name": "Magikarp",
+    "rarity": "common",
+    "dc": 2,
+    "battle": 0,
+    "base": 3,
+    "tags": ["water"],
+    "inEncounterPool": true,
+    "ability": {
+      "name": "Lucky Splash",
+      "text": "d6 5–6 gains a Great Ball",
+      "timing": "OWN_STRATEGY"
+    }
+  },
+  {
+    "id": "rattata",
+    "name": "Rattata",
+    "rarity": "common",
+    "dc": 3,
+    "battle": 1,
+    "base": 4,
+    "tags": ["normal"],
+    "inEncounterPool": true,
+    "ability": { "name": "Scavenge", "text": "d6 even gains 1 coin", "timing": "OWN_STRATEGY" }
+  },
+  {
+    "id": "weedle",
+    "name": "Weedle",
+    "rarity": "common",
+    "dc": 2,
+    "battle": 0,
+    "base": 4,
+    "tags": ["bug"],
+    "inEncounterPool": true,
+    "ability": {
+      "name": "Poison Sting",
+      "text": "d6 even, target −1 combat in its next battle",
+      "timing": "OWN_STRATEGY"
+    }
+  },
+  {
+    "id": "psyduck",
+    "name": "Psyduck",
+    "rarity": "uncommon",
+    "dc": 3,
+    "battle": 1,
+    "base": 8,
+    "tags": ["water", "cute"],
+    "inEncounterPool": true,
+    "ability": {
+      "name": "Confusion",
+      "text": "d6 even, target must reroll its next movement",
+      "timing": "OWN_STRATEGY"
+    }
+  },
+  {
+    "id": "growlithe",
+    "name": "Growlithe",
+    "rarity": "uncommon",
+    "dc": 3,
+    "battle": 2,
+    "base": 9,
+    "tags": ["fire"],
+    "inEncounterPool": true,
+    "ability": {
+      "name": "Track",
+      "text": "privately view the top Event card",
+      "timing": "OWN_STRATEGY"
+    }
+  },
+  {
+    "id": "machop",
+    "name": "Machop",
+    "rarity": "uncommon",
+    "dc": 3,
+    "battle": 3,
+    "base": 10,
+    "tags": ["fighting"],
+    "inEncounterPool": true,
+    "ability": {
+      "name": "Challenge",
+      "text": "the target cannot decline this PvP; uses tacticalAction",
+      "timing": "CHALLENGE_DECLARE"
+    }
+  },
+  {
+    "id": "eevee",
+    "name": "Eevee",
+    "rarity": "uncommon",
+    "dc": 4,
+    "battle": 2,
+    "base": 12,
+    "tags": ["normal", "cute"],
+    "inEncounterPool": true,
+    "ability": {
+      "name": "Adaptability",
+      "text": "+1 catch or +1 combat until end of turn",
+      "timing": "BEFORE_OWN_ROLL"
+    }
+  },
+  {
+    "id": "scyther",
+    "name": "Scyther",
+    "rarity": "uncommon",
+    "dc": 4,
+    "battle": 4,
+    "base": 14,
+    "tags": ["bug"],
+    "inEncounterPool": true,
+    "ability": { "name": "Quick Slash", "text": "+1 combat", "timing": "BEFORE_OWN_ROLL" }
+  },
+  {
+    "id": "chansey",
+    "name": "Chansey",
+    "rarity": "rare",
+    "dc": 4,
+    "battle": 1,
+    "base": 16,
+    "tags": ["normal", "cute"],
+    "inEncounterPool": true,
+    "ability": {
+      "name": "Heal Pulse",
+      "text": "remove one status from own Pokémon",
+      "timing": "REACTION"
+    }
+  },
+  {
+    "id": "gyarados",
+    "name": "Gyarados",
+    "rarity": "rare",
+    "dc": 5,
+    "battle": 5,
+    "base": 20,
+    "tags": ["water"],
+    "inEncounterPool": true,
+    "ability": { "name": "Intimidate", "text": "target −1 combat", "timing": "BEFORE_OWN_ROLL" }
+  },
+  {
+    "id": "snorlax",
+    "name": "Snorlax",
+    "rarity": "rare",
+    "dc": 5,
+    "battle": 4,
+    "base": 22,
+    "tags": ["normal"],
+    "inEncounterPool": true,
+    "ability": {
+      "name": "Block",
+      "text": "prevent the next coin loss from PvP/Pickpocket",
+      "timing": "REACTION"
+    }
+  },
+  {
+    "id": "dratini",
+    "name": "Dratini",
+    "rarity": "rare",
+    "dc": 5,
+    "battle": 3,
+    "base": 26,
+    "tags": ["dragon"],
+    "inEncounterPool": true,
+    "ability": {
+      "name": "Dragon Rush",
+      "text": "+2 combat, then becomes tired after resolution",
+      "timing": "BEFORE_OWN_ROLL"
+    }
+  },
+  {
+    "id": "bulbasaur",
+    "name": "Bulbasaur",
+    "rarity": "uncommon",
+    "dc": 3,
+    "battle": 2,
+    "base": 8,
+    "tags": ["grass"],
+    "inEncounterPool": false,
+    "ability": {
+      "name": "Vine Pull",
+      "text": "push target back 2 spaces without resolving them",
+      "timing": "OWN_STRATEGY"
+    }
+  },
+  {
+    "id": "charmander",
+    "name": "Charmander",
+    "rarity": "uncommon",
+    "dc": 3,
+    "battle": 2,
+    "base": 8,
+    "tags": ["fire"],
+    "inEncounterPool": false,
+    "ability": { "name": "Blaze", "text": "+1 combat", "timing": "BEFORE_OWN_ROLL" }
+  },
+  {
+    "id": "squirtle",
+    "name": "Squirtle",
+    "rarity": "uncommon",
+    "dc": 3,
+    "battle": 2,
+    "base": 8,
+    "tags": ["water"],
+    "inEncounterPool": false,
+    "ability": {
+      "name": "Shell Guard",
+      "text": "prevent the next coin loss from battle",
+      "timing": "REACTION"
+    }
+  },
+  {
+    "id": "porygon",
+    "name": "Porygon",
+    "rarity": "uncommon",
+    "dc": 3,
+    "battle": 2,
+    "base": 10,
+    "tags": ["normal"],
+    "inEncounterPool": false,
+    "ability": {
+      "name": "Calculate",
+      "text": "reroll one of your own dice once and use the new result",
+      "timing": "AFTER_OWN_ROLL"
+    }
+  },
+  {
+    "id": "pikachu",
+    "name": "Pikachu",
+    "rarity": "uncommon",
+    "dc": 4,
+    "battle": 2,
+    "base": 12,
+    "tags": ["electric", "cute"],
+    "inEncounterPool": true,
+    "ability": {
+      "name": "Thunder Shock",
+      "text": "d6 even, target moves at most 3 spaces next time",
+      "timing": "OWN_STRATEGY"
+    }
+  }
+]
