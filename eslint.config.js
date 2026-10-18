@@ -87,7 +87,7 @@ export default defineConfig([
       ],
     },
   },
-  // web/ calls the engine only through its adapter (spec §6.1); types may be imported anywhere.
+  // web/ calls the engine only through its adapter (spec §6.1). Type imports from the engine are allowed in web/ except in the adapter, which may import only engine/index.ts; test files may import the engine directly.
   {
     files: ['web/**/*.{ts,tsx}'],
     ignores: [ADAPTER, 'web/**/*.test.{ts,tsx}'],

@@ -12,6 +12,6 @@ Run with `npm run dev:web` (port 5173). Spec: §3, §3.1, §6.1. Skill: `skills/
 | `src/ErrorBoundary.tsx` | No blank screens: a render error shows what to do next and a retry button.                                                       |
 | `src/ui/`               | Shared controls.                                                                                                                 |
 
-The Noto Sans Thai font is self-hosted through `@fontsource/noto-sans-thai`; the page loads nothing from another host. Lint enforces the import rules: no `ai/`, and engine values only through the adapter (type imports are allowed anywhere).
+The Noto Sans Thai font is self-hosted through `@fontsource/noto-sans-thai`; the page loads nothing from another host. Lint enforces the import rules: no `ai/`, and engine values only through the adapter (type imports from the engine are allowed in `web/` except in the adapter, which may import only `engine/index.ts`; test files may import the engine directly).
 
 Component tests run in the Vitest `web` project (jsdom, Testing Library); `npm test` runs them with the rest.
