@@ -137,6 +137,8 @@ UI house rules (kept as `skills/ui-rules/SKILL.md`):
 
 All content tables are in Appendix A.
 
+Wherever this specification uses `round`, a half rounds up (approved 2026-10-07): `round(5×0.5)` is 3 and `round(12×0.5)` is 6.
+
 ### 4.1 Setup and board
 
 - **Board:** 24 spaces, made up of Start 1, Wild 11, Event 5, Shop 4 and Gym 3 (spaces 6/12/18).
@@ -182,7 +184,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 - Every attempt consumes 1 Ball, success or failure. With no Ball the Pokémon must be released. The UI shows the success % for every Ball type held.
 - Main Character's first-catch bonus is used whenever a real roll is made, even on failure. Skipping an encounter does not use it.
 
-**C1 catching scope (#23):** the engine snapshots the chosen Ball and all modifiers before the logged roll, consuming one Ball and the turn's catch budget at confirmation. Ball bonuses are Poké +0, Great +1 and Ultra +2; class, Ability and item hooks return 0 this cycle. Success percentages and real modifier effects remain deferred. Caught instance IDs and `uid_created` events are created only when the Pokémon joins the team; encounter draws, failures and releases create no assets. See the [catching contract](engine-contract.md#wild-encounters-and-catching-issue-23).
+**C1 catching scope (#23):** see the [catching contract](engine-contract.md#wild-encounters-and-catching-issue-23) for implemented catching and deferred effects. This implementation scope does not change the full catching rules above.
 
 ### 4.4 Combat, Gym and Tired
 
