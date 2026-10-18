@@ -46,7 +46,7 @@ export const contentSchema = z.strictObject({
       starterSpeciesIds: z.array(id).min(1),
       classItemId: id,
       // Names an engine-owned passive; its numbers and timing live in engine/classes.ts.
-      passive: z.enum(['lap_first_sale_bonus']).optional(),
+      passive: z.enum(['lap_first_sale_bonus', 'lap_first_catch_bonus']).optional(),
     }),
   ),
   items: z.array(
@@ -109,6 +109,8 @@ export const playerSchema = z.strictObject({
   items: z.array(itemInstanceSchema).max(4),
   badges: count,
   abilityUsedGlobalTurnNo: count.nullable(),
+  // `creditedLap` whose first-catch class bonus a real catch roll has used; absent until then.
+  catchBonusUsedLap: count.optional(),
   privateResults: z.array(privateResultSchema),
 });
 const shopOfferSchema = z.discriminatedUnion('kind', [
