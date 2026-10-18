@@ -1,0 +1,75 @@
+[
+  {
+    "id": "poke-ball",
+    "name": "Poké Ball",
+    "kind": "ball",
+    "price": 1,
+    "ballType": "poke",
+    "bonus": 0
+  },
+  {
+    "id": "great-ball",
+    "name": "Great Ball",
+    "kind": "ball",
+    "price": 2,
+    "ballType": "great",
+    "bonus": 1
+  },
+  {
+    "id": "ultra-ball",
+    "name": "Ultra Ball",
+    "kind": "ball",
+    "price": 3,
+    "ballType": "ultra",
+    "bonus": 2
+  },
+  {
+    "id": "price-shield",
+    "name": "Price Shield",
+    "kind": "utility",
+    "price": 4,
+    "effect": "Blocks the next hostile item/Ability or PvP coin loss; does not stack"
+  },
+  {
+    "id": "repel",
+    "name": "Repel",
+    "kind": "utility",
+    "price": 3,
+    "effect": "Target's next move −2 (minimum 1)"
+  },
+  {
+    "id": "sticky-web",
+    "name": "Sticky Web",
+    "kind": "utility",
+    "price": 3,
+    "effect": "Target's next move is at most 2"
+  },
+  {
+    "id": "pickpocket",
+    "name": "Pickpocket",
+    "kind": "utility",
+    "price": 3,
+    "effect": "Take up to 5 coins from the target"
+  },
+  {
+    "id": "battle-ticket",
+    "name": "Battle Ticket",
+    "kind": "utility",
+    "price": 4,
+    "effect": "Force a target with a battle-ready team to accept PvP"
+  },
+  {
+    "id": "lucky-egg",
+    "name": "Lucky Egg",
+    "kind": "utility",
+    "price": 3,
+    "effect": "+1 own catch/combat until end of turn; no movement bonus"
+  },
+  {
+    "id": "potion",
+    "name": "Potion",
+    "kind": "utility",
+    "price": 2,
+    "effect": "Remove tired or a combat debuff from one of your Pokémon"
+  }
+]
