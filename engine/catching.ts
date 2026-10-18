@@ -2,12 +2,13 @@ import { classBonus, useCatchClassBonus } from './classes.ts';
 import { int, weightedPick } from './rng.ts';
 import type { Action, EngineEvent, GameState } from './contract/schema.ts';
 
-// Reserved hooks: real Ability and item effects are deferred beyond this cycle.
+// Reserved hook: real Ability effects are deferred beyond this cycle.
 function abilityBonus(): number {
   return 0;
 }
-function itemBonus(): number {
-  return 0;
+/** Lucky Egg's +1 lasts until the end of the turn it was used in (Appendix A). */
+function itemBonus(state: GameState): number {
+  return state.turnEffects?.itemBonus ?? 0;
 }
 
 export function confirmCatch(next: GameState, action: Action): EngineEvent[] {
@@ -29,7 +30,7 @@ export function confirmCatch(next: GameState, action: Action): EngineEvent[] {
     classBonus: classBonus(next.content, player.classId, { kind: 'catch', player }),
     ballBonus,
     abilityBonus: abilityBonus(),
-    itemBonus: itemBonus(),
+    itemBonus: itemBonus(next),
   };
   player.balls[action.payload.ballType]--;
   next.turnBudgets.catchAttempt--;

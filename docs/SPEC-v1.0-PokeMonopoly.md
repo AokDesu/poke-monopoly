@@ -187,7 +187,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 - Every attempt consumes 1 Ball, success or failure. With no Ball the Pokémon must be released. The UI shows the success % for every Ball type held.
 - Main Character's first-catch bonus is used whenever a real roll is made, even on failure. Skipping an encounter does not use it.
 
-**C1 catching scope (#23):** see the [catching contract](engine-contract.md#wild-encounters-and-catching-issue-23) for implemented catching and deferred effects. This implementation scope does not change the full catching rules above.
+**C1 catching scope (#23):** see the [catching contract](engine-contract.md#wild-encounters-and-catching-issue-23) for implemented catching and deferred effects. The item hook returns Lucky Egg's +1 from C2 (#31, §4.6). This implementation scope does not change the full catching rules above.
 
 ### 4.4 Combat, Gym and Tired
 
@@ -242,7 +242,9 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 - Always shows all 3 Balls plus 2 distinct random utility items.
 - Buy at most 1 unit or skip; no refresh.
 
-**C2 Shop scope (#29):** the utility-item pool this cycle is Lucky Egg, Repel and Pickpocket, and the 2 items are drawn with the logged RNG. Payment goes to the bank; bought items are secret; item effects remain deferred. See the [Shop contract](engine-contract.md#shop-issue-29).
+**C2 Shop scope (#29):** the utility-item pool this cycle is Lucky Egg, Repel and Pickpocket, and the 2 items are drawn with the logged RNG. Payment goes to the bank; bought items are secret. See the [Shop contract](engine-contract.md#shop-issue-29).
+
+**C2 item scope (#31), approved defaults (captain, 2026-10-07):** in Strategy a player may use one Lucky Egg, Repel or Pickpocket per turn, spending the turn's `tacticalAction`; the used item instance is removed and logged. **Lucky Egg** gives +1 to the user's own catch roll until the end of that turn and no movement bonus. **Repel** records a pending slow on the target: its next actual move is `max(1, d6 − 2)`, after which the slow clears. **Pickpocket** moves `min(5, target coins)` from the target to the user. The hostile-item and slowing rules below apply. A second item use in the same turn is greyed out with "Tactical action already used this turn"; an invalid target is greyed out with "Target has no coins" or "Target is already slowed". Each item has its own instance ID; class items are public and items bought after setup are secret. Combat bonuses, Price Shield, Sticky Web, Battle Ticket and Potion remain deferred. See the [item contract](engine-contract.md#utility-items-issue-31).
 
 **Hostile items: Repel, Sticky Web, Pickpocket and Battle Ticket**
 
