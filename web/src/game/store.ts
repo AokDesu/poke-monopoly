@@ -100,5 +100,3 @@ export function createGameStore(): GameStore {
     },
   };
 }
-
-export const gameStore = createGameStore();
