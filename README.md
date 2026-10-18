@@ -8,7 +8,7 @@ The specification is [docs/SPEC-v1.0-PokeMonopoly.md](docs/SPEC-v1.0-PokeMonopol
 
 ## Prerequisites
 
-- Node.js 24 (`.node-version`; `engines` is `^24`). Other versions print an npm engine warning but are not blocked.
+- Node.js 24 (`.node-version`; `engines` is `^24.15.0`). Other versions print an npm engine warning but are not blocked.
 - npm, the one that ships with Node 24.
 
 Install with `npm ci`. Optionally copy `.env.example` to `.env`; the Jev key is only ever read by `ai/` on the server, and no command here needs it.
