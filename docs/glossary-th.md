@@ -45,6 +45,7 @@
 | รายการตัวเลือกยังว่างหลังกรองบุคลิก | `turn.noAvailableOptions` |
 | พบโปเกมอนแต่ไม่มีบอล | `encounter.catch`, `encounter.noBall`, `encounter.release` |
 | เหรียญไม่พอซื้อของในร้านค้า | `shop.notEnoughCoins`, `shop.skip` |
+| ถือไอเทมครบจำนวนสูงสุดในร้านค้า ซื้อไอเทมเพิ่มไม่ได้ แต่ยังซื้อบอลได้ | `shop.itemsFull`, `shop.skip` |
 | Jev หมดเวลา ถูกจำกัดคำขอ หรือผิดพลาดระหว่างตกลงแลกเปลี่ยน | `ai.backupBadge`, `ai.backupUnavailable`, `deal.reconfirmAfterFallback`, `deal.confirm` |
 | คำตอบไม่อยู่ในตัวเลือก หรืออ้างอิงข้อเสนอคนละฉบับ | `ai.backupInvalidAnswer`, `ai.backupRevisionMismatch` |
 | ความมั่นใจต่ำกว่าเกณฑ์ ตาม §5.6 สำหรับ Normal/Hard | `ai.backupLowConfidence` |

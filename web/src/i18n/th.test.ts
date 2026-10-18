@@ -18,6 +18,10 @@ const situations = [
     keys: ['shop.notEnoughCoins', 'shop.skip'],
   },
   {
+    situation: 'utility-item inventory full in the Shop (Balls stay buyable)',
+    keys: ['shop.itemsFull', 'shop.skip'],
+  },
+  {
     situation: 'Jev timeout, rate limit, or error mid-deal',
     keys: ['ai.backupBadge', 'ai.backupUnavailable', 'deal.reconfirmAfterFallback', 'deal.confirm'],
   },
