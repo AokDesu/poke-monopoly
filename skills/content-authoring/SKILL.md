@@ -28,7 +28,7 @@ Ids are lowercase kebab-case (`poke-ball`, `main-character`). The engine's `Cont
 ## Loading
 
 - `parseContent(files)` is pure. `files` is an object keyed by file name without `.json` (`board`, `classes`, `species`, `evolutions`, `items`, `events`, `config`). It throws one `Error` listing every problem with its path (`→ at species[3].dc`) and returns the typed content plus `contentVersion`.
-- A browser app can import the JSON files directly and call `parseContent` (the web app does not use content yet). The Node loader is `loadContent()` in `sim/content.ts`; the sim runner is expected to use it. Nothing under `engine/` reads files. Every top-level `content/*.json` must be one of the seven files: a stray one fails with an unrecognised key.
+- A browser app can import the JSON files directly and call `parseContent` (the web app does not use content yet). The Node loader is `loadContent()` in `sim/content.ts`; the sim runner uses it in `sim/engine.ts`. Nothing under `engine/` reads files. Every top-level `content/*.json` must be one of the seven files: a stray one fails with an unrecognised key.
 
 ## Add a species
 
