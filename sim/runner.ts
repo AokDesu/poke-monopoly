@@ -1,12 +1,13 @@
-import type {
-  Action,
-  ActionRecord,
-  ApplyActionResult,
-  EngineEvent,
-  GameState,
-  LegalAction,
-  LegalActions,
-  Observation,
+import {
+  GAME_PRESETS,
+  type Action,
+  type ActionRecord,
+  type ApplyActionResult,
+  type EngineEvent,
+  type GameState,
+  type LegalAction,
+  type LegalActions,
+  type Observation,
 } from '../engine/index.ts';
 import { createPolicyRng, POLICIES, type Policy } from './policy.ts';
 
@@ -51,13 +52,11 @@ export type SimOptions = {
 export const DEFAULT_OPTIONS: Omit<SimOptions, 'games' | 'seed'> = {
   seats: 2,
   maxSteps: 5000,
-  lapTarget: 2,
+  lapTarget: GAME_PRESETS.quick.lapTarget,
   policy: 'random',
 };
 
 export type SimSummary = {
-  /** True while the engine cannot create or finish a game, so no game was played. */
-  rulesPending: boolean;
   games: number;
   seats: number;
   averageTurns: number;
@@ -127,14 +126,8 @@ export function runSim(
   return { summary, failures };
 }
 
-/** Until the engine can finish games (issue #25; creation landed in #21), the CLI plays none. */
-export function rulesPendingSummary(options: SimOptions): SimSummary {
-  return { ...emptySummary(options, []), rulesPending: true };
-}
-
 function emptySummary(options: SimOptions, classIds: readonly string[]): SimSummary {
   return {
-    rulesPending: false,
     games: 0,
     seats: options.seats,
     averageTurns: 0,

@@ -1,0 +1,6 @@
+{
+  "startingKit": { "coins": 20, "starters": 1, "pokeBalls": 5, "classItems": 1 },
+  "startIncome": 5,
+  "lapTargets": { "quick": 2, "standard": 3 },
+  "rarityWeights": { "common": 50, "uncommon": 33, "rare": 17 }
+}

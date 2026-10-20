@@ -1,9 +1,55 @@
+import { toEngineContent } from '../content/schema.ts';
+import {
+  advanceAutomatically,
+  applyAction,
+  createGame,
+  createGameConfig,
+  legalActions,
+  observe,
+  winner,
+} from '../engine/index.ts';
+import { loadContent } from './content.ts';
 import type { SimEngine } from './runner.ts';
 
+const parsed = loadContent();
+const content = toEngineContent(parsed);
+
 /**
- * The real engine for `npm run sim`. Engine/ can create a game (`createGame`, issue #21) but cannot
- * yet report its end and winners (issue #25), so no game can finish: this stays null and the CLI
- * runs in rules-pending mode. Once #25 lands, bind `createGame`, `observe`, `legalActions`,
- * `applyAction` and `advanceAutomatically` from engine/index.ts here, and the CLI plays real games.
+ * The real engine for `npm run sim`, built from `content/*.json`. The runner rotates the core
+ * classes (stretch classes stay out until after G2, spec §1); a class with several Starters
+ * takes them in turn by game seed.
  */
-export const realEngine: SimEngine | null = null;
+export const realEngine: SimEngine = {
+  classIds: parsed.classes.filter((entry) => !entry.stretch).map((entry) => entry.id),
+  createGame({ seed, seats, lapTarget }) {
+    const config = createGameConfig({
+      seats: seats.map(({ seatIndex, actorId, classId }) => {
+        const starters = parsed.classes.find((entry) => entry.id === classId)!.starterSpeciesIds;
+        return {
+          seatIndex,
+          actorId,
+          classId,
+          starterSpeciesId: starters[seed % starters.length],
+          controller: 'ai' as const,
+        };
+      }),
+      seed,
+      lapTarget,
+    });
+    return createGame(config, content);
+  },
+  observe,
+  legalActions,
+  applyAction,
+  advanceAutomatically,
+  outcome(state) {
+    if (state.phase.kind !== 'finished') return { finished: false };
+    const winners = winner(state).winners;
+    return {
+      finished: true,
+      winnerSeats: state.players
+        .filter((player) => winners.includes(player.actorId))
+        .map((player) => player.seatIndex),
+    };
+  },
+};

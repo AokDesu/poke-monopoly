@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'vitest';
+import { CONTENT_VERSION } from '../content/index.ts';
 import {
   actionSchema,
   fixtureSchema,
+  GAME_PRESETS,
   observe,
   type Action,
   type ApplyActionResult,
@@ -10,11 +12,11 @@ import {
 } from '../engine/index.ts';
 import fixture from '../engine/fixtures/start-of-game-2p.json';
 import { parseSimArgs } from './args.ts';
+import { loadContent } from './content.ts';
 import { createPolicyRng, POLICIES, RandomPolicy, type Policy } from './policy.ts';
 import { realEngine } from './engine.ts';
 import {
   failed,
-  rulesPendingSummary,
   runSim,
   seatSetup,
   type GameSetup,
@@ -216,7 +218,6 @@ describe('runSim with a fake engine (§7, §8, §9)', () => {
     expect(failures).toEqual([]);
     expect(failed(summary)).toBe(false);
     expect(summary).toMatchObject({
-      rulesPending: false,
       games: 20,
       seats: 2,
       averageTurns: 4,
@@ -358,25 +359,22 @@ describe('runSim with a fake engine (§7, §8, §9)', () => {
   });
 });
 
-describe('rules-pending mode', () => {
-  test('the CLI plays no games while the engine cannot finish one (#25)', () => {
-    expect(realEngine).toBeNull();
+describe('the real engine', () => {
+  test('plays complete games from the real content with no failures (§8)', () => {
+    const { summary, failures } = runSim(realEngine, options({ games: 6, seats: 3 }));
+    expect(failures).toEqual([]);
+    expect(summary).toMatchObject({ games: 6, seats: 3, aborted: 0 });
+    expect(summary.averageTurns).toBeGreaterThan(0);
+    expect(summary.winners.bySeat.reduce((sum, n) => sum + n, 0)).toBeCloseTo(6);
   });
 
-  test('reports zero games and passes', () => {
-    const summary = rulesPendingSummary(options({ games: 100, seats: 3 }));
-    expect(summary).toEqual({
-      rulesPending: true,
-      games: 0,
-      seats: 3,
-      averageTurns: 0,
-      winners: { bySeat: [0, 0, 0], byClass: {} },
-      ties: 0,
-      aborted: 0,
-      illegalAppliedActionCount: 0,
-      invariantFailures: 0,
-    });
-    expect(failed(summary)).toBe(false);
+  test('rotates only the core classes; stretch classes wait until after G2 (§1)', () => {
+    const stretch = loadContent()
+      .classes.filter((entry) => entry.stretch)
+      .map((entry) => entry.id);
+    expect(stretch.length).toBeGreaterThan(0);
+    expect(realEngine.classIds).toHaveLength(6);
+    expect(realEngine.classIds.some((classId) => stretch.includes(classId))).toBe(false);
   });
 });
 
@@ -407,7 +405,7 @@ describe('parseSimArgs', () => {
       seed: 1,
       seats: 2,
       maxSteps: 5000,
-      lapTarget: 2,
+      lapTarget: GAME_PRESETS.quick.lapTarget,
       policy: 'random',
     });
   });
@@ -429,8 +427,17 @@ describe('parseSimArgs', () => {
     '--seed=-1',
     '--max-steps=0',
     '--lap-target=',
+    '--lap-target=0',
+    '--lap-target=-1',
+    '--lap-target=2.5',
     '--policy=jev',
   ])('rejects %s', (arg) => {
     expect(() => parseSimArgs([arg])).toThrow(RangeError);
   });
+});
+
+test('loadContent reads and validates the real content/*.json from disk', () => {
+  const content = loadContent();
+  expect(content.species).toHaveLength(19);
+  expect(content.contentVersion).toBe(CONTENT_VERSION);
 });

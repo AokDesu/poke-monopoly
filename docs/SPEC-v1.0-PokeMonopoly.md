@@ -115,6 +115,7 @@ Every case needs a test that can actually reach it ("You cannot test what you ca
 | Shortlist empty after personality filtering | Include at least one option per legal action kind; if still empty, skip |
 | Pokémon found but no Ball | The only option is to release; the catch button is greyed out with the reason "No Ball" |
 | Not enough coins for anything in the Shop | Items are greyed out with "Not enough coins", plus a skip button |
+| Holding 4 utility items in the Shop | Utility-item offers are greyed out with "Items full"; Balls stay buyable (approved 2026-10-07) |
 | Jev times out, returns 429 or errors mid-deal | The fallback policy decides under the same concession budget; the deal does not commit until re-confirmed |
 | Jev's answer is not among the options, or the revision does not match | Discard the answer, use the fallback, and log `fallbackReason` |
 | Confidence below the floor | Apply the rule in §5.6 |
@@ -137,12 +138,18 @@ UI house rules (kept as `skills/ui-rules/SKILL.md`):
 
 All content tables are in Appendix A.
 
+Wherever this specification uses `round`, a half rounds up (approved 2026-10-07): `round(5×0.5)` is 3 and `round(12×0.5)` is 6.
+
 ### 4.1 Setup and board
 
 - **Board:** 24 spaces, made up of Start 1, Wild 11, Event 5, Shop 4 and Gym 3 (spaces 6/12/18).
 - **Starting kit:** 20 coins, the class Starter, 5 Poké Balls and 1 class item.
 - **Hidden information:** the starting kit is public; utility items gained later are secret.
-- **Start income:** passing or landing on Start by movement pays 5 coins, once per pass. Nothing is paid at setup.
+  - **Approved rule (#37, captain, 2026-10-07):** opponents' Ball counts are not exposed directly in observations. A seat sees each opponent's coins, position, team and item count, plus the public starting-kit items, but never their Ball pouch or later items; only its own pouch and items are shown. Opponents' Ball counts can be inferred from public play (the public starting kit, the Ball type of each catch and Shop purchase prices); the captain accepts this (2026-10-17). See [Engine contract v1](engine-contract.md#public-seam-and-visibility).
+  - **Approved rule (#37, captain, 2026-10-17):** using a hostile item (Repel, Pickpocket) is told only to its user and its target; other seats see only its already-public effects, such as Pickpocket's coin transfer. This lets a target learn why it was slowed and lets a broken `no_attack` promise (§4.4) be judged from real events. Raw action records and logs are never shown to a seat; each seat gets a copy redacted for it.
+- **Start income:** the owner's forward movement passing or landing on a new Start milestone pays 5 coins from the bank, once per rewarded milestone (§6.5). Forced movement pays nothing. Nothing is paid at setup.
+
+**C2 placeholder scope (#34, decided in that issue):** until Gyms (C3) and Events (C4) land, landing on an Event or Gym space is an explicit no-op logged as `space_resolved` with `effect: "none_yet"`, so the UI can say nothing happens there yet. It changes no coins, items or Pokémon. Setup offers the Quick 2 Laps preset; the Standard 3 Laps preset exists but is flagged closed until playtest (§1), and the sim can still run it with `--lap-target 3`. See the [engine contract](engine-contract.md#c2-presets-and-placeholder-spaces-issue-34).
 
 ### 4.2 Turn structure and action budgets
 
@@ -152,7 +159,7 @@ Turn order:
 2. **Social window:** talk to one opponent per human turn. This does not cost the tactical action.
 3. **Strategy:** use pre-move Abilities and one utility item or PvP, or skip.
 4. **Move:** roll a d6 or use an Ability that replaces the roll. Slowing effects clear after the actual move.
-5. **Start crossing:** collect 5 coins, add 1 to `creditedLap`, reset Abilities, then open the Sell Phase before resolving the destination space.
+5. **Start crossing:** for a qualifying crossing (§6.5), follow the income, Ability reset and Sell order in §4.7 before resolving the destination space.
 6. **Resolve:** reveal the space. If a Pokémon appears, spend 1 Ball or release it.
 7. **End:** close expired effects and settle promises that are due.
 
@@ -163,6 +170,8 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 - `pokemonAbility = 1`.
 
 **C1 engine scope (#21):** see the [engine contract](engine-contract.md#setup-and-turn-flow-issue-21) for implemented setup/turn flow and deferred effects. This implementation scope does not change the full turn rules above.
+
+**C1 movement scope (#22):** see the [movement contract](engine-contract.md#movement-and-start-crossing-issue-22) for implemented movement/Start flow and deferred effects. This implementation scope does not change the full turn rules above.
 
 **Social window**
 
@@ -179,6 +188,8 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 - `d6 + classBonus + ballBonus + abilityBonus + itemBonus >= catchDC`. The roll is snapshotted after every party confirms modifiers and before rolling. Battle stats are not part of the catch formula.
 - Every attempt consumes 1 Ball, success or failure. With no Ball the Pokémon must be released. The UI shows the success % for every Ball type held.
 - Main Character's first-catch bonus is used whenever a real roll is made, even on failure. Skipping an encounter does not use it.
+
+**C1 catching scope (#23):** see the [catching contract](engine-contract.md#wild-encounters-and-catching-issue-23) for implemented catching and deferred effects. The item hook returns Lucky Egg's +1 from C2 (#31, §4.6). Exact success percentages come from the engine's odds API (#32), which runs every d6 face through the same resolver as the real roll; see the [odds contract](engine-contract.md#catch-odds-and-disabled-reasons-issue-32). This implementation scope does not change the full catching rules above.
 
 ### 4.4 Combat, Gym and Tired
 
@@ -233,6 +244,10 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 - Always shows all 3 Balls plus 2 distinct random utility items.
 - Buy at most 1 unit or skip; no refresh.
 
+**C2 Shop scope (#29):** the utility-item pool this cycle is Lucky Egg, Repel and Pickpocket, and the 2 items are drawn with the logged RNG. Payment goes to the bank; bought items are secret. See the [Shop contract](engine-contract.md#shop-issue-29).
+
+**C2 item scope (#31), approved defaults (captain, 2026-10-07):** in Strategy a player may use one Lucky Egg, Repel or Pickpocket per turn, spending the turn's `tacticalAction`; the used item instance is removed and logged. **Lucky Egg** gives +1 to the user's own catch roll until the end of that turn and no movement bonus. **Repel** records a pending slow on the target: its next actual move is `max(1, d6 − 2)`, after which the slow clears. **Pickpocket** moves `min(5, target coins)` from the target to the user. The hostile-item and slowing rules below apply. A second item use in the same turn is greyed out with "Tactical action already used this turn"; an invalid target is greyed out with "Target has no coins" or "Target is already slowed". Each item has its own instance ID; class items are public and items bought after setup are secret. Combat bonuses, Price Shield, Sticky Web, Battle Ticket and Potion remain deferred. See the [item contract](engine-contract.md#utility-items-issue-31).
+
 **Hostile items: Repel, Sticky Web, Pickpocket and Battle Ticket**
 
 - They cannot target yourself and can target anyone regardless of distance.
@@ -266,7 +281,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 
 ### 4.7 Selling at Start, Laps and game end
 
-1. **Order when passing Start:**
+1. **Order when owner movement crosses or lands on a qualifying Start milestone (§6.5):**
    - +5 coins
    - `creditedLap` +1
    - reset Abilities
@@ -276,6 +291,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
    - `saleBasis`: Rescue = 0; an Original Starter still in base form = 5; everything else uses the Base Sale of its current form.
    - A tired Pokémon uses `round(saleBasis×0.8)` before the class bonus.
    - Class bonuses apply only in the Sell Phase at Start.
+   - **Approved rule (captain, 2026-10-07):** a once-per-Lap sale bonus such as the Researcher's applies once per Sell Phase, to the sold Pokémon with the highest `saleBasis` (ties broken by lowest instance ID), so the result never depends on the order the player lists them. A Rescue Starter never receives it, and selling nothing does not use it.
 3. **Game end:**
    - When the first player reaches the Lap target, announce the Final Table Round and play until every seat has had the same number of turns.
    - Remaining Pokémon are then auto-sold at `round(saleBasis×0.5)` with no class bonus.
@@ -390,7 +406,7 @@ Kept as `skills/jev-questions/SKILL.md`.
 - **Role-scoped:** send only what that seat can really see.
   - Public: board, coins, teams, Lap, ability readiness.
   - Own: hand, Balls, peek results, interactions.
-  - Never: Event order, opponents' secret items or RNG state.
+  - Never: Event order, opponents' secret items or RNG state. Opponents' Ball counts are not exposed directly in observations but can be inferred from public play (§4.1).
 - **Numbers become named buckets**, e.g. `"win_chance": "low"` or `"coins_vs_you": "far ahead"`. Never send numbers for Jev to compare.
 - **Keep value types apart:** cash, expected sale value, benefit of keeping the team, risk and promises are separate buckets. They are never merged into one coin figure, and badges are never counted as coins.
 - **Wording:** questions and criteria are written **in English**, literally, with boundary cases spelled out in the criteria.
@@ -443,10 +459,12 @@ TypeScript plus a web app with API routes. The folders are `engine/`, `content/`
 2. **`ai/`** is a server-side endpoint. It holds `TYPESAFE_API_KEY`, validates payload shape and size, builds questions from state, calls Jev and returns only action IDs and line IDs.
 3. **Action records:** fields, accepted-action sequencing and revision semantics are defined in [Engine contract v1](engine-contract.md#records-and-counters), including the approved clarification.
 4. **Turn counters:** `globalTurnNo` counts turns and `ownTurnNo` counts each player's turns, both separate from `seatIndex`.
-5. **Movement and Laps:** movement stores a signed `routeProgress` and a monotonic `creditedLap`.
+5. **Movement and Laps:** movement stores a signed `routeProgress`, a monotonic paid-lap count `creditedLap`, and a monotonic `highestRewardedMilestone`.
    - Position = `((routeProgress % 24) + 24) % 24`.
-   - Start credit is granted only when the owner's forward movement crosses a milestone above the previous `creditedLap`.
+   - Start milestones are positive multiples of 24; setup Start at route progress 0 is not an income milestone. Start credit is granted only when the owner's forward movement crosses or lands on a milestone above the previous `highestRewardedMilestone`.
+   - On payment, set `highestRewardedMilestone` to the crossed milestone's index and increment `creditedLap` by exactly 1. The Lap target continues to use the paid-lap count, not the route milestone index. Both fields begin at 0.
    - Being pushed or pulled, or re-crossing an old milestone, gives no reward.
+   - **Clarification (#22):** separate the paid count from the reward watermark. If a forced move skips milestone 1 without payment and an owner move later pays milestone 2, the count becomes 1 and the watermark becomes 2. Recrossing milestone 2 cannot pay again.
 6. **Instance IDs:** every Pokémon and item has its own instance ID.
 7. **Save:** a local save after each accepted action.
    - It holds the current state plus the action log, with no log nested inside the snapshot, and no key.
@@ -496,6 +514,7 @@ Each layer covers what the one below misses.
 **Engine invariants that must hold:**
 
 - Coins never go negative, and every transfer has a source.
+- Start income is a sourced bank transfer; paid laps and rewarded-milestone watermarks never decrease. Payment precedes Sell, and destination resolution follows Sell. Forced movement never grants Start income.
 - UIDs are unique, and every creation or destruction is logged.
 - Rejected or stale actions do not change state, and deals are atomic.
 - Move debuffs last until the next move. Tired and Nurse Joy each have real use cases. Promises close on the correct `ownTurnNo`.

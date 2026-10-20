@@ -1,6 +1,6 @@
 import { parseSimArgs } from './args.ts';
 import { realEngine } from './engine.ts';
-import { failed, rulesPendingSummary, runSim, type SimOptions } from './runner.ts';
+import { failed, runSim, type SimOptions } from './runner.ts';
 
 let options: SimOptions;
 try {
@@ -10,9 +10,7 @@ try {
   process.exit(2);
 }
 
-const { summary, failures } = realEngine
-  ? runSim(realEngine, options)
-  : { summary: rulesPendingSummary(options), failures: [] };
+const { summary, failures } = runSim(realEngine, options);
 for (const failure of failures) {
   console.error(
     `sim: game seed ${failure.seed} failed (${failure.reasons.join('; ')}); reproduce: ${failure.reproduce}`,

@@ -1,1 +1,37 @@
 @import 'tailwindcss';
+
+@theme {
+  /* Self-hosted through @fontsource/noto-sans-thai; no external font host. */
+  --font-sans: 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
+
+  --color-paper: oklch(97.5% 0.012 85);
+  --color-surface: oklch(94.5% 0.016 82);
+  --color-line: oklch(86% 0.02 78);
+  --color-ink: oklch(25% 0.025 55);
+  --color-ink-soft: oklch(43% 0.025 55);
+  --color-accent: oklch(50% 0.17 32);
+  --color-accent-strong: oklch(43% 0.16 32);
+}
+
+@layer base {
+  html {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    /* Thai stacks vowel and tone marks above and below the line; give them room. */
+    line-height: 1.7;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklch, var(--color-accent) 22%, transparent);
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+}
