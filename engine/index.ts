@@ -15,3 +15,5 @@ export {
   type SeatAction,
   type SeatActionRecord,
 } from './visibility.ts';
+export { checkInvariants, INVARIANTS } from './invariants.ts';
+export type { InvariantDefinition, InvariantId, Violation } from './invariants.ts';
