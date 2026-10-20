@@ -1,19 +1,22 @@
-import { parseArgs } from 'node:util';
-import { runSim } from './index.ts';
+import { parseSimArgs } from './args.ts';
+import { realEngine } from './engine.ts';
+import { failed, runSim, type SimOptions } from './runner.ts';
 
-const { values } = parseArgs({
-  options: {
-    games: { type: 'string', default: '100' },
-    seed: { type: 'string', default: '1' },
-    'lap-target': { type: 'string' },
-  },
-});
-const lapTarget = values['lap-target'];
-const summary = runSim(
-  Number(values.games),
-  Number(values.seed),
-  lapTarget === undefined ? undefined : Number(lapTarget),
-);
+let options: SimOptions;
+try {
+  options = parseSimArgs(process.argv.slice(2));
+} catch (error) {
+  console.error(`sim: ${error instanceof Error ? error.message : String(error)}`);
+  process.exit(2);
+}
+
+const { summary, failures } = runSim(realEngine, options);
+for (const failure of failures) {
+  console.error(
+    `sim: game seed ${failure.seed} failed (${failure.reasons.join('; ')}); reproduce: ${failure.reproduce}`,
+  );
+}
 console.log(JSON.stringify(summary));
-// Hard gate (spec §1): any illegal applied action fails the run, and so CI.
-if (summary.illegalAppliedActionCount > 0) process.exitCode = 1;
+// Hard gate (spec §1, §8): an applied illegal action, an invariant failure or an aborted game
+// fails the run, and so CI.
+if (failed(summary)) process.exitCode = 1;

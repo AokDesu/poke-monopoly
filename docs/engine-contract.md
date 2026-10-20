@@ -105,7 +105,7 @@ Content names the passive `lap_first_catch_bonus`; the engine gives +1 `classBon
 
 ## C2 presets and placeholder spaces (issue #34)
 
-Spec: §1, §4.1, §10 C2. `GAME_PRESETS` exports `quick` (`lapTarget: 2`, `enabled: true`) and `standard` (`lapTarget: 3`, `enabled: false`); `LAP_TARGETS` derives from it. `enabled` only tells setup which presets to offer: `createGame` still accepts any positive `config.lapTarget`. The sim is still a stub that plays no games until issue #13: it accepts `--lap-target <n>` (default 2, Quick) and only reports that Lap target.
+Spec: §1, §4.1, §10 C2. `GAME_PRESETS` exports `quick` (`lapTarget: 2`, `enabled: true`) and `standard` (`lapTarget: 3`, `enabled: false`); `LAP_TARGETS` derives from it. `enabled` only tells setup which presets to offer: `createGame` still accepts any positive `config.lapTarget`. The sim plays real games at `--lap-target <n>` (default 2, Quick), so `--lap-target 3` runs Standard.
 
 Resolve on an Event (2, 8, 14, 17, 22) or Gym (6, 12, 18) space emits `space_resolved` with `effect: "none_yet"`, then enters End. It changes no coins, items, Pokémon, budgets or RNG. Start and Shop resolutions keep the event without `effect`. Event cards and Gym battles replace this in cycles 4 and 3. The engine version advances as recorded in [engine/versions.ts](../engine/versions.ts) because accepted commands emit the new field; prior executable versions are rejected by setup/replay. Command-log and RNG versions are unchanged.
 
