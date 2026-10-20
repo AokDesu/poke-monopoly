@@ -1,0 +1,52 @@
+{
+  "id": "synthetic-strategy",
+  "description": "Synthetic sample only; invented response, not a recording or evidence of Jev quality.",
+  "tags": {
+    "decisionPoint": "strategy",
+    "personality": "Cautious"
+  },
+  "request": {
+    "state": {
+      "you": {
+        "risk": "high",
+        "cash": "low"
+      }
+    },
+    "questions": {
+      "strategy": {
+        "type": "choice",
+        "instructions": "Pick one legal action. Avoid a risky challenge when cash is low.",
+        "criteria": {
+          "skip": "Wait safely.",
+          "challenge": "Challenge the stronger opponent."
+        }
+      }
+    }
+  },
+  "recorded": {
+    "ok": true,
+    "answers": {
+      "strategy": {
+        "type": "choice",
+        "choice": "skip",
+        "confidence": 0.9,
+        "probabilities": {
+          "skip": 0.95,
+          "challenge": 0.04999999999999999
+        }
+      }
+    },
+    "requestId": "synthetic-strategy",
+    "model": "jev-1.13.0",
+    "latencyMs": 0,
+    "usage": {
+      "inputTokens": 0,
+      "outputTokens": 0
+    }
+  },
+  "acceptable": {
+    "strategy": ["skip"]
+  },
+  "synthetic": true,
+  "requestHash": "9fa6c5fc830300bf1e5b6b2ea0b727f6aa2d4f923e0f95edee1a6eb0a32117ee"
+}

@@ -1,0 +1,8 @@
+[
+  { "id": "e1", "text": "find a Pokémon, using any remaining `catchAttempt`" },
+  { "id": "e2", "text": "+6 coins" },
+  { "id": "e3", "text": "pay up to 4" },
+  { "id": "e4", "text": "random item; a full hand receives a Poké Ball instead" },
+  { "id": "e5", "text": "the highest-battle Pokémon becomes tired" },
+  { "id": "e6", "text": "the poorest player(s) receive 5 coins, split and rounded down" }
+]

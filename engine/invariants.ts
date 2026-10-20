@@ -5,6 +5,7 @@ import {
   type ApplyActionResult,
   type EngineEvent,
   type GameState,
+  type Player,
 } from './contract/schema.ts';
 import { canonicalJson, stateHash } from './state-hash.ts';
 import { pendingRollPurpose } from './turns.ts';
@@ -13,6 +14,9 @@ import { pendingRollPurpose } from './turns.ts';
 export type InvariantId =
   | 'coins-non-negative'
   | 'coin-transfer-sourced'
+  | 'start-income-from-bank'
+  | 'start-payment-precedes-sell'
+  | 'forced-movement-no-start-income'
   | 'uid-unique'
   | 'uid-lifecycle-logged'
   | 'rejected-or-stale-unchanged'
@@ -69,6 +73,13 @@ function ownedInstanceIds(state: GameState): string[] {
   ]);
 }
 
+/** The rewarded-milestone watermark, read as the engine reads it for older snapshots. */
+const watermark = (player: Player) => player.highestRewardedMilestone ?? player.creditedLap;
+
+function startIncome(events: EngineEvent[]) {
+  return eventsOf(events, 'coin_transfer').filter((event) => event.reason === 'start_income');
+}
+
 function eventsOf<K extends EngineEvent['kind']>(events: EngineEvent[], kind: K) {
   return events.filter((event): event is Extract<EngineEvent, { kind: K }> => event.kind === kind);
 }
@@ -115,8 +126,11 @@ function checkUidUnique({ result }: Step): string[] {
   const seen = new Set<string>();
   const duplicates = new Set<string>();
   const ids = ownedInstanceIds(result.state);
-  // The wild encounter's Pokémon must not reuse an owned ID, but it is not created until caught.
-  if (result.state.phase.kind === 'encounter') ids.push(result.state.phase.pokemon.instanceId);
+  // A historical encounter's Pokémon must not reuse an owned ID; live draws have none until caught.
+  const { phase } = result.state;
+  if (phase.kind === 'encounter' && 'instanceId' in phase.pokemon) {
+    ids.push(phase.pokemon.instanceId);
+  }
   for (const id of ids) (seen.has(id) ? duplicates : seen).add(id);
   return [...duplicates].map((id) => `instance ID ${id} appears more than once`);
 }
@@ -168,23 +182,111 @@ function checkCatchBalls({ before, parsed, result }: Step): string[] {
   return problems;
 }
 
+function checkStartIncomeFromBank({ result }: Step): string[] {
+  if (!accepted(result)) return [];
+  return startIncome(result.events)
+    .filter((event) => event.source?.kind !== 'bank' || event.destination.kind !== 'player')
+    .map(() => 'start_income is not a bank-to-player transfer');
+}
+
 function checkCreditedLap({ before, result }: Step): string[] {
   const problems: string[] = [];
-  const squares = result.state.content.board.length;
   for (const player of result.state.players) {
     const previous = before.players.find((candidate) => candidate.actorId === player.actorId);
-    if (!previous || player.creditedLap === previous.creditedLap) continue;
+    if (!previous) continue;
     if (player.creditedLap < previous.creditedLap) {
       problems.push(
         `${player.actorId} creditedLap fell from ${previous.creditedLap} to ${player.creditedLap}`,
       );
-    } else if (player.creditedLap > Math.floor(player.routeProgress / squares)) {
+    }
+    if (watermark(player) < watermark(previous)) {
       problems.push(
-        `${player.actorId} creditedLap ${player.creditedLap} exceeds the milestone reached at routeProgress ${player.routeProgress}`,
+        `${player.actorId} highestRewardedMilestone fell from ${watermark(previous)} to ${watermark(player)}`,
+      );
+    }
+    if (player.creditedLap > watermark(player)) {
+      problems.push(
+        `${player.actorId} creditedLap ${player.creditedLap} exceeds the rewarded milestone ${watermark(player)}`,
       );
     }
   }
   return problems;
+}
+
+function checkCreditedLapPaysOnce({ before, result }: Step): string[] {
+  if (!accepted(result)) return [];
+  const problems: string[] = [];
+  const squares = result.state.content.board.length;
+  const income = startIncome(result.events);
+  for (const player of result.state.players) {
+    const previous = before.players.find((candidate) => candidate.actorId === player.actorId);
+    if (!previous) continue;
+    const paid = income.filter(
+      ({ destination }) => destination.kind === 'player' && destination.actorId === player.actorId,
+    ).length;
+    const credited = player.creditedLap - previous.creditedLap;
+    if (credited >= 0 && paid !== credited) {
+      problems.push(
+        `${player.actorId} creditedLap rose by ${credited} but Start income paid ${paid}`,
+      );
+    }
+    if (paid === 0) {
+      if (watermark(player) > watermark(previous)) {
+        problems.push(`${player.actorId} highestRewardedMilestone rose without Start income`);
+      }
+      continue;
+    }
+    const milestone = Math.floor(player.routeProgress / squares);
+    if (
+      paid > 1 ||
+      milestone <= watermark(previous) ||
+      milestone <= Math.floor(previous.routeProgress / squares) ||
+      watermark(player) !== milestone
+    ) {
+      problems.push(
+        `${player.actorId} Start income for milestone ${milestone} is not one new milestone crossed this step`,
+      );
+    }
+  }
+  return problems;
+}
+
+function checkStartPaymentOrder({ before, result }: Step): string[] {
+  if (!accepted(result)) return [];
+  const problems: string[] = [];
+  const { events } = result;
+  const paidAt = events.findIndex(
+    (event) => event.kind === 'coin_transfer' && event.reason === 'start_income',
+  );
+  const sellAt = events.findIndex((event) => event.kind === 'phase_changed' && event.to === 'sell');
+  if (sellAt !== -1 && (paidAt === -1 || paidAt > sellAt)) {
+    problems.push('the Sell Phase starts without Start income paid before it');
+  }
+  if (paidAt !== -1 && result.state.phase.kind !== 'sell') {
+    problems.push(`Start income is followed by phase ${result.state.phase.kind}, not Sell`);
+  }
+  if (before.phase.kind !== 'resolve' && eventsOf(events, 'space_resolved').length > 0) {
+    problems.push(`the destination resolves in phase ${before.phase.kind}, not after Sell`);
+  }
+  return problems;
+}
+
+function checkForcedMovementIncome({ before, parsed, result }: Step): string[] {
+  if (!accepted(result)) return [];
+  // Start income is paid only while the engine resolves the payee's own move roll.
+  const ownMoveRoll =
+    parsed?.kind === 'dice_result' && pendingRollPurpose(before)?.startsWith('move:') === true;
+  const mover = before.players.find((player) => player.seatIndex === before.activeSeatIndex);
+  return startIncome(result.events)
+    .filter(
+      ({ destination }) =>
+        !ownMoveRoll || destination.kind !== 'player' || destination.actorId !== mover?.actorId,
+    )
+    .map(({ destination }) =>
+      destination.kind === 'player'
+        ? `${destination.actorId} received Start income outside their own move`
+        : 'Start income paid outside an own move',
+    );
 }
 
 function checkReplay({ before, parsed, result, apply }: Step): string[] {
@@ -222,6 +324,8 @@ function checkGameCanFinish({ result }: Step): string[] {
 }
 
 const S8_COINS = 'Coins never go negative, and every transfer has a source.';
+const S8_START =
+  'Start income is a sourced bank transfer; paid laps and rewarded-milestone watermarks never decrease. Payment precedes Sell, and destination resolution follows Sell. Forced movement never grants Start income.';
 const S8_UIDS = 'UIDs are unique, and every creation or destruction is logged.';
 const S8_REJECTED = 'Rejected or stale actions do not change state, and deals are atomic.';
 const S8_REPLAY = 'Replay and resume never create assets or re-roll dice.';
@@ -246,6 +350,41 @@ export const INVARIANTS: readonly InvariantDefinition[] = [
     specLine: S8_COINS,
     check: checkCoinTransfers,
   },
+  {
+    id: 'start-income-from-bank',
+    status: 'active',
+    section: '§8',
+    specLine: S8_START,
+    check: checkStartIncomeFromBank,
+  },
+  {
+    id: 'credited-lap-monotonic',
+    status: 'active',
+    section: '§8',
+    specLine: S8_START,
+    check: checkCreditedLap,
+  },
+  {
+    id: 'start-payment-precedes-sell',
+    status: 'active',
+    section: '§8',
+    specLine: S8_START,
+    check: checkStartPaymentOrder,
+  },
+  {
+    id: 'forced-movement-no-start-income',
+    status: 'active',
+    section: '§8',
+    specLine: S8_START,
+    check: checkForcedMovementIncome,
+  },
+  {
+    id: 'credited-lap-pays-once',
+    status: 'active',
+    section: '§6.5',
+    specLine: 'Being pushed or pulled, or re-crossing an old milestone, gives no reward.',
+    check: checkCreditedLapPaysOnce,
+  },
   { id: 'uid-unique', status: 'active', section: '§8', specLine: S8_UIDS, check: checkUidUnique },
   {
     id: 'uid-lifecycle-logged',
@@ -267,20 +406,6 @@ export const INVARIANTS: readonly InvariantDefinition[] = [
     section: '§8',
     specLine: 'Every catch attempt consumes exactly 1 Ball, and releasing consumes none.',
     check: checkCatchBalls,
-  },
-  {
-    id: 'credited-lap-monotonic',
-    status: 'active',
-    section: '§6.5',
-    specLine: 'movement stores a signed `routeProgress` and a monotonic `creditedLap`.',
-    check: checkCreditedLap,
-  },
-  {
-    // Pending until coin_transfer events carry an agreed Start-income reason code (issue #22).
-    id: 'credited-lap-pays-once',
-    status: 'pending',
-    section: '§6.5',
-    specLine: 'Being pushed or pulled, or re-crossing an old milestone, gives no reward.',
   },
   {
     id: 'replay-reproduces-state',

@@ -1,10 +1,12 @@
 /// <reference types="vite/client" />
 import { describe, expect, test } from 'vitest';
 import {
+  advanceAutomatically,
   applyAction,
   checkInvariants,
   createGame,
   createGameConfig,
+  d6,
   fixtureSchema,
   INVARIANTS,
   legalActions,
@@ -13,6 +15,7 @@ import {
   type GameState,
 } from './index.ts';
 import { createInvariantChecker } from './invariants.ts';
+import { forceMove } from './testing.ts';
 import spec from '../docs/SPEC-v1.0-PokeMonopoly.md?raw';
 import startFixture from './fixtures/start-of-game-2p.json';
 import encounterFixture from './fixtures/encounter-with-balls.json';
@@ -51,6 +54,60 @@ function acceptedResult(
   };
 }
 
+/** A copy of an accepted result after `edit`, with its record holding the edited events. */
+function edited(
+  result: ApplyActionResult,
+  edit: (state: GameState, events: EngineEvent[]) => EngineEvent[],
+): ApplyActionResult {
+  if (!('accepted' in result)) throw new Error('expected an accepted result');
+  const state = structuredClone(result.state);
+  const events = edit(state, structuredClone(result.events));
+  return {
+    ...result,
+    state,
+    events,
+    record: { ...result.record, events: structuredClone(events) },
+  };
+}
+
+/** A current-version game awaiting seat 0's move roll at `progress`, with `paid` milestones paid. */
+function moveState(progress: number, paid = Math.floor(progress / 24)): GameState {
+  const scenario = start();
+  const state = createGame(
+    createGameConfig({ seats: scenario.config.seats, seed: 4, lapTarget: 3 }),
+    scenario.content,
+  );
+  state.phase = { kind: 'move', awaitingResult: true };
+  state.globalTurnNo = 1;
+  Object.assign(state.players[0]!, {
+    routeProgress: progress,
+    creditedLap: paid,
+    highestRewardedMilestone: paid,
+  });
+  return state;
+}
+
+/** The engine's logged move roll for seat 0; seed 4's first d6 is 6. */
+function moveRoll(state: GameState) {
+  const purpose = 'move:0:1';
+  return {
+    actorId: 'engine',
+    actionSeq: state.stateRevision + 1,
+    stateRevisionBefore: state.stateRevision,
+    kind: 'dice_result',
+    payload: { purpose, value: d6(state.rng, purpose).value },
+  };
+}
+
+/** Seat 0 rolls a 6 from square 20, crossing Start: the engine pays and enters Sell. */
+function crossing() {
+  const before = moveState(20);
+  const action = moveRoll(before);
+  const result = applyAction(before, action);
+  expect(result).toMatchObject({ state: { phase: { kind: 'sell' } } });
+  return { before, action, result };
+}
+
 /** Checks a hand-made result with an engine that deterministically returns it on replay. */
 function checkFromEngine(before: GameState, action: unknown, result: ApplyActionResult) {
   return createInvariantChecker(() => result)(before, action, result);
@@ -58,7 +115,7 @@ function checkFromEngine(before: GameState, action: unknown, result: ApplyAction
 
 const ids = (violations: { invariant: string }[]) => violations.map((v) => v.invariant);
 
-const bankToPlayer0 = (amount: number, reason = 'start_income'): EngineEvent => ({
+const bankToPlayer0 = (amount: number, reason = 'event_reward'): EngineEvent => ({
   kind: 'coin_transfer',
   source: { kind: 'bank' },
   destination: { kind: 'player', actorId: 'player-0' },
@@ -75,7 +132,7 @@ describe('registry (spec §8)', () => {
     .map((line) => line.slice(2));
 
   test('lists every spec §8 invariant sentence and quotes the spec verbatim', () => {
-    expect(bullets).toHaveLength(10);
+    expect(bullets).toHaveLength(11);
     for (const sentence of bullets.flatMap((bullet) => bullet.split(/(?<=\.) /))) {
       expect(
         INVARIANTS.some((invariant) => invariant.specLine.includes(sentence)),
@@ -93,12 +150,15 @@ describe('registry (spec §8)', () => {
     expect(status).toMatchObject({
       'coins-non-negative': 'active',
       'coin-transfer-sourced': 'active',
+      'start-income-from-bank': 'active',
+      'start-payment-precedes-sell': 'active',
+      'forced-movement-no-start-income': 'active',
       'uid-unique': 'active',
       'uid-lifecycle-logged': 'active',
       'rejected-or-stale-unchanged': 'active',
       'catch-consumes-one-ball': 'active',
       'credited-lap-monotonic': 'active',
-      'credited-lap-pays-once': 'pending',
+      'credited-lap-pays-once': 'active',
       'replay-reproduces-state': 'active',
       'game-can-finish': 'active',
       'ability-once-per-instance-per-lap': 'pending',
@@ -130,7 +190,7 @@ test('reports no violations over every fixture in engine/fixtures/', () => {
     const actions = [
       command(state, 'skip', {}, 7),
       { ...command(state, 'skip'), actorId: 'not-a-player' },
-      // Carve-out until issue #23: the engine accepts catch without spending a Ball yet.
+      // Carve-out: these 0.0.0 fixtures keep an illustrative catch that spends no Ball (#23).
       ...choices
         .filter((choice) => choice.kind !== 'catch')
         .map((choice) => command(state, choice.kind, choice.payload)),
@@ -142,13 +202,34 @@ test('reports no violations over every fixture in engine/fixtures/', () => {
   }
 });
 
-test('carve-out until #23: catches do not spend a Ball yet', () => {
-  // Fails once issue #23 makes catches spend a Ball; then drop the catch filter above and this test.
+test('carve-out: historical fixtures accept catch without spending a Ball', () => {
+  // Fails once the fixtures' catch spends a Ball; then drop the catch filter above and this test.
   const before = encounter();
   const action = command(before, 'catch', { ballType: 'poke' });
   expect(ids(checkInvariants(before, action, applyAction(before, action)))).toEqual([
     'catch-consumes-one-ball',
   ]);
+});
+
+test('a current-version catch spends exactly 1 Ball and its roll passes (issue #23)', () => {
+  const initial = moveState(0);
+  const wild = initial.content.species.find((species) => species.id === 'chansey')!;
+  initial.phase = { kind: 'encounter', pokemon: { speciesId: wild.id } };
+  initial.turnBudgets = { tacticalAction: 1, catchAttempt: 1, pokemonAbility: 1 };
+  const choices = legalActions(initial, 0).enabled.filter((choice) => choice.kind === 'catch');
+  expect(choices.length).toBeGreaterThan(0);
+  for (const choice of choices) {
+    const action = command(initial, choice.kind, choice.payload);
+    const caught = applyAction(initial, action);
+    expect(checkInvariants(initial, action, caught)).toEqual([]);
+    const { ballType } = choice.payload as { ballType: 'poke' | 'great' | 'ultra' };
+    expect(caught.state.players[0]!.balls[ballType]).toBe(initial.players[0]!.balls[ballType] - 1);
+    const roll = advanceAutomatically(caught.state);
+    const [record] = roll.records;
+    expect(record).toBeDefined();
+    const rolled = applyAction(caught.state, record!.action);
+    expect(checkInvariants(caught.state, record!.action, rolled)).toEqual([]);
+  }
 });
 
 describe('coins-non-negative', () => {
@@ -270,7 +351,10 @@ describe('uid-lifecycle-logged', () => {
       atEncounter,
       catchAction,
       (state) => {
-        if (state.phase.kind === 'encounter') state.players[0]!.team.push(state.phase.pokemon);
+        const { phase } = state;
+        if (phase.kind === 'encounter' && 'instanceId' in phase.pokemon) {
+          state.players[0]!.team.push(phase.pokemon);
+        }
         state.players[0]!.balls.poke -= 1;
         state.phase = { kind: 'move' };
       },
@@ -356,42 +440,154 @@ describe('catch-consumes-one-ball', () => {
   });
 });
 
+describe('Start income (spec §8, §6.5)', () => {
+  test('a real crossing, its Sell and its resolution pass every invariant', () => {
+    let state = moveState(20);
+    for (const next of [
+      moveRoll,
+      (at: GameState) => command(at, 'finish_sell'),
+      (at: GameState) => command(at, 'skip'),
+    ]) {
+      const action = next(state);
+      const result = applyAction(state, action);
+      expect('accepted' in result).toBe(true);
+      expect(checkInvariants(state, action, result)).toEqual([]);
+      state = result.state;
+    }
+    expect(state.players[0]).toMatchObject({ creditedLap: 1, highestRewardedMilestone: 1 });
+  });
+
+  test('re-crossing a paid milestone after a forced move pays nothing and passes', () => {
+    const before = forceMove(moveState(30), 0, -10);
+    const action = moveRoll(before);
+    const result = applyAction(before, action);
+    expect(result).toMatchObject({ state: { phase: { kind: 'resolve' } } });
+    expect(checkInvariants(before, action, result)).toEqual([]);
+  });
+
+  test('an owner move past a skipped milestone pays once and passes (§6.5 #22)', () => {
+    const before = moveState(44, 0);
+    const action = moveRoll(before);
+    const result = applyAction(before, action);
+    expect(result.state.players[0]).toMatchObject({ creditedLap: 1, highestRewardedMilestone: 2 });
+    expect(checkInvariants(before, action, result)).toEqual([]);
+  });
+});
+
+describe('start-income-from-bank', () => {
+  test('Start income paid by a player is reported', () => {
+    const { before, action, result } = crossing();
+    const broken = edited(result, (state, events) => {
+      state.players[1]!.coins -= 5;
+      return events.map((event) =>
+        event.kind === 'coin_transfer'
+          ? { ...event, source: { kind: 'player', actorId: 'player-1' } }
+          : event,
+      );
+    });
+    expect(ids(checkFromEngine(before, action, broken))).toEqual(['start-income-from-bank']);
+  });
+});
+
 describe('credited-lap-monotonic', () => {
-  function crossStart(creditedLap: number) {
-    const before = start();
-    before.players[0]!.routeProgress = 20;
-    const action = command(before, 'roll');
+  test('a decreasing creditedLap is reported', () => {
+    const before = moveState(30);
+    const action = moveRoll(before);
+    const result = acceptedResult(before, action, (state) => (state.players[0]!.creditedLap = 0));
+    expect(ids(checkFromEngine(before, action, result))).toEqual(['credited-lap-monotonic']);
+  });
+
+  test('a decreasing rewarded-milestone watermark is reported', () => {
+    const before = moveState(30);
+    before.players[0]!.creditedLap = 0;
+    const action = moveRoll(before);
+    const result = acceptedResult(
+      before,
+      action,
+      (state) => (state.players[0]!.highestRewardedMilestone = 0),
+    );
+    expect(ids(checkFromEngine(before, action, result))).toEqual(['credited-lap-monotonic']);
+  });
+
+  test('a creditedLap beyond the rewarded milestone is reported', () => {
+    const before = moveState(20);
+    before.players[0]!.creditedLap = 1;
+    const action = moveRoll(before);
+    const result = acceptedResult(before, action, () => {});
+    expect(ids(checkFromEngine(before, action, result))).toEqual(['credited-lap-monotonic']);
+  });
+});
+
+describe('credited-lap-pays-once', () => {
+  test('Start income for re-crossing a paid milestone is reported', () => {
+    const before = forceMove(moveState(30), 0, -10);
+    const action = moveRoll(before);
     const result = acceptedResult(
       before,
       action,
       (state) => {
         state.players[0]!.routeProgress = 26;
-        state.players[0]!.creditedLap = creditedLap;
         state.players[0]!.coins += 5;
+        state.phase = { kind: 'sell', destinationPosition: 2 };
       },
-      [bankToPlayer0(5)],
+      [bankToPlayer0(5, 'start_income'), { kind: 'phase_changed', from: 'move', to: 'sell' }],
     );
-    return checkFromEngine(before, action, result);
-  }
+    expect(ids(checkFromEngine(before, action, result))).toEqual([
+      'credited-lap-pays-once',
+      'credited-lap-pays-once',
+    ]);
+  });
+});
 
-  test('one credit for crossing one new milestone passes', () => {
-    expect(crossStart(1)).toEqual([]);
+describe('start-payment-precedes-sell', () => {
+  test('a Sell Phase entered before the payment is reported', () => {
+    const { before, action, result } = crossing();
+    const broken = edited(result, (_, events) => [
+      ...events.filter((event) => event.kind !== 'coin_transfer'),
+      ...events.filter((event) => event.kind === 'coin_transfer'),
+    ]);
+    expect(ids(checkFromEngine(before, action, broken))).toEqual(['start-payment-precedes-sell']);
   });
 
-  test('a creditedLap beyond the milestone reached is reported', () => {
-    expect(ids(crossStart(2))).toEqual(['credited-lap-monotonic']);
-  });
-
-  test('a decreasing creditedLap is reported', () => {
-    const before = start();
-    before.players[0]!.routeProgress = 30;
-    before.players[0]!.creditedLap = 1;
-    const action = command(before, 'roll');
-    const result = acceptedResult(before, action, (state) => {
-      state.players[0]!.routeProgress = 22;
-      state.players[0]!.creditedLap = 0;
+  test('a destination resolved before Sell is reported', () => {
+    const { before, action, result } = crossing();
+    const broken = edited(result, (state, events) => {
+      state.phase = { kind: 'end' };
+      return [
+        ...events.filter((event) => event.kind !== 'phase_changed'),
+        { kind: 'space_resolved', seatIndex: 0, position: 2 },
+        { kind: 'phase_changed', from: 'move', to: 'end' },
+      ];
     });
-    expect(ids(checkFromEngine(before, action, result))).toEqual(['credited-lap-monotonic']);
+    expect(ids(checkFromEngine(before, action, broken))).toEqual([
+      'start-payment-precedes-sell',
+      'start-payment-precedes-sell',
+    ]);
+  });
+});
+
+describe('forced-movement-no-start-income', () => {
+  test('Start income for a push outside the owner’s move roll is reported', () => {
+    const before = moveState(20);
+    before.phase = { kind: 'strategy' };
+    const action = command(before, 'skip');
+    const result = acceptedResult(
+      before,
+      action,
+      (state) => {
+        Object.assign(state.players[0]!, {
+          routeProgress: 26,
+          creditedLap: 1,
+          highestRewardedMilestone: 1,
+          coins: state.players[0]!.coins + 5,
+        });
+        state.phase = { kind: 'sell', destinationPosition: 2 };
+      },
+      [bankToPlayer0(5, 'start_income'), { kind: 'phase_changed', from: 'strategy', to: 'sell' }],
+    );
+    expect(ids(checkFromEngine(before, action, result))).toEqual([
+      'forced-movement-no-start-income',
+    ]);
   });
 });
 

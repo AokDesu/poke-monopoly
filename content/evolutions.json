@@ -1,0 +1,49 @@
+{
+  "forms": [
+    { "id": "metapod", "name": "Metapod" },
+    { "id": "butterfree", "name": "Butterfree" },
+    { "id": "pidgeotto", "name": "Pidgeotto" },
+    { "id": "pidgeot", "name": "Pidgeot" },
+    { "id": "raticate", "name": "Raticate" },
+    { "id": "kakuna", "name": "Kakuna" },
+    { "id": "beedrill", "name": "Beedrill" },
+    { "id": "golduck", "name": "Golduck" },
+    { "id": "arcanine", "name": "Arcanine" },
+    { "id": "machoke", "name": "Machoke" },
+    { "id": "machamp", "name": "Machamp" },
+    { "id": "vaporeon", "name": "Vaporeon" },
+    { "id": "jolteon", "name": "Jolteon" },
+    { "id": "flareon", "name": "Flareon" },
+    { "id": "dragonair", "name": "Dragonair" },
+    { "id": "dragonite", "name": "Dragonite" },
+    { "id": "ivysaur", "name": "Ivysaur" },
+    { "id": "venusaur", "name": "Venusaur" },
+    { "id": "charmeleon", "name": "Charmeleon" },
+    { "id": "charizard", "name": "Charizard" },
+    { "id": "wartortle", "name": "Wartortle" },
+    { "id": "blastoise", "name": "Blastoise" },
+    { "id": "raichu", "name": "Raichu" }
+  ],
+  "lines": [
+    { "speciesId": "caterpie", "stages": [{ "forms": ["metapod"] }, { "forms": ["butterfree"] }] },
+    { "speciesId": "pidgey", "stages": [{ "forms": ["pidgeotto"] }, { "forms": ["pidgeot"] }] },
+    { "speciesId": "magikarp", "stages": [{ "forms": ["gyarados"] }] },
+    { "speciesId": "rattata", "stages": [{ "forms": ["raticate"] }] },
+    { "speciesId": "weedle", "stages": [{ "forms": ["kakuna"] }, { "forms": ["beedrill"] }] },
+    { "speciesId": "psyduck", "stages": [{ "forms": ["golduck"] }] },
+    { "speciesId": "growlithe", "stages": [{ "forms": ["arcanine"] }] },
+    { "speciesId": "machop", "stages": [{ "forms": ["machoke"] }, { "forms": ["machamp"] }] },
+    {
+      "speciesId": "eevee",
+      "stages": [{ "forms": ["vaporeon", "jolteon", "flareon"], "choice": "player" }]
+    },
+    { "speciesId": "dratini", "stages": [{ "forms": ["dragonair"] }, { "forms": ["dragonite"] }] },
+    { "speciesId": "bulbasaur", "stages": [{ "forms": ["ivysaur"] }, { "forms": ["venusaur"] }] },
+    {
+      "speciesId": "charmander",
+      "stages": [{ "forms": ["charmeleon"] }, { "forms": ["charizard"] }]
+    },
+    { "speciesId": "squirtle", "stages": [{ "forms": ["wartortle"] }, { "forms": ["blastoise"] }] },
+    { "speciesId": "pikachu", "stages": [{ "forms": ["raichu"] }] }
+  ]
+}
