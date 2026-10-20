@@ -376,6 +376,26 @@ describe('the real engine', () => {
     expect(realEngine.classIds).toHaveLength(6);
     expect(realEngine.classIds.some((classId) => stretch.includes(classId))).toBe(false);
   });
+
+  test('main-character plays every Starter in every seat with 2 seats', () => {
+    const starters = loadContent().classes.find(
+      (entry) => entry.id === 'main-character',
+    )!.starterSpeciesIds;
+    const played = new Map<number, Set<string>>();
+    for (let seed = 1; seed <= realEngine.classIds.length * starters.length; seed++) {
+      const seats = seatSetup(realEngine.classIds, 2, seed);
+      const state = realEngine.createGame({ seed, seats, lapTarget: 2 });
+      for (const seat of state.config.seats) {
+        if (seat.classId !== 'main-character') continue;
+        played.set(
+          seat.seatIndex,
+          (played.get(seat.seatIndex) ?? new Set()).add(seat.starterSpeciesId!),
+        );
+      }
+    }
+    expect([...played.keys()].sort()).toEqual([0, 1]);
+    for (const seen of played.values()) expect(seen).toEqual(new Set(starters));
+  });
 });
 
 describe('seat balance (§8 variation)', () => {

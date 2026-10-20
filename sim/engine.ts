@@ -13,14 +13,16 @@ import type { SimEngine } from './runner.ts';
 
 const parsed = loadContent();
 const content = toEngineContent(parsed);
+const classIds = parsed.classes.filter((entry) => !entry.stretch).map((entry) => entry.id);
 
 /**
  * The real engine for `npm run sim`, built from `content/*.json`. The runner rotates the core
  * classes (stretch classes stay out until after G2, spec §1); a class with several Starters
- * takes them in turn by game seed.
+ * takes them in turn once per full class rotation, so every class and seat pairing plays every
+ * Starter and a single re-run gets the same Starter.
  */
 export const realEngine: SimEngine = {
-  classIds: parsed.classes.filter((entry) => !entry.stretch).map((entry) => entry.id),
+  classIds,
   createGame({ seed, seats, lapTarget }) {
     const config = createGameConfig({
       seats: seats.map(({ seatIndex, actorId, classId }) => {
@@ -29,7 +31,7 @@ export const realEngine: SimEngine = {
           seatIndex,
           actorId,
           classId,
-          starterSpeciesId: starters[seed % starters.length],
+          starterSpeciesId: starters[Math.floor(seed / classIds.length) % starters.length],
           controller: 'ai' as const,
         };
       }),
