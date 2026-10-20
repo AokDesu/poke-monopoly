@@ -11,7 +11,7 @@ npm run sim -- --games <n> --seed <n> [--seats 2|3|4] [--max-steps 5000] [--lap-
 - `--policy` picks a policy registered in `policy.ts` (`random` for now).
 - Prints one JSON summary line on stdout. Each failing game prints its reproduce command (`--games 1 --seed <seed> ...`) on stderr.
 - Exits non-zero when `illegalAppliedActionCount` or `invariantFailures` is above zero or a game aborted (at `--max-steps`, or because the engine, policy or invariant check threw; the other games still run).
-- `runner.ts` drives the `SimEngine` seam and accepts an invariant check (`checkInvariants(before, action, result)`, issue #14) called after every action. Tests use a fake engine.
+- `runner.ts` drives the `SimEngine` seam and calls an invariant check (`checkInvariants(before, action, result)`) after every action. `cli.ts` passes the engine's checker (issue #14), so every run checks every §8 invariant; `main.ts` holds the testable CLI body. Tests use a fake engine.
 
 `engine.ts` binds the real engine: it builds each game with `createGame` from `content/*.json`, rotates the six core classes (not the stretch ones) and decides results with `winner`.
 
