@@ -7,6 +7,7 @@ import {
   createGame,
   createGameConfig,
   d6,
+  ENGINE_VERSION,
   fixtureSchema,
   INVARIANTS,
   legalActions,
@@ -190,9 +191,11 @@ test('reports no violations over every fixture in engine/fixtures/', () => {
     const actions = [
       command(state, 'skip', {}, 7),
       { ...command(state, 'skip'), actorId: 'not-a-player' },
-      // Carve-out: these 0.0.0 fixtures keep an illustrative catch that spends no Ball (#23).
+      // Carve-out: historical fixtures record no catch effects, so their catch spends no Ball (#23).
       ...choices
-        .filter((choice) => choice.kind !== 'catch')
+        .filter(
+          (choice) => choice.kind !== 'catch' || state.config.engineVersion === ENGINE_VERSION,
+        )
         .map((choice) => command(state, choice.kind, choice.payload)),
     ];
     for (const action of actions) {
@@ -200,15 +203,6 @@ test('reports no violations over every fixture in engine/fixtures/', () => {
       expect(checkInvariants(state, action, result), `${name} ${action.kind}`).toEqual([]);
     }
   }
-});
-
-test('carve-out: historical fixtures accept catch without spending a Ball', () => {
-  // Fails once the fixtures' catch spends a Ball; then drop the catch filter above and this test.
-  const before = encounter();
-  const action = command(before, 'catch', { ballType: 'poke' });
-  expect(ids(checkInvariants(before, action, applyAction(before, action)))).toEqual([
-    'catch-consumes-one-ball',
-  ]);
 });
 
 test('a current-version catch spends exactly 1 Ball and its roll passes (issue #23)', () => {
