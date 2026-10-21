@@ -15,6 +15,8 @@ npm run sim -- --games <n> --seed <n> [--seats 2|3|4] [--max-steps 5000] [--lap-
 
 `engine.ts` binds the real engine: it builds each game with `createGame` from `content/*.json`, rotates the six core classes (not the stretch ones) and decides results with `winner`.
 
+Property tests (spec §8 Tests layer, issue #26): `legal-games.ts` holds a fast-check arbitrary for a game plan (2 to 4 seats, any mix and order of core classes, a seed, a Lap target and a tape of decisions) and `playGame`, which plays the plan through the engine pipeline (`advanceAutomatically`, `legalActions`, `applyAction`) into a `createGameLog` command log and asserts it only ever submits an enabled legal action. With a fixed seed, `legal-games.property.test.ts` checks 200 games for no invariant violation, no state change from stale or foreign commands and a finish within the step limit, and `replay.property.test.ts` checks that replaying each of 200 command logs gives the live final state. A failure prints the fast-check seed, the shrunk plan and the accepted actions up to the failure.
+
 `sim/content.ts` is the Node loader for `content/*.json`: `loadContent()` reads the files and validates them with `parseContent`. The engine itself never reads files.
 
 Spec: §7, §8 (Simulation), §9 (sim limits).
