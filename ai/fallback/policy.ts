@@ -20,23 +20,16 @@ export const FALLBACK_TUNING = Object.freeze({
   unknownChance: 0.5,
   /** Sell Phase: share of sale desire held back by a ready Ability or an Original Starter. */
   keepFeature: 0.25,
-  /** Shop: appetite for a Ball with none held, with at most `fewMax` held, and otherwise. */
-  ballNeed: Object.freeze({ none: 1, few: 0.5, plenty: 0.1, fewMax: 2 }),
 });
 
 const BALL_TIERS = ['poke', 'great', 'ultra'] as const;
-/** Items whose Strategy effect exists in the engine; others are never bought or used. */
-const ITEM_APPEAL: Readonly<Record<string, keyof Personality['weights']>> = {
-  'lucky-egg': 'risk',
-  pickpocket: 'liquidity',
-  repel: 'aggression',
-};
 
 type Context = { observation: Observation; personality: Personality; facts: PolicyFacts };
 
 /**
  * Personality-weighted utility of each option (spec §5.2): higher is better, and in Strategy,
- * Encounter release, Sell and Shop the "do nothing" option scores 0 or its own fixed bar.
+ * Encounter release and Sell the "do nothing" option scores 0 or its own fixed bar; other phases
+ * score every option 0, so the seeded tie-break chooses.
  */
 export function scoreOptions(
   observation: Observation,
@@ -51,7 +44,7 @@ export function scoreOptions(
 
 const SCORERS: Partial<
   Record<Observation['public']['phase']['kind'], (option: LegalAction, context: Context) => number>
-> = { strategy: strategyScore, encounter: encounterScore, sell: sellScore, shop: shopScore };
+> = { strategy: strategyScore, encounter: encounterScore, sell: sellScore };
 
 function you(observation: Observation) {
   return observation.public.players.find(
@@ -133,27 +126,6 @@ function sellScore(option: LegalAction, { observation, personality, facts }: Con
   if (ids.length > 1) return -1;
   const desire = saleDesire(observation, ids[0]!, facts);
   return desire >= personality.sellThreshold ? desire : desire - 1;
-}
-
-function shopScore(option: LegalAction, { observation, personality }: Context): number {
-  if (option.kind !== 'buy') return 0;
-  const { phase } = observation.public;
-  const offer =
-    phase.kind === 'shop'
-      ? phase.offers.find((entry) => entry.id === option.payload.offerId)
-      : null;
-  if (!offer) return -1;
-  const { weights } = personality;
-  const coins = you(observation).coins;
-  const spend = (weights.liquidity * offer.price) / Math.max(coins, 1);
-  if (offer.kind === 'ball') {
-    const { none, few, plenty, fewMax } = FALLBACK_TUNING.ballNeed;
-    const { poke, great, ultra } = observation.own.balls;
-    const held = poke + great + ultra;
-    return (held === 0 ? none : held <= fewMax ? few : plenty) - spend;
-  }
-  const appeal = ITEM_APPEAL[offer.itemId];
-  return appeal ? FALLBACK_TUNING.holdItem * weights[appeal] - spend : -1;
 }
 
 /** Best-scoring option; exact ties are broken by the seeded policy RNG. */
