@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { classOptions, content as gameContent } from './game/content.ts';
+import { MODEL_CREDITS } from './game/models.ts';
 import { opponentFor, randomSetup, type ModeId, type SetupDraft } from './game/setup.ts';
 import { createGameStore, MODES, type GameStore } from './game/store.ts';
 import { t } from './i18n/th.ts';
 import { ScreenPlaceholder } from './ScreenPlaceholder.tsx';
-import { SCREENS, type Route } from './screens.ts';
+import type { Route } from './screens.ts';
 import { ClassScreen } from './setup/ClassScreen.tsx';
 import { HomeScreen } from './setup/HomeScreen.tsx';
 import { ModeScreen } from './setup/ModeScreen.tsx';
 import { Button } from './ui/Button.tsx';
+import { BallIcon } from './ui/icons.tsx';
 import { FocusHeadingContext, Screen } from './ui/Screen.tsx';
 
 export interface AppProps {
@@ -69,14 +71,14 @@ export function App({ random = Math.random, store: givenStore }: AppProps) {
             <ClassScreen
               classes={classOptions}
               chosen={draft.human}
-              onChoose={(human) => {
+              onSelect={(human) =>
                 setDraft({
                   ...draft,
                   human,
                   opponent: opponentFor(classOptions, human, draft.opponent),
-                });
-                go({ screen: 'setup', step: 'opponents' });
-              }}
+                })
+              }
+              onNext={() => go({ screen: 'setup', step: 'opponents' })}
               onBack={() => go({ screen: 'setup', step: 'mode' })}
             />
           );
@@ -102,33 +104,31 @@ export function App({ random = Math.random, store: givenStore }: AppProps) {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="bg-accent text-on-accent">
-        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-8 gap-y-3 px-5 py-4 sm:px-8">
-          <p className="text-lg font-bold tracking-[-0.01em]">{t('app.title')}</p>
-          <nav aria-label={t('steps.label')}>
-            <ol className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
-              {SCREENS.map((step) => (
-                <li
-                  key={step}
-                  aria-current={step === route.screen ? 'step' : undefined}
-                  className={
-                    step === route.screen
-                      ? 'border-b-2 border-serial font-bold text-on-accent'
-                      : 'border-b-2 border-transparent text-on-accent-soft'
-                  }
-                >
-                  {t(`steps.${step}`)}
-                </li>
-              ))}
-            </ol>
-          </nav>
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-5xl flex-1 px-5 py-10 sm:px-8 sm:py-16">
+      {route.screen !== 'home' && (
+        <header className="mx-auto flex w-full max-w-6xl items-center gap-3 px-5 pt-5 sm:px-8">
+          <BallIcon className="size-9 drop-shadow-[0_3px_0_rgb(16_38_84/0.35)]" />
+          <p className="title-3d text-2xl">{t('app.title')}</p>
+        </header>
+      )}
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-5 py-8 sm:px-8 sm:py-12">
         <FocusHeadingContext value={navigated}>
           <div key={route.screen === 'setup' ? route.step : route.screen}>{screen}</div>
         </FocusHeadingContext>
       </main>
+      <footer className="mx-auto w-full max-w-6xl px-5 pb-6 text-xs text-ink sm:px-8">
+        <p>
+          {t('credits.models')}:{' '}
+          {MODEL_CREDITS.map((credit, index) => (
+            <span key={credit.file}>
+              {index > 0 && ' · '}
+              <a className="underline underline-offset-2" href={credit.source}>
+                {credit.title}
+              </a>{' '}
+              {t('credits.by')} {credit.author} ({credit.licence})
+            </span>
+          ))}
+        </p>
+      </footer>
     </div>
   );
 }

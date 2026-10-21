@@ -6,14 +6,9 @@
 export const th = {
   'app.title': 'โปเก โมโนโพลี',
 
-  'steps.label': 'ลำดับหน้าจอ',
-  'steps.home': 'หน้าแรก',
-  'steps.setup': 'ตั้งค่า',
-  'steps.play': 'เล่น',
-  'steps.results': 'ผลการแข่งขัน',
-
   'nav.home': 'กลับหน้าแรก',
   'nav.back': 'ย้อนกลับ',
+  'nav.next': 'ถัดไป',
   'nav.play': 'ไปหน้าเล่นเกม',
   'nav.results': 'ไปหน้าผลการแข่งขัน',
 
@@ -56,9 +51,10 @@ export const th = {
   'class.passive': 'ความสามารถติดตัว',
   'class.item': 'ไอเทมประจำคลาส',
   'class.starter': 'โปเกมอนเริ่มต้น',
-  'class.chooseStarter': 'เลือกโปเกมอนเริ่มต้นเพื่อใช้คลาสนี้',
+  'class.chooseStarter': 'เลือกโปเกมอนเริ่มต้น',
+  'class.chooseFirst': 'เลือกคลาสก่อน จึงจะไปขั้นถัดไปได้',
   'class.closedHeading': 'คลาสที่ยังเลือกไม่ได้',
-  'class.comingLater': 'ยังเลือกไม่ได้ จะเปิดให้เลือกภายหลัง',
+  'class.comingLater': 'เปิดให้เลือกภายหลัง',
   'class.name.main-character': 'ตัวเอก',
   'class.name.rival': 'คู่ปรับ',
   'class.name.fisherman': 'ชาวประมง',
@@ -131,6 +127,9 @@ export const th = {
   'results.heading': 'ผลการแข่งขัน',
   'results.body':
     'หน้านี้จะแสดงผลของผู้เล่นทุกคนเมื่อจบเกม ตอนนี้ยังไม่มีผล กลับหน้าแรกเพื่อเริ่มดูใหม่',
+
+  'credits.models': 'โมเดล 3 มิติ',
+  'credits.by': 'โดย',
 
   'error.heading': 'หน้านี้แสดงผลไม่ได้',
   'error.body':

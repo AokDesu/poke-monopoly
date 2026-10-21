@@ -1,20 +1,11 @@
 import type { ButtonHTMLAttributes } from 'react';
 
-const VARIANTS = {
-  primary: 'bg-accent text-on-accent hover:bg-accent-strong',
-  secondary: 'border border-line-strong bg-card text-ink hover:border-accent hover:bg-surface',
-} as const;
-
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant: keyof typeof VARIANTS;
+  /** primary: the screen's way on (red); reward: a playful shortcut (yellow); secondary: Back. */
+  variant: 'primary' | 'reward' | 'secondary';
 }
 
+/** A pressable pill: its lip collapses on press (DESIGN.md, motion). */
 export function Button({ variant, className = '', type = 'button', ...props }: ButtonProps) {
-  return (
-    <button
-      type={type}
-      className={`inline-flex min-h-12 items-center justify-center rounded-xl px-6 text-base font-bold transition-colors duration-150 ${VARIANTS[variant]} ${className}`}
-      {...props}
-    />
-  );
+  return <button type={type} className={`btn btn-${variant} ${className}`} {...props} />;
 }

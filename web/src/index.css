@@ -1,45 +1,89 @@
 @import 'tailwindcss';
 
-@theme {
-  /* Self-hosted through @fontsource/noto-sans-thai; no external font host. */
+@theme static {
+  /* Both faces are self-hosted through @fontsource; no external font host. */
   --font-sans: 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Mitr', 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
 
-  /* Printed-ticket world: tinted ticket paper, blue-black ink, one red for the drawn numbers. */
-  --color-paper: oklch(96.6% 0.02 172);
-  --color-card: oklch(99.3% 0.006 172);
-  --color-surface: oklch(93.2% 0.03 172);
-  --color-line: oklch(83% 0.032 178);
-  --color-line-strong: oklch(62% 0.045 205);
-  --color-ink: oklch(24% 0.045 258);
-  --color-ink-soft: oklch(41% 0.04 248);
-  --color-accent: oklch(32% 0.09 260);
-  --color-accent-strong: oklch(25% 0.085 260);
-  --color-on-accent: oklch(97% 0.015 172);
-  --color-on-accent-soft: oklch(83% 0.04 230);
-  --color-serial: oklch(50% 0.19 27);
-  --color-kind-wild: oklch(86% 0.085 150);
-  --color-kind-event: oklch(90% 0.085 88);
-  --color-kind-shop: oklch(86% 0.055 245);
-  --color-kind-gym: oklch(85% 0.07 320);
+  --color-sky-top: #4fb8f5;
+  --color-sky-low: #cdeeff;
+  --color-grass: #7fd05a;
+  --color-grass-deep: #4f9e34;
+
+  --color-panel: #ffffff;
+  --color-panel-tint: #eef4ff;
+  --color-panel-lip: #b7c6e3;
+  --color-line: #d5e0f2;
+  --color-ink: #15264a;
+  --color-ink-soft: #44557a;
+
+  --color-action: #d3301f;
+  --color-action-strong: #b72618;
+  --color-action-lip: #8f1a10;
+  --color-reward: #ffc928;
+  --color-reward-strong: #ffbb00;
+  --color-reward-lip: #c98f00;
+  --color-closed: #e7ecf4;
+
+  /* Pokémon type colours for Starter orbs, from content/species.json tags. */
+  --color-type-grass: #4fb043;
+  --color-type-fire: #f07a24;
+  --color-type-water: #3a86e8;
+  --color-type-normal: #a6957a;
+  --color-type-bug: #93b01c;
+
+  /* Board-space kinds. */
+  --color-kind-start: #d3301f;
+  --color-kind-wild: #6cc54a;
+  --color-kind-event: #ffc928;
+  --color-kind-shop: #45a4f0;
+  --color-kind-gym: #9a6ae0;
+
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @layer base {
   html {
-    background-color: var(--color-paper);
     color: var(--color-ink);
+    background: var(--color-sky-low);
     /* Thai stacks vowel and tone marks above and below the line; give them room. */
     line-height: 1.7;
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* The overworld: open sky over a grass hill. */
+  body {
+    min-height: 100dvh;
+    background-color: var(--color-sky-low);
+    background:
+      radial-gradient(
+          140% 22rem at 50% calc(100% + 15rem),
+          var(--color-grass) 0 60%,
+          transparent 60.4%
+        )
+        no-repeat,
+      radial-gradient(60% 30% at 82% 12%, rgb(255 255 255 / 0.55), transparent 70%) no-repeat,
+      radial-gradient(45% 22% at 12% 26%, rgb(255 255 255 / 0.45), transparent 70%) no-repeat,
+      linear-gradient(180deg, var(--color-sky-top) 0%, var(--color-sky-low) 62%);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 600;
+  }
+
   ::selection {
-    background-color: color-mix(in oklch, var(--color-serial) 22%, transparent);
+    background-color: var(--color-reward);
     color: var(--color-ink);
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 3px solid var(--color-ink);
     outline-offset: 3px;
+    box-shadow: 0 0 0 6px var(--color-reward);
   }
 
   button:not(:disabled) {
@@ -48,200 +92,273 @@
 }
 
 @layer components {
-  /*
-   * A ticket: a body and a stub joined at a perforated seam with a notch at each end.
-   * The notches are cut from each half, so the seam needs no measured position.
-   */
-  .ticket {
-    --notch: 9px;
-    --ticket-bg: var(--color-card);
-    --ticket-edge: var(--color-line);
-    --stub-bg: var(--ticket-bg);
-    --stub-ink: inherit;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+  /* Glossy toy-plastic panel: light from above, a lip below, a soft cast shadow. */
+  .panel {
+    --lip: var(--color-panel-lip);
+    position: relative;
+    border-radius: 22px;
+    background: linear-gradient(180deg, var(--color-panel) 0%, var(--color-panel-tint) 100%);
+    box-shadow:
+      inset 0 2px 0 rgb(255 255 255 / 0.9),
+      0 6px 0 var(--lip),
+      0 16px 26px -10px rgb(16 38 84 / 0.38);
+  }
+
+  /* A panel the player can pick. */
+  .choice {
+    display: block;
     width: 100%;
     height: 100%;
     text-align: start;
-  }
-
-  .ticket-body,
-  .ticket-stub {
-    display: flex;
-    flex-direction: column;
-    border: 1px solid var(--ticket-edge);
+    border-radius: 22px;
     transition:
-      background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
-      border-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
-      color 160ms cubic-bezier(0.16, 1, 0.3, 1);
+      transform 260ms var(--ease-spring),
+      box-shadow 160ms var(--ease-out);
   }
 
-  .ticket-body {
-    gap: 0.25rem;
-    padding: 1.125rem 1.25rem;
-    background: var(--ticket-bg);
-    border-inline-end: 0;
-    border-radius: 14px 0 0 14px;
-    mask:
-      radial-gradient(circle var(--notch) at 100% 0, #0000 97%, #000) top / 100% 51% no-repeat,
-      radial-gradient(circle var(--notch) at 100% 100%, #0000 97%, #000) bottom / 100% 51% no-repeat;
+  .choice:not(:disabled, :has(input:disabled)):hover .panel {
+    --lip: var(--color-reward-lip);
+    box-shadow:
+      inset 0 2px 0 rgb(255 255 255 / 0.9),
+      0 6px 0 var(--lip),
+      0 0 0 3px var(--color-reward),
+      0 18px 28px -10px rgb(16 38 84 / 0.42);
   }
 
-  .ticket-body:only-child {
-    border-inline-end: 1px solid var(--ticket-edge);
-    border-radius: 14px;
-    mask: none;
+  .choice:not(:disabled):active .panel {
+    transform: translateY(4px);
+    box-shadow:
+      inset 0 2px 0 rgb(255 255 255 / 0.9),
+      0 2px 0 var(--lip),
+      0 8px 14px -8px rgb(16 38 84 / 0.4);
   }
 
-  .ticket-stub {
-    position: relative;
-    align-items: center;
-    justify-content: center;
-    min-width: 6.5rem;
-    padding: 1rem 1rem 1rem 1.25rem;
-    background: var(--stub-bg);
-    color: var(--stub-ink);
-    border-inline-start: 0;
-    border-radius: 0 14px 14px 0;
-    mask:
-      radial-gradient(circle var(--notch) at 0 0, #0000 97%, #000) top / 100% 51% no-repeat,
-      radial-gradient(circle var(--notch) at 0 100%, #0000 97%, #000) bottom / 100% 51% no-repeat;
+  .choice[data-selected='true'] {
+    transform: translateY(-4px);
   }
 
-  @media (width < 40rem) {
-    .ticket-stub {
-      min-width: 4.75rem;
-      padding-inline: 1rem 0.75rem;
-    }
-
-    /* Narrow screens: a ticket with a large stub tears off at the bottom instead. */
-    .ticket[data-narrow='stack'] {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    .ticket[data-narrow='stack'] .ticket-body {
-      border-inline-end: 1px solid var(--ticket-edge);
-      border-block-end: 0;
-      border-radius: 14px 14px 0 0;
-      mask:
-        radial-gradient(circle var(--notch) at 0 100%, #0000 97%, #000) left / 51% 100% no-repeat,
-        radial-gradient(circle var(--notch) at 100% 100%, #0000 97%, #000) right / 51% 100%
-          no-repeat;
-    }
-
-    .ticket[data-narrow='stack'] .ticket-stub {
-      flex-direction: row;
-      flex-wrap: wrap;
-      align-items: center;
-      padding: 1rem 1.25rem 1.125rem;
-      border-inline-start: 1px solid var(--ticket-edge);
-      border-block-start: 0;
-      border-radius: 0 0 14px 14px;
-      mask:
-        radial-gradient(circle var(--notch) at 0 0, #0000 97%, #000) left / 51% 100% no-repeat,
-        radial-gradient(circle var(--notch) at 100% 0, #0000 97%, #000) right / 51% 100% no-repeat;
-    }
-
-    .ticket[data-narrow='stack'] .ticket-stub::before {
-      inset-block: 0 auto;
-      inset-inline: calc(var(--notch) + 4px);
-      width: auto;
-      height: 3px;
-      background: radial-gradient(circle, var(--ticket-edge) 1.4px, transparent 1.6px) left center /
-        9px 3px repeat-x;
-    }
+  .choice[data-selected='true'] .panel {
+    --lip: var(--color-reward-lip);
+    background: linear-gradient(180deg, #fffdf2 0%, #fff4cc 100%);
+    box-shadow:
+      inset 0 2px 0 rgb(255 255 255 / 0.9),
+      0 6px 0 var(--lip),
+      0 0 0 4px var(--color-reward),
+      0 22px 30px -12px rgb(16 38 84 / 0.45);
   }
 
-  /* The perforation: a column of punched holes along the seam. */
-  .ticket-stub::before {
-    content: '';
-    position: absolute;
-    inset-block: calc(var(--notch) + 4px);
-    inset-inline-start: 0;
-    width: 3px;
-    background: radial-gradient(circle, var(--ticket-edge) 1.4px, transparent 1.6px) center top /
-      3px 9px repeat-y;
+  .choice:has(input:focus-visible) {
+    outline: 3px solid var(--color-ink);
+    outline-offset: 6px;
   }
 
-  .ticket[data-tone='selected'] {
-    --ticket-edge: var(--color-accent);
-    --stub-bg: var(--color-accent);
-    --stub-ink: var(--color-on-accent);
-  }
-
-  .ticket[data-tone='disabled'] {
-    --ticket-bg: transparent;
-    --ticket-edge: var(--color-line);
+  /* Closed pieces lose their lip and colour: still readable, clearly not pressable. */
+  .panel[data-closed='true'] {
+    background: var(--color-closed);
+    box-shadow: inset 0 0 0 2px var(--color-line);
     color: var(--color-ink-soft);
   }
 
-  .ticket[data-tone='disabled'] .ticket-body,
-  .ticket[data-tone='disabled'] .ticket-stub {
-    border-style: dashed;
-  }
-
-  /* A ticket that is a control: the focus ring sits outside the cut shape. */
-  .ticket-control {
-    display: block;
-    width: 100%;
-    height: 100%;
-    border-radius: 15px;
-  }
-
-  .ticket-control:not(:disabled):hover .ticket,
-  .ticket-choice:has(input:not(:disabled)):hover .ticket {
-    --ticket-edge: var(--color-accent);
-  }
-
-  .ticket-control:not(:disabled):hover .ticket:not([data-tone='selected']) .ticket-stub {
-    --stub-bg: var(--color-surface);
-  }
-
-  .ticket-choice {
-    display: block;
-    height: 100%;
-    border-radius: 15px;
-    cursor: pointer;
-  }
-
-  .ticket-choice:has(input:disabled) {
+  .choice:disabled,
+  .choice:has(input:disabled) {
     cursor: not-allowed;
   }
 
-  .ticket-choice:has(input:focus-visible) {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 3px;
+  /* Pressable pill button with a lip that collapses on press. */
+  .btn {
+    --lip: var(--color-panel-lip);
+    display: inline-flex;
+    min-height: 3.25rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0 1.75rem;
+    border-radius: 9999px;
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 500;
+    line-height: 1.2;
+    box-shadow:
+      inset 0 2px 0 rgb(255 255 255 / 0.35),
+      0 5px 0 var(--lip),
+      0 10px 18px -8px rgb(16 38 84 / 0.45);
+    transition:
+      transform 80ms var(--ease-out),
+      box-shadow 80ms var(--ease-out),
+      background-color 160ms var(--ease-out);
   }
 
-  /* The drawn number: the red serial digits of a printed ticket. */
-  .serial {
-    color: var(--color-serial);
-    font-weight: 700;
-    font-variant-numeric: tabular-nums lining-nums;
-    letter-spacing: -0.02em;
+  .btn:not(:disabled):active {
+    transform: translateY(4px);
+    box-shadow:
+      inset 0 2px 0 rgb(255 255 255 / 0.35),
+      0 1px 0 var(--lip),
+      0 4px 8px -6px rgb(16 38 84 / 0.45);
+  }
+
+  .btn:disabled {
+    background: var(--color-closed);
+    color: var(--color-ink-soft);
+    box-shadow: inset 0 0 0 2px var(--color-line);
+  }
+
+  .btn-primary {
+    --lip: var(--color-action-lip);
+    background: linear-gradient(180deg, #e8473a 0%, var(--color-action) 55%);
+    color: #ffffff;
+  }
+
+  .btn-primary:not(:disabled):hover {
+    background: var(--color-action-strong);
+  }
+
+  .btn-reward {
+    --lip: var(--color-reward-lip);
+    background: linear-gradient(180deg, #ffd95c 0%, var(--color-reward) 60%);
+    color: var(--color-ink);
+  }
+
+  .btn-reward:not(:disabled):hover {
+    background: var(--color-reward-strong);
+  }
+
+  .btn-secondary {
+    background: linear-gradient(180deg, var(--color-panel) 0%, var(--color-panel-tint) 100%);
+    color: var(--color-ink);
+  }
+
+  /* A sphere lit from the upper left: Starter orbs and the board token. */
+  .orb {
+    --orb: var(--color-type-normal);
+    display: grid;
+    place-items: center;
+    border-radius: 9999px;
+    color: #ffffff;
+    background:
+      radial-gradient(circle at 32% 28%, rgb(255 255 255 / 0.75) 0 10%, transparent 34%),
+      radial-gradient(
+        circle at 50% 60%,
+        var(--orb) 0 58%,
+        color-mix(in oklab, var(--orb), #000 32%) 100%
+      );
+    box-shadow:
+      inset 0 -4px 8px rgb(0 0 0 / 0.18),
+      0 6px 12px -6px rgb(16 38 84 / 0.5);
+  }
+
+  /* The lap-count medal: gold coin with a rim. */
+  .medal {
+    display: grid;
+    place-items: center;
+    border-radius: 9999px;
+    color: var(--color-ink);
+    background:
+      radial-gradient(circle at 35% 30%, #fff6c8 0 12%, transparent 40%),
+      radial-gradient(circle, #ffd84a 0 62%, #e4a800 63% 72%, #ffd84a 73%);
+    box-shadow:
+      0 5px 0 var(--color-reward-lip),
+      0 12px 18px -8px rgb(16 38 84 / 0.45);
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
     line-height: 1;
   }
 
-  .ticket[data-tone='selected'] .serial,
-  .ticket[data-tone='disabled'] .serial {
-    color: inherit;
+  .panel[data-closed='true'] .medal,
+  .panel[data-closed='true'] .orb {
+    filter: grayscale(1);
+    opacity: 0.6;
+    box-shadow: none;
+  }
+
+  /* Display title with an extruded edge, like a game logo. */
+  .title-3d {
+    font-family: var(--font-display);
+    font-weight: 600;
+    color: #ffffff;
+    text-shadow:
+      0 2px 0 #1f4f9e,
+      0 4px 0 #1a4387,
+      0 6px 0 #15376f,
+      0 12px 18px rgb(16 38 84 / 0.45);
+  }
+
+  /* --- The 3D board on Home --- */
+  .board-stage {
+    perspective: 1100px;
+    perspective-origin: 50% 30%;
+  }
+
+  .board-plane {
+    transform-style: preserve-3d;
+    transform: rotateX(56deg) rotateZ(-36deg);
+  }
+
+  .board-slab {
+    border-radius: 26px;
+    background: linear-gradient(135deg, #9be06e, var(--color-grass));
+    box-shadow:
+      0 14px 0 var(--color-grass-deep),
+      0 40px 50px -10px rgb(16 38 84 / 0.45);
+  }
+
+  .board-tile {
+    --tile: var(--color-kind-wild);
+    border-radius: 9px;
+    background: linear-gradient(135deg, color-mix(in oklab, var(--tile), #fff 30%), var(--tile));
+    box-shadow:
+      inset 0 2px 0 rgb(255 255 255 / 0.55),
+      0 6px 0 color-mix(in oklab, var(--tile), #000 35%);
+  }
+
+  .board-token {
+    transform-style: preserve-3d;
+    transform: translateZ(1px) rotateZ(36deg) rotateX(-56deg);
+    transform-origin: 50% 100%;
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    .serial-stamp {
-      animation: serial-stamp 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
-      animation-delay: calc(var(--stamp-order, 0) * 140ms);
+    .board-plane {
+      animation: board-settle 900ms var(--ease-out) both;
+    }
+
+    .token-bob {
+      animation: token-bob 2.4s ease-in-out infinite;
+    }
+
+    .token-shadow {
+      animation: token-shadow 2.4s ease-in-out infinite;
     }
   }
 
-  @keyframes serial-stamp {
+  @keyframes board-settle {
     from {
-      transform: scale(1.35);
-      filter: blur(3px);
+      transform: rotateX(64deg) rotateZ(-48deg) translateZ(-60px);
     }
     to {
+      transform: rotateX(56deg) rotateZ(-36deg);
+    }
+  }
+
+  @keyframes token-bob {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-14px);
+    }
+  }
+
+  @keyframes token-shadow {
+    0%,
+    100% {
       transform: scale(1);
-      filter: blur(0);
+      opacity: 0.45;
+    }
+    50% {
+      transform: scale(0.75);
+      opacity: 0.25;
     }
   }
 }
