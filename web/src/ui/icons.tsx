@@ -20,15 +20,6 @@ export function DieIcon({ className = 'size-9' }: { className?: string }) {
   );
 }
 
-/** Onward, step by step. */
-export function ArrowIcon({ className = 'size-9' }: { className?: string }) {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 32 32" className={className} {...STROKE}>
-      <path d="M6 16h19M18 9l7 7-7 7" />
-    </svg>
-  );
-}
-
 /** The capture ball, as the logo mark: red top, white bottom, dark band and button. */
 export function BallIcon({ className = 'size-9' }: { className?: string }) {
   return (

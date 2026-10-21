@@ -1,5 +1,5 @@
 import { useContext, useEffect, useId, useRef } from 'react';
-import { t } from '../i18n/th.ts';
+import { t } from '../i18n/en.ts';
 import { Board3D, type BoardSpace } from '../ui/Board3D.tsx';
 import { Button } from '../ui/Button.tsx';
 import { DisabledReason } from '../ui/DisabledReason.tsx';

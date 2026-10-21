@@ -1,14 +1,31 @@
 import { useState } from 'react';
-import { classOptions, content as gameContent } from './game/content.ts';
-import { MODEL_CREDITS } from './game/models.ts';
-import { opponentFor, randomSetup, type ModeId, type SetupDraft } from './game/setup.ts';
-import { createGameStore, MODES, type GameStore } from './game/store.ts';
-import { t } from './i18n/th.ts';
+import { CreditsScreen } from './CreditsScreen.tsx';
+import { classOptions, content as gameContent, engineContent } from './game/content.ts';
+import { rollForFirstPlayer } from './game/firstPlayer.ts';
+import {
+  completeSetup,
+  freshSeed,
+  opponentFor,
+  randomSetup,
+  type ModeId,
+  type SetupDraft,
+} from './game/setup.ts';
+import {
+  configForSetup,
+  createGameStore,
+  MODES,
+  opponentSettings,
+  type GameStore,
+} from './game/store.ts';
+import { t } from './i18n/en.ts';
 import { ScreenPlaceholder } from './ScreenPlaceholder.tsx';
 import type { Route } from './screens.ts';
 import { ClassScreen } from './setup/ClassScreen.tsx';
+import { FirstPlayerScreen } from './setup/FirstPlayerScreen.tsx';
 import { HomeScreen } from './setup/HomeScreen.tsx';
 import { ModeScreen } from './setup/ModeScreen.tsx';
+import { OpponentScreen } from './setup/OpponentScreen.tsx';
+import { ReviewScreen } from './setup/ReviewScreen.tsx';
 import { Button } from './ui/Button.tsx';
 import { BallIcon } from './ui/icons.tsx';
 import { FocusHeadingContext, Screen } from './ui/Screen.tsx';
@@ -22,19 +39,23 @@ export interface AppProps {
 }
 
 const OPEN_MODES = (Object.keys(MODES) as ModeId[]).filter((mode) => MODES[mode].enabled);
+const HOME: Route = { screen: 'home' };
 
-export function App({ random = Math.random, store: givenStore }: AppProps) {
+export function App({ seed, random = Math.random, store: givenStore }: AppProps) {
   const [store] = useState(() => givenStore ?? createGameStore());
-  const [route, setRoute] = useState<Route>({ screen: 'home' });
+  const [route, setRoute] = useState<Route>(HOME);
+  const [creditsFrom, setCreditsFrom] = useState<Route>(HOME);
   const [draft, setDraft] = useState<SetupDraft>({});
+  const [startFailed, setStartFailed] = useState(false);
   const [navigated, setNavigated] = useState(false);
-  void store;
 
   const go = (next: Route) => {
     setNavigated(true);
+    setStartFailed(false);
     setRoute(next);
   };
   const canStart = randomSetup(classOptions, OPEN_MODES, () => 0) !== undefined;
+  const setup = completeSetup(draft);
 
   let screen;
   switch (route.screen) {
@@ -45,9 +66,9 @@ export function App({ random = Math.random, store: givenStore }: AppProps) {
           canStart={canStart}
           onNewGame={() => go({ screen: 'setup', step: 'mode' })}
           onRandomAll={() => {
-            const setup = randomSetup(classOptions, OPEN_MODES, random);
-            if (!setup) return;
-            setDraft({ mode: setup.mode, human: setup.human, opponent: setup.opponents[0] });
+            const picked = randomSetup(classOptions, OPEN_MODES, random);
+            if (!picked) return;
+            setDraft({ mode: picked.mode, human: picked.human, opponent: picked.opponents[0] });
             go({ screen: 'setup', step: 'review' });
           }}
         />
@@ -62,7 +83,7 @@ export function App({ random = Math.random, store: givenStore }: AppProps) {
                 setDraft({ ...draft, mode });
                 go({ screen: 'setup', step: 'class' });
               }}
-              onBack={() => go({ screen: 'home' })}
+              onBack={() => go(HOME)}
             />
           );
           break;
@@ -83,18 +104,62 @@ export function App({ random = Math.random, store: givenStore }: AppProps) {
             />
           );
           break;
-        default:
+        case 'opponents':
+          screen = draft.human ? (
+            <OpponentScreen
+              classes={classOptions}
+              human={draft.human}
+              opponent={draft.opponent}
+              onChange={(opponent) => setDraft({ ...draft, opponent })}
+              onNext={() => go({ screen: 'setup', step: 'review' })}
+              onBack={() => go({ screen: 'setup', step: 'class' })}
+            />
+          ) : (
+            <MissingStep onHome={() => go(HOME)} />
+          );
+          break;
+        case 'review':
+          screen = setup ? (
+            <ReviewScreen
+              setup={setup}
+              failed={startFailed}
+              onBack={() => go({ screen: 'setup', step: 'opponents' })}
+              onRoll={() => {
+                try {
+                  store.start(
+                    configForSetup(setup, seed ?? freshSeed()),
+                    engineContent,
+                    opponentSettings(setup),
+                  );
+                  rollForFirstPlayer(store);
+                  go({ screen: 'setup', step: 'firstPlayer' });
+                } catch {
+                  // The engine re-checks every setup (createGame); say so instead of going blank.
+                  store.clear();
+                  setStartFailed(true);
+                }
+              }}
+            />
+          ) : (
+            <MissingStep onHome={() => go(HOME)} />
+          );
+          break;
+        case 'firstPlayer':
           screen = (
-            <Screen
-              heading={t('opponents.heading')}
-              actions={
-                <Button variant="secondary" onClick={() => go({ screen: 'setup', step: 'class' })}>
-                  {t('nav.back')}
-                </Button>
-              }
+            <FirstPlayerScreen
+              store={store}
+              onToBoard={() => go({ screen: 'play' })}
+              onQuit={() => {
+                store.clear();
+                go(HOME);
+              }}
             />
           );
+          break;
       }
+      break;
+    case 'credits':
+      screen = <CreditsScreen onBack={() => go(creditsFrom)} />;
       break;
     default:
       screen = (
@@ -110,25 +175,44 @@ export function App({ random = Math.random, store: givenStore }: AppProps) {
           <p className="title-3d text-2xl">{t('app.title')}</p>
         </header>
       )}
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-5 py-8 sm:px-8 sm:py-12">
+      <main
+        className={`mx-auto flex w-full max-w-6xl flex-1 flex-col px-5 py-8 sm:px-8 sm:py-12 ${
+          route.screen === 'home' ? 'justify-center' : ''
+        }`}
+      >
         <FocusHeadingContext value={navigated}>
           <div key={route.screen === 'setup' ? route.step : route.screen}>{screen}</div>
         </FocusHeadingContext>
       </main>
-      <footer className="mx-auto w-full max-w-6xl px-5 pb-6 text-xs text-ink sm:px-8">
-        <p>
-          {t('credits.models')}:{' '}
-          {MODEL_CREDITS.map((credit, index) => (
-            <span key={credit.file}>
-              {index > 0 && ' · '}
-              <a className="underline underline-offset-2" href={credit.source}>
-                {credit.title}
-              </a>{' '}
-              {t('credits.by')} {credit.author} ({credit.licence})
-            </span>
-          ))}
-        </p>
-      </footer>
+      {route.screen !== 'credits' && (
+        <footer className="mx-auto w-full max-w-6xl px-5 pb-6 text-sm sm:px-8">
+          <button
+            type="button"
+            className="font-bold underline underline-offset-4"
+            onClick={() => {
+              setCreditsFrom(route);
+              go({ screen: 'credits' });
+            }}
+          >
+            {t('credits.link')}
+          </button>
+        </footer>
+      )}
     </div>
+  );
+}
+
+/** A setup step reached without its earlier answers (never through the UI): a way back home. */
+function MissingStep({ onHome }: { onHome: () => void }) {
+  return (
+    <Screen
+      heading={t('setup.missingHeading')}
+      body={t('setup.missingBody')}
+      actions={
+        <Button variant="primary" onClick={onHome}>
+          {t('nav.home')}
+        </Button>
+      }
+    />
   );
 }

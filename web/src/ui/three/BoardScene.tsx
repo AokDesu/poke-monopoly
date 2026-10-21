@@ -1,10 +1,12 @@
 import { Canvas, useFrame } from '@react-three/fiber';
-import { ContactShadows, Float, RoundedBox } from '@react-three/drei';
+import { Float, RoundedBox } from '@react-three/drei';
 import { Suspense, useRef } from 'react';
 import type { Group } from 'three';
 import { BALL_MODEL, SPECIES_MODELS } from '../../game/models.ts';
 import type { BoardSpace, SpaceKind } from '../Board3D.tsx';
+import { SpaceMarker } from './BoardMarkers.tsx';
 import { FittedModel } from './Model.tsx';
+import { Scenery } from './Scenery.tsx';
 
 // Read once from the theme so the scene and the DOM legend share colours.
 const KIND_COLOR: Record<SpaceKind, string> = {
@@ -79,6 +81,7 @@ function Board({ board, still }: { board: readonly BoardSpace[]; still: boolean 
 
   return (
     <group ref={group}>
+      <Scenery startX={startX} startZ={startZ} />
       <RoundedBox args={[size, 0.4, size]} radius={0.22} position={[0, -0.2, 0]} receiveShadow>
         <meshStandardMaterial color="#7fd05a" roughness={0.8} />
       </RoundedBox>
@@ -86,17 +89,21 @@ function Board({ board, still }: { board: readonly BoardSpace[]; still: boolean 
         const [x, z] = tilePosition(position, board.length);
         const height = KIND_HEIGHT[kind];
         return (
-          <RoundedBox
-            key={position}
-            args={[TILE, height, TILE]}
-            radius={0.08}
-            smoothness={3}
-            position={[x, height / 2, z]}
-            castShadow
-            receiveShadow
-          >
-            <meshStandardMaterial color={KIND_COLOR[kind]} roughness={0.45} />
-          </RoundedBox>
+          <group key={position}>
+            <RoundedBox
+              args={[TILE, height, TILE]}
+              radius={0.08}
+              smoothness={3}
+              position={[x, height / 2, z]}
+              castShadow
+              receiveShadow
+            >
+              <meshStandardMaterial color={KIND_COLOR[kind]} roughness={0.45} />
+            </RoundedBox>
+            <group position={[x, 0, z]}>
+              <SpaceMarker kind={kind} y={height} still={still} />
+            </group>
+          </group>
         );
       })}
       <Pawn color="#d3301f" x={startX - 0.2} y={startHeight} z={startZ - 0.16} />
@@ -151,13 +158,12 @@ export default function BoardScene({
         position={[5, 10, 4]}
         intensity={2.2}
         shadow-mapSize={[1024, 1024]}
-        shadow-camera-left={-6}
-        shadow-camera-right={6}
-        shadow-camera-top={6}
-        shadow-camera-bottom={-6}
+        shadow-camera-left={-9}
+        shadow-camera-right={9}
+        shadow-camera-top={9}
+        shadow-camera-bottom={-9}
       />
       <Board board={board} still={still} />
-      <ContactShadows position={[0, -0.41, 0]} opacity={0.35} scale={14} blur={2.6} far={3} />
     </Canvas>
   );
 }

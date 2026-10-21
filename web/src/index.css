@@ -2,8 +2,8 @@
 
 @theme static {
   /* Both faces are self-hosted through @fontsource; no external font host. */
-  --font-sans: 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Mitr', 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Nunito', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Fredoka', 'Nunito', ui-sans-serif, system-ui, sans-serif;
 
   --color-sky-top: #4fb8f5;
   --color-sky-low: #cdeeff;
@@ -47,8 +47,7 @@
   html {
     color: var(--color-ink);
     background: var(--color-sky-low);
-    /* Thai stacks vowel and tone marks above and below the line; give them room. */
-    line-height: 1.7;
+    line-height: 1.55;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -359,6 +358,25 @@
     50% {
       transform: scale(0.75);
       opacity: 0.25;
+    }
+  }
+}
+
+@layer components {
+  @media (prefers-reduced-motion: no-preference) {
+    .die-stamp {
+      animation: die-stamp 520ms var(--ease-spring) both;
+    }
+  }
+
+  @keyframes die-stamp {
+    from {
+      transform: translateY(-18px) rotate(-25deg) scale(0.6);
+      opacity: 0;
+    }
+    to {
+      transform: none;
+      opacity: 1;
     }
   }
 }

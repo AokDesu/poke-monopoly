@@ -1,15 +1,18 @@
-import { t, th, type MessageKey } from './th.ts';
+import { content } from '../game/content.ts';
+import { en, t, type MessageKey } from './en.ts';
+
+/** Names come from the content tables, which are in English (spec §3). */
+export const className = (id: string) =>
+  content.classes.find((entry) => entry.id === id)?.name ?? id;
+export const speciesName = (id: string) =>
+  content.species.find((entry) => entry.id === id)?.name ?? id;
+export const itemName = (id: string) => content.items.find((entry) => entry.id === id)?.name ?? id;
 
 /**
- * Thai names for content IDs (classes, species, items). Content stays English (`content/`), so
- * the catalog holds one key per ID; `names.test.ts` checks every ID setup can show has one.
+ * A playable class's passive, without its numbers (they live in the engine). Content's
+ * `passiveText` keeps the Appendix A amounts, so the catalog words it instead.
  */
-function lookup(prefix: string, id: string): string | undefined {
-  const key = `${prefix}.${id}`;
-  return Object.hasOwn(th, key) ? t(key as MessageKey) : undefined;
+export function classPassive(id: string): string | undefined {
+  const key = `class.passive.${id}`;
+  return Object.hasOwn(en, key) ? t(key as MessageKey) : undefined;
 }
-
-export const className = (id: string) => lookup('class.name', id);
-export const classPassive = (id: string) => lookup('class.passive', id);
-export const speciesName = (id: string) => lookup('species', id);
-export const itemName = (id: string) => lookup('item', id);

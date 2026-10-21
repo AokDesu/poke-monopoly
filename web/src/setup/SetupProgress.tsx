@@ -1,4 +1,4 @@
-import { t } from '../i18n/th.ts';
+import { t } from '../i18n/en.ts';
 import { SETUP_STEPS, type SetupStep } from '../screens.ts';
 
 /** Where the player is in setup, as stops along a route; the order is the spec §3 order. */

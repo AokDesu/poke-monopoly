@@ -1,15 +1,14 @@
 import { useId } from 'react';
-import { speciesType } from '../game/content.ts';
 import type { ClassOption, SeatChoice } from '../game/setup.ts';
 import { className, classPassive, itemName, speciesName } from '../i18n/names.ts';
-import { t } from '../i18n/th.ts';
+import { t } from '../i18n/en.ts';
 import { Button } from '../ui/Button.tsx';
 import { ChoiceRadio } from '../ui/Choice.tsx';
 import { DisabledReason } from '../ui/DisabledReason.tsx';
 import { Screen } from '../ui/Screen.tsx';
 import { SpeciesArt } from '../ui/SpeciesArt.tsx';
-import { TypeOrb } from '../ui/TypeOrb.tsx';
 import { SetupProgress } from './SetupProgress.tsx';
+import { StarterPicker } from './StarterPicker.tsx';
 
 interface ClassScreenProps {
   classes: readonly ClassOption[];
@@ -106,40 +105,15 @@ export function ClassScreen({ classes, chosen, onSelect, onNext, onBack }: Class
       </fieldset>
 
       {chosenClass && chosenClass.starterSpeciesIds.length > 1 && (
-        <fieldset className="panel mt-8 p-5 sm:p-6">
-          <legend className="sr-only">{t('class.chooseStarter')}</legend>
-          <h2 aria-hidden="true" className="text-xl">
-            {t('class.chooseStarter')}
-          </h2>
-          <div className="mt-4 flex flex-wrap gap-3">
-            {chosenClass.starterSpeciesIds.map((speciesId) => {
-              const checked = chosen?.starterSpeciesId === speciesId;
-              return (
-                <label
-                  key={speciesId}
-                  className={`flex cursor-pointer items-center gap-3 rounded-full py-2 ps-2 pe-5 font-display text-lg transition-[box-shadow,background-color] duration-150 has-[input:focus-visible]:outline-3 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-ink ${
-                    checked
-                      ? 'bg-reward shadow-[0_4px_0_var(--color-reward-lip)]'
-                      : 'bg-panel-tint shadow-[inset_0_0_0_2px_var(--color-line)] hover:shadow-[inset_0_0_0_2px_var(--color-reward)]'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    className="sr-only"
-                    name="human-starter"
-                    value={speciesId}
-                    checked={checked}
-                    onChange={() =>
-                      onSelect({ classId: chosenClass.id, starterSpeciesId: speciesId })
-                    }
-                  />
-                  <TypeOrb type={speciesType(speciesId)} className="size-10" />
-                  {speciesName(speciesId)}
-                </label>
-              );
-            })}
-          </div>
-        </fieldset>
+        <StarterPicker
+          name="human-starter"
+          legend={t('class.chooseStarter')}
+          speciesIds={chosenClass.starterSpeciesIds}
+          chosen={chosen!.starterSpeciesId}
+          onChoose={(speciesId) =>
+            onSelect({ classId: chosenClass.id, starterSpeciesId: speciesId })
+          }
+        />
       )}
 
       {closed.length > 0 && (

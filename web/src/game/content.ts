@@ -29,7 +29,7 @@ export const classOptions: readonly ClassOption[] = content.classes
   }));
 
 /** Pokémon types the content tags use; any other species shows as normal. */
-export const TYPES = ['grass', 'fire', 'water', 'bug', 'normal'] as const;
+const TYPES = ['grass', 'fire', 'water', 'bug', 'normal'] as const;
 export type PokemonType = (typeof TYPES)[number];
 
 /** A species' type from its content tags, for its orb colour; untyped species show as normal. */

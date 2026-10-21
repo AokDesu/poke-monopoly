@@ -1,6 +1,6 @@
 import type { ModeId } from '../game/setup.ts';
 import { MODES } from '../game/store.ts';
-import { t, type MessageKey } from '../i18n/th.ts';
+import { t, type MessageKey } from '../i18n/en.ts';
 import { Button } from '../ui/Button.tsx';
 import { ChoiceButton } from '../ui/Choice.tsx';
 import { Screen } from '../ui/Screen.tsx';

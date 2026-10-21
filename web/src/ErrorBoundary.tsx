@@ -1,5 +1,5 @@
 import { Component, type ReactNode } from 'react';
-import { t } from './i18n/th.ts';
+import { t } from './i18n/en.ts';
 import { Button } from './ui/Button.tsx';
 
 interface ErrorBoundaryProps {

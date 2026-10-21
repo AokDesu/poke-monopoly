@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { t } from '../i18n/th.ts';
+import { t } from '../i18n/en.ts';
 import { hasWebGl, useReducedMotion } from './three/support.ts';
 
 export type SpaceKind = 'start' | 'wild' | 'event' | 'shop' | 'gym';
@@ -20,7 +20,10 @@ export function Board3D({ board }: { board: readonly BoardSpace[] }) {
   const still = useReducedMotion();
   return (
     <figure className="flex flex-col items-center gap-4">
-      <div aria-hidden="true" className="aspect-[5/4] w-full max-w-[34rem]">
+      <div
+        aria-hidden="true"
+        className="aspect-[5/4] w-full max-w-[34rem] [mask-image:radial-gradient(ellipse_closest-side,#000_70%,transparent)]"
+      >
         {hasWebGl() && (
           <Suspense fallback={null}>
             <BoardScene board={board} still={still} />
