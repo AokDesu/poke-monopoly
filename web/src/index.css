@@ -4,13 +4,23 @@
   /* Self-hosted through @fontsource/noto-sans-thai; no external font host. */
   --font-sans: 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
 
-  --color-paper: oklch(97.5% 0.012 85);
-  --color-surface: oklch(94.5% 0.016 82);
-  --color-line: oklch(86% 0.02 78);
-  --color-ink: oklch(25% 0.025 55);
-  --color-ink-soft: oklch(43% 0.025 55);
-  --color-accent: oklch(50% 0.17 32);
-  --color-accent-strong: oklch(43% 0.16 32);
+  /* Printed-ticket world: tinted ticket paper, blue-black ink, one red for the drawn numbers. */
+  --color-paper: oklch(96.6% 0.02 172);
+  --color-card: oklch(99.3% 0.006 172);
+  --color-surface: oklch(93.2% 0.03 172);
+  --color-line: oklch(83% 0.032 178);
+  --color-line-strong: oklch(62% 0.045 205);
+  --color-ink: oklch(24% 0.045 258);
+  --color-ink-soft: oklch(41% 0.04 248);
+  --color-accent: oklch(32% 0.09 260);
+  --color-accent-strong: oklch(25% 0.085 260);
+  --color-on-accent: oklch(97% 0.015 172);
+  --color-on-accent-soft: oklch(83% 0.04 230);
+  --color-serial: oklch(50% 0.19 27);
+  --color-kind-wild: oklch(86% 0.085 150);
+  --color-kind-event: oklch(90% 0.085 88);
+  --color-kind-shop: oklch(86% 0.055 245);
+  --color-kind-gym: oklch(85% 0.07 320);
 }
 
 @layer base {
@@ -19,10 +29,11 @@
     color: var(--color-ink);
     /* Thai stacks vowel and tone marks above and below the line; give them room. */
     line-height: 1.7;
+    -webkit-tap-highlight-color: transparent;
   }
 
   ::selection {
-    background-color: color-mix(in oklch, var(--color-accent) 22%, transparent);
+    background-color: color-mix(in oklch, var(--color-serial) 22%, transparent);
     color: var(--color-ink);
   }
 
@@ -33,5 +44,204 @@
 
   button:not(:disabled) {
     cursor: pointer;
+  }
+}
+
+@layer components {
+  /*
+   * A ticket: a body and a stub joined at a perforated seam with a notch at each end.
+   * The notches are cut from each half, so the seam needs no measured position.
+   */
+  .ticket {
+    --notch: 9px;
+    --ticket-bg: var(--color-card);
+    --ticket-edge: var(--color-line);
+    --stub-bg: var(--ticket-bg);
+    --stub-ink: inherit;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    width: 100%;
+    height: 100%;
+    text-align: start;
+  }
+
+  .ticket-body,
+  .ticket-stub {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--ticket-edge);
+    transition:
+      background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .ticket-body {
+    gap: 0.25rem;
+    padding: 1.125rem 1.25rem;
+    background: var(--ticket-bg);
+    border-inline-end: 0;
+    border-radius: 14px 0 0 14px;
+    mask:
+      radial-gradient(circle var(--notch) at 100% 0, #0000 97%, #000) top / 100% 51% no-repeat,
+      radial-gradient(circle var(--notch) at 100% 100%, #0000 97%, #000) bottom / 100% 51% no-repeat;
+  }
+
+  .ticket-body:only-child {
+    border-inline-end: 1px solid var(--ticket-edge);
+    border-radius: 14px;
+    mask: none;
+  }
+
+  .ticket-stub {
+    position: relative;
+    align-items: center;
+    justify-content: center;
+    min-width: 6.5rem;
+    padding: 1rem 1rem 1rem 1.25rem;
+    background: var(--stub-bg);
+    color: var(--stub-ink);
+    border-inline-start: 0;
+    border-radius: 0 14px 14px 0;
+    mask:
+      radial-gradient(circle var(--notch) at 0 0, #0000 97%, #000) top / 100% 51% no-repeat,
+      radial-gradient(circle var(--notch) at 0 100%, #0000 97%, #000) bottom / 100% 51% no-repeat;
+  }
+
+  @media (width < 40rem) {
+    .ticket-stub {
+      min-width: 4.75rem;
+      padding-inline: 1rem 0.75rem;
+    }
+
+    /* Narrow screens: a ticket with a large stub tears off at the bottom instead. */
+    .ticket[data-narrow='stack'] {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .ticket[data-narrow='stack'] .ticket-body {
+      border-inline-end: 1px solid var(--ticket-edge);
+      border-block-end: 0;
+      border-radius: 14px 14px 0 0;
+      mask:
+        radial-gradient(circle var(--notch) at 0 100%, #0000 97%, #000) left / 51% 100% no-repeat,
+        radial-gradient(circle var(--notch) at 100% 100%, #0000 97%, #000) right / 51% 100%
+          no-repeat;
+    }
+
+    .ticket[data-narrow='stack'] .ticket-stub {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 1rem 1.25rem 1.125rem;
+      border-inline-start: 1px solid var(--ticket-edge);
+      border-block-start: 0;
+      border-radius: 0 0 14px 14px;
+      mask:
+        radial-gradient(circle var(--notch) at 0 0, #0000 97%, #000) left / 51% 100% no-repeat,
+        radial-gradient(circle var(--notch) at 100% 0, #0000 97%, #000) right / 51% 100% no-repeat;
+    }
+
+    .ticket[data-narrow='stack'] .ticket-stub::before {
+      inset-block: 0 auto;
+      inset-inline: calc(var(--notch) + 4px);
+      width: auto;
+      height: 3px;
+      background: radial-gradient(circle, var(--ticket-edge) 1.4px, transparent 1.6px) left center /
+        9px 3px repeat-x;
+    }
+  }
+
+  /* The perforation: a column of punched holes along the seam. */
+  .ticket-stub::before {
+    content: '';
+    position: absolute;
+    inset-block: calc(var(--notch) + 4px);
+    inset-inline-start: 0;
+    width: 3px;
+    background: radial-gradient(circle, var(--ticket-edge) 1.4px, transparent 1.6px) center top /
+      3px 9px repeat-y;
+  }
+
+  .ticket[data-tone='selected'] {
+    --ticket-edge: var(--color-accent);
+    --stub-bg: var(--color-accent);
+    --stub-ink: var(--color-on-accent);
+  }
+
+  .ticket[data-tone='disabled'] {
+    --ticket-bg: transparent;
+    --ticket-edge: var(--color-line);
+    color: var(--color-ink-soft);
+  }
+
+  .ticket[data-tone='disabled'] .ticket-body,
+  .ticket[data-tone='disabled'] .ticket-stub {
+    border-style: dashed;
+  }
+
+  /* A ticket that is a control: the focus ring sits outside the cut shape. */
+  .ticket-control {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 15px;
+  }
+
+  .ticket-control:not(:disabled):hover .ticket,
+  .ticket-choice:has(input:not(:disabled)):hover .ticket {
+    --ticket-edge: var(--color-accent);
+  }
+
+  .ticket-control:not(:disabled):hover .ticket:not([data-tone='selected']) .ticket-stub {
+    --stub-bg: var(--color-surface);
+  }
+
+  .ticket-choice {
+    display: block;
+    height: 100%;
+    border-radius: 15px;
+    cursor: pointer;
+  }
+
+  .ticket-choice:has(input:disabled) {
+    cursor: not-allowed;
+  }
+
+  .ticket-choice:has(input:focus-visible) {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+
+  /* The drawn number: the red serial digits of a printed ticket. */
+  .serial {
+    color: var(--color-serial);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums lining-nums;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  .ticket[data-tone='selected'] .serial,
+  .ticket[data-tone='disabled'] .serial {
+    color: inherit;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .serial-stamp {
+      animation: serial-stamp 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+      animation-delay: calc(var(--stamp-order, 0) * 140ms);
+    }
+  }
+
+  @keyframes serial-stamp {
+    from {
+      transform: scale(1.35);
+      filter: blur(3px);
+    }
+    to {
+      transform: scale(1);
+      filter: blur(0);
+    }
   }
 }

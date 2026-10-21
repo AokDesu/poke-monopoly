@@ -1,8 +1,8 @@
 import type { ButtonHTMLAttributes } from 'react';
 
 const VARIANTS = {
-  primary: 'bg-accent text-paper hover:bg-accent-strong',
-  secondary: 'border border-line text-ink hover:border-ink-soft hover:bg-surface',
+  primary: 'bg-accent text-on-accent hover:bg-accent-strong',
+  secondary: 'border border-line-strong bg-card text-ink hover:border-accent hover:bg-surface',
 } as const;
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -13,7 +13,7 @@ export function Button({ variant, className = '', type = 'button', ...props }: B
   return (
     <button
       type={type}
-      className={`inline-flex min-h-12 items-center rounded-lg px-5 text-base font-bold ${VARIANTS[variant]} ${className}`}
+      className={`inline-flex min-h-12 items-center justify-center rounded-xl px-6 text-base font-bold transition-colors duration-150 ${VARIANTS[variant]} ${className}`}
       {...props}
     />
   );
