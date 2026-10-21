@@ -9,7 +9,7 @@ import {
   type LegalActions,
   type Observation,
 } from '../engine/index.ts';
-import { createPolicyRng, POLICIES, type Policy } from './policy.ts';
+import { createPolicyRng, POLICIES, type Policy, type PolicyFacts } from './policy.ts';
 
 export type SeatSetup = { seatIndex: number; actorId: string; classId: string };
 export type GameSetup = { seed: number; seats: SeatSetup[]; lapTarget: number };
@@ -29,6 +29,8 @@ export type SimEngine = {
     events: EngineEvent[];
   };
   outcome(state: GameState): GameOutcome;
+  /** Engine numbers the seat's observation lacks, such as catch odds; none when absent. */
+  facts?(state: GameState, seatIndex: number): PolicyFacts;
 };
 
 /** Called after every applied or rejected action; each returned violation is one failure (§8). */
@@ -227,7 +229,12 @@ function playGame(
         return result;
       }
       const decider = deciders[seatIndex]!;
-      const actionId = decider.policy.decide(engine.observe(state, seatIndex), legal, decider.rng);
+      const actionId = decider.policy.decide(
+        engine.observe(state, seatIndex),
+        legal,
+        decider.rng,
+        decider.policy.wantsFacts ? engine.facts?.(state, seatIndex) : undefined,
+      );
       const enabled = legal.enabled.find((choice) => choice.id === actionId);
       const choice = enabled ?? legal.disabled.find((choice) => choice.id === actionId);
       if (!choice) continue;
