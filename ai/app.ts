@@ -4,7 +4,6 @@ import {
   aiStatusSchema,
   decisionRequestSchema,
   decisionResponseSchema,
-  type AiStatus,
   type DecisionResponse,
 } from '../engine/contract/decision.ts';
 import {
@@ -21,7 +20,6 @@ export const MAX_BODY_BYTES = 32 * 1024;
 
 export interface AppOptions {
   decider?: Decider;
-  status?: () => AiStatus;
 }
 
 /** Copies only IDs and telemetry, so nothing else a decider returns can reach the browser. */
@@ -34,13 +32,13 @@ const toResponse = (answer: DeciderAnswer, requestId: string, started: number): 
     latencyMs: Math.round(performance.now() - started),
   });
 
-export const createApp = ({ decider = stubDecider, status = jevStatus }: AppOptions = {}) => {
+export const createApp = ({ decider = stubDecider }: AppOptions = {}) => {
   const app = new Hono();
 
   // Never a stack trace or an error message: either could carry request or key material.
   app.onError((_error, c) => c.json({ error: 'internal_error' }, 500));
 
-  app.get('/api/ai/status', (c) => c.json(aiStatusSchema.parse(status())));
+  app.get('/api/ai/status', (c) => c.json(aiStatusSchema.parse(jevStatus())));
 
   app.post(
     '/api/ai/decide',
@@ -64,7 +62,7 @@ export const createApp = ({ decider = stubDecider, status = jevStatus }: AppOpti
       const request = parsed.data;
       let answer: DeciderAnswer;
       try {
-        answer = await decider(request, { status: status() });
+        answer = await decider(request, { status: jevStatus() });
         if (!isOption(request, answer)) answer = fallbackAnswer(request, 'not_an_option');
       } catch {
         answer = fallbackAnswer(request, 'decider_error');
