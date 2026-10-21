@@ -92,11 +92,13 @@ function probeStaleAndForeign(engine: SimEngine, state: GameState, action: Actio
  */
 function legalGamesHold(engine: SimEngine) {
   return fc.property(gamePlan(engine.classIds), (plan) => {
-    const game = playGame(engine, plan, {
+    playGame(engine, plan, {
       beforeDecision: (state, action, log) => probeStaleAndForeign(engine, state, action, log),
       afterStep: (step) => checkInvariants(engine, step),
+      afterGame: (game) => {
+        if (!game.finished) throw new Error(`the game did not finish in ${game.steps} steps`);
+      },
     });
-    if (!game.finished) throw new Error(`the game did not finish in ${game.steps} steps`);
   });
 }
 
@@ -120,12 +122,16 @@ const freeBallEngine: SimEngine = {
   },
 };
 
-test('a Ball that is not used up fails the property with a shrunk action sequence (§8)', () => {
-  const report = fc.check(legalGamesHold(freeBallEngine), PROPERTY_RUNS);
-  expect(report.failed).toBe(true);
-  const message = String(report.errorInstance);
-  expect(message).toContain('catch-consumes-one-ball');
-  // Shrinking empties the decision tape, so the reported sequence ends at the first catch.
-  expect(report.counterexample![0]).toMatchObject({ choices: [] });
-  expect(message).toMatch(/\n {2}\d+\. +r\d+ seat-\d catch \{"ballType":"\w+"\}$/);
-});
+test(
+  'a Ball that is not used up fails the property with a shrunk action sequence (§8)',
+  () => {
+    const report = fc.check(legalGamesHold(freeBallEngine), PROPERTY_RUNS);
+    expect(report.failed).toBe(true);
+    const message = String(report.errorInstance);
+    expect(message).toContain('catch-consumes-one-ball');
+    // Shrinking empties the decision tape, so the reported sequence ends at the first catch.
+    expect(report.counterexample![0]).toMatchObject({ choices: [] });
+    expect(message).toMatch(/\n {2}\d+\. +r\d+ seat-\d catch \{"ballType":"\w+"\}$/);
+  },
+  PROPERTY_TIMEOUT_MS,
+);

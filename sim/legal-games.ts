@@ -1,6 +1,7 @@
 import fc from 'fast-check';
 import {
   createGameLog,
+  GAME_PRESETS,
   type Action,
   type ApplyActionResult,
   type GameLog,
@@ -27,11 +28,11 @@ export const PROPERTY_TIMEOUT_MS = 120_000;
 
 /**
  * The engine runs any positive Lap target (§1). Most games use 1, the shortest complete game, so
- * replaying 200 logs fits the budget; a quarter use 2, the Quick preset.
+ * replaying 200 logs fits the budget; a quarter use the Quick preset.
  */
 const lapTarget = fc.oneof(
   { weight: 3, arbitrary: fc.constant(1) },
-  { weight: 1, arbitrary: fc.constant(2) },
+  { weight: 1, arbitrary: fc.constant(GAME_PRESETS.quick.lapTarget) },
 );
 
 /** 2 to 4 seats with any mix and order of distinct classes, any seed and any decision tape. */
@@ -73,6 +74,8 @@ export type PlayOptions = {
   beforeDecision?: (state: GameState, action: Action, log: GameLog) => void;
   /** Called after every applied step, automatic or chosen. */
   afterStep?: (step: Step) => void;
+  /** Called once with the played game, at the end or at the step limit. */
+  afterGame?: (game: PlayedGame) => void;
 };
 
 /** Thrown when a property fails; the message carries the action sequence up to the failure. */
@@ -139,7 +142,9 @@ export function playGame(engine: SimEngine, plan: GamePlan, options: PlayOptions
     guard(fail, () => options.afterStep?.({ before: state, action, result }));
     state = result.state;
   }
-  return { state, log, steps, finished: engine.outcome(state).finished, trace };
+  const game = { state, log, steps, finished: engine.outcome(state).finished, trace };
+  guard(fail, () => options.afterGame?.(game));
+  return game;
 }
 
 /** Runs a property check and reports a thrown failure with the game so far. */
