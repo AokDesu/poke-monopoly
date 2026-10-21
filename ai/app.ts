@@ -1,5 +1,79 @@
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
+import {
+  aiStatusSchema,
+  decisionRequestSchema,
+  decisionResponseSchema,
+  type AiStatus,
+  type DecisionResponse,
+} from '../engine/contract/decision.ts';
+import {
+  fallbackAnswer,
+  isOption,
+  jevStatus,
+  stubDecider,
+  type Decider,
+  type DeciderAnswer,
+} from './decider.ts';
 
-export const app = new Hono();
+/** Spec §6 item 2: the endpoint validates payload size before it reads the body. */
+export const MAX_BODY_BYTES = 32 * 1024;
 
-app.get('/api/ai/status', (c) => c.json({ jevEnabled: true }));
+export interface AppOptions {
+  decider?: Decider;
+  status?: () => AiStatus;
+}
+
+/** Copies only IDs and telemetry, so nothing else a decider returns can reach the browser. */
+const toResponse = (answer: DeciderAnswer, requestId: string, started: number): DecisionResponse =>
+  decisionResponseSchema.parse({
+    ...('choice' in answer ? { choice: answer.choice } : { sellUids: answer.sellUids }),
+    source: answer.source,
+    ...(answer.source === 'fallback' && { fallbackReason: answer.fallbackReason }),
+    requestId,
+    latencyMs: Math.round(performance.now() - started),
+  });
+
+export const createApp = ({ decider = stubDecider, status = jevStatus }: AppOptions = {}) => {
+  const app = new Hono();
+
+  // Never a stack trace or an error message: either could carry request or key material.
+  app.onError((_error, c) => c.json({ error: 'internal_error' }, 500));
+
+  app.get('/api/ai/status', (c) => c.json(aiStatusSchema.parse(status())));
+
+  app.post(
+    '/api/ai/decide',
+    bodyLimit({
+      maxSize: MAX_BODY_BYTES,
+      onError: (c) => c.json({ error: 'payload_too_large' }, 413),
+    }),
+    async (c) => {
+      const started = performance.now();
+      let body: unknown;
+      try {
+        body = await c.req.json();
+      } catch {
+        return c.json({ error: 'invalid_json' }, 400);
+      }
+      const parsed = decisionRequestSchema.safeParse(body);
+      if (!parsed.success) {
+        const paths = parsed.error.issues.map((issue) => issue.path.join('.'));
+        return c.json({ error: 'invalid_request', paths }, 400);
+      }
+      const request = parsed.data;
+      let answer: DeciderAnswer;
+      try {
+        answer = await decider(request, { status: status() });
+        if (!isOption(request, answer)) answer = fallbackAnswer(request, 'not_an_option');
+      } catch {
+        answer = fallbackAnswer(request, 'decider_error');
+      }
+      return c.json(toResponse(answer, crypto.randomUUID(), started));
+    },
+  );
+
+  return app;
+};
+
+export const app = createApp();
