@@ -47,6 +47,8 @@ export type SimOptions = {
   maxSteps: number;
   lapTarget: number;
   policy: string;
+  /** `--save <file>`: where each finished game is written as a save (spec §6.7). */
+  save?: string;
 };
 
 export const DEFAULT_OPTIONS: Omit<SimOptions, 'games' | 'seed'> = {
@@ -69,7 +71,17 @@ export type SimSummary = {
 
 export type GameFailure = { seed: number; reasons: string[]; reproduce: string };
 
+/** One played game: its pre-roll state, every accepted record in order, and its final state. */
+export type PlayedGame = {
+  seed: number;
+  initialState: GameState;
+  records: ActionRecord[];
+  state: GameState;
+  outcome: GameOutcome;
+};
+
 type GameResult = {
+  game: PlayedGame | null;
   seats: SeatSetup[];
   outcome: GameOutcome;
   turns: number;
@@ -83,6 +95,7 @@ export function runSim(
   options: SimOptions,
   policies: Readonly<Record<string, () => Policy>> = POLICIES,
   checkInvariants: InvariantCheck = noInvariantCheck,
+  onGame: (game: PlayedGame) => void = () => {},
 ): { summary: SimSummary; failures: GameFailure[] } {
   const createPolicy = policies[options.policy];
   if (!createPolicy) throw new RangeError(`Unknown policy: ${options.policy}`);
@@ -95,6 +108,7 @@ export function runSim(
     // Game g of seed s uses seed s + g, so `--games 1 --seed <s + g>` replays it alone.
     const seed = options.seed + g;
     const game = playGame(engine, options, seed, createPolicy, checkInvariants);
+    if (game.game) onGame(game.game);
     summary.illegalAppliedActionCount += game.illegalApplied;
     summary.invariantFailures += game.violations;
     if (game.outcome.finished) {
@@ -185,6 +199,7 @@ function playGame(
 ): GameResult {
   const seats = seatSetup(engine.classIds, options.seats, seed);
   const result: GameResult = {
+    game: null,
     seats,
     outcome: { finished: false },
     turns: 0,
@@ -198,9 +213,19 @@ function playGame(
       rng: createPolicyRng(`policy:${seed}:${seat.seatIndex}`),
     }));
     let state = engine.createGame({ seed, seats, lapTarget: options.lapTarget });
+    const game: PlayedGame = {
+      seed,
+      initialState: state,
+      records: [],
+      state,
+      outcome: result.outcome,
+    };
+    result.game = game;
     for (let steps = 0; ; steps++) {
       result.outcome = engine.outcome(state);
       result.turns = state.globalTurnNo;
+      game.state = state;
+      game.outcome = result.outcome;
       if (result.outcome.finished) return result;
       if (steps >= options.maxSteps) {
         result.abortReason = `max steps ${options.maxSteps}`;
@@ -217,6 +242,7 @@ function playGame(
           record,
         };
         result.violations += checkInvariants(state, record.action, applied).length;
+        game.records.push(record);
         state = automatic.state;
         continue;
       }
@@ -237,6 +263,7 @@ function playGame(
       result.violations += checkInvariants(state, action, applied).length;
       if ('rejected' in applied) continue;
       if (!enabled) result.illegalApplied++;
+      game.records.push(applied.record);
       state = applied.state;
     }
   } catch (error) {

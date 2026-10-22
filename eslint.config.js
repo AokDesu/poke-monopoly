@@ -122,6 +122,21 @@ export default defineConfig([
       ],
     },
   },
+  // The sim's replay path never calls Jev or the network (spec §6.8).
+  {
+    files: ['sim/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { regex: folderImport(['ai', 'web']), message: 'sim/ must not import from ai or web.' },
+            { regex: '^@typesafe-ai/', message: 'The Jev SDK belongs in ai/ only.' },
+          ],
+        },
+      ],
+    },
+  },
   {
     files: ['ai/**/*.{ts,tsx}'],
     rules: {
