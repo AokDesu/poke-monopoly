@@ -9,7 +9,13 @@ import {
   type LegalActions,
   type Observation,
 } from '../engine/index.ts';
-import { createPolicyRng, POLICIES, type Policy, type PolicyFacts } from './policy.ts';
+import {
+  createPolicyRng,
+  POLICIES,
+  type Policy,
+  type PolicyChoice,
+  type PolicyFacts,
+} from './policy.ts';
 
 export type SeatSetup = { seatIndex: number; actorId: string; classId: string };
 export type GameSetup = { seed: number; seats: SeatSetup[]; lapTarget: number };
@@ -229,14 +235,15 @@ function playGame(
         return result;
       }
       const decider = deciders[seatIndex]!;
-      const actionId = decider.policy.decide(
-        engine.observe(state, seatIndex),
+      const { choice, enabled } = resolveChoice(
         legal,
-        decider.rng,
-        decider.policy.wantsFacts ? engine.facts?.(state, seatIndex) : undefined,
+        decider.policy.decide(
+          engine.observe(state, seatIndex),
+          legal,
+          decider.rng,
+          decider.policy.wantsFacts ? engine.facts?.(state, seatIndex) : undefined,
+        ),
       );
-      const enabled = legal.enabled.find((choice) => choice.id === actionId);
-      const choice = enabled ?? legal.disabled.find((choice) => choice.id === actionId);
       if (!choice) continue;
       const actorId = state.config.seats.find((seat) => seat.seatIndex === seatIndex)!.actorId;
       const action = command(state, actorId, choice);
@@ -250,6 +257,31 @@ function playGame(
     result.abortReason = `error: ${error instanceof Error ? error.message : String(error)}`;
     return result;
   }
+}
+
+/**
+ * The listed action a policy picked, or the sale it composed: a batch is enabled when it names
+ * distinct Pokémon that each have their own enabled sale (§4.7); the engine validates it whole.
+ */
+function resolveChoice(
+  legal: LegalActions,
+  picked: PolicyChoice,
+): { choice?: LegalAction; enabled: boolean } {
+  if (typeof picked === 'string') {
+    const enabled = legal.enabled.find((choice) => choice.id === picked);
+    return {
+      choice: enabled ?? legal.disabled.find((choice) => choice.id === picked),
+      enabled: Boolean(enabled),
+    };
+  }
+  const sales = legal.enabled.filter((choice) => choice.kind === 'sell');
+  const sellable = new Set(sales.flatMap((choice) => choice.payload.pokemonInstanceIds));
+  const ids = [...picked.sellUids];
+  return {
+    choice: { id: `sell:${ids.join('+')}`, kind: 'sell', payload: { pokemonInstanceIds: ids } },
+    enabled:
+      sales.length > 0 && new Set(ids).size === ids.length && ids.every((id) => sellable.has(id)),
+  };
 }
 
 function command(state: GameState, actorId: string, choice: LegalAction): Action {

@@ -8,6 +8,7 @@ import {
 import {
   checkInvariants,
   fixtureSchema,
+  type Action,
   type GameState,
   type LegalAction,
   type LegalActions,
@@ -20,13 +21,14 @@ import strategyFixture from '../../engine/fixtures/strategy-with-items.json';
 import { parseSimArgs } from '../../sim/args.ts';
 import { realEngine } from '../../sim/engine.ts';
 import { createPolicyRng, POLICIES, type PolicyFacts } from '../../sim/policy.ts';
-import { DEFAULT_OPTIONS, runSim } from '../../sim/runner.ts';
+import { DEFAULT_OPTIONS, runSim, type SimEngine } from '../../sim/runner.ts';
 import {
   decideWithFallback,
   FallbackPolicy,
   FALLBACK_TUNING,
   PERSONALITIES,
   saleDesire,
+  scoreOptions,
 } from './index.ts';
 
 const greedy = PERSONALITIES.greedy;
@@ -157,6 +159,35 @@ describe('Sell Phase', () => {
   test('keeps the team without engine sale values', () => {
     expect(decide(greedy, observation, legal)).toBe('finish-sell');
   });
+
+  test('sells every qualifying Pokémon in one atomic batch and keeps the rest (§4.7, §5.3)', () => {
+    // Desires 0.21, 0.5625 and 0.75 against Greedy's 0.56: the seed-1 two-seat shape.
+    const two = { saleValue: { 'pokemon-0': 5, 'pokemon-2': 9, 'pokemon-3': 12 } };
+    expect(saleDesire(observation, 'pokemon-2', two)).toBe(0.5625);
+    expect(decide(greedy, observation, legal, two)).toEqual({
+      sellUids: ['pokemon-2', 'pokemon-3'],
+    });
+    expect(decide(hoarder, observation, legal, two)).toBe('finish-sell');
+  });
+
+  test('the qualifying batch outscores each of its parts and any batch with a kept Pokémon', () => {
+    const two = { saleValue: { 'pokemon-0': 5, 'pokemon-2': 9, 'pokemon-3': 12 } };
+    const sale = (...ids: string[]): LegalAction => ({
+      id: `sell:${ids.join('+')}`,
+      kind: 'sell',
+      payload: { pokemonInstanceIds: ids },
+    });
+    const options = [
+      sale(),
+      sale('pokemon-2'),
+      sale('pokemon-3'),
+      sale('pokemon-2', 'pokemon-3'),
+      sale('pokemon-0', 'pokemon-2', 'pokemon-3'),
+    ];
+    const scores = [...scoreOptions(observation, options, greedy, two).values()];
+    expect(Math.max(...scores)).toBe(scores[3]);
+    expect(scores[4]).toBeLessThan(scores[3]!);
+  });
 });
 
 describe('Encounter', () => {
@@ -269,22 +300,22 @@ describe('decideWithFallback (§5.6 Normal)', () => {
 
   test("applies Jev's choice at or above the floor", () => {
     const decision = decideWithFallback({ ...base, rng: createPolicyRng(1), jev: answer(0.6) });
-    expect(decision).toEqual({ actionId: 'release', fallbackReason: null });
+    expect(decision).toEqual({ choice: 'release', fallbackReason: null });
   });
 
   test("below the floor, chooses between Jev's top two by personality weight", () => {
     const decision = decideWithFallback({ ...base, rng: createPolicyRng(1), jev: answer(0.4) });
     // Top two are release and catch:poke; catch:great scores best but is third.
-    expect(decision).toEqual({ actionId: 'catch:poke', fallbackReason: 'low_confidence' });
+    expect(decision).toEqual({ choice: 'catch:poke', fallbackReason: 'low_confidence' });
   });
 
   test('an unusable answer falls back to the whole policy', () => {
     expect(
       decideWithFallback({ ...base, rng: createPolicyRng(1), jev: { fallbackReason: 'timeout' } }),
-    ).toEqual({ actionId: 'catch:great', fallbackReason: 'timeout' });
+    ).toEqual({ choice: 'catch:great', fallbackReason: 'timeout' });
     const stray = { ...answer(0.9), choice: 'catch:ultra' };
     expect(decideWithFallback({ ...base, rng: createPolicyRng(1), jev: stray })).toEqual({
-      actionId: 'catch:great',
+      choice: 'catch:great',
       fallbackReason: 'schema_mismatch',
     });
   });
@@ -314,4 +345,32 @@ describe('sim registration (§1: games finish with Jev off)', () => {
       expect(runSim(realEngine, options).summary).toEqual(summary);
     },
   );
+
+  test('each Sell Phase of a seed-1 two-seat Greedy game sells exactly the qualifying batch', () => {
+    const sales: { sold: string[]; qualifying: string[] }[] = [];
+    const engine: SimEngine = {
+      ...realEngine,
+      applyAction(state, action) {
+        const command = action as Action;
+        if (state.phase.kind === 'sell' && command.kind === 'sell') {
+          const seat = state.activeSeatIndex;
+          const observation = realEngine.observe(state, seat);
+          const facts = realEngine.facts!(state, seat);
+          const team = observation.public.players.find((player) => player.seatIndex === seat)!;
+          sales.push({
+            sold: [...command.payload.pokemonInstanceIds],
+            qualifying: team.team
+              .map((pokemon) => pokemon.instanceId)
+              .filter((id) => saleDesire(observation, id, facts) >= greedy.sellThreshold),
+          });
+        }
+        return realEngine.applyAction(state, action);
+      },
+    };
+    const options = { ...DEFAULT_OPTIONS, games: 1, seed: 1, seats: 2, policy: 'fallback' };
+    const { summary } = runSim(engine, options, POLICIES, checkInvariants);
+    expect(summary).toMatchObject({ illegalAppliedActionCount: 0, invariantFailures: 0 });
+    for (const { sold, qualifying } of sales) expect(sold).toEqual(qualifying);
+    expect(sales.some(({ sold }) => sold.length > 1)).toBe(true);
+  });
 });

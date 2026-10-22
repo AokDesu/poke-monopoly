@@ -17,9 +17,15 @@ export type PolicyRng = { int(n: number): number };
 export type PolicyFacts = {
   /** Catch probability for each held Ball type in the current Encounter (`oddsForAllBalls`). */
   catchChance?: Readonly<Partial<Record<BallType, number>>>;
-  /** Coins each own Pokémon would fetch if sold alone in the current Sell Phase. */
+  /** Coins each own sellable Pokémon would fetch in one batch selling all of them (§4.7). */
   saleValue?: Readonly<Record<string, number>>;
 };
+
+/**
+ * An enabled action's ID, or the Pokémon to sell in one atomic Sell Phase batch (§4.7). The
+ * engine lists one-Pokémon sales and validates a batch as a whole, so a batch has no listed ID.
+ */
+export type PolicyChoice = string | { sellUids: readonly string[] };
 
 /** Spec §8: a policy only chooses; the engine stays the sole rules authority (§9). */
 export interface Policy {
@@ -30,7 +36,7 @@ export interface Policy {
     legalActions: LegalActions,
     rng: PolicyRng,
     facts?: PolicyFacts,
-  ): string;
+  ): PolicyChoice;
 }
 
 export function createPolicyRng(seed: number | string): PolicyRng {

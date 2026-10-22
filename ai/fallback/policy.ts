@@ -1,6 +1,6 @@
 import type { Personality } from '../../content/personality-schema.ts';
 import type { LegalAction, LegalActions, Observation } from '../../engine/index.ts';
-import type { Policy, PolicyFacts, PolicyRng } from '../../sim/policy.ts';
+import type { Policy, PolicyChoice, PolicyFacts, PolicyRng } from '../../sim/policy.ts';
 import type { FallbackReason } from '../jev/client.ts';
 
 /**
@@ -124,15 +124,32 @@ export function saleDesire(observation: Observation, instanceId: string, facts: 
   return ((values[instanceId] ?? 0) / best) * (1 - kept);
 }
 
-/** Spec §5.3: sell when desire ≥ the personality's threshold; keeping the team scores 0. */
-function sellScore(option: LegalAction, { observation, personality, facts }: Context): number {
+/**
+ * Spec §5.3: sell the Pokémon whose desire is at or above the personality's threshold. A batch
+ * scores the sum over its members of desire, less 1 below the threshold, so keeping the team
+ * scores 0 and the best batch is exactly the qualifying ones, sold together (§4.7).
+ */
+function sellScore(option: LegalAction, context: Context): number {
   if (option.kind === 'finish_sell') return 0;
   if (option.kind !== 'sell') return -1;
-  const ids = option.payload.pokemonInstanceIds;
-  if (ids.length === 0) return 0;
-  if (ids.length > 1) return -1;
-  const desire = saleDesire(observation, ids[0]!, facts);
-  return desire >= personality.sellThreshold ? desire : desire - 1;
+  return batchScore(option.payload.pokemonInstanceIds, context);
+}
+
+function batchScore(ids: readonly string[], { observation, personality, facts }: Context) {
+  let score = 0;
+  for (const id of ids) {
+    const desire = saleDesire(observation, id, facts);
+    score += desire >= personality.sellThreshold ? desire : desire - 1;
+  }
+  return score;
+}
+
+/** The Pokémon worth selling this Sell Phase, in team order: every one at the threshold. */
+function sellBatch(enabled: readonly LegalAction[], context: Context): string[] {
+  const sellable = enabled.flatMap((option) =>
+    option.kind === 'sell' ? option.payload.pokemonInstanceIds : [],
+  );
+  return sellable.filter((id) => batchScore([id], context) > 0);
 }
 
 function shopScore(option: LegalAction, { observation, personality }: Context): number {
@@ -177,10 +194,15 @@ export class FallbackPolicy implements Policy {
     legalActions: LegalActions,
     rng: PolicyRng,
     facts: PolicyFacts = {},
-  ): string {
+  ): PolicyChoice {
     const { enabled } = legalActions;
     if (enabled.length === 0) throw new RangeError('No enabled legal action to choose from');
     if (enabled.length === 1) return enabled[0]!.id;
+    if (observation.public.phase.kind === 'sell') {
+      // A batch of two or more has no listed ID; the engine sells it in one atomic step (§4.7).
+      const batch = sellBatch(enabled, { observation, personality: this.personality, facts });
+      if (batch.length > 1) return { sellUids: batch };
+    }
     return pick(scoreOptions(observation, enabled, this.personality, facts), rng);
   }
 }
@@ -193,7 +215,8 @@ export type JevChoice = {
 };
 
 export type FallbackDecision = {
-  actionId: string;
+  /** An enabled action's ID, or the Pokémon the full policy would sell together. */
+  choice: PolicyChoice;
   /** `null` when Jev's own choice was applied. */
   fallbackReason: FallbackReason | 'low_confidence' | null;
 };
@@ -215,13 +238,13 @@ export function decideWithFallback(input: {
   const { personality, observation, legalActions, rng, facts = {}, jev } = input;
   const policy = () =>
     new FallbackPolicy(personality).decide(observation, legalActions, rng, facts);
-  if ('fallbackReason' in jev) return { actionId: policy(), fallbackReason: jev.fallbackReason };
+  if ('fallbackReason' in jev) return { choice: policy(), fallbackReason: jev.fallbackReason };
   const { enabled } = legalActions;
   if (!enabled.some((option) => option.id === jev.choice)) {
-    return { actionId: policy(), fallbackReason: 'schema_mismatch' };
+    return { choice: policy(), fallbackReason: 'schema_mismatch' };
   }
   if (jev.confidence >= input.confidenceFloor) {
-    return { actionId: jev.choice, fallbackReason: null };
+    return { choice: jev.choice, fallbackReason: null };
   }
   // Highest probability first; equal probabilities keep the engine's order (a stable sort).
   const topTwo = [...enabled]
@@ -229,7 +252,6 @@ export function decideWithFallback(input: {
     .slice(0, 2);
   const scores = scoreOptions(observation, topTwo, personality, facts);
   const [first, second] = topTwo;
-  const actionId =
-    second && scores.get(second.id)! > scores.get(first!.id)! ? second.id : first!.id;
-  return { actionId, fallbackReason: 'low_confidence' };
+  const choice = second && scores.get(second.id)! > scores.get(first!.id)! ? second.id : first!.id;
+  return { choice, fallbackReason: 'low_confidence' };
 }
