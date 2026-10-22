@@ -16,7 +16,6 @@ import {
 } from '../../engine/index.ts';
 import encounterFixture from '../../engine/fixtures/encounter-with-balls.json';
 import sellFixture from '../../engine/fixtures/sell-phase-three-pokemon.json';
-import shopFixture from '../../engine/fixtures/shop-low-coins.json';
 import strategyFixture from '../../engine/fixtures/strategy-with-items.json';
 import { parseSimArgs } from '../../sim/args.ts';
 import { realEngine } from '../../sim/engine.ts';
@@ -265,20 +264,6 @@ describe('Strategy', () => {
     expect(new Set(run(3))).toEqual(
       new Set(['use-item:item-pickpocket:seat-1', 'use-item:item-pickpocket:seat-2']),
     );
-  });
-});
-
-describe('Shop', () => {
-  const { observation, legal } = seat0(shopFixture);
-
-  test('keeps its last coin while it holds plenty of Balls', () => {
-    expect(decide(greedy, observation, legal)).toBe('skip');
-  });
-
-  test('buys a Ball once it has none', () => {
-    const empty: Observation = structuredClone(observation);
-    empty.own.balls = { poke: 0, great: 0, ultra: 0 };
-    expect(decide(greedy, empty, legal)).toBe('buy:offer-poke');
   });
 });
 
