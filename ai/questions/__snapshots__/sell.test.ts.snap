@@ -1,0 +1,336 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`a team of five (spec §5.3) > exact question text (spec §5.4: wording changes are reviewed) 1`] = `
+{
+  "options": {
+    "sell_team_0": "caught:0:1",
+    "sell_team_1": "caught:0:2",
+    "sell_team_2": "caught:0:3",
+    "sell_team_3": "caught:0:4",
+    "sell_team_4": "caught:0:5",
+  },
+  "questions": {
+    "sell_team_0": {
+      "criteria": {
+        "false": "Keep it: you keep the Pokémon and can sell it at a later Sell Phase. When \`sell_phase.last_sell_phase\` is true there is none: a Pokémon kept to the end of the game is sold automatically for less, with no class bonus.",
+        "true": "Sell it now: you get its sale value now, plus the class bonus if \`class_bonus\` says so, and you no longer have the Pokémon. If you sell every Pokémon you have, you get a Rescue Starter, which sells for nothing.",
+      },
+      "instructions": "Sell Phase at Start: should \`you.team[0]\` (Pidgey) be sold now? Its facts are in \`sell_phase.offers.sell_team_0\`. \`sale_value_now\` (coins from selling it now) and \`keep_value\` (what keeping it is worth) are separate values, each low, medium or high. \`class_bonus\` says whether your class adds bonus coins to this sale; a once-per-Lap bonus goes to only one Pokémon per Sell Phase.",
+      "type": "noul",
+    },
+    "sell_team_1": {
+      "criteria": {
+        "false": "Keep it: you keep the Pokémon and can sell it at a later Sell Phase. When \`sell_phase.last_sell_phase\` is true there is none: a Pokémon kept to the end of the game is sold automatically for less, with no class bonus.",
+        "true": "Sell it now: you get its sale value now, plus the class bonus if \`class_bonus\` says so, and you no longer have the Pokémon. If you sell every Pokémon you have, you get a Rescue Starter, which sells for nothing.",
+      },
+      "instructions": "Sell Phase at Start: should \`you.team[1]\` (Eevee) be sold now? Its facts are in \`sell_phase.offers.sell_team_1\`. \`sale_value_now\` (coins from selling it now) and \`keep_value\` (what keeping it is worth) are separate values, each low, medium or high. \`class_bonus\` says whether your class adds bonus coins to this sale; a once-per-Lap bonus goes to only one Pokémon per Sell Phase.",
+      "type": "noul",
+    },
+    "sell_team_2": {
+      "criteria": {
+        "false": "Keep it: you keep the Pokémon and can sell it at a later Sell Phase. When \`sell_phase.last_sell_phase\` is true there is none: a Pokémon kept to the end of the game is sold automatically for less, with no class bonus.",
+        "true": "Sell it now: you get its sale value now, plus the class bonus if \`class_bonus\` says so, and you no longer have the Pokémon. If you sell every Pokémon you have, you get a Rescue Starter, which sells for nothing.",
+      },
+      "instructions": "Sell Phase at Start: should \`you.team[2]\` (Dratini) be sold now? Its facts are in \`sell_phase.offers.sell_team_2\`. \`sale_value_now\` (coins from selling it now) and \`keep_value\` (what keeping it is worth) are separate values, each low, medium or high. \`class_bonus\` says whether your class adds bonus coins to this sale; a once-per-Lap bonus goes to only one Pokémon per Sell Phase.",
+      "type": "noul",
+    },
+    "sell_team_3": {
+      "criteria": {
+        "false": "Keep it: you keep the Pokémon and can sell it at a later Sell Phase. When \`sell_phase.last_sell_phase\` is true there is none: a Pokémon kept to the end of the game is sold automatically for less, with no class bonus.",
+        "true": "Sell it now: you get its sale value now, plus the class bonus if \`class_bonus\` says so, and you no longer have the Pokémon. If you sell every Pokémon you have, you get a Rescue Starter, which sells for nothing.",
+      },
+      "instructions": "Sell Phase at Start: should \`you.team[3]\` (Magikarp) be sold now? Its facts are in \`sell_phase.offers.sell_team_3\`. \`sale_value_now\` (coins from selling it now) and \`keep_value\` (what keeping it is worth) are separate values, each low, medium or high. \`class_bonus\` says whether your class adds bonus coins to this sale; a once-per-Lap bonus goes to only one Pokémon per Sell Phase.",
+      "type": "noul",
+    },
+    "sell_team_4": {
+      "criteria": {
+        "false": "Keep it: you keep the Pokémon and can sell it at a later Sell Phase. When \`sell_phase.last_sell_phase\` is true there is none: a Pokémon kept to the end of the game is sold automatically for less, with no class bonus.",
+        "true": "Sell it now: you get its sale value now, plus the class bonus if \`class_bonus\` says so, and you no longer have the Pokémon. If you sell every Pokémon you have, you get a Rescue Starter, which sells for nothing.",
+      },
+      "instructions": "Sell Phase at Start: should \`you.team[4]\` (Snorlax) be sold now? Its facts are in \`sell_phase.offers.sell_team_4\`. \`sale_value_now\` (coins from selling it now) and \`keep_value\` (what keeping it is worth) are separate values, each low, medium or high. \`class_bonus\` says whether your class adds bonus coins to this sale; a once-per-Lap bonus goes to only one Pokémon per Sell Phase.",
+      "type": "noul",
+    },
+  },
+  "state": {
+    "active_seat_id": 0,
+    "board": [
+      {
+        "kind": "start",
+        "name": "Start",
+        "space_id": 0,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 1,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 2,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 3,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 4,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 5,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 6,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 7,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 8,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 9,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 10,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 11,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 12,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 13,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 14,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 15,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 16,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 17,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 18,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 19,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 20,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 21,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 22,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 23,
+      },
+    ],
+    "final_table_round": false,
+    "opponents": [
+      {
+        "ability_ready": true,
+        "class_id": "rival",
+        "coins_vs_you": "level",
+        "id": "P2",
+        "item_count": "one",
+        "known_items": [
+          {
+            "id": "class-item:1",
+            "item_id": "lucky-egg",
+            "name": "Lucky Egg",
+          },
+        ],
+        "lap": "1 of 3",
+        "seat_id": 1,
+        "squares_to_start": "far",
+        "team": [
+          {
+            "ability_ready": true,
+            "id": "starter:1",
+            "origin": "original_starter",
+            "species_id": "eevee",
+            "tired": false,
+          },
+        ],
+        "team_count": "one",
+      },
+      {
+        "ability_ready": true,
+        "class_id": "nurse-joy",
+        "coins_vs_you": "level",
+        "id": "P3",
+        "item_count": "one",
+        "known_items": [
+          {
+            "id": "class-item:2",
+            "item_id": "price-shield",
+            "name": "Price Shield",
+          },
+        ],
+        "lap": "1 of 3",
+        "seat_id": 2,
+        "squares_to_start": "far",
+        "team": [
+          {
+            "ability_ready": true,
+            "id": "starter:2",
+            "origin": "original_starter",
+            "species_id": "chansey",
+            "tired": false,
+          },
+        ],
+        "team_count": "one",
+      },
+    ],
+    "phase": "sell",
+    "sell_phase": {
+      "laps_remaining": "few",
+      "last_sell_phase": false,
+      "offers": {
+        "sell_team_0": {
+          "class_bonus": "only if you do not also sell a Pokémon that takes it instead",
+          "keep_value": "low",
+          "pokemon": "Pidgey",
+          "sale_value_now": "low",
+        },
+        "sell_team_1": {
+          "class_bonus": "only if you do not also sell a Pokémon that takes it instead",
+          "keep_value": "low",
+          "pokemon": "Eevee",
+          "sale_value_now": "medium",
+        },
+        "sell_team_2": {
+          "class_bonus": "yes",
+          "keep_value": "low",
+          "pokemon": "Dratini",
+          "sale_value_now": "high",
+        },
+        "sell_team_3": {
+          "class_bonus": "only if you do not also sell a Pokémon that takes it instead",
+          "keep_value": "low",
+          "pokemon": "Magikarp",
+          "sale_value_now": "low",
+        },
+        "sell_team_4": {
+          "class_bonus": "only if you do not also sell a Pokémon that takes it instead",
+          "keep_value": "low",
+          "pokemon": "Snorlax",
+          "sale_value_now": "high",
+        },
+      },
+    },
+    "you": {
+      "ability_ready": true,
+      "balls": {
+        "great": "none",
+        "poke": "many",
+        "ultra": "none",
+      },
+      "class_id": "researcher",
+      "coins_rank": "1st of 3",
+      "id": "P1",
+      "item_count": "one",
+      "items": [
+        {
+          "id": "class-item:0",
+          "item_id": "potion",
+          "name": "Potion",
+        },
+      ],
+      "lap": "2 of 3",
+      "personality": "Greedy: Values cash now over long-term team building; avoids fights it may lose.",
+      "private_results": [],
+      "seat_id": 0,
+      "squares_to_start": "far",
+      "team": [
+        {
+          "ability_ready": true,
+          "id": "caught:0:1",
+          "origin": "caught",
+          "species_id": "pidgey",
+          "tired": false,
+        },
+        {
+          "ability_ready": true,
+          "id": "caught:0:2",
+          "origin": "caught",
+          "species_id": "eevee",
+          "tired": true,
+        },
+        {
+          "ability_ready": true,
+          "id": "caught:0:3",
+          "origin": "caught",
+          "species_id": "dratini",
+          "tired": false,
+        },
+        {
+          "ability_ready": true,
+          "id": "caught:0:4",
+          "origin": "caught",
+          "species_id": "magikarp",
+          "tired": false,
+        },
+        {
+          "ability_ready": false,
+          "id": "caught:0:5",
+          "origin": "caught",
+          "species_id": "snorlax",
+          "tired": false,
+        },
+      ],
+      "team_count": "many",
+    },
+  },
+}
+`;
