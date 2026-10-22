@@ -252,16 +252,6 @@ describe('shortlist (spec §3.1, §5.3)', () => {
     ]);
   });
 
-  test.each(['repel', 'lucky-egg'])(
-    'interchangeable actions (two %s uses on one target) are offered once',
-    (itemId) => {
-      const two = strategy(2, [itemId, itemId]);
-      const decision = asked(askStrategy(two));
-      expect(Object.keys(decision.options)).toEqual(['a1', 'skip']);
-      expect(legalActions(two, 0).enabled).toHaveLength(3);
-    },
-  );
-
   test('Strategy without a legal skip is an engine contract error', () => {
     expect(() =>
       buildStrategyQuestion(observation, [use('repel', 1), use('repel', 2)], greedy),
@@ -283,7 +273,7 @@ describe('buckets (spec §5.4)', () => {
     for (const bad of [-1, 7, 2.5, NaN]) expect(() => bucketCatchChance(bad)).toThrow(RangeError);
   });
 
-  test('remaining Balls are none, one, a few or many', () => {
+  test('Ball counts are none, one, a few or many', () => {
     expect([0, 1, 2, 3, 4, 9].map(ballCountWords)).toEqual([
       'none',
       'one',
@@ -307,7 +297,9 @@ describe('buckets (spec §5.4)', () => {
     const question = decision.questions.encounter!;
     if (question.type !== 'choice') throw new Error('Expected a Choice');
     expect(question.criteria.poke_ball).toContain('Catch chance with this Ball: very high.');
-    expect(question.criteria.poke_ball).toContain('left after this throw: one.');
+    expect(question.criteria.poke_ball).toContain(
+      'Poké Balls you hold now, counting this one: a few.',
+    );
   });
 });
 

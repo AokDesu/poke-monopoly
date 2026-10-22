@@ -99,8 +99,8 @@ export function buildEncounterQuestion(
     options[label] = action.id;
     criteria[label] =
       `Throw one ${ball} at the wild ${pokemon.name}. Catch chance with this Ball: ` +
-      `${bucketCatchChance(odds.successFaces)}. ${ball}s you would have left after this throw: ` +
-      `${ballCountWords(observation.own.balls[ballType] - 1)}. Whether the catch succeeds is ` +
+      `${bucketCatchChance(odds.successFaces)}. ${ball}s you hold now, counting this one: ` +
+      `${ballCountWords(observation.own.balls[ballType])}. Whether the catch succeeds is ` +
       'unknown until the die is rolled.';
   }
   if (!options.release) throw new RangeError('Encounter actions must include release');

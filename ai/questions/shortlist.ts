@@ -47,9 +47,8 @@ export function affinity(kind: string, personality: Personality): number {
 
 /**
  * Spec §3.1 and §5.3: the personality filter drops actions it leans away from, but every legal
- * action kind keeps its best-ranked action, and `skip` is always kept when it is legal. Uses of
- * the same item kind on the same target are interchangeable (two Repels on one seat), so only
- * the first is offered. Over the limit, `skip` and one action per kind come first, then the
+ * action kind keeps its best-ranked action, and `skip` is always kept when it is legal. Over the
+ * limit, `skip` and one action per kind come first, then the
  * best-ranked rest. The result keeps the engine's order.
  */
 export function shortlistActions(
@@ -60,18 +59,10 @@ export function shortlistActions(
 ): LegalAction[] {
   const coins = (seat: number | undefined) =>
     observation.public.players.find((player) => player.seatIndex === seat)?.coins ?? 0;
-  const seen = new Set<string>();
-  const candidates = actions
-    .map((action, index) => {
-      const kind = actionKind(action, observation);
-      return { action, index, kind, score: affinity(kind, personality) };
-    })
-    .filter(({ action, kind }) => {
-      const key = action.kind === 'use_item' ? `${kind}|${targetOf(action) ?? 'self'}` : action.id;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+  const candidates = actions.map((action, index) => {
+    const kind = actionKind(action, observation);
+    return { action, index, kind, score: affinity(kind, personality) };
+  });
   const skip = candidates.filter(({ action }) => action.kind === 'skip');
   // Best first: liked kinds, then the richer target (the leader), then the engine's order.
   const ranked = candidates

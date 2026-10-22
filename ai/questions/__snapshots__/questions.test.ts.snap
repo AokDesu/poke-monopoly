@@ -5,10 +5,10 @@ exports[`encounter: Dratini with every Ball type > exact question text (spec §5
   "questions": {
     "encounter": {
       "criteria": {
-        "great_ball": "Throw one Great Ball at the wild Dratini. Catch chance with this Ball: high. Great Balls you would have left after this throw: a few. Whether the catch succeeds is unknown until the die is rolled.",
-        "poke_ball": "Throw one Poké Ball at the wild Dratini. Catch chance with this Ball: even. Poké Balls you would have left after this throw: none. Whether the catch succeeds is unknown until the die is rolled.",
+        "great_ball": "Throw one Great Ball at the wild Dratini. Catch chance with this Ball: high. Great Balls you hold now, counting this one: a few. Whether the catch succeeds is unknown until the die is rolled.",
+        "poke_ball": "Throw one Poké Ball at the wild Dratini. Catch chance with this Ball: even. Poké Balls you hold now, counting this one: one. Whether the catch succeeds is unknown until the die is rolled.",
         "release": "Release the wild Dratini without throwing a Ball. You keep all your Balls and do not get the Dratini.",
-        "ultra_ball": "Throw one Ultra Ball at the wild Dratini. Catch chance with this Ball: very high. Ultra Balls you would have left after this throw: a few. Whether the catch succeeds is unknown until the die is rolled.",
+        "ultra_ball": "Throw one Ultra Ball at the wild Dratini. Catch chance with this Ball: very high. Ultra Balls you hold now, counting this one: many. Whether the catch succeeds is unknown until the die is rolled.",
       },
       "instructions": "A wild Pokémon is here (\`encounter.pokemon\`). Pick the ONE option that best fits \`you.personality\` right now: throw one of your Balls at it, or release it. Only the listed options are allowed. Catch chance, from worst to best, is very low, low, even, high or very high; "even" means as likely to succeed as to fail, and "very high" includes a certain catch. A throw uses up the Ball whether or not the catch succeeds.",
       "type": "choice",
@@ -210,8 +210,8 @@ exports[`encounter: Eevee with Poke Balls and one Great Ball > exact question te
   "questions": {
     "encounter": {
       "criteria": {
-        "great_ball": "Throw one Great Ball at the wild Eevee. Catch chance with this Ball: very high. Great Balls you would have left after this throw: none. Whether the catch succeeds is unknown until the die is rolled.",
-        "poke_ball": "Throw one Poké Ball at the wild Eevee. Catch chance with this Ball: high. Poké Balls you would have left after this throw: many. Whether the catch succeeds is unknown until the die is rolled.",
+        "great_ball": "Throw one Great Ball at the wild Eevee. Catch chance with this Ball: very high. Great Balls you hold now, counting this one: one. Whether the catch succeeds is unknown until the die is rolled.",
+        "poke_ball": "Throw one Poké Ball at the wild Eevee. Catch chance with this Ball: high. Poké Balls you hold now, counting this one: many. Whether the catch succeeds is unknown until the die is rolled.",
         "release": "Release the wild Eevee without throwing a Ball. You keep all your Balls and do not get the Eevee.",
       },
       "instructions": "A wild Pokémon is here (\`encounter.pokemon\`). Pick the ONE option that best fits \`you.personality\` right now: throw one of your Balls at it, or release it. Only the listed options are allowed. Catch chance, from worst to best, is very low, low, even, high or very high; "even" means as likely to succeed as to fail, and "very high" includes a certain catch. A throw uses up the Ball whether or not the catch succeeds.",
@@ -626,12 +626,15 @@ exports[`strategy: 4 players, four items, a public Price Shield and secret items
     "strategy": {
       "criteria": {
         "a1": "Use your Repel on P2, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P2 will learn that you used it on them. How far P2 would roll on their next move is unknown. P2 holds secret items; whether one of them is a Price Shield is unknown.",
+        "a10": "Use your Repel on P4, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P4 will learn that you used it on them. How far P4 would roll on their next move is unknown. P4 holds no secret items.",
         "a2": "Use your Repel on P3, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P3 will learn that you used it on them. How far P3 would roll on their next move is unknown. P3 openly holds a Price Shield.",
         "a3": "Use your Repel on P4, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P4 will learn that you used it on them. How far P4 would roll on their next move is unknown. P4 holds no secret items.",
         "a4": "Use your Pickpocket on P2, the target. Pickpocket effect: Take up to 5 coins from the target. This uses up the item and your tactical action for this turn. P2 will learn that you used it on them. P2 holds secret items; whether one of them is a Price Shield is unknown.",
         "a5": "Use your Pickpocket on P3, the target. Pickpocket effect: Take up to 5 coins from the target. This uses up the item and your tactical action for this turn. P3 will learn that you used it on them. P3 openly holds a Price Shield.",
         "a6": "Use your Pickpocket on P4, the target. Pickpocket effect: Take up to 5 coins from the target. This uses up the item and your tactical action for this turn. P4 will learn that you used it on them. P4 holds no secret items.",
         "a7": "Use your Lucky Egg on yourself. Lucky Egg effect: +1 own catch/combat until end of turn; no movement bonus. This uses up the item and your tactical action for this turn. Whether you meet a wild Pokémon this turn is unknown, because your move roll is unknown.",
+        "a8": "Use your Repel on P2, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P2 will learn that you used it on them. How far P2 would roll on their next move is unknown. P2 holds secret items; whether one of them is a Price Shield is unknown.",
+        "a9": "Use your Repel on P3, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P3 will learn that you used it on them. How far P3 would roll on their next move is unknown. P3 openly holds a Price Shield.",
         "skip": "Do nothing this phase and keep all your items. Your tactical action for this turn stays unused.",
       },
       "instructions": "Pick the ONE action that best fits \`you.personality\` right now. Only the listed actions are allowed. Each option states its effect and what is unknown when you choose it.",
