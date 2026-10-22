@@ -25,14 +25,14 @@ export type CatchingSummary = {
   byBallDcLap: CatchRow[];
 };
 
-/** Shop squares resolved, and purchases by offer ID (e.g. `offer-poke`). */
-export type ShopSummary = { visits: number; purchases: Record<string, number> };
+/** Shop purchases by offer ID (e.g. `offer-poke`). */
+export type ShopSummary = { purchases: Record<string, number> };
 
 /**
- * Start Sell Phases by the seller's `creditedLap` (the n-th paid Start crossing is Lap n): phases
- * entered, Pokémon sold and coins paid. Final Table Round auto-sales are not counted.
+ * Start Sell Phase sales by the seller's `creditedLap` (the n-th paid Start crossing is Lap n):
+ * Pokémon sold and coins paid. Final Table Round auto-sales are not counted.
  */
-export type SalesByLap = Record<string, { sellPhases: number; sold: number; coins: number }>;
+export type SalesByLap = Record<string, { sold: number; coins: number }>;
 
 export type MetricsSummary = {
   catching: CatchingSummary;
@@ -49,7 +49,7 @@ export type MetricsCollector = {
 export function emptyMetricsSummary(): MetricsSummary {
   return {
     catching: { encounters: 0, attempts: 0, catches: 0, releases: 0, byBallDcLap: [] },
-    shop: { visits: 0, purchases: {} },
+    shop: { purchases: {} },
     salesByLap: {},
   };
 }
@@ -61,7 +61,7 @@ export function createMetrics(): MetricsCollector {
   const tries = new Map<string, { attempts: number; catches: number }>();
   // The DC and Lap of the encounter in progress, keyed when it began.
   let encounter: { dc: number; lap: number } | null = null;
-  const sales = (lap: number) => (total.salesByLap[lap] ??= { sellPhases: 0, sold: 0, coins: 0 });
+  const sales = (lap: number) => (total.salesByLap[lap] ??= { sold: 0, coins: 0 });
 
   return {
     step(before, action, after, events) {
@@ -75,13 +75,9 @@ export function createMetrics(): MetricsCollector {
         catching.encounters++;
         increment(encounters, `${encounter.dc}@${encounter.lap}`);
       }
-      if (after.phase.kind === 'shop' && before.phase.kind !== 'shop') total.shop.visits++;
       if (action.kind === 'buy') {
         const { purchases } = total.shop;
         purchases[action.payload.offerId] = (purchases[action.payload.offerId] ?? 0) + 1;
-      }
-      if (after.phase.kind === 'sell' && before.phase.kind !== 'sell') {
-        sales(after.players[after.activeSeatIndex]!.creditedLap).sellPhases++;
       }
       for (const event of events) {
         if (event.kind !== 'coin_transfer' || event.reason !== 'pokemon_sale') continue;
@@ -131,7 +127,7 @@ export function createMetrics(): MetricsCollector {
       }
       return {
         catching: { ...total.catching, byBallDcLap: rows },
-        shop: { visits: total.shop.visits, purchases: sortedKeys(total.shop.purchases) },
+        shop: { purchases: sortedKeys(total.shop.purchases) },
         salesByLap: total.salesByLap,
       };
     },

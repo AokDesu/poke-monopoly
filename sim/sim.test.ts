@@ -434,7 +434,9 @@ describe('runCli (§7, §8)', () => {
         'classInSeat',
       ]),
     );
+    expect(JSON.parse(out[0]!).shop).toEqual({ purchases: { coin: expect.any(Number) } });
     const table = out.slice(1).join('\n');
+    expect(table).toMatch(/^ {2}Shop +coin \d+$/m);
     expect(table).toMatch(/^Sim: 4 games, 2 seats, seed set tune$/m);
     expect(table).toMatch(/^ {2}Turns per game +4$/m);
     expect(table).toMatch(/^ {2}Tie rate +[\d.]+ \(\d+ ties?\)$/m);
@@ -566,9 +568,8 @@ describe('summary metrics from the real engine (§8, Appendix A)', () => {
     const { shop } = real('buy-poke', {
       'buy-poke': prefer('buy:offer-poke', 'release', 'finish-sell', 'skip'),
     });
-    expect(shop.visits).toBeGreaterThan(0);
-    // Every visit buys one Poké Ball: no coin ever leaves except the 1-coin Ball itself.
-    expect(shop.purchases).toEqual({ 'offer-poke': shop.visits });
+    expect(shop).toEqual({ purchases: { 'offer-poke': expect.any(Number) } });
+    expect(shop.purchases['offer-poke']).toBeGreaterThan(0);
   });
 
   test('sales are counted per Lap, and only after a paid Start crossing (§4.7)', () => {
@@ -586,8 +587,8 @@ describe('summary metrics from the real engine (§8, Appendix A)', () => {
     expect(Object.keys(salesByLap).length).toBeGreaterThan(0);
     for (const [lap, sales] of Object.entries(salesByLap)) {
       expect([1, 2]).toContain(Number(lap));
-      // The team is never empty at Start (Rescue Starter), so each Sell Phase sells one.
-      expect(sales.sold).toBe(sales.sellPhases);
+      expect(sales).toEqual({ sold: expect.any(Number), coins: expect.any(Number) });
+      expect(sales.sold).toBeGreaterThan(0);
     }
     // A Rescue Starter sells for 0, so only the run as a whole must have paid coins.
     expect(Object.values(salesByLap).reduce((sum, sales) => sum + sales.coins, 0)).toBeGreaterThan(

@@ -16,7 +16,7 @@ export function formatSummary(summary: SimSummary): string[] {
       `${catching.encounters} encounters, ${catching.attempts} attempts, ` +
         `${catching.catches} catches, ${catching.releases} releases`,
     ),
-    row('Shop', `${shop.visits} visits; ${list(shop.purchases) || 'no purchases'}`),
+    row('Shop', list(shop.purchases) || 'no purchases'),
     row(
       'Sales by Lap',
       Object.entries(salesByLap)
