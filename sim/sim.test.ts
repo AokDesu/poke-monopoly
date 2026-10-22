@@ -354,6 +354,33 @@ describe('runSim with a fake engine (§7, §8, §9)', () => {
     expect(calls.filter((kind) => kind !== 'roll')).toHaveLength(8);
   });
 
+  test('engine facts reach only a policy that asks for them', () => {
+    const asked: number[] = [];
+    const engine: SimEngine = {
+      ...fakeEngine(),
+      facts: (_state, seatIndex) => (asked.push(seatIndex), { saleValue: { mon: 1 } }),
+    };
+    const seen: unknown[] = [];
+    const recorder = (wantsFacts: boolean) => (): Policy => {
+      const random = new RandomPolicy();
+      return {
+        wantsFacts,
+        decide(observation, legal, rng, facts) {
+          seen.push(facts);
+          return random.decide(observation, legal, rng);
+        },
+      };
+    };
+    runSim(engine, options({ games: 1, policy: 'plain' }), { plain: recorder(false) });
+    expect(asked).toEqual([]);
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every((facts) => facts === undefined)).toBe(true);
+    seen.length = 0;
+    runSim(engine, options({ games: 1, policy: 'eager' }), { eager: recorder(true) });
+    expect(asked).toHaveLength(seen.length);
+    expect(seen.every((facts) => JSON.stringify(facts) === '{"saleValue":{"mon":1}}')).toBe(true);
+  });
+
   test.each([2, 3, 4])('plays %i seats', (seats) => {
     const { summary } = runSim(fakeEngine(), options({ seats }));
     expect(summary).toMatchObject({ seats, aborted: 0, averageTurns: 2 * seats });
