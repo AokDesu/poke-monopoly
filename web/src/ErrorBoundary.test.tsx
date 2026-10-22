@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
-import { t } from './i18n/th.ts';
+import { t } from './i18n/en.ts';
 
 afterEach(() => {
   vi.restoreAllMocks();

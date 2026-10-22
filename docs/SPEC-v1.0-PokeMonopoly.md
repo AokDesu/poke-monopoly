@@ -103,7 +103,7 @@ Home → choose Quick/Standard → choose class → choose 1–3 AIs → set eac
 - The AI speaks briefly at significant moments. Lines can be skipped and turns sped up.
 - The game can be finished without ever typing in chat.
 - A "Backup bot mode" badge shows truthfully whenever an AI is using the fallback.
-- The player-facing UI and line bank are in Thai; UI strings in this document are given in English.
+- The player-facing UI, line bank and chat are in English (captain, 2026-10-21; replaces the Thai UI of earlier drafts). UI strings in this document are the English source; the web catalog is `web/src/i18n/en.ts`.
 
 ### 3.1 Decisions you never made
 
@@ -377,7 +377,7 @@ Sources:
 |---|---|---|
 | **Engine** (code) | Rules, RNG, every number (odds, netValue, trust, concession), legal actions, shortlist, validation, commit | Make network calls |
 | **Jev** | Choose among the engine's options, classify chat, decide keep-or-sell, pick lines | Modify state, see anything outside its role, compute numbers |
-| **Line bank** (content) | Thai lines written by the team, with slots the engine fills with names and numbers | Invent new text during play |
+| **Line bank** (content) | English lines written by the team, with slots the engine fills with names and numbers | Invent new text during play |
 | **Fallback policy** (code) | Personality-weighted utility, used when Jev is unavailable or not confident enough; also the "policy-only" baseline | Use hidden information |
 
 ### 5.3 Decision points → questions
