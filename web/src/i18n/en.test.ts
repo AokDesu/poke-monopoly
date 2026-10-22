@@ -1,5 +1,8 @@
 import { expect, test } from 'vitest';
-import { t, th, type MessageKey } from './th.ts';
+import { classOptions } from '../game/content.ts';
+import { DIFFICULTIES, PERSONALITIES } from '../game/setup.ts';
+import { MODES } from '../game/store.ts';
+import { en, t, type MessageKey } from './en.ts';
 
 // Independent checklist: every row of spec §3.1, plus its visible actions and §3's badge.
 // Do not derive this list from the catalog: deleting a required key must fail the test.
@@ -44,9 +47,27 @@ const situations = [
   { situation: 'Event deck runs out', keys: ['event.deckReshuffled'] },
 ] as const satisfies readonly { situation: string; keys: readonly MessageKey[] }[];
 
-test.each(situations)('$situation has its Thai UI messages (§3.1)', ({ keys }) => {
+test.each(situations)('$situation has its UI messages (§3.1)', ({ keys }) => {
   for (const key of keys) {
-    expect(Object.hasOwn(th, key), key).toBe(true);
-    expect(t(key), key).toMatch(/\p{Script=Thai}/u);
+    expect(Object.hasOwn(en, key), key).toBe(true);
+    expect(t(key).trim(), key).not.toBe('');
+  }
+});
+
+test('the whole catalog is English: no Thai script left in any message (§3)', () => {
+  const thai = Object.entries(en).filter(([, text]) => /\p{Script=Thai}/u.test(text));
+  expect(thai).toEqual([]);
+});
+
+test('every choice setup can show has its text (§1, §3)', () => {
+  const keys: MessageKey[] = [
+    ...(Object.keys(MODES) as (keyof typeof MODES)[]).map((mode) => `mode.${mode}` as const),
+    ...PERSONALITIES.map((entry) => `personality.${entry.id}` as const),
+    ...DIFFICULTIES.flatMap((level) => [`difficulty.${level}`, `difficulty.${level}Hint`] as const),
+  ];
+  for (const key of keys) expect(t(key).trim(), key).not.toBe('');
+  // A class becomes playable once the engine implements its passive; it then needs its wording.
+  for (const option of classOptions.filter((entry) => entry.playable)) {
+    expect(Object.hasOwn(en, `class.passive.${option.id}`), option.id).toBe(true);
   }
 });

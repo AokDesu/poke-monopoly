@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { CONTENT_VERSION } from '../content/index.ts';
 import {
   actionSchema,
+  checkInvariants,
   fixtureSchema,
   GAME_PRESETS,
   observe,
@@ -13,6 +14,7 @@ import {
 import fixture from '../engine/fixtures/start-of-game-2p.json';
 import { parseSimArgs } from './args.ts';
 import { loadContent } from './content.ts';
+import { runCli } from './main.ts';
 import { createPolicyRng, POLICIES, RandomPolicy, type Policy } from './policy.ts';
 import { realEngine } from './engine.ts';
 import {
@@ -386,9 +388,54 @@ describe('runSim with a fake engine (§7, §8, §9)', () => {
   });
 });
 
+describe('runCli (§7, §8)', () => {
+  const run = (args: string[], check: InvariantCheck) => {
+    const out: string[] = [];
+    const err: string[] = [];
+    const code = runCli(args, fakeEngine(), check, {
+      log: (line) => out.push(line),
+      error: (line) => err.push(line),
+    });
+    return { code, out, err };
+  };
+
+  test('an invariant violation fails the run with its reproduce command', () => {
+    const firstRoll: InvariantCheck = (before, action) =>
+      action.kind === 'roll' && before.globalTurnNo === 1 ? ['first roll'] : [];
+    const { code, out, err } = run(['--games', '2', '--seed', '7'], firstRoll);
+    expect(code).toBe(1);
+    expect(JSON.parse(out[0]!)).toMatchObject({ games: 2, invariantFailures: 2 });
+    expect(err).toEqual([
+      expect.stringContaining(
+        'game seed 7 failed (invariant failures: 1); reproduce: npm run sim -- --games 1 --seed 7',
+      ),
+      expect.stringContaining(
+        'game seed 8 failed (invariant failures: 1); reproduce: npm run sim -- --games 1 --seed 8',
+      ),
+    ]);
+  });
+
+  test('a clean run exits 0', () => {
+    const { code, err } = run(['--games', '2', '--seed', '7'], () => []);
+    expect(code).toBe(0);
+    expect(err).toEqual([]);
+  });
+
+  test('bad arguments exit 2', () => {
+    const { code, err } = run(['--seats', '5'], () => []);
+    expect(code).toBe(2);
+    expect(err).toEqual(['sim: --seats must be 2, 3 or 4']);
+  });
+});
+
 describe('the real engine', () => {
   test('plays complete games from the real content with no failures (§8)', () => {
-    const { summary, failures } = runSim(realEngine, options({ games: 6, seats: 3 }));
+    const { summary, failures } = runSim(
+      realEngine,
+      options({ games: 6, seats: 3 }),
+      POLICIES,
+      checkInvariants,
+    );
     expect(failures).toEqual([]);
     expect(summary).toMatchObject({ games: 6, seats: 3, aborted: 0 });
     expect(summary.averageTurns).toBeGreaterThan(0);

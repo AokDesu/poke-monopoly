@@ -3,9 +3,9 @@ import { join, relative } from 'node:path';
 import ts from 'typescript';
 import { expect, test } from 'vitest';
 
-// Every user-visible string comes from web/src/i18n/th.ts (spec §3, §3.1).
+// Every user-visible string comes from web/src/i18n/en.ts (spec §3, §3.1).
 const SRC = join(import.meta.dirname, '..');
-const CATALOG = 'i18n/th.ts';
+const CATALOG = 'i18n/en.ts';
 const LETTER = /\p{L}/u;
 const THAI = /[\u0E00-\u0E7F]/;
 // JSX attributes the browser shows or reads aloud.
