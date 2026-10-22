@@ -12,19 +12,6 @@ export type StrategyState = ReturnType<typeof personalState<Record<never, never>
 
 const HOSTILE_ITEM_IDS = ['repel', 'pickpocket'];
 
-/** What `you` cannot know about a hostile item's target (spec §4.6: secret items stay secret). */
-function shieldSentence(observation: Observation, seatIndex: number): string {
-  const target = observation.public.players.find((player) => player.seatIndex === seatIndex)!;
-  const name = target.actorId;
-  if (target.knownItems.some((item) => item.itemId === 'price-shield')) {
-    return `${name} openly holds a Price Shield.`;
-  }
-  if (target.itemCount > target.knownItems.length) {
-    return `${name} holds secret items; whether one of them is a Price Shield is unknown.`;
-  }
-  return `${name} holds no secret items.`;
-}
-
 function itemCriteria(
   action: Extract<LegalAction, { kind: 'use_item' }>,
   observation: Observation,
@@ -51,7 +38,6 @@ function itemCriteria(
     if (owned.itemId === 'repel') {
       sentences.push(`How far ${targetName} would roll on their next move is unknown.`);
     }
-    sentences.push(shieldSentence(observation, target));
   }
   return sentences.join(' ');
 }

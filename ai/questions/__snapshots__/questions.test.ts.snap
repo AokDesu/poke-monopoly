@@ -414,8 +414,8 @@ exports[`strategy: 2 players, Repel and Pickpocket against the Rival > exact que
   "questions": {
     "strategy": {
       "criteria": {
-        "a1": "Use your Repel on P2, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P2 will learn that you used it on them. How far P2 would roll on their next move is unknown. P2 holds no secret items.",
-        "a2": "Use your Pickpocket on P2, the target. Pickpocket effect: Take up to 5 coins from the target. This uses up the item and your tactical action for this turn. P2 will learn that you used it on them. P2 holds no secret items.",
+        "a1": "Use your Repel on P2, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P2 will learn that you used it on them. How far P2 would roll on their next move is unknown.",
+        "a2": "Use your Pickpocket on P2, the target. Pickpocket effect: Take up to 5 coins from the target. This uses up the item and your tactical action for this turn. P2 will learn that you used it on them.",
         "skip": "Do nothing this phase and keep all your items. Your tactical action for this turn stays unused.",
       },
       "instructions": "Pick the ONE action that best fits \`you.personality\` right now. Only the listed actions are allowed. Each option states its effect and what is unknown when you choose it.",
@@ -625,16 +625,16 @@ exports[`strategy: 4 players, four items, a public Price Shield and secret items
   "questions": {
     "strategy": {
       "criteria": {
-        "a1": "Use your Repel on P2, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P2 will learn that you used it on them. How far P2 would roll on their next move is unknown. P2 holds secret items; whether one of them is a Price Shield is unknown.",
-        "a10": "Use your Repel on P4, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P4 will learn that you used it on them. How far P4 would roll on their next move is unknown. P4 holds no secret items.",
-        "a2": "Use your Repel on P3, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P3 will learn that you used it on them. How far P3 would roll on their next move is unknown. P3 openly holds a Price Shield.",
-        "a3": "Use your Repel on P4, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P4 will learn that you used it on them. How far P4 would roll on their next move is unknown. P4 holds no secret items.",
-        "a4": "Use your Pickpocket on P2, the target. Pickpocket effect: Take up to 5 coins from the target. This uses up the item and your tactical action for this turn. P2 will learn that you used it on them. P2 holds secret items; whether one of them is a Price Shield is unknown.",
-        "a5": "Use your Pickpocket on P3, the target. Pickpocket effect: Take up to 5 coins from the target. This uses up the item and your tactical action for this turn. P3 will learn that you used it on them. P3 openly holds a Price Shield.",
-        "a6": "Use your Pickpocket on P4, the target. Pickpocket effect: Take up to 5 coins from the target. This uses up the item and your tactical action for this turn. P4 will learn that you used it on them. P4 holds no secret items.",
+        "a1": "Use your Repel on P2, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P2 will learn that you used it on them. How far P2 would roll on their next move is unknown.",
+        "a10": "Use your Repel on P4, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P4 will learn that you used it on them. How far P4 would roll on their next move is unknown.",
+        "a2": "Use your Repel on P3, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P3 will learn that you used it on them. How far P3 would roll on their next move is unknown.",
+        "a3": "Use your Repel on P4, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P4 will learn that you used it on them. How far P4 would roll on their next move is unknown.",
+        "a4": "Use your Pickpocket on P2, the target. Pickpocket effect: Take up to 5 coins from the target. This uses up the item and your tactical action for this turn. P2 will learn that you used it on them.",
+        "a5": "Use your Pickpocket on P3, the target. Pickpocket effect: Take up to 5 coins from the target. This uses up the item and your tactical action for this turn. P3 will learn that you used it on them.",
+        "a6": "Use your Pickpocket on P4, the target. Pickpocket effect: Take up to 5 coins from the target. This uses up the item and your tactical action for this turn. P4 will learn that you used it on them.",
         "a7": "Use your Lucky Egg on yourself. Lucky Egg effect: +1 own catch/combat until end of turn; no movement bonus. This uses up the item and your tactical action for this turn. Whether you meet a wild Pokémon this turn is unknown, because your move roll is unknown.",
-        "a8": "Use your Repel on P2, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P2 will learn that you used it on them. How far P2 would roll on their next move is unknown. P2 holds secret items; whether one of them is a Price Shield is unknown.",
-        "a9": "Use your Repel on P3, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P3 will learn that you used it on them. How far P3 would roll on their next move is unknown. P3 openly holds a Price Shield.",
+        "a8": "Use your Repel on P2, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P2 will learn that you used it on them. How far P2 would roll on their next move is unknown.",
+        "a9": "Use your Repel on P3, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P3 will learn that you used it on them. How far P3 would roll on their next move is unknown.",
         "skip": "Do nothing this phase and keep all your items. Your tactical action for this turn stays unused.",
       },
       "instructions": "Pick the ONE action that best fits \`you.personality\` right now. Only the listed actions are allowed. Each option states its effect and what is unknown when you choose it.",

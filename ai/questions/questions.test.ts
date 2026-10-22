@@ -160,6 +160,14 @@ test('round trip returns the original engine action ID for every option (spec §
   expect(actionIdFor({ kind: 'autoApply', actionId: 'skip' }, 'skip')).toBeUndefined();
 });
 
+test('Strategy criteria never mention Price Shield while the engine defers it (spec §4.6)', () => {
+  const state = strategy(4, ['repel', 'pickpocket']);
+  give(state, 1, 'pickpocket', 'secret');
+  const [question] = Object.values(asked(askStrategy(state)).questions);
+  if (question?.type !== 'choice') throw new Error('Expected one Choice question');
+  for (const text of Object.values(question.criteria)) expect(text).not.toMatch(/shield/i);
+});
+
 describe('spec §3.1 decisions you never made', () => {
   test('one enabled action is applied automatically and builds no question', () => {
     const state = strategy(2, []);
