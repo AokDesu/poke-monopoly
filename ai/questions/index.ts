@@ -18,3 +18,21 @@ export {
   type PersonalityWeight,
 } from './shortlist.ts';
 export { buildStrategyQuestion, STRATEGY_INSTRUCTIONS, type StrategyState } from './strategy.ts';
+export {
+  bucketSellValue,
+  buildSellQuestions,
+  decideSales,
+  REQUESTS_PER_TURN,
+  SELL_CRITERIA,
+  SELL_REQUEST_LIMIT,
+  SELL_VALUE_BUCKETS,
+  sellAnswers,
+  sellInstructions,
+  type SaleFact,
+  type SellFacts,
+  type SellOffer,
+  type SellQuestions,
+  type SellRequest,
+  type SellState,
+  type SellValue,
+} from './sell.ts';
