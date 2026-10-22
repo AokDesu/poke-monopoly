@@ -1,8 +1,11 @@
 import { parseArgs } from 'node:util';
 import { POLICIES } from './policy.ts';
-import { DEFAULT_OPTIONS, type SimOptions } from './runner.ts';
+import { checkSeedSet, DEFAULT_OPTIONS, type SimOptions } from './runner.ts';
 
-/** `--games <n> --seed <n> [--seats 2|3|4] [--max-steps n] [--lap-target n] [--policy name]`. */
+/**
+ * `--games <n> --seed <n> [--seats 2|3|4] [--max-steps n] [--lap-target n] [--policy name]
+ * [--seed-set tune|eval]`.
+ */
 export function parseSimArgs(args: string[]): SimOptions {
   const { values } = parseArgs({
     args,
@@ -15,6 +18,7 @@ export function parseSimArgs(args: string[]): SimOptions {
       'max-steps': { type: 'string', default: String(DEFAULT_OPTIONS.maxSteps) },
       'lap-target': { type: 'string', default: String(DEFAULT_OPTIONS.lapTarget) },
       policy: { type: 'string', default: DEFAULT_OPTIONS.policy },
+      'seed-set': { type: 'string', default: DEFAULT_OPTIONS.seedSet },
     },
   });
   const seats = integer('seats', values.seats, 2);
@@ -24,14 +28,21 @@ export function parseSimArgs(args: string[]): SimOptions {
       `--policy must be one of: ${Object.keys(POLICIES).join(', ')}; got ${values.policy}`,
     );
   }
-  return {
+  const seedSet = values['seed-set'];
+  if (seedSet !== 'tune' && seedSet !== 'eval') {
+    throw new RangeError(`--seed-set must be tune or eval; got ${seedSet}`);
+  }
+  const options: SimOptions = {
     games: integer('games', values.games, 1),
     seed: integer('seed', values.seed, 0),
     seats,
     maxSteps: integer('max-steps', values['max-steps'], 1),
     lapTarget: integer('lap-target', values['lap-target'], 1),
     policy: values.policy,
+    seedSet,
   };
+  checkSeedSet(options);
+  return options;
 }
 
 function integer(name: string, raw: string, min: number): number {

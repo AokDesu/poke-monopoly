@@ -1,5 +1,6 @@
 import { parseSimArgs } from './args.ts';
 import { POLICIES } from './policy.ts';
+import { formatSummary } from './report.ts';
 import { failed, runSim, type InvariantCheck, type SimEngine, type SimOptions } from './runner.ts';
 
 export type CliIo = { log(line: string): void; error(line: string): void };
@@ -26,6 +27,7 @@ export function runCli(
     );
   }
   io.log(JSON.stringify(summary));
+  for (const line of formatSummary(summary)) io.log(line);
   // Hard gate (spec §1, §8): an applied illegal action, an invariant failure or an aborted game
   // fails the run, and so CI.
   return failed(summary) ? 1 : 0;
