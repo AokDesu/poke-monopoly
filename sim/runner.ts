@@ -16,7 +16,13 @@ import {
   type MetricsCollector,
   type MetricsSummary,
 } from './metrics.ts';
-import { createPolicyRng, POLICIES, type Policy } from './policy.ts';
+import {
+  createPolicyRng,
+  POLICIES,
+  type Policy,
+  type PolicyChoice,
+  type PolicyFacts,
+} from './policy.ts';
 
 export type SeatSetup = { seatIndex: number; actorId: string; classId: string };
 export type GameSetup = { seed: number; seats: SeatSetup[]; lapTarget: number };
@@ -36,6 +42,8 @@ export type SimEngine = {
     events: EngineEvent[];
   };
   outcome(state: GameState): GameOutcome;
+  /** Engine numbers the seat's observation lacks, such as catch odds; none when absent. */
+  facts?(state: GameState, seatIndex: number): PolicyFacts;
 };
 
 /** Called after every applied or rejected action; each returned violation is one failure (§8). */
@@ -60,6 +68,8 @@ export type SimOptions = {
   lapTarget: number;
   policy: string;
   seedSet: SeedSet;
+  /** `--save <file>`: where each finished game is written as a save (spec §6.7). */
+  save?: string;
 };
 
 export const DEFAULT_OPTIONS: Omit<SimOptions, 'games' | 'seed'> = {
@@ -90,7 +100,17 @@ export type SimSummary = {
 
 export type GameFailure = { seed: number; reasons: string[]; reproduce: string };
 
+/** One played game: its pre-roll state, every accepted record in order, and its final state. */
+export type PlayedGame = {
+  seed: number;
+  initialState: GameState;
+  records: ActionRecord[];
+  state: GameState;
+  outcome: GameOutcome;
+};
+
 type GameResult = {
+  game: PlayedGame | null;
   seats: SeatSetup[];
   outcome: GameOutcome;
   turns: number;
@@ -105,6 +125,7 @@ export function runSim(
   options: SimOptions,
   policies: Readonly<Record<string, () => Policy>> = POLICIES,
   checkInvariants: InvariantCheck = noInvariantCheck,
+  onGame: (game: PlayedGame) => void = () => {},
 ): { summary: SimSummary; failures: GameFailure[] } {
   const createPolicy = policies[options.policy];
   if (!createPolicy) throw new RangeError(`Unknown policy: ${options.policy}`);
@@ -120,6 +141,7 @@ export function runSim(
     const seed = options.seed + g;
     const game = playGame(engine, options, seed, createPolicy, checkInvariants, metrics);
     for (const seat of game.seats) summary.classInSeat[seat.classId]![seat.seatIndex]! += 1;
+    if (game.game) onGame(game.game);
     summary.illegalAppliedActionCount += game.illegalApplied;
     summary.invariantFailures += game.violations;
     if (game.outcome.finished) {
@@ -243,6 +265,7 @@ function playGame(
 ): GameResult {
   const seats = seatSetup(engine.classIds, options.seats, seed);
   const result: GameResult = {
+    game: null,
     seats,
     outcome: { finished: false },
     turns: 0,
@@ -257,9 +280,19 @@ function playGame(
       rng: createPolicyRng(`policy:${seed}:${seat.seatIndex}`),
     }));
     let state = engine.createGame({ seed, seats, lapTarget: options.lapTarget });
+    const game: PlayedGame = {
+      seed,
+      initialState: state,
+      records: [],
+      state,
+      outcome: result.outcome,
+    };
+    result.game = game;
     for (let steps = 0; ; steps++) {
       result.outcome = engine.outcome(state);
       result.turns = state.globalTurnNo;
+      game.state = state;
+      game.outcome = result.outcome;
       if (result.outcome.finished) {
         result.finalCoins = state.players.map((player) => player.coins);
         return result;
@@ -280,6 +313,7 @@ function playGame(
         };
         result.violations += checkInvariants(state, record.action, applied).length;
         metrics.step(state, record.action, automatic.state, automatic.events);
+        game.records.push(record);
         state = automatic.state;
         continue;
       }
@@ -290,9 +324,15 @@ function playGame(
         return result;
       }
       const decider = deciders[seatIndex]!;
-      const actionId = decider.policy.decide(engine.observe(state, seatIndex), legal, decider.rng);
-      const enabled = legal.enabled.find((choice) => choice.id === actionId);
-      const choice = enabled ?? legal.disabled.find((choice) => choice.id === actionId);
+      const { choice, enabled } = resolveChoice(
+        legal,
+        decider.policy.decide(
+          engine.observe(state, seatIndex),
+          legal,
+          decider.rng,
+          decider.policy.wantsFacts ? engine.facts?.(state, seatIndex) : undefined,
+        ),
+      );
       if (!choice) continue;
       const actorId = state.config.seats.find((seat) => seat.seatIndex === seatIndex)!.actorId;
       const action = command(state, actorId, choice);
@@ -301,12 +341,38 @@ function playGame(
       if ('rejected' in applied) continue;
       if (!enabled) result.illegalApplied++;
       metrics.step(state, action, applied.state, applied.events);
+      game.records.push(applied.record);
       state = applied.state;
     }
   } catch (error) {
     result.abortReason = `error: ${error instanceof Error ? error.message : String(error)}`;
     return result;
   }
+}
+
+/**
+ * The listed action a policy picked, or the sale it composed: a batch is enabled when it names
+ * distinct Pokémon that each have their own enabled sale (§4.7); the engine validates it whole.
+ */
+function resolveChoice(
+  legal: LegalActions,
+  picked: PolicyChoice,
+): { choice?: LegalAction; enabled: boolean } {
+  if (typeof picked === 'string') {
+    const enabled = legal.enabled.find((choice) => choice.id === picked);
+    return {
+      choice: enabled ?? legal.disabled.find((choice) => choice.id === picked),
+      enabled: Boolean(enabled),
+    };
+  }
+  const sales = legal.enabled.filter((choice) => choice.kind === 'sell');
+  const sellable = new Set(sales.flatMap((choice) => choice.payload.pokemonInstanceIds));
+  const ids = [...picked.sellUids];
+  return {
+    choice: { id: `sell:${ids.join('+')}`, kind: 'sell', payload: { pokemonInstanceIds: ids } },
+    enabled:
+      sales.length > 0 && new Set(ids).size === ids.length && ids.every((id) => sellable.has(id)),
+  };
 }
 
 function command(state: GameState, actorId: string, choice: LegalAction): Action {

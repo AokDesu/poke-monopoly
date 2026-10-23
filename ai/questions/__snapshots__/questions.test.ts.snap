@@ -1,0 +1,1109 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`encounter: Dratini with every Ball type > exact question text (spec §5.4: wording changes are reviewed) 1`] = `
+{
+  "questions": {
+    "encounter": {
+      "criteria": {
+        "great_ball": "Throw one Great Ball at the wild Dratini. Catch chance with this Ball: high. Great Balls you hold now, counting this one: a few. Whether the catch succeeds is unknown until the die is rolled.",
+        "poke_ball": "Throw one Poké Ball at the wild Dratini. Catch chance with this Ball: even. Poké Balls you hold now, counting this one: one. Whether the catch succeeds is unknown until the die is rolled.",
+        "release": "Release the wild Dratini without throwing a Ball. You keep all your Balls and do not get the Dratini.",
+        "ultra_ball": "Throw one Ultra Ball at the wild Dratini. Catch chance with this Ball: very high. Ultra Balls you hold now, counting this one: many. Whether the catch succeeds is unknown until the die is rolled.",
+      },
+      "instructions": "A wild Pokémon is here (\`encounter.pokemon\`). Pick the ONE option that best fits \`you.personality\` right now: throw one of your Balls at it, or release it. Only the listed options are allowed. Catch chance, from worst to best, is very low, low, even, high or very high; "even" means as likely to succeed as to fail, and "very high" includes a certain catch. A throw uses up the Ball whether or not the catch succeeds.",
+      "type": "choice",
+    },
+  },
+  "state": {
+    "active_seat_id": 0,
+    "board": [
+      {
+        "kind": "start",
+        "name": "Start",
+        "space_id": 0,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 1,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 2,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 3,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 4,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 5,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 6,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 7,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 8,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 9,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 10,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 11,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 12,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 13,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 14,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 15,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 16,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 17,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 18,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 19,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 20,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 21,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 22,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 23,
+      },
+    ],
+    "encounter": {
+      "pokemon": "Dratini",
+      "rarity": "rare",
+    },
+    "final_table_round": false,
+    "opponents": [
+      {
+        "ability_ready": true,
+        "class_id": "rival",
+        "coins_vs_you": "level",
+        "id": "P2",
+        "item_count": "one",
+        "known_items": [
+          {
+            "id": "class-item:1",
+            "item_id": "lucky-egg",
+            "name": "Lucky Egg",
+          },
+        ],
+        "lap": "1 of 3",
+        "seat_id": 1,
+        "squares_to_start": "far",
+        "team": [
+          {
+            "ability_ready": true,
+            "id": "starter:1",
+            "origin": "original_starter",
+            "species_id": "eevee",
+            "tired": false,
+          },
+        ],
+        "team_count": "one",
+      },
+    ],
+    "phase": "encounter",
+    "you": {
+      "ability_ready": true,
+      "balls": {
+        "great": "few",
+        "poke": "one",
+        "ultra": "many",
+      },
+      "class_id": "main-character",
+      "coins_rank": "1st of 2",
+      "id": "P1",
+      "item_count": "none",
+      "items": [],
+      "lap": "1 of 3",
+      "personality": "Greedy: values cash now over long-term team building; avoids fights it may lose.",
+      "private_results": [],
+      "seat_id": 0,
+      "squares_to_start": "far",
+      "team": [
+        {
+          "ability_ready": true,
+          "id": "starter:0",
+          "origin": "original_starter",
+          "species_id": "charmander",
+          "tired": false,
+        },
+      ],
+      "team_count": "one",
+    },
+  },
+}
+`;
+
+exports[`encounter: Eevee with Poke Balls and one Great Ball > exact question text (spec §5.4: wording changes are reviewed) 1`] = `
+{
+  "questions": {
+    "encounter": {
+      "criteria": {
+        "great_ball": "Throw one Great Ball at the wild Eevee. Catch chance with this Ball: very high. Great Balls you hold now, counting this one: one. Whether the catch succeeds is unknown until the die is rolled.",
+        "poke_ball": "Throw one Poké Ball at the wild Eevee. Catch chance with this Ball: high. Poké Balls you hold now, counting this one: many. Whether the catch succeeds is unknown until the die is rolled.",
+        "release": "Release the wild Eevee without throwing a Ball. You keep all your Balls and do not get the Eevee.",
+      },
+      "instructions": "A wild Pokémon is here (\`encounter.pokemon\`). Pick the ONE option that best fits \`you.personality\` right now: throw one of your Balls at it, or release it. Only the listed options are allowed. Catch chance, from worst to best, is very low, low, even, high or very high; "even" means as likely to succeed as to fail, and "very high" includes a certain catch. A throw uses up the Ball whether or not the catch succeeds.",
+      "type": "choice",
+    },
+  },
+  "state": {
+    "active_seat_id": 0,
+    "board": [
+      {
+        "kind": "start",
+        "name": "Start",
+        "space_id": 0,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 1,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 2,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 3,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 4,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 5,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 6,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 7,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 8,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 9,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 10,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 11,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 12,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 13,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 14,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 15,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 16,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 17,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 18,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 19,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 20,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 21,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 22,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 23,
+      },
+    ],
+    "encounter": {
+      "pokemon": "Eevee",
+      "rarity": "uncommon",
+    },
+    "final_table_round": false,
+    "opponents": [
+      {
+        "ability_ready": true,
+        "class_id": "rival",
+        "coins_vs_you": "level",
+        "id": "P2",
+        "item_count": "one",
+        "known_items": [
+          {
+            "id": "class-item:1",
+            "item_id": "lucky-egg",
+            "name": "Lucky Egg",
+          },
+        ],
+        "lap": "1 of 3",
+        "seat_id": 1,
+        "squares_to_start": "far",
+        "team": [
+          {
+            "ability_ready": true,
+            "id": "starter:1",
+            "origin": "original_starter",
+            "species_id": "eevee",
+            "tired": false,
+          },
+        ],
+        "team_count": "one",
+      },
+    ],
+    "phase": "encounter",
+    "you": {
+      "ability_ready": true,
+      "balls": {
+        "great": "one",
+        "poke": "many",
+        "ultra": "none",
+      },
+      "class_id": "main-character",
+      "coins_rank": "1st of 2",
+      "id": "P1",
+      "item_count": "none",
+      "items": [],
+      "lap": "1 of 3",
+      "personality": "Greedy: values cash now over long-term team building; avoids fights it may lose.",
+      "private_results": [],
+      "seat_id": 0,
+      "squares_to_start": "far",
+      "team": [
+        {
+          "ability_ready": true,
+          "id": "starter:0",
+          "origin": "original_starter",
+          "species_id": "charmander",
+          "tired": false,
+        },
+      ],
+      "team_count": "one",
+    },
+  },
+}
+`;
+
+exports[`strategy: 2 players, Repel and Pickpocket against the Rival > exact question text (spec §5.4: wording changes are reviewed) 1`] = `
+{
+  "questions": {
+    "strategy": {
+      "criteria": {
+        "a1": "Use your Repel on P2, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P2 will learn that you used it on them. How far P2 would roll on their next move is unknown.",
+        "a2": "Use your Pickpocket on P2, the target. Pickpocket effect: Take up to 5 coins from the target. This uses up the item and your tactical action for this turn. P2 will learn that you used it on them.",
+        "skip": "Do nothing this phase and keep all your items. Your tactical action for this turn stays unused.",
+      },
+      "instructions": "Pick the ONE action that best fits \`you.personality\` right now. Only the listed actions are allowed. Each option states its effect and what is unknown when you choose it.",
+      "type": "choice",
+    },
+  },
+  "state": {
+    "active_seat_id": 0,
+    "board": [
+      {
+        "kind": "start",
+        "name": "Start",
+        "space_id": 0,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 1,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 2,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 3,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 4,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 5,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 6,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 7,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 8,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 9,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 10,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 11,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 12,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 13,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 14,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 15,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 16,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 17,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 18,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 19,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 20,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 21,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 22,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 23,
+      },
+    ],
+    "final_table_round": false,
+    "opponents": [
+      {
+        "ability_ready": true,
+        "class_id": "rival",
+        "coins_vs_you": "level",
+        "id": "P2",
+        "item_count": "one",
+        "known_items": [
+          {
+            "id": "class-item:1",
+            "item_id": "lucky-egg",
+            "name": "Lucky Egg",
+          },
+        ],
+        "lap": "1 of 3",
+        "seat_id": 1,
+        "squares_to_start": "far",
+        "team": [
+          {
+            "ability_ready": true,
+            "id": "starter:1",
+            "origin": "original_starter",
+            "species_id": "eevee",
+            "tired": false,
+          },
+        ],
+        "team_count": "one",
+      },
+    ],
+    "phase": "strategy",
+    "you": {
+      "ability_ready": true,
+      "balls": {
+        "great": "one",
+        "poke": "many",
+        "ultra": "none",
+      },
+      "class_id": "main-character",
+      "coins_rank": "1st of 2",
+      "id": "P1",
+      "item_count": "few",
+      "items": [
+        {
+          "id": "bought:0:0",
+          "item_id": "repel",
+          "name": "Repel",
+        },
+        {
+          "id": "bought:0:1",
+          "item_id": "pickpocket",
+          "name": "Pickpocket",
+        },
+      ],
+      "lap": "1 of 3",
+      "personality": "Greedy: values cash now over long-term team building; avoids fights it may lose.",
+      "private_results": [],
+      "seat_id": 0,
+      "squares_to_start": "far",
+      "team": [
+        {
+          "ability_ready": true,
+          "id": "starter:0",
+          "origin": "original_starter",
+          "species_id": "charmander",
+          "tired": false,
+        },
+      ],
+      "team_count": "one",
+    },
+  },
+}
+`;
+
+exports[`strategy: 4 players, four items, a public Price Shield and secret items > exact question text (spec §5.4: wording changes are reviewed) 1`] = `
+{
+  "questions": {
+    "strategy": {
+      "criteria": {
+        "a1": "Use your Repel on P2, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P2 will learn that you used it on them. How far P2 would roll on their next move is unknown.",
+        "a10": "Use your Repel on P4, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P4 will learn that you used it on them. How far P4 would roll on their next move is unknown.",
+        "a2": "Use your Repel on P3, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P3 will learn that you used it on them. How far P3 would roll on their next move is unknown.",
+        "a3": "Use your Repel on P4, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P4 will learn that you used it on them. How far P4 would roll on their next move is unknown.",
+        "a4": "Use your Pickpocket on P2, the target. Pickpocket effect: Take up to 5 coins from the target. This uses up the item and your tactical action for this turn. P2 will learn that you used it on them.",
+        "a5": "Use your Pickpocket on P3, the target. Pickpocket effect: Take up to 5 coins from the target. This uses up the item and your tactical action for this turn. P3 will learn that you used it on them.",
+        "a6": "Use your Pickpocket on P4, the target. Pickpocket effect: Take up to 5 coins from the target. This uses up the item and your tactical action for this turn. P4 will learn that you used it on them.",
+        "a7": "Use your Lucky Egg on yourself. Lucky Egg effect: +1 own catch/combat until end of turn; no movement bonus. This uses up the item and your tactical action for this turn. Whether you meet a wild Pokémon this turn is unknown, because your move roll is unknown.",
+        "a8": "Use your Repel on P2, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P2 will learn that you used it on them. How far P2 would roll on their next move is unknown.",
+        "a9": "Use your Repel on P3, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P3 will learn that you used it on them. How far P3 would roll on their next move is unknown.",
+        "skip": "Do nothing this phase and keep all your items. Your tactical action for this turn stays unused.",
+      },
+      "instructions": "Pick the ONE action that best fits \`you.personality\` right now. Only the listed actions are allowed. Each option states its effect and what is unknown when you choose it.",
+      "type": "choice",
+    },
+  },
+  "state": {
+    "active_seat_id": 0,
+    "board": [
+      {
+        "kind": "start",
+        "name": "Start",
+        "space_id": 0,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 1,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 2,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 3,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 4,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 5,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 6,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 7,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 8,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 9,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 10,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 11,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 12,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 13,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 14,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 15,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 16,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 17,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 18,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 19,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 20,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 21,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 22,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 23,
+      },
+    ],
+    "final_table_round": false,
+    "opponents": [
+      {
+        "ability_ready": true,
+        "class_id": "rival",
+        "coins_vs_you": "level",
+        "id": "P2",
+        "item_count": "few",
+        "known_items": [
+          {
+            "id": "class-item:1",
+            "item_id": "lucky-egg",
+            "name": "Lucky Egg",
+          },
+        ],
+        "lap": "1 of 3",
+        "seat_id": 1,
+        "squares_to_start": "far",
+        "team": [
+          {
+            "ability_ready": true,
+            "id": "starter:1",
+            "origin": "original_starter",
+            "species_id": "eevee",
+            "tired": false,
+          },
+        ],
+        "team_count": "one",
+      },
+      {
+        "ability_ready": true,
+        "class_id": "nurse-joy",
+        "coins_vs_you": "level",
+        "id": "P3",
+        "item_count": "one",
+        "known_items": [
+          {
+            "id": "class-item:2",
+            "item_id": "price-shield",
+            "name": "Price Shield",
+          },
+        ],
+        "lap": "1 of 3",
+        "seat_id": 2,
+        "squares_to_start": "far",
+        "team": [
+          {
+            "ability_ready": true,
+            "id": "starter:2",
+            "origin": "original_starter",
+            "species_id": "chansey",
+            "tired": false,
+          },
+        ],
+        "team_count": "one",
+      },
+      {
+        "ability_ready": true,
+        "class_id": "researcher",
+        "coins_vs_you": "level",
+        "id": "P4",
+        "item_count": "one",
+        "known_items": [
+          {
+            "id": "class-item:3",
+            "item_id": "potion",
+            "name": "Potion",
+          },
+        ],
+        "lap": "1 of 3",
+        "seat_id": 3,
+        "squares_to_start": "far",
+        "team": [
+          {
+            "ability_ready": true,
+            "id": "starter:3",
+            "origin": "original_starter",
+            "species_id": "porygon",
+            "tired": false,
+          },
+        ],
+        "team_count": "one",
+      },
+    ],
+    "phase": "strategy",
+    "you": {
+      "ability_ready": true,
+      "balls": {
+        "great": "one",
+        "poke": "many",
+        "ultra": "none",
+      },
+      "class_id": "main-character",
+      "coins_rank": "1st of 4",
+      "id": "P1",
+      "item_count": "many",
+      "items": [
+        {
+          "id": "bought:0:0",
+          "item_id": "repel",
+          "name": "Repel",
+        },
+        {
+          "id": "bought:0:1",
+          "item_id": "pickpocket",
+          "name": "Pickpocket",
+        },
+        {
+          "id": "bought:0:2",
+          "item_id": "lucky-egg",
+          "name": "Lucky Egg",
+        },
+        {
+          "id": "bought:0:3",
+          "item_id": "repel",
+          "name": "Repel",
+        },
+      ],
+      "lap": "1 of 3",
+      "personality": "Greedy: values cash now over long-term team building; avoids fights it may lose.",
+      "private_results": [],
+      "seat_id": 0,
+      "squares_to_start": "far",
+      "team": [
+        {
+          "ability_ready": true,
+          "id": "starter:0",
+          "origin": "original_starter",
+          "species_id": "charmander",
+          "tired": false,
+        },
+      ],
+      "team_count": "one",
+    },
+  },
+}
+`;
+
+exports[`strategy: Lucky Egg only > exact question text (spec §5.4: wording changes are reviewed) 1`] = `
+{
+  "questions": {
+    "strategy": {
+      "criteria": {
+        "a1": "Use your Lucky Egg on yourself. Lucky Egg effect: +1 own catch/combat until end of turn; no movement bonus. This uses up the item and your tactical action for this turn. Whether you meet a wild Pokémon this turn is unknown, because your move roll is unknown.",
+        "skip": "Do nothing this phase and keep all your items. Your tactical action for this turn stays unused.",
+      },
+      "instructions": "Pick the ONE action that best fits \`you.personality\` right now. Only the listed actions are allowed. Each option states its effect and what is unknown when you choose it.",
+      "type": "choice",
+    },
+  },
+  "state": {
+    "active_seat_id": 0,
+    "board": [
+      {
+        "kind": "start",
+        "name": "Start",
+        "space_id": 0,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 1,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 2,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 3,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 4,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 5,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 6,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 7,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 8,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 9,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 10,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 11,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 12,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 13,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 14,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 15,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 16,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 17,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 18,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 19,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 20,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 21,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 22,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 23,
+      },
+    ],
+    "final_table_round": false,
+    "opponents": [
+      {
+        "ability_ready": true,
+        "class_id": "rival",
+        "coins_vs_you": "level",
+        "id": "P2",
+        "item_count": "one",
+        "known_items": [
+          {
+            "id": "class-item:1",
+            "item_id": "lucky-egg",
+            "name": "Lucky Egg",
+          },
+        ],
+        "lap": "1 of 3",
+        "seat_id": 1,
+        "squares_to_start": "far",
+        "team": [
+          {
+            "ability_ready": true,
+            "id": "starter:1",
+            "origin": "original_starter",
+            "species_id": "eevee",
+            "tired": false,
+          },
+        ],
+        "team_count": "one",
+      },
+    ],
+    "phase": "strategy",
+    "you": {
+      "ability_ready": true,
+      "balls": {
+        "great": "one",
+        "poke": "many",
+        "ultra": "none",
+      },
+      "class_id": "main-character",
+      "coins_rank": "1st of 2",
+      "id": "P1",
+      "item_count": "one",
+      "items": [
+        {
+          "id": "bought:0:0",
+          "item_id": "lucky-egg",
+          "name": "Lucky Egg",
+        },
+      ],
+      "lap": "1 of 3",
+      "personality": "Greedy: values cash now over long-term team building; avoids fights it may lose.",
+      "private_results": [],
+      "seat_id": 0,
+      "squares_to_start": "far",
+      "team": [
+        {
+          "ability_ready": true,
+          "id": "starter:0",
+          "origin": "original_starter",
+          "species_id": "charmander",
+          "tired": false,
+        },
+      ],
+      "team_count": "one",
+    },
+  },
+}
+`;

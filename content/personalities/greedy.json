@@ -1,0 +1,11 @@
+{
+  "name": "Greedy",
+  "description": "Values cash now over long-term team building; avoids fights it may lose.",
+  "weights": {
+    "risk": 0.3,
+    "aggression": 0.3,
+    "liquidity": 0.9,
+    "loyalty": 0.5
+  },
+  "lineStyle": "mercenary"
+}

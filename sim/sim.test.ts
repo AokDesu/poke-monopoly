@@ -1,4 +1,8 @@
-import { describe, expect, test } from 'vitest';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { ESLint } from 'eslint';
+import { afterAll, describe, expect, test, vi } from 'vitest';
 import { CONTENT_VERSION } from '../content/index.ts';
 import {
   actionSchema,
@@ -386,6 +390,33 @@ describe('runSim with a fake engine (§7, §8, §9)', () => {
     expect(calls.filter((kind) => kind !== 'roll')).toHaveLength(8);
   });
 
+  test('engine facts reach only a policy that asks for them', () => {
+    const asked: number[] = [];
+    const engine: SimEngine = {
+      ...fakeEngine(),
+      facts: (_state, seatIndex) => (asked.push(seatIndex), { saleValue: { mon: 1 } }),
+    };
+    const seen: unknown[] = [];
+    const recorder = (wantsFacts: boolean) => (): Policy => {
+      const random = new RandomPolicy();
+      return {
+        wantsFacts,
+        decide(observation, legal, rng, facts) {
+          seen.push(facts);
+          return random.decide(observation, legal, rng);
+        },
+      };
+    };
+    runSim(engine, options({ games: 1, policy: 'plain' }), { plain: recorder(false) });
+    expect(asked).toEqual([]);
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every((facts) => facts === undefined)).toBe(true);
+    seen.length = 0;
+    runSim(engine, options({ games: 1, policy: 'eager' }), { eager: recorder(true) });
+    expect(asked).toHaveLength(seen.length);
+    expect(seen.every((facts) => JSON.stringify(facts) === '{"saleValue":{"mon":1}}')).toBe(true);
+  });
+
   test.each([2, 3, 4])('plays %i seats', (seats) => {
     const { summary } = runSim(fakeEngine(), options({ seats }));
     expect(summary).toMatchObject({ seats, aborted: 0, averageTurns: 2 * seats });
@@ -466,6 +497,76 @@ describe('runCli (§7, §8)', () => {
     const { code, err } = run(['--seats', '5'], () => []);
     expect(code).toBe(2);
     expect(err).toEqual(['sim: --seats must be 2, 3 or 4']);
+  });
+});
+
+describe('save and replay (§6.7, §6.8, §8)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'poke-sim-'));
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+  const run = (args: string[]) => {
+    const out: string[] = [];
+    const err: string[] = [];
+    const code = runCli(args, realEngine, checkInvariants, {
+      log: (line) => out.push(line),
+      error: (line) => err.push(line),
+    });
+    return { code, out, err };
+  };
+
+  test('--save writes a finished game that --replay passes, and a tampered copy fails', () => {
+    const file = join(dir, 'nested', 'g1.json');
+    const saved = run(['--games', '1', '--seed', '1', '--save', file]);
+    expect(saved).toMatchObject({ code: 0, err: [] });
+    const save = JSON.parse(readFileSync(file, 'utf8'));
+    expect(save.state.phase).toEqual({ kind: 'finished' });
+
+    // Replay never calls Jev or the network (§6.8).
+    vi.stubGlobal('fetch', () => {
+      throw new Error('network call during replay');
+    });
+    try {
+      const good = run(['--replay', file]);
+      expect(good.code).toBe(0);
+      expect(good.out).toEqual([expect.stringMatching(/^PASS /)]);
+
+      save.state.players[0].coins += 1;
+      const tampered = join(dir, 'tampered.json');
+      writeFileSync(tampered, JSON.stringify(save));
+      const bad = run(['--replay', tampered]);
+      expect(bad.code).toBe(1);
+      expect(bad.out).toEqual([expect.stringMatching(/^FAIL /)]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  test('--save with several games writes one file per game seed', () => {
+    const file = join(dir, 'run.json');
+    expect(run(['--games', '2', '--seed', '5', '--save', file]).code).toBe(0);
+    for (const seed of [5, 6]) {
+      expect(run(['--replay', join(dir, `run-seed-${seed}.json`)]).out).toEqual([
+        expect.stringMatching(/^PASS /),
+      ]);
+    }
+  });
+
+  // The replay path (sim/ and engine/) never reaches Jev (§6.8): lint rejects any import of ai/.
+  test.each([
+    ['sim/replay-jev.ts', "import * as jev from '../ai/app.ts';"],
+    ['sim/replay-jev.ts', "import * as jev from '@typesafe-ai/sdk';"],
+    ['engine/replay-jev.ts', "import * as jev from '../ai/app.ts';"],
+  ])('lint rejects %s importing the AI layer', async (filePath, code) => {
+    const eslint = new ESLint({ cwd: join(import.meta.dirname, '..') });
+    const [result] = await eslint.lintText(`${code}\nexport { jev };\n`, { filePath });
+    expect(result!.messages.map((entry) => entry.ruleId)).toContain('no-restricted-imports');
+  });
+
+  test('--replay of an unreadable save fails with a reason', () => {
+    const file = join(dir, 'garbage.json');
+    writeFileSync(file, '{"saveVersion":"save-v0"}');
+    const result = run(['--replay', file]);
+    expect(result.code).toBe(1);
+    expect(result.out).toEqual([expect.stringMatching(/^FAIL .*save-v0/)]);
   });
 });
 

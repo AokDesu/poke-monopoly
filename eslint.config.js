@@ -122,6 +122,24 @@ export default defineConfig([
       ],
     },
   },
+  // The sim's replay path never calls Jev or the network (spec §6.8). Its one ai/ import is the offline fallback policy (§5.5).
+  {
+    files: ['sim/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: folderImport(['ai(?!/fallback/)', 'web']),
+              message: 'sim/ must not import from web, or from ai beyond ai/fallback/.',
+            },
+            { regex: '^@typesafe-ai/', message: 'The Jev SDK belongs in ai/ only.' },
+          ],
+        },
+      ],
+    },
+  },
   {
     files: ['ai/**/*.{ts,tsx}'],
     rules: {

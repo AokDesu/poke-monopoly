@@ -17,3 +17,16 @@ export {
 } from './visibility.ts';
 export { checkInvariants, INVARIANTS } from './invariants.ts';
 export type { InvariantDefinition, InvariantId, Violation } from './invariants.ts';
+export {
+  deserialize,
+  resume,
+  saveSchema,
+  serialize,
+  SAVE_VERSION,
+  verifyReplay,
+  type ReplayCheck,
+  type Resumed,
+  type Save,
+  type SavedGame,
+  type WaitingFor,
+} from './save.ts';
