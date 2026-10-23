@@ -1,0 +1,20 @@
+[
+  {
+    "id": "catch-success-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Caught {pokemon}. One more to sell at Start."
+  },
+  {
+    "id": "catch-success-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "{pokemon} is on my team now."
+  },
+  {
+    "id": "catch-success-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Got {pokemon}. That Ball was well spent."
+  }
+]

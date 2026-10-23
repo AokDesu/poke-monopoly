@@ -1,0 +1,20 @@
+[
+  {
+    "id": "fallback-notice-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "A backup bot is playing for me right now."
+  },
+  {
+    "id": "fallback-notice-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "From turn {turn}, a backup bot is making my moves."
+  },
+  {
+    "id": "fallback-notice-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Backup bot mode: a backup bot is playing this seat."
+  }
+]

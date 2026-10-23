@@ -446,7 +446,7 @@ Every level uses the same observation.
 
 ### 5.7 Dialogue
 
-- **Files:** `content/lines/th/<situation>.json`, e.g. deal_accept, deal_reject, promise_kept, promise_broken, gym_win, taunt_leader, manipulation_refused, fallback_notice.
+- **Files:** `content/lines/en/<situation>.json`, e.g. deal_accept, deal_reject, promise_kept, promise_broken, gym_win, taunt_leader, manipulation_refused, fallback_notice.
 - **Coverage:** each situation has ≥3 lines per personality per trust bucket, with slots such as `{target}` or `{turn}` filled by the engine.
 - **Selection:** Jev picks the line ID; when unavailable, a seeded random pick is used.
 - *(Stretch, off by default)* A generative LLM may rephrase lines. It must pass the leak tests and stay off the critical path.

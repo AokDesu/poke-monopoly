@@ -1,0 +1,20 @@
+[
+  {
+    "id": "catch-fail-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "{pokemon} got away, and the Ball is gone."
+  },
+  {
+    "id": "catch-fail-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Missed {pokemon}. That Ball cost me."
+  },
+  {
+    "id": "catch-fail-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "No luck with {pokemon} this time."
+  }
+]
