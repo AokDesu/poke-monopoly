@@ -9,19 +9,19 @@ Content is data. Appendix A of `docs/SPEC-v1.0-PokeMonopoly.md` is the baseline 
 
 ## Where things live
 
-| File                                | Holds                                                             | Spec             |
-| ----------------------------------- | ----------------------------------------------------------------- | ---------------- |
-| `content/board.json`                | The 24 squares                                                    | §4.1, Appendix A |
-| `content/classes.json`              | 6 core classes and 2 `stretch: true` classes                      | Appendix A       |
-| `content/species.json`              | The 19 species: stats, tags, Ability                              | §4.5, Appendix A |
-| `content/evolutions.json`           | Evolved forms with no species definition, and the evolution lines | §4.5, Appendix A |
-| `content/items.json`                | 3 Balls and 7 utility items                                       | §4.6, Appendix A |
-| `content/events.json`               | Events e1 to e6 as text                                           | §4.6             |
-| `content/config.json`               | Starting kit, Start income, Lap targets, rarity weights           | §1, §4.1, §4.5   |
-| `content/schema.ts`                 | zod schemas, `parseContent`, `toEngineContent`                    | §6               |
-| `content/index.ts`                  | `CONTENT_VERSION`, stamped into every game config and log         | §6.8             |
-| `content/personalities/<name>.json` | One file per personality (no schema yet)                          | §5.5             |
-| `content/lines/th/<situation>.json` | Thai line bank (no schema yet)                                    | §5.7             |
+| File                                | Holds                                                                  | Spec             |
+| ----------------------------------- | ---------------------------------------------------------------------- | ---------------- |
+| `content/board.json`                | The 24 squares                                                         | §4.1, Appendix A |
+| `content/classes.json`              | 6 core classes and 2 `stretch: true` classes                           | Appendix A       |
+| `content/species.json`              | The 19 species: stats, tags, Ability                                   | §4.5, Appendix A |
+| `content/evolutions.json`           | Evolved forms with no species definition, and the evolution lines      | §4.5, Appendix A |
+| `content/items.json`                | 3 Balls and 7 utility items                                            | §4.6, Appendix A |
+| `content/events.json`               | Events e1 to e6 as text                                                | §4.6             |
+| `content/config.json`               | Starting kit, Start income, Lap targets, rarity weights                | §1, §4.1, §4.5   |
+| `content/schema.ts`                 | zod schemas, `parseContent`, `toEngineContent`                         | §6               |
+| `content/index.ts`                  | `CONTENT_VERSION`, stamped into every game config and log              | §6.8             |
+| `content/personalities/<name>.json` | One file per personality, validated by `content/personality-schema.ts` | §5.5             |
+| `content/lines/th/<situation>.json` | Thai line bank (no schema yet)                                         | §5.7             |
 
 Ids are lowercase kebab-case (`poke-ball`, `main-character`). The engine's `Content` type is inferred from `contentSchema` in `engine/contract/schema.ts`; the schema rows in `content/schema.ts` extend those rows, so every engine field is validated exactly as the engine does. Authoring-only fields (`ability`, `passiveText`, `inEncounterPool`, `bonus`, `effect`, `stretch`) are not in the engine's `Content`. `ParsedContent` is assignable to `Content`, but the engine's `createGame` parses strictly and rejects those extra fields: pass it `toEngineContent(parsed)`, never the parsed object.
 
@@ -57,7 +57,9 @@ Spec §5.7: lines live in `content/lines/th/<situation>.json` (for example `deal
 
 ## Add a personality
 
-Spec §5.5: create `content/personalities/<name>.json` with an English `description` (inserted into instructions), `weights` (`risk`, `aggression`, `liquidity`, `loyalty`) and `lineStyle`. Decide it once in the file; do not tie it to a betrayal rate. Keep hidden information out of it (house rule 3). There is no schema or check for personalities yet: the issue that adds them extends `content/schema.ts` and this section.
+Spec §5.5: create `content/personalities/<name>.json` with `name`, an English `description` (inserted into instructions), `weights` (`risk`, `aggression`, `liquidity`, `loyalty`, each 0 to 1) and `lineStyle` (a kebab-case line-bank style id). Decide it once in the file; do not tie it to a betrayal rate. Keep hidden information out of it (house rule 3).
+
+`parsePersonality(id, json)` in `content/personality-schema.ts` is pure: it validates the file with the zod `personalitySchema` (unknown keys are refused), throws one readable `Error` naming each bad path, and adds the Sell Phase `sellThreshold`, derived from `liquidity` alone so a more liquid personality never sells less eagerly. Register the file in `PERSONALITIES` in `ai/fallback/index.ts`; `ai/fallback/fallback.test.ts` validates every file in the folder and pins which ones exist. Only Greedy (Appendix B) ships this cycle.
 
 ## Checks that run
 

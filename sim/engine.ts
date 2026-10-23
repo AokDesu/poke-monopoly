@@ -6,9 +6,12 @@ import {
   createGameConfig,
   legalActions,
   observe,
+  oddsForAllBalls,
   winner,
+  type GameState,
 } from '../engine/index.ts';
 import { loadContent } from './content.ts';
+import type { PolicyFacts } from './policy.ts';
 import type { SimEngine } from './runner.ts';
 
 const parsed = loadContent();
@@ -44,6 +47,7 @@ export const realEngine: SimEngine = {
   legalActions,
   applyAction,
   advanceAutomatically,
+  facts,
   outcome(state) {
     if (state.phase.kind !== 'finished') return { finished: false };
     const winners = winner(state).winners;
@@ -55,3 +59,38 @@ export const realEngine: SimEngine = {
     };
   },
 };
+
+/**
+ * The engine's own numbers for the deciding seat (spec §5.2): catch odds from `oddsForAllBalls`,
+ * and each sellable Pokémon's payout within one batch selling every one of them (§4.7: a batch
+ * is priced as a whole), read from the coin transfers `applyAction` reports on a detached copy
+ * (the engine exports no sale quote yet). Nothing here is shown to other seats.
+ */
+function facts(state: GameState, seatIndex: number): PolicyFacts {
+  if (seatIndex !== state.activeSeatIndex) return {};
+  if (state.phase.kind === 'encounter' && !state.phase.catchRoll) {
+    return {
+      catchChance: Object.fromEntries(
+        oddsForAllBalls(state, seatIndex).map((odds) => [odds.ballType, odds.probability]),
+      ),
+    };
+  }
+  if (state.phase.kind !== 'sell') return {};
+  const actorId = state.config.seats.find((seat) => seat.seatIndex === seatIndex)!.actorId;
+  const ids = legalActions(state, seatIndex).enabled.flatMap((choice) =>
+    choice.kind === 'sell' ? choice.payload.pokemonInstanceIds : [],
+  );
+  const result = applyAction(state, {
+    actorId,
+    actionSeq: state.stateRevision + 1,
+    stateRevisionBefore: state.stateRevision,
+    kind: 'sell',
+    payload: { pokemonInstanceIds: ids },
+  });
+  if ('rejected' in result) return {};
+  // Each sold Pokémon's coin transfer comes in batch order, ahead of its uid_destroyed event.
+  const payouts = result.events.flatMap((event) =>
+    event.kind === 'coin_transfer' && event.reason === 'pokemon_sale' ? [event.amount] : [],
+  );
+  return { saleValue: Object.fromEntries(ids.map((id, index) => [id, payouts[index] ?? 0])) };
+}
