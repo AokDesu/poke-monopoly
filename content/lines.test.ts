@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
-import { fillSlots, parseLines } from './lines-schema.ts';
+import { SLOTS, fillSlots, parseLines } from './lines-schema.ts';
 
 const dir = new URL('./lines/en/', import.meta.url);
 const files = readdirSync(dir).filter((name) => name.endsWith('.json'));
@@ -39,16 +39,14 @@ describe('line bank v0 (§5.7)', () => {
     }
   });
 
-  const THAI = /\p{Script=Thai}/u;
+  const allSlots = Object.fromEntries(SLOTS.map((slot) => [slot, slot]));
   test.each(
     files.flatMap((file) =>
-      (read(file) as { id: string; text: string }[]).map((l) => [l.id, l.text]),
+      (read(file) as { id: string }[]).map((line) => [line.id, situationOf(file), line] as const),
     ),
-  )('%s is English with only filled slots and no number literals', (_id, text) => {
-    expect(text).not.toMatch(THAI);
-    const bare = text.replace(/\{(target|turn|pokemon|coins)\}/g, '');
-    expect(bare, 'unfilled or malformed brace').not.toMatch(/[{}]/);
-    expect(bare, 'number literal that should be a slot').not.toMatch(/\p{N}/u);
+  )('%s validates on its own and fills every slot', (_id, situation, line) => {
+    const [parsed] = parseLines(situation, [line]);
+    expect(() => fillSlots(parsed!.text, allSlots)).not.toThrow();
   });
 
   test('fallback_notice says plainly that a backup bot is playing', () => {
