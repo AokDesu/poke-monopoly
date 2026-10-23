@@ -3,6 +3,7 @@ import { dirname, extname } from 'node:path';
 import { createGameLog, deserialize, serialize, verifyReplay } from '../engine/index.ts';
 import { parseReplayArgs, parseSimArgs } from './args.ts';
 import { POLICIES } from './policy.ts';
+import { formatSummary } from './report.ts';
 import {
   failed,
   runSim,
@@ -50,6 +51,7 @@ export function runCli(
     );
   }
   io.log(JSON.stringify(summary));
+  for (const line of formatSummary(summary)) io.log(line);
   // Hard gate (spec §1, §8): an applied illegal action, an invariant failure or an aborted game
   // fails the run, and so CI.
   return failed(summary) || saveErrors > 0 ? 1 : 0;

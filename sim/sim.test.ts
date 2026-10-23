@@ -165,6 +165,7 @@ const options = (overrides: Partial<SimOptions> = {}): SimOptions => ({
   maxSteps: 5000,
   lapTarget: 2,
   policy: 'random',
+  seedSet: 'tune',
   ...overrides,
 });
 
@@ -245,6 +246,27 @@ describe('runSim with a fake engine (§7, §8, §9)', () => {
     expect(summary.winners.byClass).toEqual({ alpha: 1.33, beta: 1.33, gamma: 1.67, delta: 1.67 });
   });
 
+  test('reports average final coins and the tie rate (§8 Scoring)', () => {
+    // Fake games last 2 turns per seat; buying a coin each turn ends on 2 coins, skipping on 0.
+    const both = runSim(fakeEngine(), options({ games: 4, policy: 'coin' }), {
+      coin: () => ({
+        decide: (_o, legal) => (legal.enabled[0]!.id === 'roll' ? 'roll' : 'buy:coin'),
+      }),
+    }).summary;
+    expect(both).toMatchObject({ averageFinalCoins: 2, ties: 4, tieRate: 1 });
+    let seat = 0;
+    const lopsided = runSim(fakeEngine(), options({ games: 4, policy: 'lopsided' }), {
+      lopsided: () => {
+        const buys = seat++ % 2 === 0;
+        return {
+          decide: (_o, legal) =>
+            legal.enabled[0]!.id === 'roll' ? 'roll' : buys ? 'buy:coin' : 'skip',
+        };
+      },
+    }).summary;
+    expect(lopsided).toMatchObject({ averageFinalCoins: 1, ties: 0, tieRate: 0 });
+  });
+
   test('the same options give identical output', () => {
     expect(JSON.stringify(runSim(fakeEngine(), options()))).toBe(
       JSON.stringify(runSim(fakeEngine(), options())),
@@ -284,6 +306,16 @@ describe('runSim with a fake engine (§7, §8, §9)', () => {
       reproduce:
         'npm run sim -- --games 1 --seed 10 --seats 2 --max-steps 5000 --lap-target 2 --policy illegal',
     });
+  });
+
+  test('a failing evaluation game reproduces inside the evaluation seed set', () => {
+    const { failures } = runSim(
+      fakeEngine({ neverFinish: true }),
+      options({ games: 1, seed: 1000000, maxSteps: 50, seedSet: 'eval' }),
+    );
+    expect(failures.map((failure) => failure.reproduce)).toEqual([
+      'npm run sim -- --games 1 --seed 1000000 --seats 2 --max-steps 50 --lap-target 2 --policy random --seed-set eval',
+    ]);
   });
 
   test('--max-steps stops a stuck game and reports it as aborted', () => {
@@ -419,10 +451,46 @@ describe('runCli (§7, §8)', () => {
     ]);
   });
 
+  test('prints the summary as one JSON line, then a short readable table', () => {
+    const { code, out } = run(['--games', '4', '--seed', '7'], () => []);
+    expect(code).toBe(0);
+    expect(Object.keys(JSON.parse(out[0]!))).toEqual(
+      expect.arrayContaining([
+        'averageTurns',
+        'averageFinalCoins',
+        'tieRate',
+        'catching',
+        'shop',
+        'salesByLap',
+        'classInSeat',
+      ]),
+    );
+    expect(JSON.parse(out[0]!).shop).toEqual({ purchases: { coin: expect.any(Number) } });
+    const table = out.slice(1).join('\n');
+    expect(table).toMatch(/^ {2}Shop +coin \d+$/m);
+    expect(table).toMatch(/^Sim: 4 games, 2 seats, seed set tune$/m);
+    expect(table).toMatch(/^ {2}Turns per game +4$/m);
+    expect(table).toMatch(/^ {2}Tie rate +[\d.]+ \(\d+ ties?\)$/m);
+    expect(table).toMatch(/^ {2}Class in seat +alpha \d+\/\d+/m);
+    expect(out.length).toBeLessThan(30);
+  });
+
   test('a clean run exits 0', () => {
     const { code, err } = run(['--games', '2', '--seed', '7'], () => []);
     expect(code).toBe(0);
     expect(err).toEqual([]);
+  });
+
+  test('--seed-set eval refuses a tuning seed with a clear message, and runs from 1,000,000', () => {
+    const wrong = run(['--seed-set', 'eval', '--seed', '5', '--games', '2'], () => []);
+    expect(wrong.code).not.toBe(0);
+    expect(wrong.out).toEqual([]);
+    expect(wrong.err).toEqual([
+      'sim: --seed-set eval takes only seeds from 1000000; this run uses seeds 5 to 6',
+    ]);
+    const right = run(['--seed-set', 'eval', '--seed', '1000000', '--games', '2'], () => []);
+    expect(right.code).toBe(0);
+    expect(JSON.parse(right.out[0]!)).toMatchObject({ games: 2, seedSet: 'eval' });
   });
 
   test('bad arguments exit 2', () => {
@@ -546,6 +614,99 @@ describe('the real engine', () => {
   });
 });
 
+/** Takes the first enabled choice whose ID is listed, in list order, else the first enabled. */
+const prefer =
+  (...ids: string[]) =>
+  (): Policy => ({
+    decide(_observation, legal) {
+      for (const id of ids) {
+        if (legal.enabled.some((choice) => choice.id === id)) return id;
+      }
+      return legal.enabled[0]!.id;
+    },
+  });
+
+describe('summary metrics from the real engine (§8, Appendix A)', () => {
+  const real = (policy: string, policies: Record<string, () => Policy>) =>
+    runSim(realEngine, options({ games: 4, seed: 11, policy }), policies).summary;
+
+  test('a player who always releases makes no catch attempt', () => {
+    const summary = real('release', { release: prefer('release', 'skip') });
+    const { encounters, attempts, catches, releases } = summary.catching;
+    expect(encounters).toBeGreaterThan(0);
+    expect({ attempts, catches, releases }).toEqual({
+      attempts: 0,
+      catches: 0,
+      releases: encounters,
+    });
+  });
+
+  test('catch attempts per encounter split by Ball type, DC and Lap', () => {
+    const { catching } = real('random', POLICIES);
+    expect(catching.attempts + catching.releases).toBe(catching.encounters);
+    expect(catching.catches).toBeGreaterThan(0);
+    const rows = catching.byBallDcLap;
+    expect(rows.reduce((sum, row) => sum + row.attempts, 0)).toBe(catching.attempts);
+    expect(rows.reduce((sum, row) => sum + row.catches, 0)).toBe(catching.catches);
+    const encountersByDcLap = new Map<string, number>();
+    for (const row of rows) {
+      expect(['poke', 'great', 'ultra']).toContain(row.ballType);
+      expect([2, 3, 4, 5]).toContain(row.dc);
+      expect([0, 1, 2]).toContain(row.lap);
+      expect(row.catches).toBeLessThanOrEqual(row.attempts);
+      expect(row.attempts).toBeLessThanOrEqual(row.encounters);
+      expect(row.attemptsPerEncounter).toBeCloseTo(row.attempts / row.encounters, 2);
+      encountersByDcLap.set(`${row.dc}@${row.lap}`, row.encounters);
+    }
+    // Every DC and Lap with an encounter lists all three Balls, so a Ball never tried shows 0.
+    expect(rows).toHaveLength(encountersByDcLap.size * 3);
+    expect([...encountersByDcLap.values()].reduce((sum, n) => sum + n, 0)).toBe(
+      catching.encounters,
+    );
+  });
+
+  test('Shop purchases are counted by offer', () => {
+    const { shop } = real('buy-poke', {
+      'buy-poke': prefer('buy:offer-poke', 'release', 'finish-sell', 'skip'),
+    });
+    expect(shop).toEqual({ purchases: { 'offer-poke': expect.any(Number) } });
+    expect(shop.purchases['offer-poke']).toBeGreaterThan(0);
+  });
+
+  test('sales are counted per Lap, and only after a paid Start crossing (§4.7)', () => {
+    const sellOne = (): Policy => ({
+      decide(_observation, legal) {
+        const sale = legal.enabled.find((choice) => choice.id.startsWith('sell:'));
+        return (
+          sale ??
+          legal.enabled.find((choice) => choice.id === 'release') ??
+          legal.enabled[0]!
+        ).id;
+      },
+    });
+    const { salesByLap } = real('sell-one', { 'sell-one': sellOne });
+    expect(Object.keys(salesByLap).length).toBeGreaterThan(0);
+    for (const [lap, sales] of Object.entries(salesByLap)) {
+      expect([1, 2]).toContain(Number(lap));
+      expect(sales).toEqual({ sold: expect.any(Number), coins: expect.any(Number) });
+      expect(sales.sold).toBeGreaterThan(0);
+    }
+    // A Rescue Starter sells for 0, so only the run as a whole must have paid coins.
+    expect(Object.values(salesByLap).reduce((sum, sales) => sum + sales.coins, 0)).toBeGreaterThan(
+      0,
+    );
+  });
+
+  test('a player who throws only Poké Balls has attempts only in the Poké Ball rows', () => {
+    const { byBallDcLap } = real('poke', {
+      poke: prefer('catch:poke', 'release', 'skip'),
+    }).catching;
+    const tried = byBallDcLap.filter((row) => row.attempts > 0);
+    expect(tried.length).toBeGreaterThan(0);
+    expect(new Set(tried.map((row) => row.ballType))).toEqual(new Set(['poke']));
+  });
+});
+
 describe('seat balance (§8 variation)', () => {
   test.each([2, 3, 4])('with %i seats every class sits in every seat equally often', (seats) => {
     const counts = new Map<string, number>();
@@ -561,6 +722,19 @@ describe('seat balance (§8 variation)', () => {
     expect(new Set(counts.values())).toEqual(new Set([3]));
   });
 
+  test.each([2, 3, 4])(
+    'over 200 games with %i seats the summary counts each core class in each seat within 1',
+    (seats) => {
+      const engine = { ...fakeEngine(), classIds: realEngine.classIds };
+      const { summary } = runSim(engine, options({ games: 200, seats, lapTarget: 1 }));
+      expect(Object.keys(summary.classInSeat).sort()).toEqual([...realEngine.classIds].sort());
+      const counts = Object.values(summary.classInSeat).flat();
+      expect(counts).toHaveLength(realEngine.classIds.length * seats);
+      expect(counts.reduce((sum, n) => sum + n, 0)).toBe(200 * seats);
+      expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1);
+    },
+  );
+
   test('too few classes are refused', () => {
     expect(() => seatSetup(['alpha'], 2, 1)).toThrow(RangeError);
   });
@@ -575,15 +749,33 @@ describe('parseSimArgs', () => {
       maxSteps: 5000,
       lapTarget: GAME_PRESETS.quick.lapTarget,
       policy: 'random',
+      seedSet: 'tune',
     });
   });
 
   test('reads every flag', () => {
     expect(
       parseSimArgs(
-        '--games 1 --seed 4 --seats 4 --max-steps 9 --lap-target 3 --policy random'.split(' '),
+        '--games 1 --seed 1000004 --seats 4 --max-steps 9 --lap-target 3 --policy random --seed-set eval'.split(
+          ' ',
+        ),
       ),
-    ).toEqual({ games: 1, seed: 4, seats: 4, maxSteps: 9, lapTarget: 3, policy: 'random' });
+    ).toEqual({
+      games: 1,
+      seed: 1000004,
+      seats: 4,
+      maxSteps: 9,
+      lapTarget: 3,
+      policy: 'random',
+      seedSet: 'eval',
+    });
+  });
+
+  test('a tuning run may not reach into the evaluation seeds (§8 Variation)', () => {
+    expect(parseSimArgs(['--games', '10', '--seed', '999990']).seed).toBe(999990);
+    expect(() => parseSimArgs(['--games', '11', '--seed', '999990'])).toThrow(
+      '--seed-set tune takes only seeds below 1000000; this run uses seeds 999990 to 1000000',
+    );
   });
 
   test.each([
@@ -599,6 +791,7 @@ describe('parseSimArgs', () => {
     '--lap-target=-1',
     '--lap-target=2.5',
     '--policy=jev',
+    '--seed-set=test',
   ])('rejects %s', (arg) => {
     expect(() => parseSimArgs([arg])).toThrow(RangeError);
   });

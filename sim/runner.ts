@@ -10,6 +10,13 @@ import {
   type Observation,
 } from '../engine/index.ts';
 import {
+  createMetrics,
+  emptyMetricsSummary,
+  round2,
+  type MetricsCollector,
+  type MetricsSummary,
+} from './metrics.ts';
+import {
   createPolicyRng,
   POLICIES,
   type Policy,
@@ -48,6 +55,11 @@ export type InvariantCheck = (
 
 export const noInvariantCheck: InvariantCheck = () => [];
 
+export type SeedSet = 'tune' | 'eval';
+
+/** §8 Variation: tuning seeds stay below this and evaluation seeds start at it. */
+export const EVAL_SEED_FLOOR = 1_000_000;
+
 export type SimOptions = {
   games: number;
   seed: number;
@@ -55,6 +67,7 @@ export type SimOptions = {
   maxSteps: number;
   lapTarget: number;
   policy: string;
+  seedSet: SeedSet;
   /** `--save <file>`: where each finished game is written as a save (spec §6.7). */
   save?: string;
 };
@@ -64,18 +77,26 @@ export const DEFAULT_OPTIONS: Omit<SimOptions, 'games' | 'seed'> = {
   maxSteps: 5000,
   lapTarget: GAME_PRESETS.quick.lapTarget,
   policy: 'random',
+  seedSet: 'tune',
 };
 
 export type SimSummary = {
   games: number;
+  seedSet: SeedSet;
   seats: number;
   averageTurns: number;
+  /** Mean coins per player at the end of a finished game. */
+  averageFinalCoins: number;
   winners: { bySeat: number[]; byClass: Record<string, number> };
   ties: number;
+  /** Finished games with co-winners, as a share of finished games (§8 Scoring). */
+  tieRate: number;
+  /** §8 Variation: games each class played in each seat, indexed by seat. */
+  classInSeat: Record<string, number[]>;
   aborted: number;
   illegalAppliedActionCount: number;
   invariantFailures: number;
-};
+} & MetricsSummary;
 
 export type GameFailure = { seed: number; reasons: string[]; reproduce: string };
 
@@ -93,6 +114,7 @@ type GameResult = {
   seats: SeatSetup[];
   outcome: GameOutcome;
   turns: number;
+  finalCoins: number[];
   abortReason: string | null;
   illegalApplied: number;
   violations: number;
@@ -112,16 +134,20 @@ export function runSim(
   const failures: GameFailure[] = [];
   let finishedGames = 0;
   let finishedTurns = 0;
+  let finalCoins = 0;
+  const metrics = createMetrics();
   for (let g = 0; g < options.games; g++) {
     // Game g of seed s uses seed s + g, so `--games 1 --seed <s + g>` replays it alone.
     const seed = options.seed + g;
-    const game = playGame(engine, options, seed, createPolicy, checkInvariants);
+    const game = playGame(engine, options, seed, createPolicy, checkInvariants, metrics);
+    for (const seat of game.seats) summary.classInSeat[seat.classId]![seat.seatIndex]! += 1;
     if (game.game) onGame(game.game);
     summary.illegalAppliedActionCount += game.illegalApplied;
     summary.invariantFailures += game.violations;
     if (game.outcome.finished) {
       finishedGames++;
       finishedTurns += game.turns;
+      finalCoins += game.finalCoins.reduce((sum, coins) => sum + coins, 0);
       const { winnerSeats } = game.outcome;
       if (winnerSeats.length > 1) summary.ties++;
       for (const seatIndex of winnerSeats) {
@@ -141,26 +167,37 @@ export function runSim(
       failures.push({ seed, reasons, reproduce: reproduceCommand(options, seed) });
   }
   summary.averageTurns = finishedGames === 0 ? 0 : round2(finishedTurns / finishedGames);
+  summary.averageFinalCoins =
+    finishedGames === 0 ? 0 : round2(finalCoins / (finishedGames * options.seats));
+  summary.tieRate = finishedGames === 0 ? 0 : round2(summary.ties / finishedGames);
   summary.winners.bySeat = summary.winners.bySeat.map(round2);
   summary.winners.byClass = Object.fromEntries(
     Object.entries(summary.winners.byClass).map(([classId, wins]) => [classId, round2(wins)]),
   );
+  Object.assign(summary, metrics.summary());
   return { summary, failures };
 }
 
 function emptySummary(options: SimOptions, classIds: readonly string[]): SimSummary {
   return {
     games: 0,
+    seedSet: options.seedSet,
     seats: options.seats,
     averageTurns: 0,
+    averageFinalCoins: 0,
     winners: {
       bySeat: Array.from({ length: options.seats }, () => 0),
       byClass: Object.fromEntries(classIds.map((classId) => [classId, 0])),
     },
     ties: 0,
+    tieRate: 0,
+    classInSeat: Object.fromEntries(
+      classIds.map((classId) => [classId, Array.from({ length: options.seats }, () => 0)]),
+    ),
     aborted: 0,
     illegalAppliedActionCount: 0,
     invariantFailures: 0,
+    ...emptyMetricsSummary(),
   };
 }
 
@@ -171,6 +208,25 @@ export function failed(summary: SimSummary): boolean {
   );
 }
 
+/**
+ * Throws when any game seed of the run (`seed` to `seed + games - 1`) falls outside its seed set,
+ * so a tuning run never touches an evaluation seed and the reverse.
+ */
+export function checkSeedSet({ seedSet, seed, games }: SimOptions): void {
+  const last = seed + games - 1;
+  const range = games === 1 ? `seed ${seed}` : `seeds ${seed} to ${last}`;
+  if (seedSet === 'tune' && last >= EVAL_SEED_FLOOR) {
+    throw new RangeError(
+      `--seed-set tune takes only seeds below ${EVAL_SEED_FLOOR}; this run uses ${range}`,
+    );
+  }
+  if (seedSet === 'eval' && seed < EVAL_SEED_FLOOR) {
+    throw new RangeError(
+      `--seed-set eval takes only seeds from ${EVAL_SEED_FLOOR}; this run uses ${range}`,
+    );
+  }
+}
+
 export function reproduceCommand(options: SimOptions, seed: number): string {
   return [
     'npm run sim --',
@@ -179,6 +235,7 @@ export function reproduceCommand(options: SimOptions, seed: number): string {
     `--max-steps ${options.maxSteps}`,
     `--lap-target ${options.lapTarget}`,
     `--policy ${options.policy}`,
+    ...(options.seedSet === 'eval' ? ['--seed-set eval'] : []),
   ].join(' ');
 }
 
@@ -204,6 +261,7 @@ function playGame(
   seed: number,
   createPolicy: () => Policy,
   checkInvariants: InvariantCheck,
+  metrics: MetricsCollector,
 ): GameResult {
   const seats = seatSetup(engine.classIds, options.seats, seed);
   const result: GameResult = {
@@ -211,6 +269,7 @@ function playGame(
     seats,
     outcome: { finished: false },
     turns: 0,
+    finalCoins: [],
     abortReason: null,
     illegalApplied: 0,
     violations: 0,
@@ -234,7 +293,10 @@ function playGame(
       result.turns = state.globalTurnNo;
       game.state = state;
       game.outcome = result.outcome;
-      if (result.outcome.finished) return result;
+      if (result.outcome.finished) {
+        result.finalCoins = state.players.map((player) => player.coins);
+        return result;
+      }
       if (steps >= options.maxSteps) {
         result.abortReason = `max steps ${options.maxSteps}`;
         return result;
@@ -250,6 +312,7 @@ function playGame(
           record,
         };
         result.violations += checkInvariants(state, record.action, applied).length;
+        metrics.step(state, record.action, automatic.state, automatic.events);
         game.records.push(record);
         state = automatic.state;
         continue;
@@ -277,6 +340,7 @@ function playGame(
       result.violations += checkInvariants(state, action, applied).length;
       if ('rejected' in applied) continue;
       if (!enabled) result.illegalApplied++;
+      metrics.step(state, action, applied.state, applied.events);
       game.records.push(applied.record);
       state = applied.state;
     }
@@ -319,8 +383,4 @@ function command(state: GameState, actorId: string, choice: LegalAction): Action
     kind: choice.kind,
     payload: choice.payload,
   } as Action;
-}
-
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
 }
