@@ -448,7 +448,7 @@ Every level uses the same observation.
 
 - **Files:** `content/lines/en/<situation>.json`, e.g. deal_accept, deal_reject, promise_kept, promise_broken, gym_win, taunt_leader, manipulation_refused, fallback_notice.
 - **Coverage:** each situation has ≥3 lines per personality per trust bucket, with slots such as `{target}` or `{turn}` filled by the engine.
-- **Selection:** Jev picks the line ID; when unavailable, a seeded random pick is used.
+- **Selection:** Jev picks the line ID; when unavailable, a seeded random pick is used. In v0, callers append the returned `line_selected` event and its `random_result` to the optional `GameLog.dialogueEvents` array, preserved by save/load. Dialogue uses a separate presentation RNG and does not change command replay. Showing lines during AI turns is later integration work.
 - *(Stretch, off by default)* A generative LLM may rephrase lines. It must pass the leak tests and stay off the critical path.
 
 ## 6. Architecture, data and replay

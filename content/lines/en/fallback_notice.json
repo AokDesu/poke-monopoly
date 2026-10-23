@@ -15,6 +15,6 @@
     "id": "fallback-notice-greedy-neutral-3",
     "personality": "greedy",
     "trust": "neutral",
-    "text": "Backup bot mode: a backup bot is playing this seat."
+    "text": "A backup bot is playing this seat."
   }
 ]

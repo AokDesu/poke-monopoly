@@ -40,7 +40,6 @@ describe('line bank v0 (§5.7)', () => {
   });
 
   const THAI = /\p{Script=Thai}/u;
-  // Any run of 3+ Latin words; the bank is English, so this guards the scan itself.
   test.each(
     files.flatMap((file) =>
       (read(file) as { id: string; text: string }[]).map((l) => [l.id, l.text]),
@@ -81,3 +80,19 @@ describe('line bank v0 (§5.7)', () => {
     expect(() => parseLines('broken', json)).toThrow(message);
   });
 });
+
+test.each(['Hello {target', 'Hello {unknown-slot}'])(
+  'slot filler rejects malformed template %s',
+  (text) => {
+    expect(() => fillSlots(text, {})).toThrow();
+  },
+);
+
+test.each(['Hello {target', 'Hello {unknown-slot}', 'Hello target}', 'Thai ภาษาไทย', 'Turn 42.'])(
+  'line validation rejects unsafe template %s',
+  (text) => {
+    expect(() =>
+      parseLines('broken', [{ id: 'broken', personality: 'greedy', trust: 'neutral', text }]),
+    ).toThrow();
+  },
+);

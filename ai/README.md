@@ -10,7 +10,7 @@ Routes (`app.ts`): `POST /api/ai/decide` takes a `DecisionRequest` (at most 32 K
 
 `fallback/` is the §5.2 fallback policy: personality-weighted utility over the enabled actions, from the seat's `Observation` plus engine `PolicyFacts` only. `FallbackPolicy` implements the sim's `Policy` (`npm run sim -- --policy fallback`), and `decideWithFallback` applies Jev's choice at or above the confidence floor and otherwise picks between Jev's top two by personality weight (§5.6). Personalities load from `content/personalities/*.json` through `content/personality-schema.ts`.
 
-`lines.ts` holds the validated English line bank (`content/lines/en/`). `selectLine(situation, personalityId, trustBucket, rng)` picks a line uniformly with the seeded engine RNG, returns its line ID and template with the new RNG state, and logs a `line_selected` event; the engine fills the template's slots with `fillSlots` (spec §5.7).
+`lines.ts` holds the validated English line bank (`content/lines/en/`). `selectLine(situation, personalityId, trustBucket, rng)` picks a line uniformly with the seeded engine RNG, returns its line ID and template with the new RNG state, and returns a `line_selected` event alongside the draw. Callers append these events to `GameLog.dialogueEvents`, which survives save/load. Use a separate presentation RNG and retain its returned state for subsequent line selections; gameplay RNG and command replay are unaffected. Gameplay display wiring is deferred to later work; the engine fills the template's slots with `fillSlots` (spec §5.7).
 
 No hidden information goes in: send only what that seat can see. Must not import from `web/`; lint enforces this. The browser reaches it through `/api` (port 8787; Vite proxies in dev).
 

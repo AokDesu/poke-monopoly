@@ -35,7 +35,8 @@ export type LineSelection = {
 
 /**
  * Spec §5.7: until Jev picks the line ID, and whenever it is unavailable, picks uniformly among the
- * situation's lines for that personality and trust bucket with the seeded RNG, and logs the pick.
+ * situation's lines for that personality and trust bucket with the seeded RNG, and returns the pick events for the caller to append to `GameLog.dialogueEvents`.
+ * Use a separate presentation RNG; dialogue does not advance the gameplay RNG.
  */
 export function selectLine(
   situation: Situation,

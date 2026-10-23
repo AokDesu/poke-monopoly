@@ -22,6 +22,15 @@ const lineSchema = z.strictObject({
   text: z
     .string()
     .min(1)
+    .refine((text) => !/[{}]/.test(text.replace(SLOT, '')), {
+      message: 'text has an unfilled or malformed brace',
+    })
+    .refine((text) => !/\p{Script=Thai}/u.test(text), {
+      message: 'text must be English, without Thai script',
+    })
+    .refine((text) => !/\p{N}/u.test(text.replace(SLOT, '')), {
+      message: 'text must use slots instead of number literals',
+    })
     .refine((text) => [...text.matchAll(SLOT)].every(([, name]) => isSlot(name!)), {
       message: `text may only use the slots ${SLOTS.map((s) => `{${s}}`).join(', ')}`,
     }),
@@ -51,6 +60,8 @@ export function fillSlots(
   template: string,
   values: Partial<Record<Slot, string | number>>,
 ): string {
+  const bare = template.replace(SLOT, '');
+  if (/[{}]/.test(bare)) throw new Error(`Line has a malformed slot: ${template}`);
   return template.replace(SLOT, (_, name: string) => {
     if (!isSlot(name)) throw new Error(`Line has an unknown slot "${name}": ${template}`);
     const value = values[name];
