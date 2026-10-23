@@ -2,7 +2,10 @@ import { parseArgs } from 'node:util';
 import { POLICIES } from './policy.ts';
 import { DEFAULT_OPTIONS, type SimOptions } from './runner.ts';
 
-/** `--games <n> --seed <n> [--seats 2|3|4] [--max-steps n] [--lap-target n] [--policy name]`. */
+/**
+ * `--games <n> --seed <n> [--seats 2|3|4] [--max-steps n] [--lap-target n] [--policy name]
+ * [--save file]`.
+ */
 export function parseSimArgs(args: string[]): SimOptions {
   const { values } = parseArgs({
     args,
@@ -15,6 +18,7 @@ export function parseSimArgs(args: string[]): SimOptions {
       'max-steps': { type: 'string', default: String(DEFAULT_OPTIONS.maxSteps) },
       'lap-target': { type: 'string', default: String(DEFAULT_OPTIONS.lapTarget) },
       policy: { type: 'string', default: DEFAULT_OPTIONS.policy },
+      save: { type: 'string' },
     },
   });
   const seats = integer('seats', values.seats, 2);
@@ -31,6 +35,7 @@ export function parseSimArgs(args: string[]): SimOptions {
     maxSteps: integer('max-steps', values['max-steps'], 1),
     lapTarget: integer('lap-target', values['lap-target'], 1),
     policy: values.policy,
+    ...(values.save === undefined ? {} : { save: nonEmpty('save', values.save) }),
   };
 }
 
@@ -40,4 +45,20 @@ function integer(name: string, raw: string, min: number): number {
     throw new RangeError(`--${name} must be an integer of at least ${min}; got ${raw}`);
   }
   return value;
+}
+
+/** `--replay <save.json>`: the replay mode takes no other flag. */
+export function parseReplayArgs(args: string[]): string {
+  const { values } = parseArgs({
+    args,
+    strict: true,
+    allowPositionals: false,
+    options: { replay: { type: 'string' } },
+  });
+  return nonEmpty('replay', values.replay ?? '');
+}
+
+function nonEmpty(name: string, raw: string): string {
+  if (raw === '') throw new RangeError(`--${name} needs a file path`);
+  return raw;
 }
