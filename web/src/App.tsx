@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { BoardScreen } from './board/BoardScreen.tsx';
 import { CreditsScreen } from './CreditsScreen.tsx';
 import { classOptions, content as gameContent, engineContent } from './game/content.ts';
 import { rollForFirstPlayer } from './game/firstPlayer.ts';
@@ -158,17 +159,18 @@ export function App({ seed, random = Math.random, store: givenStore }: AppProps)
           break;
       }
       break;
+    case 'play':
+      screen = <BoardScreen store={store} />;
+      break;
     case 'credits':
       screen = <CreditsScreen onBack={() => go(creditsFrom)} />;
       break;
     default:
-      screen = (
-        <ScreenPlaceholder screen={route.screen} onNavigate={(next) => go({ screen: next })} />
-      );
+      screen = <ScreenPlaceholder onNavigate={(next) => go({ screen: next })} />;
   }
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className={`flex min-h-dvh flex-col ${route.screen === 'play' ? 'app-playing' : ''}`}>
       {route.screen !== 'home' && (
         <header className="mx-auto flex w-full max-w-6xl items-center gap-3 px-5 pt-5 sm:px-8">
           <BallIcon className="size-9 drop-shadow-[0_3px_0_rgb(16_38_84/0.35)]" />
