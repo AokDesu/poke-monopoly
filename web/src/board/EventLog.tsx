@@ -1,7 +1,9 @@
 import type { EngineEvent, Observation } from '../../../engine/index.ts';
+import type { SeatFeedEntry } from '../game/store.ts';
 import { t, type MessageKey } from '../i18n/en.ts';
 import { itemName } from '../i18n/names.ts';
 import { phaseLabel, playerLabel, reasonLabel, seatLabel } from './labels.ts';
+import { turnMessages } from './turnMessages.ts';
 
 function eventMessage(
   event: EngineEvent,
@@ -65,19 +67,26 @@ function eventMessage(
 export function EventLog({
   events,
   observation,
+  feed,
 }: {
   events: readonly EngineEvent[];
   observation: Observation;
+  feed?: readonly SeatFeedEntry[];
 }) {
+  const rows = feed
+    ? feed.flatMap((entry) => [
+        ...turnMessages(entry),
+        ...entry.record.events.map((event) => eventMessage(event, observation)),
+      ])
+    : events.map((event) => eventMessage(event, observation));
   return (
     <section className="panel field-log" aria-labelledby="field-log-heading">
       <h2 id="field-log-heading">{t('board.log')}</h2>
-      {events.length === 0 ? (
+      {rows.length === 0 ? (
         <p className="panel-note">{t('board.logEmpty')}</p>
       ) : (
         <ol role="log" aria-label={t('board.log')} aria-relevant="additions text">
-          {events.map((event, index) => {
-            const message = eventMessage(event, observation);
+          {rows.map((message, index) => {
             return (
               <li key={index} data-message-key={message.key}>
                 <span className="log-marker" aria-hidden="true" />

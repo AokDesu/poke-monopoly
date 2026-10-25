@@ -1,17 +1,154 @@
-import { useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import type { GameStore } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
+import { ActionButton } from '../ui/ActionButton.tsx';
 import { Screen } from '../ui/Screen.tsx';
 import { Board } from './Board.tsx';
+import { EncounterDialog } from './EncounterDialog.tsx';
+import { phaseLabel } from './labels.ts';
+import { turnMessages } from './turnMessages.ts';
+import './turn-flow.css';
 
-export function BoardScreen({ store }: { store: GameStore }) {
+export function BoardScreen({ store, onHome }: { store: GameStore; onHome?: () => void }) {
   const view = useSyncExternalStore(store.subscribe, store.getView);
-  return view ? (
-    <Board
-      observation={view.observation}
-      events={view.feed.flatMap((entry) => entry.record.events)}
-    />
-  ) : (
-    <Screen heading={t('play.heading')} body={t('board.noGame')} />
+  const [failure, setFailure] = useState<number | null>(null);
+  const [retry, setRetry] = useState(0);
+  const [actionError, setActionError] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!view || view.observation.public.phase.kind === 'finished') return;
+    const controller = new AbortController();
+    // A presentation pause exposes movement, automatic releases and the Start handoff.
+    // The engine still decides whether a step is automatic; this timer never chooses an action.
+    const timer = window.setTimeout(() => {
+      if (store.advance({ human: true })) return;
+      if (view.observation.public.activeSeatIndex === view.seatIndex) return;
+      void store.playOpponent(controller.signal).catch(() => {
+        if (!controller.signal.aborted) setFailure(view.observation.public.stateRevision);
+      });
+    }, 1200);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [store, view, retry]);
+
+  if (!view) return <Screen heading={t('play.heading')} body={t('board.noGame')} />;
+  const { public: game } = view.observation;
+  const humanTurn = game.activeSeatIndex === view.seatIndex;
+  const choose = (id: string) => {
+    if ('rejected' in store.choose(id)) setActionError(game.stateRevision);
+  };
+  const continuation = view.legalActions.enabled.find(
+    (choice) =>
+      choice.kind === 'skip' || choice.kind === 'skip_shop' || choice.id === 'finish-sell',
+  );
+  const result = view.feed
+    .filter(({ before }) => before.activeSeatIndex === view.seatIndex)
+    .flatMap(turnMessages)
+    .findLast((message) =>
+      ['encounter.caught', 'encounter.escaped', 'encounter.released'].includes(message.key),
+    );
+  const automatic = view.feed.at(-1);
+  const automaticMessage =
+    automatic && turnMessages(automatic).find((message) => message.key === 'turn.automatic');
+  const lastMove = view.feed.findLast(
+    ({ before, record }) =>
+      before.activeSeatIndex === view.seatIndex &&
+      before.phase.kind === 'move' &&
+      record.action.kind === 'dice_result',
+  );
+  const roll = lastMove?.record.events.find(
+    (event) => event.kind === 'random_result' && event.purpose.startsWith('move:'),
+  );
+  const you = game.players.find((player) => player.seatIndex === view.seatIndex)!;
+  const opponentFailed = failure === game.stateRevision;
+  let body =
+    game.phase.kind === 'finished'
+      ? t('turn.finished')
+      : !humanTurn
+        ? t('turn.opponent')
+        : game.phase.kind === 'sell'
+          ? t('turn.sellBody')
+          : game.phase.kind === 'shop'
+            ? t('turn.shopBody')
+            : game.phase.kind === 'strategy' && view.legalActions.enabled.length > 1
+              ? t('turn.strategyBody')
+              : game.phase.kind === 'end'
+                ? t('turn.end')
+                : game.phase.kind === 'move'
+                  ? t('turn.moving')
+                  : t('turn.onlyLegalAction');
+  if (humanTurn && game.phase.kind === 'encounter' && view.legalActions.enabled.length > 1) {
+    body = t('turn.encounterBody');
+  }
+  if (opponentFailed) body = t('turn.opponentError');
+  const controls = (
+    <section className="turn-panel panel" aria-label={t('turn.actions')}>
+      <div className="turn-panel-copy">
+        <h2>
+          {humanTurn && game.phase.kind === 'sell'
+            ? t('turn.sellHeading')
+            : humanTurn && game.phase.kind === 'shop'
+              ? t('turn.shopHeading')
+              : game.phase.kind === 'finished'
+                ? t('board.finished')
+                : humanTurn
+                  ? phaseLabel(game.phase.kind)
+                  : t('turn.opponent')}
+        </h2>
+        <p role={opponentFailed ? 'alert' : 'status'}>{body}</p>
+        {automaticMessage && (
+          <p className="turn-banner" role="status">
+            {automaticMessage.text}
+          </p>
+        )}
+        {roll?.kind === 'random_result' && typeof roll.result === 'number' && (
+          <p className="move-summary">
+            {t('turn.lastMove', { roll: roll.result, position: you.position })}
+          </p>
+        )}
+        {result && (
+          <p className="catch-result" role="status" data-message-key={result.key}>
+            {result.text}
+          </p>
+        )}
+        {actionError === game.stateRevision && <p role="alert">{t('turn.actionError')}</p>}
+      </div>
+      {humanTurn && continuation && view.legalActions.enabled.length > 1 && (
+        <ActionButton enabled onClick={() => choose(continuation.id)}>
+          {game.phase.kind === 'strategy' ? t('turn.strategy') : t('turn.continue')}
+        </ActionButton>
+      )}
+      {opponentFailed && (
+        <ActionButton
+          enabled
+          onClick={() => {
+            setFailure(null);
+            setRetry((value) => value + 1);
+          }}
+        >
+          {t('turn.retry')}
+        </ActionButton>
+      )}
+      {game.phase.kind === 'finished' && onHome && (
+        <ActionButton enabled onClick={onHome}>
+          {t('turn.returnHome')}
+        </ActionButton>
+      )}
+    </section>
+  );
+  return (
+    <>
+      <Board observation={view.observation} feed={view.feed} controls={controls} />
+      {humanTurn && game.phase.kind === 'encounter' && !game.phase.catchRoll && (
+        <EncounterDialog
+          observation={view.observation}
+          legalActions={view.legalActions}
+          catchOdds={view.catchOdds}
+          onChoose={choose}
+        />
+      )}
+    </>
   );
 }

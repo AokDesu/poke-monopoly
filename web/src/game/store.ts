@@ -10,6 +10,9 @@ import {
   GAME_PRESETS,
   legalActions,
   observe,
+  oddsForAllBalls,
+  type BallType,
+  type CatchOdds,
   type Action,
   type ActionRecord,
   type ApplyActionResult,
@@ -49,7 +52,7 @@ export interface OpponentSettings {
 /** One accepted action as the human seat may see it (engine contract: `actionVisibleTo`). */
 export interface SeatFeedEntry {
   /** What the seat saw just before the action: the public phase and whose turn it was. */
-  readonly before: Pick<Observation['public'], 'phase' | 'activeSeatIndex'>;
+  readonly before: Pick<Observation['public'], 'phase' | 'activeSeatIndex' | 'globalTurnNo'>;
   readonly record: SeatActionRecord;
 }
 
@@ -61,6 +64,7 @@ export interface SeatView {
   readonly seatIndex: number;
   readonly observation: Observation;
   readonly legalActions: LegalActions;
+  readonly catchOdds: readonly ({ ballType: BallType } & CatchOdds)[];
   readonly feed: readonly SeatFeedEntry[];
   readonly opponents: readonly OpponentSettings[];
 }
@@ -79,10 +83,12 @@ export interface GameStore {
   /** Submits one of the human seat's enabled legal actions by its ID. */
   choose(choiceId: string): ApplyActionResult;
   /**
-   * Applies one pending engine result or an AI seat's sole legal choice; false when a decision
-   * is needed. Never plays for the human seat: its choices come only through `choose`/`submit`.
+   * Applies one pending result or sole choice. Board play opts human steps in; first-player
+   * setup retains its explicit roll confirmation. The engine alone decides what is automatic.
    */
-  advance(): boolean;
+  advance(options?: { human?: boolean }): boolean;
+  /** Sends an AI seat's own projection to the server, then validates its answer via applyAction. */
+  playOpponent(signal: AbortSignal): Promise<boolean>;
   clear(): void;
 }
 
@@ -117,6 +123,7 @@ export function createGameStore(): GameStore {
   let session: GameSession | null = null;
   let view: SeatView | null = null;
   let opponents: readonly OpponentSettings[] = [];
+  let gameToken = '';
   const listeners = new Set<() => void>();
 
   const viewOf = (state: GameState, feed: readonly SeatFeedEntry[]): SeatView | null => {
@@ -126,6 +133,12 @@ export function createGameStore(): GameStore {
       seatIndex,
       observation: observe(state, seatIndex),
       legalActions: legalActions(state, seatIndex),
+      catchOdds:
+        state.activeSeatIndex === seatIndex &&
+        state.phase.kind === 'encounter' &&
+        !state.phase.catchRoll
+          ? oddsForAllBalls(state, seatIndex)
+          : [],
       feed,
       opponents,
     };
@@ -134,12 +147,12 @@ export function createGameStore(): GameStore {
     const seatIndex = humanSeat(before);
     let feed = view?.feed ?? [];
     if (seatIndex !== undefined && records.length > 0) {
-      const { phase, activeSeatIndex } = observe(before, seatIndex).public;
+      const { phase, activeSeatIndex, globalTurnNo } = observe(before, seatIndex).public;
       // Each step applies one record (engine contract: `advanceAutomatically` does not loop).
       feed = [
         ...feed,
         ...records.map((record) => ({
-          before: { phase, activeSeatIndex },
+          before: { phase, activeSeatIndex, globalTurnNo },
           record: actionVisibleTo(before, record, seatIndex),
         })),
       ];
@@ -182,6 +195,7 @@ export function createGameStore(): GameStore {
     },
     start(config: GameConfig, content: Content, settings: readonly OpponentSettings[] = []): void {
       const state = createGame(config, content);
+      gameToken = crypto.randomUUID();
       opponents = settings;
       view = null;
       commit({ state, log: createGameLog(state) }, state, []);
@@ -198,10 +212,11 @@ export function createGameStore(): GameStore {
       const actorId = state.players.find((player) => player.seatIndex === seatIndex)!.actorId;
       return submit({ actorId, kind: choice.kind, payload: choice.payload } as Command);
     },
-    advance(): boolean {
+    advance({ human = false } = {}): boolean {
       const { state, log } = current();
       const active = state.config.seats.find((seat) => seat.seatIndex === state.activeSeatIndex);
       if (
+        !human &&
         active?.controller === 'human' &&
         legalActions(state, active.seatIndex).enabled.length > 0
       ) {
@@ -216,10 +231,71 @@ export function createGameStore(): GameStore {
       );
       return true;
     },
+    async playOpponent(signal: AbortSignal): Promise<boolean> {
+      const snapshot = current();
+      const token = gameToken;
+      const { state } = snapshot;
+      const seatIndex = state.activeSeatIndex;
+      if (state.config.seats.find((seat) => seat.seatIndex === seatIndex)?.controller !== 'ai') {
+        return false;
+      }
+      const enabledActions = legalActions(state, seatIndex).enabled;
+      if (enabledActions.length <= 1) return false;
+      const decisionPoint = state.phase.kind;
+      if (!['strategy', 'encounter', 'sell', 'shop'].includes(decisionPoint)) {
+        throw new Error('Unsupported opponent decision point');
+      }
+      const settings = opponents.find((opponent) => opponent.seatIndex === seatIndex);
+      const response = await fetch('/api/ai/decide', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        signal,
+        body: JSON.stringify({
+          gameId: gameToken,
+          seatIndex,
+          decisionPoint,
+          stateRevision: state.stateRevision,
+          observation: observe(state, seatIndex),
+          enabledActions,
+          facts:
+            decisionPoint === 'encounter' ? { catchOdds: oddsForAllBalls(state, seatIndex) } : {},
+          difficulty: settings?.difficulty ?? 'normal',
+          personalityId: settings?.personality ?? 'greedy',
+          turnKey: `${state.globalTurnNo}:${seatIndex}`,
+        }),
+      });
+      if (!response.ok) throw new Error('Opponent service failed');
+      const answer: unknown = await response.json();
+      if (signal.aborted || token !== gameToken || session !== snapshot) return false;
+      if (!answer || typeof answer !== 'object') throw new Error('Invalid opponent answer');
+      const actorId = state.players.find((player) => player.seatIndex === seatIndex)!.actorId;
+      let result: ApplyActionResult;
+      if ('choice' in answer && typeof answer.choice === 'string') {
+        const choice = enabledActions.find((entry) => entry.id === answer.choice);
+        if (!choice) throw new Error('Opponent chose an unavailable action');
+        result = submit({ actorId, kind: choice.kind, payload: choice.payload } as Command);
+      } else if (
+        decisionPoint === 'sell' &&
+        'sellUids' in answer &&
+        Array.isArray(answer.sellUids) &&
+        answer.sellUids.every((id: unknown) => typeof id === 'string')
+      ) {
+        result = submit({
+          actorId,
+          kind: 'sell',
+          payload: { pokemonInstanceIds: answer.sellUids },
+        });
+      } else {
+        throw new Error('Invalid opponent answer');
+      }
+      if ('rejected' in result) throw new Error('Opponent action was rejected');
+      return true;
+    },
     clear(): void {
       session = null;
       view = null;
       opponents = [];
+      gameToken = '';
       for (const listener of listeners) listener();
     },
   };
