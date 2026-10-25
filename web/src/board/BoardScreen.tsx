@@ -6,8 +6,12 @@ import { Screen } from '../ui/Screen.tsx';
 import { Board } from './Board.tsx';
 import { EncounterDialog } from './EncounterDialog.tsx';
 import { phaseLabel } from './labels.ts';
+import { ShopPanel } from './ShopPanel.tsx';
+import { StrategyPanel } from './StrategyPanel.tsx';
+import { SellPanel } from './SellPanel.tsx';
 import { turnMessages } from './turnMessages.ts';
 import './turn-flow.css';
+import './decision-panels.css';
 
 export function BoardScreen({ store, onHome }: { store: GameStore; onHome?: () => void }) {
   const view = useSyncExternalStore(store.subscribe, store.getView);
@@ -36,13 +40,10 @@ export function BoardScreen({ store, onHome }: { store: GameStore; onHome?: () =
   if (!view) return <Screen heading={t('play.heading')} body={t('board.noGame')} />;
   const { public: game } = view.observation;
   const humanTurn = game.activeSeatIndex === view.seatIndex;
+  const decisionOpen = humanTurn && ['shop', 'strategy', 'sell'].includes(game.phase.kind);
   const choose = (id: string) => {
     if ('rejected' in store.choose(id)) setActionError(game.stateRevision);
   };
-  const continuation = view.legalActions.enabled.find(
-    (choice) =>
-      choice.kind === 'skip' || choice.kind === 'skip_shop' || choice.id === 'finish-sell',
-  );
   const result = view.feed
     .filter(({ before }) => before.activeSeatIndex === view.seatIndex)
     .flatMap(turnMessages)
@@ -52,6 +53,12 @@ export function BoardScreen({ store, onHome }: { store: GameStore; onHome?: () =
   const automatic = view.feed.at(-1);
   const automaticMessage =
     automatic && turnMessages(automatic).find((message) => message.key === 'turn.automatic');
+  const lastSale = view.feed.findLast(
+    ({ before }) => before.activeSeatIndex === view.seatIndex && before.phase.kind === 'sell',
+  );
+  const receivedRescue = lastSale?.record.events.some(
+    (event) => event.kind === 'uid_created' && event.entity === 'pokemon',
+  );
   const lastMove = view.feed.findLast(
     ({ before, record }) =>
       before.activeSeatIndex === view.seatIndex &&
@@ -98,27 +105,57 @@ export function BoardScreen({ store, onHome }: { store: GameStore; onHome?: () =
                   : t('turn.opponent')}
         </h2>
         <p role={opponentFailed ? 'alert' : 'status'}>{body}</p>
-        {automaticMessage && (
+        {automaticMessage && !decisionOpen && (
           <p className="turn-banner" role="status">
             {automaticMessage.text}
           </p>
         )}
-        {roll?.kind === 'random_result' && typeof roll.result === 'number' && (
+        {!decisionOpen && roll?.kind === 'random_result' && typeof roll.result === 'number' && (
           <p className="move-summary">
             {t('turn.lastMove', { roll: roll.result, position: you.position })}
           </p>
         )}
-        {result && (
+        {result && !decisionOpen && (
           <p className="catch-result" role="status" data-message-key={result.key}>
             {result.text}
           </p>
         )}
         {actionError === game.stateRevision && <p role="alert">{t('turn.actionError')}</p>}
       </div>
-      {humanTurn && continuation && view.legalActions.enabled.length > 1 && (
-        <ActionButton enabled onClick={() => choose(continuation.id)}>
-          {game.phase.kind === 'strategy' ? t('turn.strategy') : t('turn.continue')}
-        </ActionButton>
+      {receivedRescue && (
+        <p className="rescue-preview" role="status">
+          {t('sell.rescueStarter')}
+        </p>
+      )}
+      {humanTurn && game.phase.kind === 'shop' && (
+        <ShopPanel
+          observation={view.observation}
+          legalActions={view.legalActions}
+          onChoose={choose}
+        />
+      )}
+      {humanTurn && game.phase.kind === 'strategy' && (
+        <StrategyPanel
+          key={game.stateRevision}
+          observation={view.observation}
+          legalActions={view.legalActions}
+          onChoose={choose}
+        />
+      )}
+      {humanTurn && game.phase.kind === 'sell' && (
+        <SellPanel
+          key={game.stateRevision}
+          observation={view.observation}
+          quoteSale={store.quoteSale}
+          onSell={(pokemonInstanceIds) => {
+            const result = store.submit({
+              actorId: you.actorId,
+              kind: 'sell',
+              payload: { pokemonInstanceIds },
+            });
+            if ('rejected' in result) setActionError(game.stateRevision);
+          }}
+        />
       )}
       {opponentFailed && (
         <ActionButton

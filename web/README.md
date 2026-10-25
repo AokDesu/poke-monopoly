@@ -34,12 +34,27 @@ reason **No Ball**, and Release; the sole release also runs automatically. Nativ
 focus stays inside the decision. Caught, escaped and released outcomes come from accepted
 seat-filtered records, not a UI roll or success calculation.
 
-Start income and movement come from the engine. A qualifying crossing opens the minimal
-**Sell Phase** step; Continue submits the empty Sell batch, keeping the team, before the
-engine resolves the destination. Item controls, shopping and selling selections belong to
-the next issue: Strategy and Shop offer explicit pass/continue controls, never automatic
-choices over the engine's multiple legal actions. End-of-turn steps hand off automatically.
-A finished game offers a return Home; saving and the results screen remain the next issue.
+Start income and movement come from the engine. A qualifying crossing opens **Sell Phase**:
+select any number of Pokémon and confirm one atomic batch, or **Keep the whole team**.
+The adapter calls `saleQuote` again on every selection change. Selected rows show their
+actual batch price parts; unchecked rows explicitly show **If sold alone**, since a class
+bonus can move between Pokémon as the batch changes. Tired prices and the running total
+come from that engine quote, never browser arithmetic. A full-team sale previews the
+zero-value Rescue Starter; after confirmation the new team comes from the next Observation.
+
+**Shop** displays every engine offer and price, the engine's exact disabled reasons, and
+**Leave the Shop**. Buying one unit or skipping ends the visit. **Strategy** lists the
+engine's item choices, including disabled Potions; hostile targets come only from those
+choices, never the user's seat. Selecting an item/target shows its content `effect` text
+and observed target information before a separate confirmation. It does not predict a
+Pickpocket transfer or roll outcome in the browser. All commands cross the store adapter
+and `applyAction`; item selection and target selection alone do not spend anything.
+
+These panels replace the earlier turn-flow placeholders without changing board rules or
+opponent behavior. Previous roll/result banners stay in the field log while a decision is
+open so the current choices and their confirmation remain prominent. End-of-turn steps
+hand off automatically. A finished game offers a return Home; saving and the results
+screen remain the next issue.
 
 Opponent single-action steps use the same engine automation. At a multi-choice step,
 `store.playOpponent(signal)` sends only that AI seat's `Observation`, enabled actions and

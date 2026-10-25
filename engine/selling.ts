@@ -30,6 +30,41 @@ export function salePrices(
   }));
 }
 
+export interface SaleQuote {
+  rows: { instanceId: string; basePrice: number; classBonus: number }[];
+  total: number;
+  rescueStarter: { saleValue: number } | null;
+}
+
+/** Read-only quote for the active seat's complete Sell selection (§4.7). */
+export function saleQuote(state: GameState, seatIndex: number, ids: string[]): SaleQuote {
+  const player = state.players.find((entry) => entry.seatIndex === seatIndex);
+  if (!player || seatIndex !== state.activeSeatIndex || state.phase.kind !== 'sell') {
+    throw new RangeError('Sale quotes require the active seat in Sell');
+  }
+  if (new Set(ids).size !== ids.length) throw new RangeError('Duplicate sale instance');
+  const pokemon = ids.map((id) => {
+    const owned = player.team.find((entry) => entry.instanceId === id);
+    if (!owned) throw new RangeError('Unknown sale instance');
+    return owned;
+  });
+  const prices = salePrices(state, player, pokemon);
+  let total = 0;
+  let coins = player.coins;
+  const rows = prices.map(({ basePrice, classBonus }, index) => {
+    const amount = basePrice + classBonus;
+    total += amount;
+    coins += amount;
+    if (!Number.isSafeInteger(coins) || coins < 0) throw new RangeError('Unsafe sale balance');
+    return { instanceId: ids[index]!, basePrice, classBonus };
+  });
+  return {
+    rows,
+    total,
+    rescueStarter: ids.length === player.team.length ? { saleValue: 0 } : null,
+  };
+}
+
 /** Validate the complete selection before the executor clones or changes anything. */
 export function validSale(state: GameState, ids: string[]): boolean {
   if (state.phase.kind !== 'sell' || new Set(ids).size !== ids.length) return false;

@@ -11,6 +11,8 @@ import {
   legalActions,
   observe,
   oddsForAllBalls,
+  saleQuote,
+  type SaleQuote,
   type BallType,
   type CatchOdds,
   type Action,
@@ -82,6 +84,8 @@ export interface GameStore {
   submit(command: Command): ApplyActionResult;
   /** Submits one of the human seat's enabled legal actions by its ID. */
   choose(choiceId: string): ApplyActionResult;
+  /** Read-only engine quote; only this human seat's active Sell selection is accessible. */
+  quoteSale(pokemonInstanceIds: string[]): SaleQuote;
   /**
    * Applies one pending result or sole choice. Board play opts human steps in; first-player
    * setup retains its explicit roll confirmation. The engine alone decides what is automatic.
@@ -211,6 +215,12 @@ export function createGameStore(): GameStore {
       if (!choice) return { rejected: true, reason: 'illegal_action', state };
       const actorId = state.players.find((player) => player.seatIndex === seatIndex)!.actorId;
       return submit({ actorId, kind: choice.kind, payload: choice.payload } as Command);
+    },
+    quoteSale(pokemonInstanceIds: string[]): SaleQuote {
+      const { state } = current();
+      const seatIndex = humanSeat(state);
+      if (seatIndex === undefined) throw new RangeError('No human seat');
+      return saleQuote(state, seatIndex, pokemonInstanceIds);
     },
     advance({ human = false } = {}): boolean {
       const { state, log } = current();
