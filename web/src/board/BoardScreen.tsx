@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { GameStore } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
@@ -9,11 +9,21 @@ import { phaseLabel } from './labels.ts';
 import { turnMessages } from './turnMessages.ts';
 import './turn-flow.css';
 
-export function BoardScreen({ store, onHome }: { store: GameStore; onHome?: () => void }) {
+export function BoardScreen({
+  store,
+  notice,
+  onFinished,
+}: {
+  store: GameStore;
+  notice?: string;
+  onFinished?: () => void;
+}) {
   const view = useSyncExternalStore(store.subscribe, store.getView);
+  const openedAt = useRef<number | null>(null);
   const [failure, setFailure] = useState<number | null>(null);
   const [retry, setRetry] = useState(0);
   const [actionError, setActionError] = useState<number | null>(null);
+  if (view && openedAt.current === null) openedAt.current = view.observation.public.stateRevision;
 
   useEffect(() => {
     if (!view || view.observation.public.phase.kind === 'finished') return;
@@ -114,6 +124,11 @@ export function BoardScreen({ store, onHome }: { store: GameStore; onHome?: () =
           </p>
         )}
         {actionError === game.stateRevision && <p role="alert">{t('turn.actionError')}</p>}
+        {notice && game.stateRevision === openedAt.current && (
+          <p className="turn-banner" role="status">
+            {notice}
+          </p>
+        )}
       </div>
       {humanTurn && continuation && view.legalActions.enabled.length > 1 && (
         <ActionButton enabled onClick={() => choose(continuation.id)}>
@@ -131,9 +146,9 @@ export function BoardScreen({ store, onHome }: { store: GameStore; onHome?: () =
           {t('turn.retry')}
         </ActionButton>
       )}
-      {game.phase.kind === 'finished' && onHome && (
-        <ActionButton enabled onClick={onHome}>
-          {t('turn.returnHome')}
+      {game.phase.kind === 'finished' && onFinished && (
+        <ActionButton enabled onClick={onFinished}>
+          {t('nav.results')}
         </ActionButton>
       )}
     </section>

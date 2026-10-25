@@ -123,7 +123,6 @@ test('turn decisions, results, handoffs and every disabled reason have English c
     'turn.lastMove',
     'turn.end',
     'turn.finished',
-    'turn.returnHome',
     'turn.sellHeading',
     'turn.sellBody',
     'turn.shopHeading',
@@ -146,4 +145,43 @@ test('turn decisions, results, handoffs and every disabled reason have English c
   expect(t('encounter.ballChoice', { ball: t('board.ball.great'), percent: 83 })).toBe(
     'Great Ball · 83%',
   );
+});
+
+test('save and results copy is present and never uses Pokémon counts (§1, §4.7)', () => {
+  const keys: MessageKey[] = [
+    'save.off',
+    'save.continueHeading',
+    'save.continueBody',
+    'save.continue',
+    'save.newGame',
+    'save.pendingDecision',
+    'save.pendingRoll',
+    'save.pendingFinished',
+    'save.mismatchHeading',
+    'save.mismatchNext',
+    'save.unreadable',
+    'results.body',
+    'results.none',
+    'results.standings',
+    'results.badges',
+    'results.winnerMark',
+    'results.winCoins',
+    'results.winCoinsYou',
+    'results.winBadges',
+    'results.winBadgesYou',
+    'results.coWinners',
+    'results.nameJoin',
+    'results.playAgain',
+    'results.export',
+    'game.resumedAiTurn',
+  ];
+  for (const key of keys) {
+    expect(t(key).trim(), key).not.toBe('');
+    expect(t(key), key).not.toMatch(/pokémon|pokemon|evolution/i);
+  }
+  expect(t('save.off')).toBe('Saving is off. The game still plays.');
+  expect(t('results.winBadges', { name: 'Ash' })).toBe(
+    'Coins are tied. Ash wins with more badges.',
+  );
+  expect(t('results.coWinners', { names: 'You and Ash' })).toContain('co-winners');
 });

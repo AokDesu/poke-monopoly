@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { firstPlayerRoll, rollForFirstPlayer } from '../game/firstPlayer.ts';
 import type { GameStore } from '../game/store.ts';
 import { className } from '../i18n/names.ts';
@@ -22,6 +22,15 @@ interface FirstPlayerScreenProps {
  */
 export function FirstPlayerScreen({ store, onToBoard, onQuit }: FirstPlayerScreenProps) {
   const view = useSyncExternalStore(store.subscribe, store.getView);
+  useEffect(() => {
+    if (!view || view.observation.public.phase.kind !== 'first_player_roll') return;
+    if (view.legalActions.enabled.some((choice) => choice.kind === 'roll')) return;
+    // Deferred so Continue can show the saved rolls before the next automatic step.
+    const timer = window.setTimeout(() => {
+      store.advance();
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [store, view]);
   const quit = (
     <Button variant="secondary" onClick={onQuit}>
       {t('firstPlayer.quit')}

@@ -75,6 +75,7 @@ test('?seed=7 gives the same first-player result every time, tie included (§3)'
     const result = screen.getAllByRole('status').map((status) => status.textContent);
     const rolls = screen.getAllByRole('listitem').map((item) => item.textContent);
     cleanup();
+    localStorage.clear();
     return { result, rolls };
   };
   const first = await play();

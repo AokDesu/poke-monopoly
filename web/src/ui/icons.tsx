@@ -20,6 +20,16 @@ export function DieIcon({ className = 'size-9' }: { className?: string }) {
   );
 }
 
+/** A coin, for the results standings. Same stroke as the die. */
+export function CoinIcon({ className = 'size-9' }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 32 32" className={className} {...STROKE}>
+      <circle cx="16" cy="16" r="11" />
+      <circle cx="16" cy="16" r="6.5" />
+    </svg>
+  );
+}
+
 /** The capture ball, as the logo mark: red top, white bottom, dark band and button. */
 export function BallIcon({ className = 'size-9' }: { className?: string }) {
   return (

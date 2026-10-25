@@ -1,8 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BoardScreen } from './board/BoardScreen.tsx';
+import { phaseLabel } from './board/labels.ts';
 import { CreditsScreen } from './CreditsScreen.tsx';
 import { classOptions, content as gameContent, engineContent } from './game/content.ts';
 import { rollForFirstPlayer } from './game/firstPlayer.ts';
+import {
+  browserStorage,
+  clearSave,
+  loadSave,
+  readMeta,
+  readSaveText,
+  summarize,
+  writeSave,
+  type SaveMeta,
+  type SaveStorage,
+  type SaveSummary,
+} from './game/save.ts';
 import {
   completeSetup,
   freshSeed,
@@ -16,10 +29,12 @@ import {
   createGameStore,
   MODES,
   opponentSettings,
+  type GameSession,
   type GameStore,
 } from './game/store.ts';
 import { t } from './i18n/en.ts';
-import { ScreenPlaceholder } from './ScreenPlaceholder.tsx';
+import { ResultsScreen } from './ResultsScreen.tsx';
+import { SavePrompt, type SavePromptProps } from './SavePrompt.tsx';
 import type { Route } from './screens.ts';
 import { ClassScreen } from './setup/ClassScreen.tsx';
 import { FirstPlayerScreen } from './setup/FirstPlayerScreen.tsx';
@@ -37,18 +52,107 @@ export interface AppProps {
   /** Random All's source of choices. */
   random?: () => number;
   store?: GameStore;
+  /** `undefined` probes the browser. `null` means saving is off. Tests pass a fake. */
+  storage?: SaveStorage | null;
 }
 
 const OPEN_MODES = (Object.keys(MODES) as ModeId[]).filter((mode) => MODES[mode].enabled);
 const HOME: Route = { screen: 'home' };
 
-export function App({ seed, random = Math.random, store: givenStore }: AppProps) {
+type SaveOffer =
+  | {
+      kind: 'continue';
+      session: GameSession;
+      opponents: SaveMeta['opponents'];
+      summary: SaveSummary;
+    }
+  | { kind: 'mismatch'; message: string }
+  | { kind: 'unreadable' };
+
+function inspect(storage: SaveStorage | null): { offer: SaveOffer | null; unavailable: boolean } {
+  if (!storage) return { offer: null, unavailable: true };
+  let text: string | null;
+  try {
+    text = readSaveText(storage);
+  } catch {
+    return { offer: null, unavailable: true };
+  }
+  if (!text) return { offer: null, unavailable: false };
+  const loaded = loadSave(text);
+  if (!loaded.ok) {
+    return {
+      offer:
+        loaded.kind === 'mismatch'
+          ? { kind: 'mismatch', message: loaded.message }
+          : { kind: 'unreadable' },
+      unavailable: false,
+    };
+  }
+  return {
+    offer: {
+      kind: 'continue',
+      session: loaded.game,
+      opponents: readMeta(storage).opponents,
+      summary: summarize(loaded.game, loaded.resumed),
+    },
+    unavailable: false,
+  };
+}
+
+function pendingLine(summary: SaveSummary): string {
+  if (summary.waiting === 'finished') return t('save.pendingFinished');
+  if (summary.waiting === 'engine_result') return t('save.pendingRoll');
+  const name =
+    summary.seatIndex === summary.humanSeat
+      ? t('seat.you')
+      : t('board.rivalLabel', { seat: summary.seatIndex });
+  return t('save.pendingDecision', { name, phase: phaseLabel(summary.phase) });
+}
+
+export function App({
+  seed,
+  random = Math.random,
+  store: givenStore,
+  storage: givenStorage,
+}: AppProps) {
   const [store] = useState(() => givenStore ?? createGameStore());
+  const [storage] = useState(() => (givenStorage === undefined ? browserStorage() : givenStorage));
+  const [opened] = useState(() => inspect(storage));
+  const [savingOff, setSavingOff] = useState(opened.unavailable);
+  const [offer, setOffer] = useState(opened.offer);
+  const [resumeNotice, setResumeNotice] = useState<string | null>(null);
   const [route, setRoute] = useState<Route>(HOME);
   const [creditsFrom, setCreditsFrom] = useState<Route>(HOME);
   const [draft, setDraft] = useState<SetupDraft>({});
   const [startFailed, setStartFailed] = useState(false);
   const [navigated, setNavigated] = useState(false);
+  const noticeRef = useRef<string | null>(null);
+  const resumedAt = useRef<number | null>(null);
+  const routeRef = useRef(route);
+  routeRef.current = route;
+
+  useEffect(() => {
+    return store.subscribe(() => {
+      const session = store.getSession();
+      if (storage) {
+        try {
+          if (session) writeSave(storage, session, { opponents: store.getOpponents() });
+          else clearSave(storage);
+          setSavingOff(false);
+        } catch {
+          setSavingOff(true);
+        }
+      }
+      if (noticeRef.current && session && session.state.stateRevision !== resumedAt.current) {
+        noticeRef.current = null;
+        setResumeNotice(null);
+      }
+      if (routeRef.current.screen === 'play' && session?.state.phase.kind === 'finished') {
+        setNavigated(true);
+        setRoute({ screen: 'results' });
+      }
+    });
+  }, [store, storage]);
 
   const go = (next: Route) => {
     setNavigated(true);
@@ -57,11 +161,69 @@ export function App({ seed, random = Math.random, store: givenStore }: AppProps)
   };
   const canStart = randomSetup(classOptions, OPEN_MODES, () => 0) !== undefined;
   const setup = completeSetup(draft);
+  const continueSaved = () => {
+    if (offer?.kind !== 'continue') return;
+    try {
+      store.restore(offer.session, [...offer.opponents]);
+    } catch {
+      setOffer({ kind: 'unreadable' });
+      return;
+    }
+    if (offer.summary.aiDecision) {
+      resumedAt.current = offer.session.state.stateRevision;
+      noticeRef.current = t('game.resumedAiTurn');
+      setResumeNotice(t('game.resumedAiTurn'));
+    }
+    setOffer(null);
+    const phase = offer.session.state.phase.kind;
+    go(
+      phase === 'finished'
+        ? { screen: 'results' }
+        : phase === 'first_player_roll'
+          ? { screen: 'setup', step: 'firstPlayer' }
+          : { screen: 'play' },
+    );
+  };
+  const discardSave = () => {
+    if (storage) {
+      try {
+        clearSave(storage);
+      } catch {
+        setSavingOff(true);
+      }
+    }
+    noticeRef.current = null;
+    setResumeNotice(null);
+    setOffer(null);
+    store.clear();
+    go({ screen: 'setup', step: 'mode' });
+  };
+  const playAgain = () => {
+    noticeRef.current = null;
+    setResumeNotice(null);
+    setOffer(null);
+    store.clear();
+    go(HOME);
+  };
+  const prompt: SavePromptProps | null = offer
+    ? offer.kind === 'continue'
+      ? {
+          kind: 'continue',
+          pending: pendingLine(offer.summary),
+          onContinue: continueSaved,
+          onNewGame: discardSave,
+        }
+      : offer.kind === 'mismatch'
+        ? { kind: 'mismatch', message: offer.message, onNewGame: discardSave }
+        : { kind: 'unreadable', onNewGame: discardSave }
+    : null;
 
   let screen;
   switch (route.screen) {
     case 'home':
-      screen = (
+      screen = prompt ? (
+        <SavePrompt {...prompt} />
+      ) : (
         <HomeScreen
           board={gameContent.board}
           canStart={canStart}
@@ -163,18 +325,19 @@ export function App({ seed, random = Math.random, store: givenStore }: AppProps)
       screen = (
         <BoardScreen
           store={store}
-          onHome={() => {
-            store.clear();
-            go(HOME);
-          }}
+          notice={resumeNotice ?? undefined}
+          onFinished={() => go({ screen: 'results' })}
         />
       );
+      break;
+    case 'results':
+      screen = <ResultsScreen store={store} onPlayAgain={playAgain} />;
       break;
     case 'credits':
       screen = <CreditsScreen onBack={() => go(creditsFrom)} />;
       break;
     default:
-      screen = <ScreenPlaceholder onNavigate={(next) => go({ screen: next })} />;
+      screen = <MissingStep onHome={() => go(HOME)} />;
   }
 
   return (
@@ -190,6 +353,11 @@ export function App({ seed, random = Math.random, store: givenStore }: AppProps)
           route.screen === 'home' ? 'justify-center' : ''
         }`}
       >
+        {savingOff && (
+          <p role="status" className="panel mb-6 px-5 py-3 text-sm font-bold">
+            {t('save.off')}
+          </p>
+        )}
         <FocusHeadingContext value={navigated}>
           <div key={route.screen === 'setup' ? route.step : route.screen}>{screen}</div>
         </FocusHeadingContext>
