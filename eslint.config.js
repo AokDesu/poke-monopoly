@@ -5,7 +5,7 @@ import tseslint from 'typescript-eslint';
 
 const FOLDERS = ['ai', 'web', 'sim', 'eval'];
 const folderImport = (names) => `^(\\.{1,2}/)+(${names.join('|')})(/|$)`;
-const ADAPTER = 'web/src/game/store.ts';
+const ADAPTERS = ['web/src/game/store.ts', 'web/src/game/save.ts'];
 
 // The Jev key lives only on the server, so only ai/ may name it (spec §7, §9).
 const KEY_MESSAGE = 'TYPESAFE_API_KEY is read only inside ai/.';
@@ -87,10 +87,10 @@ export default defineConfig([
       ],
     },
   },
-  // web/ calls the engine only through its adapter (spec §6.1). Type imports from the engine are allowed in web/ except in the adapter, which may import only engine/index.ts; test files may import the engine directly.
+  // web/ calls the engine only through its adapters (spec §6.1). Type imports from the engine are allowed in web/ except in the adapters, which may import only engine/index.ts; test files may import the engine directly.
   {
     files: ['web/**/*.{ts,tsx}'],
-    ignores: [ADAPTER, 'web/**/*.test.{ts,tsx}'],
+    ignores: [...ADAPTERS, 'web/**/*.test.{ts,tsx}'],
     rules: {
       '@typescript-eslint/no-restricted-imports': [
         'error',
@@ -99,7 +99,7 @@ export default defineConfig([
             {
               regex: folderImport(['engine']),
               allowTypeImports: true,
-              message: `web/ calls the engine only through ${ADAPTER}.`,
+              message: `web/ calls the engine only through ${ADAPTERS.join(' or ')}.`,
             },
           ],
         },
@@ -107,7 +107,7 @@ export default defineConfig([
     },
   },
   {
-    files: [ADAPTER],
+    files: ADAPTERS,
     rules: {
       '@typescript-eslint/no-restricted-imports': [
         'error',

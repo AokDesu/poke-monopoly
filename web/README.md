@@ -11,11 +11,12 @@ Run with `npm run dev:web` (port 5173). Spec: §3, §3.1, §6.1. Skill: `skills/
 | `src/board/`            | Observation-only Board, human turn controls, native Encounter dialog and seat-filtered field log (§3, §3.1, §4.2, §4.3).                        |
 | `src/ui/three/`         | Three.js scenes (lazy chunk); `public/models/` holds the licensed GLB models.                                                                   |
 | `src/i18n/en.ts`        | Every player-facing string (English, spec §3), read with `t(key)`. `src/i18n/inline-text.test.ts` fails on UI text typed elsewhere.             |
-| `src/game/store.ts`     | The engine adapter: holds the state and action log. The only file that calls engine functions, and only from `engine/index.ts`.                 |
+| `src/game/store.ts`     | Rules adapter: state and action log. Calls engine functions only from `engine/index.ts`.                                                        |
+| `src/game/save.ts`      | Browser storage adapter: engine `serialize` / `deserialize`, Continue, and log export.                                                          |
 | `src/ErrorBoundary.tsx` | No blank screens: a render error shows what to do next and a retry button.                                                                      |
 | `src/ui/`               | Shared controls.                                                                                                                                |
 
-Fredoka (display) and Nunito (body) are self-hosted through `@fontsource`; the page loads nothing from another host. The Home board and class art use Three.js (`@react-three/fiber`, lazily loaded where WebGL exists); the 3D models and their licences are in `public/models/CREDITS.md`. Lint enforces the import rules: no `ai/`, and engine values only through the adapter (type imports from the engine are allowed in `web/` except in the adapter, which may import only `engine/index.ts`; test files may import the engine directly).
+Fredoka (display) and Nunito (body) are self-hosted through `@fontsource`; the page loads nothing from another host. The Home board and class art use Three.js (`@react-three/fiber`, lazily loaded where WebGL exists); the 3D models and their licences are in `public/models/CREDITS.md`. Lint enforces the import rules: no `ai/`, and engine values only through the adapters `src/game/store.ts` and `src/game/save.ts` (type imports from the engine are allowed in `web/` except in those adapters, which may import only `engine/index.ts`; test files may import the engine directly).
 
 Component tests run in the Vitest `web` project (jsdom, Testing Library); `npm test` runs them with the rest.
 
@@ -53,8 +54,11 @@ and `applyAction`; item selection and target selection alone do not spend anythi
 These panels replace the earlier turn-flow placeholders without changing board rules or
 opponent behavior. Previous roll/result banners stay in the field log while a decision is
 open so the current choices and their confirmation remain prominent. End-of-turn steps
-hand off automatically. A finished game offers a return Home; saving and the results
-screen remain the next issue.
+hand off automatically. A finished game opens the results screen: coins per player, the
+engine's winner and tie reason, Play again, and Export log. A local save is written after
+each accepted action. Continue restores that save and asks again for a pending AI decision;
+it does not re-roll a die or start a new turn. If storage is unavailable, play continues
+with a one-line notice.
 
 Opponent single-action steps use the same engine automation. At a multi-choice step,
 `store.playOpponent(signal)` sends only that AI seat's `Observation`, enabled actions and

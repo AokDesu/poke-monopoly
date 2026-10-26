@@ -12,6 +12,7 @@ import {
   observe,
   oddsForAllBalls,
   saleQuote,
+  winner,
   type SaleQuote,
   type BallType,
   type CatchOdds,
@@ -30,9 +31,8 @@ import {
 import type { DifficultyId, GameSetup, PersonalityId } from './setup.ts';
 
 /**
- * The only module in web/ that calls the engine (spec §6.1). It holds the current
- * state plus the action log and decides nothing itself; components read from here
- * and never apply rules.
+ * Rules adapter (spec §6.1). Storage IO lives in `save.ts`; both call the engine only through
+ * `engine/index.ts`. This module holds the current state plus the action log and decides nothing.
  */
 export interface GameSession {
   readonly state: GameState;
@@ -71,6 +71,19 @@ export interface SeatView {
   readonly opponents: readonly OpponentSettings[];
 }
 
+/** Finished standings. Coins, badges and the engine's winner only — never a team size. */
+export interface GameResults {
+  readonly humanSeat: number;
+  readonly standings: readonly {
+    readonly actorId: string;
+    readonly seatIndex: number;
+    readonly coins: number;
+    readonly badges: number;
+  }[];
+  readonly winners: readonly string[];
+  readonly reason: 'coins' | 'badges' | 'co_winners';
+}
+
 export interface GameStore {
   /** Compatible with React's `useSyncExternalStore`. */
   subscribe(listener: () => void): () => void;
@@ -93,6 +106,15 @@ export interface GameStore {
   advance(options?: { human?: boolean }): boolean;
   /** Sends an AI seat's own projection to the server, then validates its answer via applyAction. */
   playOpponent(signal: AbortSignal): Promise<boolean>;
+  /** Setup saved beside the engine log so a resumed AI decision uses the same personality. */
+  getOpponents(): readonly OpponentSettings[];
+  /**
+   * Replaces the session with a saved game. Applies nothing: dice stay as logged and the
+   * pending decision stays pending (spec §3.1, §6.9).
+   */
+  restore(session: GameSession, settings?: readonly OpponentSettings[]): void;
+  /** Engine winner and coin/badge standings, or null until the game is finished. Stable. */
+  getResults(): GameResults | null;
   clear(): void;
 }
 
@@ -123,12 +145,55 @@ function humanSeat(state: GameState): number | undefined {
   return state.config.seats.find((seat) => seat.controller === 'human')?.seatIndex;
 }
 
+function resultsOf(state: GameState): GameResults | null {
+  if (state.phase.kind !== 'finished') return null;
+  const outcome = winner(state);
+  return {
+    humanSeat: humanSeat(state) ?? 0,
+    standings: [...state.players]
+      .sort((a, b) => a.seatIndex - b.seatIndex)
+      .map((player) => ({
+        actorId: player.actorId,
+        seatIndex: player.seatIndex,
+        coins: player.coins,
+        badges: player.badges,
+      })),
+    winners: outcome.winners,
+    reason: outcome.reason,
+  };
+}
+
+/** Rebuilds the seat-filtered feed from the log. Recorded dice are applied, never re-rolled. */
+function feedFrom(log: GameLog, seatIndex: number): SeatFeedEntry[] {
+  let cursor = log.initialState;
+  const feed: SeatFeedEntry[] = [];
+  for (const record of log.actions) {
+    const { phase, activeSeatIndex, globalTurnNo } = observe(cursor, seatIndex).public;
+    feed.push({
+      before: { phase, activeSeatIndex, globalTurnNo },
+      record: actionVisibleTo(cursor, record, seatIndex),
+    });
+    const applied = applyAction(cursor, record.action);
+    if (!('accepted' in applied)) throw new Error('Save log does not replay');
+    cursor = applied.state;
+  }
+  return feed;
+}
+
 export function createGameStore(): GameStore {
   let session: GameSession | null = null;
   let view: SeatView | null = null;
+  let results: GameResults | null = null;
   let opponents: readonly OpponentSettings[] = [];
   let gameToken = '';
   const listeners = new Set<() => void>();
+
+  const publish = (next: GameSession, feed: readonly SeatFeedEntry[]) => {
+    session = next;
+    view = viewOf(next.state, feed);
+    results = resultsOf(next.state);
+    for (const listener of listeners) listener();
+  };
 
   const viewOf = (state: GameState, feed: readonly SeatFeedEntry[]): SeatView | null => {
     const seatIndex = humanSeat(state);
@@ -161,9 +226,7 @@ export function createGameStore(): GameStore {
         })),
       ];
     }
-    session = next;
-    view = viewOf(next.state, feed);
-    for (const listener of listeners) listener();
+    publish(next, feed);
   };
   const current = (): GameSession => {
     if (!session) throw new Error('No game in progress');
@@ -301,9 +364,22 @@ export function createGameStore(): GameStore {
       if ('rejected' in result) throw new Error('Opponent action was rejected');
       return true;
     },
+    getOpponents(): readonly OpponentSettings[] {
+      return opponents;
+    },
+    restore(game: GameSession, settings: readonly OpponentSettings[] = []): void {
+      opponents = settings;
+      gameToken = crypto.randomUUID();
+      const seat = humanSeat(game.state);
+      publish(game, seat === undefined ? [] : feedFrom(game.log, seat));
+    },
+    getResults(): GameResults | null {
+      return results;
+    },
     clear(): void {
       session = null;
       view = null;
+      results = null;
       opponents = [];
       gameToken = '';
       for (const listener of listeners) listener();
