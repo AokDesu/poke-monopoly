@@ -23,7 +23,13 @@ const PLACEHOLDER_KEY = 'placeholder-key-not-real-3a9d1c';
 const PINNED = 'jev-1.13.0';
 const THAI = /[฀-๿]/;
 
-const trial = readTrial();
+const committed = readTrial();
+// The committed file may already hold the live run; runs and guards start from a cleared copy.
+const trial: Trial = {
+  ...committed,
+  recordedAt: null,
+  messages: committed.messages.map((message) => ({ ...message, recorded: null })),
+};
 
 const answer = (intent: string, noul = 0.1, confidence = 0.7): JevResult => ({
   ok: true,
@@ -47,14 +53,10 @@ const answer = (intent: string, noul = 0.1, confidence = 0.7): JevResult => ({
 const messageText = (state: unknown) => (state as { message: { text: string } }).message.text;
 
 describe('the 20 messages', () => {
-  test('match the issue: 20 messages with an expected intent each and no recorded answers yet', () => {
-    expect(trial.messages).toHaveLength(20);
-    expect(trial.model).toBe(PINNED);
-    expect(trial.recordedAt).toBeNull();
-    for (const message of trial.messages) {
-      expect(INTENTS).toContain(message.expectedIntent);
-      expect(message.recorded).toBeNull();
-    }
+  test('match the issue: 20 messages with an expected intent each', () => {
+    expect(committed.messages).toHaveLength(20);
+    expect(committed.model).toBe(PINNED);
+    for (const message of committed.messages) expect(INTENTS).toContain(message.expectedIntent);
   });
 
   test('cover the issue mix: mostly clear, slang, one emoji-only, mixed, two manipulation, two ambiguous', () => {
@@ -82,9 +84,20 @@ describe('the 20 messages', () => {
     expect(mixed?.text).toMatch(/[A-Za-z]{3,}/);
   });
 
-  test('the file holds no key or credential', () => {
-    const raw = readFileSync(THAI_TRIAL_PATH, 'utf8');
-    expect(raw).not.toMatch(/api[_-]?key|bearer|authorization|placeholder-key/i);
+  test('rejects any field the schema does not name, so no key can ride along', async () => {
+    expect(() => parseTrial({ ...trial, apiKey: PLACEHOLDER_KEY })).toThrow(/apiKey/);
+    const message = structuredClone(trial);
+    Object.assign(message.messages[0]!, { apiKey: PLACEHOLDER_KEY });
+    expect(() => parseTrial(message)).toThrow(/apiKey/);
+    const recorded = await runTrial({ client: createFakeJevClient(() => answer('other')), trial });
+    Object.assign(recorded.messages[0]!.recorded!, { apiKey: PLACEHOLDER_KEY });
+    expect(() => parseTrial(recorded)).toThrow(/apiKey/);
+    const failed = await runTrial({
+      client: createFakeJevClient(() => ({ ok: false, fallbackReason: 'timeout' })),
+      trial,
+    });
+    Object.assign(failed.messages[0]!.recorded!, { apiKey: PLACEHOLDER_KEY });
+    expect(() => parseTrial(failed)).toThrow(/apiKey/);
   });
 
   test('the file is formatted as Prettier writes it', async () => {

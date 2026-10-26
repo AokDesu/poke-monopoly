@@ -79,7 +79,7 @@ const MAX_RETRY_AFTER_MS = 60_000;
 const probability = z.number().min(0).max(1);
 
 const recordedSchema = z.discriminatedUnion('ok', [
-  z.object({
+  z.strictObject({
     ok: z.literal(true),
     intent: z.enum(INTENTS),
     probabilities: z.record(z.string(), probability),
@@ -92,14 +92,14 @@ const recordedSchema = z.discriminatedUnion('ok', [
     inputTokens: z.int().nonnegative(),
     outputTokens: z.int().nonnegative(),
   }),
-  z.object({
+  z.strictObject({
     ok: z.literal(false),
     fallbackReason: z.string(),
     status: z.int().nullable(),
   }),
 ]);
 
-const messageSchema = z.object({
+const messageSchema = z.strictObject({
   id: z.string().min(1),
   category: z.enum(CATEGORIES),
   from: z.string().min(1),
@@ -112,7 +112,7 @@ const messageSchema = z.object({
   recorded: recordedSchema.nullable(),
 });
 
-export const trialSchema = z.object({
+export const trialSchema = z.strictObject({
   trial: z.string(),
   model: z.literal(PINNED_JEV_MODEL),
   recordedAt: z.string().nullable(),
