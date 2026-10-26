@@ -249,9 +249,7 @@ export const en = {
   'turn.noAvailableOptions': 'There is nothing to choose in this step. The game moves on.',
 
   'turn.actions': 'Turn actions',
-  'turn.continue': 'Continue',
-  'turn.strategy': 'Continue to movement',
-  'turn.strategyBody': 'Item controls arrive in the next update. Continue without using an item.',
+  'turn.strategyBody': 'Use an item before moving, or keep your items and skip.',
   'turn.opponent': 'Opponent turn',
   'turn.opponentError':
     'The opponent could not complete this step. Check the server connection and retry.',
@@ -264,16 +262,16 @@ export const en = {
   'turn.end': 'Turn complete. Passing to the next trainer.',
   'turn.finished': 'The game is complete.',
   'turn.sellHeading': 'Sell Phase',
-  'turn.sellBody':
-    'You passed Start. Income has been paid. Selling arrives in the next update; continue keeping your team before resolving the destination square.',
+  'turn.sellBody': 'Start income has been paid. Sell any selection together, or keep your team.',
   'turn.shopHeading': 'Shop stop',
-  'turn.shopBody': 'Shopping arrives in the next update. Continue without buying.',
+  'turn.shopBody': 'Buy one offer or leave without buying. The Shop does not refresh.',
   'action.reason.NO_BALL': 'No Ball',
   'action.reason.NOT_ENOUGH_COINS': 'Not enough coins',
   'action.reason.ITEMS_FULL': 'Items full',
   'action.reason.NOT_YOUR_TURN': 'Not your turn',
   'action.reason.ALREADY_USED_THIS_TURN': 'Already used this turn',
   'action.reason.NO_VALID_TARGET': 'No valid target',
+  'action.engineReason': '{reason}',
 
   'encounter.catch': 'Catch',
   'encounter.heading': 'A wild {pokemon} appeared',
@@ -290,6 +288,31 @@ export const en = {
   'shop.itemsFull':
     'Items full: you cannot buy more items, but you can still buy Balls or leave the Shop.',
   'shop.skip': 'Leave the Shop',
+  'shop.buy': 'Buy {item} · {price} coins',
+  'shop.buyOne': 'Buy {item} · {price} coin',
+  'shop.balance': 'You have {coins} coins',
+
+  'strategy.targets': 'Choose an opponent',
+  'strategy.preview': 'Effect preview',
+  'strategy.effect': '{effect}',
+  'strategy.target': 'Target: {target}',
+  'strategy.targetCoins': 'Target holds {coins} coins.',
+  'strategy.chooseTarget': 'Choose a target to preview this item.',
+  'strategy.cost': 'Consumes this item and your tactical action.',
+  'strategy.confirm': 'Confirm {item}',
+  'strategy.skip': 'Skip item use',
+
+  'sell.coins': '{amount} coins',
+  'sell.price': '{basePrice} coins',
+  'sell.priceBonus': '{basePrice} + {classBonus} class bonus',
+  'sell.tired': 'Tired price applied',
+  'sell.soloPrice': 'If sold alone',
+  'sell.selectedPrice': 'In this batch',
+  'sell.total': 'Sale total',
+  'sell.confirm': 'Confirm sale',
+  'sell.keep': 'Keep the whole team',
+  'sell.rescuePreview':
+    'Your team will be empty. You receive a Rescue Starter worth {value} coins.',
 
   'ai.backupBadge': 'Backup bot mode',
   'ai.backupUnavailable':
