@@ -35,7 +35,7 @@ Do one dry run of the whole protocol with a teammate before the first real sessi
 2. **Seed.** The seed is `100 × host number + session number`, with A = 1, B = 2, C = 3. So `G1-A01` uses seed `101`, `G1-A02` uses `102`, `G1-B01` uses `201`, `G1-C02` uses `302`. Every participant in a round therefore sees a different game. Another round must pick its own range and write it here before it starts.
 3. **Start URL.** Open `http://localhost:8787/?seed=<seed>` in Chrome. The planned setup flow reads an optional `?seed=` and does not show it to players (issue #36) **[confirm in cycle 2]**. If the build ignores the seed, do not change it mid-session: write what happened in the `notes` column. If you cannot get the seed into the game, the row's `seed` is the seed in the header of the exported log **[confirm in cycle 2]**.
 4. **Jev.** For live Jev, run on a machine that holds the Jev key in its git-ignored `.env`. Never show, paste or type the key near the participant. With `JEV_ENABLED=false` every AI uses the fallback (spec §9). Say which one you used in `notes`. If the "Backup bot mode" badge (spec §3) appears during play, write that in `notes` too.
-5. **Screen.** One Chrome window, game at 100% zoom, the Thai UI, notifications off, no other tabs.
+5. **Screen.** One Chrome window, game at 100% zoom, the English UI, notifications off, no other tabs.
 6. **Room.** Quiet, one participant at a time. The participant sits at the keyboard. The facilitator sits to the side and a little behind, with a view of the screen.
 7. **Tools.** A stopwatch (phone is fine; it is only a clock), and a scratch note laid out like this, with the code and nothing else that identifies anyone:
 

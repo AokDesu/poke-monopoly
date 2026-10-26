@@ -1,0 +1,20 @@
+[
+  {
+    "id": "sold-pokemon-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Sold {pokemon} for {coins} coins."
+  },
+  {
+    "id": "sold-pokemon-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "{pokemon} went for {coins} coins. Cash comes first."
+  },
+  {
+    "id": "sold-pokemon-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "{coins} coins for {pokemon}. I will take the cash."
+  }
+]

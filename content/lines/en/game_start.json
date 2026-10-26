@@ -1,0 +1,20 @@
+[
+  {
+    "id": "game-start-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Good luck, {target}. I am here for the coins."
+  },
+  {
+    "id": "game-start-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Let us begin. Every coin counts."
+  },
+  {
+    "id": "game-start-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Ready. The most coins wins, and I want them."
+  }
+]

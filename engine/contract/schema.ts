@@ -249,7 +249,15 @@ const coinEndpointSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('bank') }),
   z.strictObject({ kind: z.literal('player'), actorId: id }),
 ]);
+const lineSelectedEventSchema = z.strictObject({
+  kind: z.literal('line_selected'),
+  situation: id,
+  personalityId: id,
+  trustBucket: id,
+  lineId: id,
+});
 export const engineEventSchema = z.discriminatedUnion('kind', [
+  lineSelectedEventSchema,
   z.strictObject({
     kind: z.literal('random_result'),
     purpose: id,
@@ -349,6 +357,19 @@ export const gameLogSchema = z
     logVersion: z.literal('command-log-v1'),
     initialState: gameStateSchema,
     actions: z.array(actionRecordSchema),
+    // Presentation draws use a separate RNG and never alter command replay.
+    dialogueEvents: z
+      .array(engineEventSchema)
+      .refine(
+        (events) =>
+          events.every(
+            (event) =>
+              event.kind === 'line_selected' ||
+              (event.kind === 'random_result' && event.purpose.startsWith('line:')),
+          ),
+        'Dialogue events must be line selections or line random results',
+      )
+      .optional(),
   })
   .superRefine((log, ctx) => {
     for (const field of ['seed', 'engineVersion', 'contentVersion', 'rngVersion'] as const) {
