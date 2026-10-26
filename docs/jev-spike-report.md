@@ -43,12 +43,12 @@ Client wall-clock time per call, from sending the request to the parsed body or 
 | 26 Oct 09:15 |      100 |   0 |   0 |        0 | none               |
 | 22 Oct       |       99 |   0 |   0 |        1 | none               |
 
-No 429 was seen, so there is no retry-after value to report. The calls ran one at a time (about 3.4 requests/s), far below the 40 requests/s limit in §5.1.
+Overall, 299 of 300 calls succeeded: the required 26 Oct pair 200 of 200, and the 22 Oct run 99 of 100. The one failure was the 22 Oct timeout (call 76, `APITimeoutError` at 1,011 ms, no status or request ID); §5.6 falls back on it. No 429 was seen, so there is no retry-after value to report. The calls ran one at a time (about 3.4 requests/s), far below the 40 requests/s limit in §5.1.
 
 ## Model pinning
 
 - `client.models.list()` returned only `jev-latest` and `jev-preview` in all three runs. **It does not list `jev-1.13.0`.**
-- Every call still requested `jev-1.13.0`, and every response (all 299 that returned a body) reported `model: "jev-1.13.0"`. Every call in the 26 Oct pair succeeded; the one failure on 22 Oct was the timeout above, which returned no body.
+- Every call still requested `jev-1.13.0`. Every response reported `model: "jev-1.13.0"`, and every call that completed succeeded. The required 26 Oct pair succeeded 200 of 200; the only call that did not complete was the 22 Oct timeout above, which returned no body.
 - So pinning works even though the listing does not show the pinned version. The production client should not use `models.list()` as a pre-flight check for the pin; it should check the `model` field of each response instead.
 
 ## Tokens
