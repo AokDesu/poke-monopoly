@@ -110,8 +110,6 @@ test('the board catalog covers landmarks, inventories and every engine event kin
 test('turn decisions, results, handoffs and every disabled reason have English catalog text', () => {
   const keys: MessageKey[] = [
     'turn.actions',
-    'turn.continue',
-    'turn.strategy',
     'turn.strategyBody',
     'turn.opponent',
     'turn.opponentError',
@@ -146,4 +144,34 @@ test('turn decisions, results, handoffs and every disabled reason have English c
   expect(t('encounter.ballChoice', { ball: t('board.ball.great'), percent: 83 })).toBe(
     'Great Ball · 83%',
   );
+});
+
+test('Shop, Strategy previews and atomic Sell decisions have catalog coverage', () => {
+  const keys: MessageKey[] = [
+    'shop.buy',
+    'shop.buyOne',
+    'shop.balance',
+    'shop.skip',
+    'strategy.targets',
+    'strategy.preview',
+    'strategy.effect',
+    'strategy.target',
+    'strategy.targetCoins',
+    'strategy.chooseTarget',
+    'strategy.cost',
+    'strategy.confirm',
+    'strategy.skip',
+    'sell.coins',
+    'sell.price',
+    'sell.priceBonus',
+    'sell.tired',
+    'sell.soloPrice',
+    'sell.selectedPrice',
+    'sell.total',
+    'sell.confirm',
+    'sell.keep',
+    'sell.rescuePreview',
+    'action.engineReason',
+  ];
+  for (const key of keys) expect(t(key).trim(), key).not.toBe('');
 });

@@ -79,6 +79,16 @@ If the resulting team is empty, the same commit grants exactly one class base St
 
 `origin` is the persistent rescue flag: future evolution must preserve it and the trading restriction while changing form/stage. This issue reads the existing tired flag and evolved form data but does not implement Tired application, evolution, trading, UI or a Jev Sell decision. Final liquidation is described in [Game end](#game-end-issue-25). The engine version advances as recorded in [engine/versions.ts](../engine/versions.ts) because accepted commands now execute sales; command-log and RNG versions are unchanged. Historical illustrative 0.0.0 fixtures remain unchanged, and prior executable versions are rejected by setup/replay.
 
+Issue #46 adds the read-only `saleQuote(state, seatIndex, pokemonInstanceIds): SaleQuote`
+export for the active seat in Sell. It returns selected rows in selection order as
+`{ instanceId, basePrice, classBonus }`, the engine-computed batch `total`, and
+`rescueStarter: { saleValue: 0 }` when the committed selection would leave no Pokémon
+(otherwise `null`). It uses the existing `salePrices` for the complete selected batch.
+Unknown/inactive seats, other phases, duplicate/foreign/unknown UIDs and unsafe resulting
+balances throw `RangeError` without mutation. Quotes neither commit nor consume a bonus;
+the subsequent `sell` command still validates through `applyAction`. This additive API
+changes no rule, existing function behavior, version stamp or save format.
+
 ## Game end (issue #25)
 
 Spec: §1, §4.7 steps 3–4, §6.4, §8. `config.lapTarget` sets the paid Laps that end the game; `LAP_TARGETS` exports Quick 2 and Standard 3. The first owner Start crossing that brings a player's `creditedLap` to the target sets `finalTableRound` to that seat and its current `ownTurnNo`, and logs `final_table_round` with the same fields between the `start_income` transfer and the change to Sell. That player still completes Sell and the rest of the turn. Later arrivals at the target are paid and sell as usual but never re-announce or move the target.
