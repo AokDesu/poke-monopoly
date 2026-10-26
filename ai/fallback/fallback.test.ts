@@ -118,6 +118,7 @@ describe('FallbackPolicy input (§5.2, house rule 3)', () => {
     expectTypeOf<Observation>().not.toHaveProperty('eventDeck');
     expectTypeOf<PolicyFacts>().toEqualTypeOf<{
       catchChance?: Readonly<Partial<Record<'poke' | 'great' | 'ultra', number>>>;
+      catchSuccessFaces?: Readonly<Partial<Record<'poke' | 'great' | 'ultra', number>>>;
       saleValue?: Readonly<Record<string, number>>;
     }>();
     const state = fixtureSchema.parse(sellFixture).state;
@@ -309,7 +310,7 @@ describe('decideWithFallback (§5.6 Normal)', () => {
 describe('sim registration (§1: games finish with Jev off)', () => {
   test('`--policy fallback` is accepted and registered', () => {
     expect(parseSimArgs(['--policy', 'fallback']).policy).toBe('fallback');
-    expect(POLICIES.fallback!()).toBeInstanceOf(FallbackPolicy);
+    expect(POLICIES.fallback!({ seed: 1 })).toBeInstanceOf(FallbackPolicy);
   });
 
   // The CLI's 100-game run is the full check; this keeps a smaller one with every invariant.
@@ -318,20 +319,20 @@ describe('sim registration (§1: games finish with Jev off)', () => {
     {
       timeout: 30_000,
     },
-    () => {
+    async () => {
       const options = { ...DEFAULT_OPTIONS, games: 2, seed: 1, seats: 3, policy: 'fallback' };
-      const { summary, failures } = runSim(realEngine, options, POLICIES, checkInvariants);
+      const { summary, failures } = await runSim(realEngine, options, POLICIES, checkInvariants);
       expect(failures).toEqual([]);
       expect(summary).toMatchObject({
         aborted: 0,
         illegalAppliedActionCount: 0,
         invariantFailures: 0,
       });
-      expect(runSim(realEngine, options).summary).toEqual(summary);
+      expect((await runSim(realEngine, options)).summary).toEqual(summary);
     },
   );
 
-  test('each Sell Phase of a seed-1 two-seat Greedy game sells exactly the qualifying batch', () => {
+  test('each Sell Phase of a seed-1 two-seat Greedy game sells exactly the qualifying batch', async () => {
     const sales: { sold: string[]; qualifying: string[] }[] = [];
     const engine: SimEngine = {
       ...realEngine,
@@ -353,7 +354,7 @@ describe('sim registration (§1: games finish with Jev off)', () => {
       },
     };
     const options = { ...DEFAULT_OPTIONS, games: 1, seed: 1, seats: 2, policy: 'fallback' };
-    const { summary } = runSim(engine, options, POLICIES, checkInvariants);
+    const { summary } = await runSim(engine, options, POLICIES, checkInvariants);
     expect(summary).toMatchObject({ illegalAppliedActionCount: 0, invariantFailures: 0 });
     for (const { sold, qualifying } of sales) expect(sold).toEqual(qualifying);
     expect(sales.some(({ sold }) => sold.length > 1)).toBe(true);
