@@ -71,3 +71,38 @@ test('every choice setup can show has its text (§1, §3)', () => {
     expect(Object.hasOwn(en, `class.passive.${option.id}`), option.id).toBe(true);
   }
 });
+
+test('the board catalog covers landmarks, inventories and every engine event kind', () => {
+  const keys: MessageKey[] = [
+    'board.kind.start',
+    'board.kind.wild',
+    'board.kind.event',
+    'board.kind.shop',
+    'board.kind.gym',
+    'board.turn',
+    'board.lap',
+    'board.coins',
+    'board.balls',
+    'board.items',
+    'board.itemCount',
+    'board.emptyTeam',
+    'board.emptyItems',
+    'board.hiddenInventory',
+    'board.logEmpty',
+    'board.event.randomRoll',
+    'board.event.randomDraw',
+    'board.event.coins',
+    'board.event.pokemonCreated',
+    'board.event.itemCreated',
+    'board.event.pokemonDestroyed',
+    'board.event.itemDestroyed',
+    'board.event.space',
+    'board.event.noneYet',
+    'board.event.phase',
+    'board.event.hostileItem',
+    'board.event.finalRound',
+    'board.fixtureMissingBody',
+  ];
+  for (const key of keys) expect(t(key).trim(), key).not.toBe('');
+  expect(t('board.squareLabel', { position: 6, kind: t('board.kind.gym') })).toBe('Square 6: Gym');
+});

@@ -4,6 +4,7 @@ import { StrictMode } from 'react';
 import { expect, test } from 'vitest';
 import { App, type AppProps } from './App.tsx';
 import { t } from './i18n/en.ts';
+import { createGameStore } from './game/store.ts';
 
 function setup(props: AppProps = {}) {
   const user = userEvent.setup();
@@ -159,15 +160,23 @@ test('Back works on every setup step and no step is blank (§3.1)', async () => 
   expect(radio(/^Researcher/)).toHaveProperty('checked', true);
 });
 
-test('after the roll the game hands off to the board, and quitting returns home', async () => {
-  const { click } = setup({ seed: 1, random: () => 0 });
+test('the roll hands off to the human Board without advancing it or offering game actions', async () => {
+  const store = createGameStore();
+  const { click } = setup({ seed: 1, random: () => 0, store });
   await click(button(t('home.randomAll')));
   await click(button(t('review.roll')));
+  const before = store.getSession();
   await click(button(t('firstPlayer.toBoard')));
   expect(heading().textContent).toBe(t('play.heading'));
-  await click(button(t('nav.home')));
-  expect(heading().textContent).toBe(t('home.heading'));
+  expect(screen.getByTestId('player-0').textContent).toContain(t('seat.you'));
+  expect(screen.getByRole('list', { name: t('board.loop') })).toBeTruthy();
+  expect(store.getSession()).toBe(before);
+  expect(screen.queryByRole('button', { name: t('nav.results') })).toBeNull();
+  cleanup();
+});
 
+test('quitting from the first-roll screen returns Home', async () => {
+  const { click } = setup({ seed: 1, random: () => 0 });
   await click(button(t('home.randomAll')));
   await click(button(t('review.roll')));
   await click(button(t('firstPlayer.quit')));

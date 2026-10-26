@@ -5,6 +5,8 @@ import {
   createGame,
   createGameConfig,
   createGameLog,
+  eventsVisibleTo,
+  fixtureSchema,
   GAME_PRESETS,
   legalActions,
   observe,
@@ -12,6 +14,7 @@ import {
   type ActionRecord,
   type ApplyActionResult,
   type Content,
+  type EngineEvent,
   type GameConfig,
   type GameLog,
   type GameState,
@@ -219,5 +222,21 @@ export function createGameStore(): GameStore {
       opponents = [];
       for (const listener of listeners) listener();
     },
+  };
+}
+
+/**
+ * Build/dev fixture adapter. Vite runs this in Node; the browser receives only this seat's
+ * projection, never fixture snapshots or raw action records. Historical fixture logs are
+ * illustrative, so filter their events against the supplied fixture snapshot, not replay().
+ */
+export function projectBoardFixture(input: unknown): {
+  observation: Observation;
+  events: EngineEvent[];
+} {
+  const fixture = fixtureSchema.parse(input);
+  return {
+    observation: observe(fixture.state, 0),
+    events: fixture.log.flatMap((record) => eventsVisibleTo(fixture.state, record.events, 0)),
   };
 }
