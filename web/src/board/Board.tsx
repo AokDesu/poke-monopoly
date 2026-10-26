@@ -1,5 +1,6 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import type { EngineEvent, Observation } from '../../../engine/index.ts';
+import type { SeatFeedEntry } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { BallIcon } from '../ui/icons.tsx';
 import { Screen } from '../ui/Screen.tsx';
@@ -16,6 +17,9 @@ export interface BoardProps {
   observation: Observation;
   /** Already filtered for this seat by eventsVisibleTo, never a raw engine log. */
   events?: readonly EngineEvent[];
+  feed?: readonly SeatFeedEntry[];
+  /** Live turn controls; omitted by the read-only fixture Board. */
+  controls?: ReactNode;
 }
 
 // Presentation coordinates only. Game positions are already positionOf(routeProgress) in observe().
@@ -29,7 +33,7 @@ function squareLayout(position: number) {
   return { row: position - 17, column: 7, direction: 'down' };
 }
 
-export function Board({ observation, events = [] }: BoardProps) {
+export function Board({ observation, events = [], feed, controls }: BoardProps) {
   const { public: game, own } = observation;
   const you = game.players.find((player) => player.seatIndex === own.seatIndex)!;
   const activeName = seatLabel(game.activeSeatIndex, own.seatIndex);
@@ -62,7 +66,7 @@ export function Board({ observation, events = [] }: BoardProps) {
             <strong aria-label={t('board.globalTurn')}>{game.globalTurnNo}</strong>
           </div>
           {game.finalTableRound && <strong className="final-round">{t('board.finalRound')}</strong>}
-          <p className="preview-note">{t('board.readOnly')}</p>
+          {!controls && <p className="preview-note">{t('board.readOnly')}</p>}
         </div>
         <div className="board-layout">
           <div className="board-column">
@@ -138,9 +142,10 @@ export function Board({ observation, events = [] }: BoardProps) {
                 </div>
               </div>
             </div>
-            <EventLog events={events} observation={observation} />
+            <EventLog events={events} feed={feed} observation={observation} />
           </div>
           <aside className="trainer-panels" aria-label={t('board.team')}>
+            {controls}
             <PlayerPanel player={you} observation={observation} />
             {game.players
               .filter((player) => player.seatIndex !== own.seatIndex)

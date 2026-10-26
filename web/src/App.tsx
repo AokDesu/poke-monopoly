@@ -160,7 +160,15 @@ export function App({ seed, random = Math.random, store: givenStore }: AppProps)
       }
       break;
     case 'play':
-      screen = <BoardScreen store={store} />;
+      screen = (
+        <BoardScreen
+          store={store}
+          onHome={() => {
+            store.clear();
+            go(HOME);
+          }}
+        />
+      );
       break;
     case 'credits':
       screen = <CreditsScreen onBack={() => go(creditsFrom)} />;

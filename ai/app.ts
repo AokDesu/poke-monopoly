@@ -14,6 +14,7 @@ import {
   type Decider,
   type DeciderAnswer,
 } from './decider.ts';
+import { decideShop, shopRequestSchema } from './shop.ts';
 
 /** Spec §6 item 2: the endpoint validates payload size before it reads the body. */
 export const MAX_BODY_BYTES = 32 * 1024;
@@ -54,12 +55,15 @@ export const createApp = ({ decider = stubDecider }: AppOptions = {}) => {
       } catch {
         return c.json({ error: 'invalid_json' }, 400);
       }
-      const parsed = decisionRequestSchema.safeParse(body);
+      const parsed = decisionRequestSchema.or(shopRequestSchema).safeParse(body);
       if (!parsed.success) {
         const paths = parsed.error.issues.map((issue) => issue.path.join('.'));
         return c.json({ error: 'invalid_request', paths }, 400);
       }
       const request = parsed.data;
+      if (request.decisionPoint === 'shop') {
+        return c.json(toResponse(decideShop(request), crypto.randomUUID(), started));
+      }
       let answer: DeciderAnswer;
       try {
         answer = await decider(request, { status: jevStatus() });

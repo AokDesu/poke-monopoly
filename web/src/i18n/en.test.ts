@@ -106,3 +106,44 @@ test('the board catalog covers landmarks, inventories and every engine event kin
   for (const key of keys) expect(t(key).trim(), key).not.toBe('');
   expect(t('board.squareLabel', { position: 6, kind: t('board.kind.gym') })).toBe('Square 6: Gym');
 });
+
+test('turn decisions, results, handoffs and every disabled reason have English catalog text', () => {
+  const keys: MessageKey[] = [
+    'turn.actions',
+    'turn.continue',
+    'turn.strategy',
+    'turn.strategyBody',
+    'turn.opponent',
+    'turn.opponentError',
+    'turn.retry',
+    'turn.actionError',
+    'turn.automatic',
+    'turn.moving',
+    'turn.encounterBody',
+    'turn.lastMove',
+    'turn.end',
+    'turn.finished',
+    'turn.returnHome',
+    'turn.sellHeading',
+    'turn.sellBody',
+    'turn.shopHeading',
+    'turn.shopBody',
+    'encounter.heading',
+    'encounter.body',
+    'encounter.ballChoice',
+    'encounter.caught',
+    'encounter.escaped',
+    'encounter.released',
+    'action.reason.NO_BALL',
+    'action.reason.NOT_ENOUGH_COINS',
+    'action.reason.ITEMS_FULL',
+    'action.reason.NOT_YOUR_TURN',
+    'action.reason.ALREADY_USED_THIS_TURN',
+    'action.reason.NO_VALID_TARGET',
+  ];
+  for (const key of keys) expect(t(key).trim(), key).not.toBe('');
+  expect(t('action.reason.NO_BALL')).toBe('No Ball');
+  expect(t('encounter.ballChoice', { ball: t('board.ball.great'), percent: 83 })).toBe(
+    'Great Ball · 83%',
+  );
+});
