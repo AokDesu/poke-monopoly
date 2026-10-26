@@ -1,5 +1,5 @@
 import { choice } from '@typesafe-ai/sdk';
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { parsePersonality, type Personality } from '../content/personality-schema.ts';
 import { toEngineContent } from '../content/schema.ts';
 import {
@@ -611,6 +611,10 @@ describe('counters (§5.6)', () => {
 
 describe('`--policy jev` in the sim (§5.6, §8)', () => {
   const options = { ...DEFAULT_OPTIONS, games: 6, seed: 1, seats: 3, policy: 'jev' };
+
+  beforeEach(() => {
+    vi.stubEnv('TYPESAFE_API_KEY', '');
+  });
 
   test('random, invalid, late and failing fake answers never apply an illegal action', async () => {
     const { summary, failures } = await runSim(realEngine, options);
