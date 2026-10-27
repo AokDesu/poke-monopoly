@@ -30,6 +30,20 @@ export function formatSummary(summary: SimSummary): string[] {
         .join(', '),
     ),
   ];
+  if (summary.jev) {
+    const { decisions, requests, invalidOutputRate, fallbackRate } = summary.jev;
+    lines.push(
+      row(
+        'Jev decisions',
+        `${decisions} decisions, ${requests} requests, invalidOutputRate ${invalidOutputRate}`,
+      ),
+      row(
+        'Jev fallbackRate',
+        `${fallbackRate.total}` +
+          (Object.keys(fallbackRate.byCause).length > 0 ? ` (${list(fallbackRate.byCause)})` : ''),
+      ),
+    );
+  }
   const dcLaps = catching.byBallDcLap.filter((entry) => entry.ballType === BALLS[0]);
   if (dcLaps.length > 0) {
     lines.push('  catchAttempt / encounter by DC and Lap (Poké / Great / Ultra):');

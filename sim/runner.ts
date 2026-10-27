@@ -18,10 +18,14 @@ import {
 } from './metrics.ts';
 import {
   createPolicyRng,
+  decisionRates,
   POLICIES,
+  type DecisionRates,
   type Policy,
   type PolicyChoice,
   type PolicyFacts,
+  type PolicyFactory,
+  type PolicyRng,
 } from './policy.ts';
 
 export type SeatSetup = { seatIndex: number; actorId: string; classId: string };
@@ -96,6 +100,13 @@ export type SimSummary = {
   aborted: number;
   illegalAppliedActionCount: number;
   invariantFailures: number;
+  /** Policy counts added up over every seat and game, when the policy reports any (§5.6). */
+  policyCounts?: Record<string, number>;
+  /**
+   * `--policy jev`: `invalidOutputRate` and `fallbackRate` by cause (§5.6), apart from
+   * `illegalAppliedActionCount`.
+   */
+  jev?: DecisionRates;
 } & MetricsSummary;
 
 export type GameFailure = { seed: number; reasons: string[]; reproduce: string };
@@ -118,15 +129,16 @@ type GameResult = {
   abortReason: string | null;
   illegalApplied: number;
   violations: number;
+  policyCounts: Record<string, number>;
 };
 
-export function runSim(
+export async function runSim(
   engine: SimEngine,
   options: SimOptions,
-  policies: Readonly<Record<string, () => Policy>> = POLICIES,
+  policies: Readonly<Record<string, PolicyFactory>> = POLICIES,
   checkInvariants: InvariantCheck = noInvariantCheck,
   onGame: (game: PlayedGame) => void = () => {},
-): { summary: SimSummary; failures: GameFailure[] } {
+): Promise<{ summary: SimSummary; failures: GameFailure[] }> {
   const createPolicy = policies[options.policy];
   if (!createPolicy) throw new RangeError(`Unknown policy: ${options.policy}`);
   const summary = emptySummary(options, engine.classIds);
@@ -136,11 +148,16 @@ export function runSim(
   let finishedTurns = 0;
   let finalCoins = 0;
   const metrics = createMetrics();
+  let policyCounts: Record<string, number> | undefined;
   for (let g = 0; g < options.games; g++) {
     // Game g of seed s uses seed s + g, so `--games 1 --seed <s + g>` replays it alone.
     const seed = options.seed + g;
-    const game = playGame(engine, options, seed, createPolicy, checkInvariants, metrics);
+    const game = await playGame(engine, options, seed, createPolicy, checkInvariants, metrics);
     for (const seat of game.seats) summary.classInSeat[seat.classId]![seat.seatIndex]! += 1;
+    for (const [key, n] of Object.entries(game.policyCounts)) {
+      policyCounts ??= {};
+      policyCounts[key] = (policyCounts[key] ?? 0) + n;
+    }
     if (game.game) onGame(game.game);
     summary.illegalAppliedActionCount += game.illegalApplied;
     summary.invariantFailures += game.violations;
@@ -175,6 +192,10 @@ export function runSim(
     Object.entries(summary.winners.byClass).map(([classId, wins]) => [classId, round2(wins)]),
   );
   Object.assign(summary, metrics.summary());
+  if (policyCounts) {
+    summary.policyCounts = policyCounts;
+    if ('decisions' in policyCounts) summary.jev = decisionRates(policyCounts);
+  }
   return { summary, failures };
 }
 
@@ -255,14 +276,14 @@ export function seatSetup(classIds: readonly string[], seats: number, seed: numb
   }));
 }
 
-function playGame(
+async function playGame(
   engine: SimEngine,
   options: SimOptions,
   seed: number,
-  createPolicy: () => Policy,
+  createPolicy: PolicyFactory,
   checkInvariants: InvariantCheck,
   metrics: MetricsCollector,
-): GameResult {
+): Promise<GameResult> {
   const seats = seatSetup(engine.classIds, options.seats, seed);
   const result: GameResult = {
     game: null,
@@ -273,12 +294,18 @@ function playGame(
     abortReason: null,
     illegalApplied: 0,
     violations: 0,
+    policyCounts: {},
   };
+  // Every seat of one game gets the same `PolicyGame`, so a policy can share per-game state.
+  const policyGame = { seed };
+  const deciders: { policy: Policy; rng: PolicyRng }[] = [];
   try {
-    const deciders = seats.map((seat) => ({
-      policy: createPolicy(),
-      rng: createPolicyRng(`policy:${seed}:${seat.seatIndex}`),
-    }));
+    for (const seat of seats) {
+      deciders.push({
+        policy: createPolicy(policyGame),
+        rng: createPolicyRng(`policy:${seed}:${seat.seatIndex}`),
+      });
+    }
     let state = engine.createGame({ seed, seats, lapTarget: options.lapTarget });
     const game: PlayedGame = {
       seed,
@@ -326,7 +353,7 @@ function playGame(
       const decider = deciders[seatIndex]!;
       const { choice, enabled } = resolveChoice(
         legal,
-        decider.policy.decide(
+        await decider.policy.decide(
           engine.observe(state, seatIndex),
           legal,
           decider.rng,
@@ -347,6 +374,12 @@ function playGame(
   } catch (error) {
     result.abortReason = `error: ${error instanceof Error ? error.message : String(error)}`;
     return result;
+  } finally {
+    for (const { policy } of deciders) {
+      for (const [key, n] of Object.entries(policy.counts?.() ?? {})) {
+        result.policyCounts[key] = (result.policyCounts[key] ?? 0) + n;
+      }
+    }
   }
 }
 

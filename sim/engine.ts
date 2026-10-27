@@ -69,9 +69,11 @@ export const realEngine: SimEngine = {
 function facts(state: GameState, seatIndex: number): PolicyFacts {
   if (seatIndex !== state.activeSeatIndex) return {};
   if (state.phase.kind === 'encounter' && !state.phase.catchRoll) {
+    const odds = oddsForAllBalls(state, seatIndex);
     return {
-      catchChance: Object.fromEntries(
-        oddsForAllBalls(state, seatIndex).map((odds) => [odds.ballType, odds.probability]),
+      catchChance: Object.fromEntries(odds.map((entry) => [entry.ballType, entry.probability])),
+      catchSuccessFaces: Object.fromEntries(
+        odds.map((entry) => [entry.ballType, entry.successFaces]),
       ),
     };
   }

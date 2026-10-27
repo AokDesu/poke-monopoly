@@ -16,12 +16,12 @@ import {
 export type CliIo = { log(line: string): void; error(line: string): void };
 
 /** The `npm run sim` body: parses `args`, runs the games and returns the exit code. */
-export function runCli(
+export async function runCli(
   args: string[],
   engine: SimEngine,
   checkInvariants: InvariantCheck,
   io: CliIo = console,
-): number {
+): Promise<number> {
   if (args.some((arg) => arg === '--replay' || arg.startsWith('--replay='))) {
     return runReplay(args, io);
   }
@@ -44,7 +44,7 @@ export function runCli(
       io.error(`sim: could not save game seed ${game.seed} to ${file}: ${message(error)}`);
     }
   };
-  const { summary, failures } = runSim(engine, options, POLICIES, checkInvariants, save);
+  const { summary, failures } = await runSim(engine, options, POLICIES, checkInvariants, save);
   for (const failure of failures) {
     io.error(
       `sim: game seed ${failure.seed} failed (${failure.reasons.join('; ')}); reproduce: ${failure.reproduce}`,
