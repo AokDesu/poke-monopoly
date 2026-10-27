@@ -5,13 +5,16 @@ import { decideWithFallback, FallbackPolicy, saleDesire } from './fallback/index
 import {
   DECISION_DEADLINE_MS,
   jevEnabled,
+  resolveJevModel,
   type FallbackReason as JevFailureReason,
   type JevAnswer,
   type JevClient,
   type JevRequest,
+  type JevResult,
   type JevSuccess,
 } from './jev/client.ts';
-import { UsageMeter } from './jev/usage.ts';
+import type { UsageRecorder } from './jev/spend.ts';
+import { billedUsage, UsageMeter } from './jev/usage.ts';
 import {
   buildEncounterQuestion,
   buildSellQuestions,
@@ -68,7 +71,8 @@ export function confidenceFloor(
 /**
  * Why a decision did not apply Jev's own answer (spec §3.1, §5.6, §9), beyond the client's
  * failures: an answer not among the options, a stale revision, low confidence, the per-turn
- * request limit, the per-game token budget, or engine facts the question needs but did not get.
+ * request limit, the per-game token budget, the spend cap or daily budget, or engine facts the
+ * question needs but did not get.
  */
 export type OrchestratorFallbackReason =
   | JevFailureReason
@@ -77,6 +81,7 @@ export type OrchestratorFallbackReason =
   | 'low_confidence'
   | 'request_limit'
   | 'token_budget'
+  | 'budget_exceeded'
   | 'missing_facts';
 
 /** Engine numbers a decision point's question or the fallback policy reads (§5.2). */
@@ -145,9 +150,16 @@ export interface OrchestratorOptions {
   config?: OrchestratorConfig;
   /** The decision deadline; tests and the offline sim shorten it. Defaults to 1,500 ms (§5.6). */
   decisionMs?: number;
+  /** Logs each request and guards the total cap and daily budget (§9); none for fakes. */
+  usage?: UsageRecorder;
+  /** The game ID on each usage line; defaults to a random UUID. */
+  gameId?: string;
 }
 
 const SAMPLE_RANGE = 2 ** 32;
+
+/** One decision's place in the usage log; `finished` resolves to its time in ms once it returns. */
+type DecisionLog = { turnKey: string; decision: number; finished: Promise<number> };
 
 type Answered = { results: JevSuccess[]; requests: number };
 type Asked = Answered | { fallbackReason: OrchestratorFallbackReason; requests: number };
@@ -162,27 +174,47 @@ export class Orchestrator {
   readonly #client: JevClient;
   readonly #config: OrchestratorConfig;
   readonly #decisionMs: number;
+  readonly #usage: UsageRecorder | undefined;
+  readonly #gameId: string;
   #turn = { key: '', requests: 0 };
+  #decisions = 0;
 
-  constructor({ client, config = ORCHESTRATOR_CONFIG, decisionMs }: OrchestratorOptions) {
+  constructor({
+    client,
+    config = ORCHESTRATOR_CONFIG,
+    decisionMs,
+    usage,
+    gameId,
+  }: OrchestratorOptions) {
     this.#client = client;
     this.#config = config;
     this.#decisionMs = decisionMs ?? DECISION_DEADLINE_MS;
+    this.#usage = usage;
+    this.#gameId = gameId ?? crypto.randomUUID();
   }
 
   async decide(request: DecideRequest): Promise<OrchestratorDecision> {
     if (this.#turn.key !== request.turnKey) this.#turn = { key: request.turnKey, requests: 0 };
-    const { phase } = request.observation.public;
-    if (phase.kind === 'strategy' || phase.kind === 'encounter') {
-      return this.#decideChoice(request, phase.kind);
+    const started = performance.now();
+    let finish: (ms: number) => void = () => {};
+    const finished = new Promise<number>((resolve) => (finish = resolve));
+    const log = { turnKey: request.turnKey, decision: this.#decisions++, finished };
+    try {
+      const { phase } = request.observation.public;
+      if (phase.kind === 'strategy' || phase.kind === 'encounter') {
+        return await this.#decideChoice(request, phase.kind, log);
+      }
+      if (phase.kind === 'sell') return await this.#decideSell(request, log);
+      return policyDecision(request, 'auto', null);
+    } finally {
+      finish(Math.round(performance.now() - started));
     }
-    if (phase.kind === 'sell') return this.#decideSell(request);
-    return policyDecision(request, 'auto', null);
   }
 
   async #decideChoice(
     request: DecideRequest,
     question: ChoiceQuestion,
+    log: DecisionLog,
   ): Promise<OrchestratorDecision> {
     const { observation, legalActions, personality, facts } = request;
     const enabled = legalActions.enabled;
@@ -203,7 +235,7 @@ export class Orchestrator {
     if (decision.kind !== 'ask') return policyDecision(request, 'auto', null);
     const blocked = this.#blocked();
     if (blocked) return policyDecision(request, 'fallback', blocked);
-    const asked = await this.#askAll(request, [decision]);
+    const asked = await this.#askAll(request, [decision], log);
     if (!('results' in asked)) return this.#fellBack(request, asked.fallbackReason, asked);
     const [result] = asked.results;
     const answer = result!.answers[question];
@@ -263,7 +295,7 @@ export class Orchestrator {
     };
   }
 
-  async #decideSell(request: DecideRequest): Promise<OrchestratorDecision> {
+  async #decideSell(request: DecideRequest, log: DecisionLog): Promise<OrchestratorDecision> {
     const { observation, legalActions, personality, facts } = request;
     const sales = legalActions.enabled.filter((action) => action.kind === 'sell');
     if (sales.length === 0) return policyDecision(request, 'auto', null);
@@ -280,7 +312,7 @@ export class Orchestrator {
       left,
     );
     if (requests.length === 0) return policyDecision(request, 'auto', null);
-    const asked = await this.#askAll(request, requests);
+    const asked = await this.#askAll(request, requests, log);
     if (!('results' in asked)) return this.#fellBack(request, asked.fallbackReason, asked);
     const answers: Record<string, JevAnswer> = {};
     const events: JevDecisionEvent[] = [];
@@ -313,9 +345,13 @@ export class Orchestrator {
     return jevDecision(choice, asked.requests, events);
   }
 
-  /** A reason no request may go out now: the kill switch, the token budget or the turn limit. */
+  /**
+   * A reason no request may go out now: the kill switch, the spend cap or daily budget, the game's
+   * token budget or the turn limit.
+   */
   #blocked(): OrchestratorFallbackReason | undefined {
     if (!jevEnabled()) return 'disabled';
+    if (this.#usage?.budgetExceeded()) return 'budget_exceeded';
     if (this.usage.totals().inputTokens >= this.#config.inputTokensPerGame) return 'token_budget';
     if (this.#turn.requests >= this.#config.requestsPerTurn) return 'request_limit';
     return undefined;
@@ -325,7 +361,11 @@ export class Orchestrator {
    * Sends each request in turn under one decision deadline. Any unusable result, a late answer or
    * a revision that moved while waiting discards every answer of the decision.
    */
-  async #askAll(request: DecideRequest, asks: readonly JevRequest[]): Promise<Asked> {
+  async #askAll(
+    request: DecideRequest,
+    asks: readonly JevRequest[],
+    log: DecisionLog,
+  ): Promise<Asked> {
     const deadline = new AbortController();
     const timer = setTimeout(() => deadline.abort(), this.#decisionMs);
     const expired = new Promise<undefined>((resolve) =>
@@ -341,8 +381,9 @@ export class Orchestrator {
         this.#turn.requests++;
         requests++;
         const call = this.#client.ask({ state, questions }, { decisionSignal: deadline.signal });
-        // A late answer still counts its tokens against the game's budget.
+        // A late or unusable answer still counts its tokens against the game's budget.
         void call.then((result) => this.usage.record(result));
+        this.#logRequest(call, log);
         // §5.6: return at the deadline even if the client does not, and never apply an answer
         // that lands after it, even a valid one.
         const result = await Promise.race([call, expired]);
@@ -360,6 +401,40 @@ export class Orchestrator {
       return { fallbackReason: 'revision_mismatch', requests };
     }
     return { results, requests };
+  }
+
+  /** Spec §9: one usage line per request that went out, written once its decision returns. */
+  #logRequest(call: Promise<JevResult>, log: DecisionLog): void {
+    const usage = this.#usage;
+    if (!usage) return;
+    const time = new Date().toISOString();
+    const sent = performance.now();
+    const answered = call.then((result) => ({
+      result,
+      latencyMs: Math.round(performance.now() - sent),
+    }));
+    void Promise.all([answered, log.finished])
+      .then(([{ result, latencyMs }, decisionMs]) => {
+        const billed = billedUsage(result);
+        if (!billed) return;
+        usage.record({
+          time,
+          gameId: this.#gameId,
+          requestId: result.ok ? (result.requestId ?? null) : null,
+          model: result.ok ? result.model : resolveJevModel(),
+          inputTokens: billed.inputTokens,
+          outputTokens: billed.outputTokens,
+          latencyMs,
+          status: result.ok ? 'ok' : result.fallbackReason,
+          turnKey: log.turnKey,
+          decision: log.decision,
+          decisionMs,
+          ...(billed.estimated && { estimated: true }),
+        });
+      })
+      .catch((error: unknown) => {
+        console.warn(`Could not write the Jev usage log: ${String(error)}`);
+      });
   }
 
   #fellBack(

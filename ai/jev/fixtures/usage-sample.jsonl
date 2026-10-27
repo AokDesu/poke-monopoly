@@ -1,0 +1,7 @@
+{"time":"2026-10-26T09:00:00.000Z","gameId":"game-a","requestId":"req_1","model":"jev-1.13.0","inputTokens":3240,"outputTokens":0,"latencyMs":210,"status":"ok","turnKey":"1","decision":0,"decisionMs":230}
+{"time":"2026-10-26T09:00:01.000Z","gameId":"game-a","requestId":"req_2","model":"jev-1.13.0","inputTokens":3000,"outputTokens":0,"latencyMs":180,"status":"ok","turnKey":"1","decision":1,"decisionMs":400}
+{"time":"2026-10-26T09:00:01.200Z","gameId":"game-a","requestId":"req_3","model":"jev-1.13.0","inputTokens":2760,"outputTokens":0,"latencyMs":190,"status":"ok","turnKey":"1","decision":1,"decisionMs":400}
+{"time":"2026-10-26T09:00:05.000Z","gameId":"game-a","requestId":null,"model":"jev-1.13.0","inputTokens":0,"outputTokens":0,"latencyMs":1000,"status":"timeout","turnKey":"2","decision":2,"decisionMs":1500}
+{"time":"2026-10-26T09:00:09.000Z","gameId":"game-a","requestId":"req_5","model":"jev-1.13.0","inputTokens":3240,"outputTokens":0,"latencyMs":160,"status":"ok","turnKey":"3","decision":3,"decisionMs":180}
+{"time":"2026-10-27T10:00:00.000Z","gameId":"game-b","requestId":"req_6","model":"jev-1.13.0","inputTokens":3240,"outputTokens":0,"latencyMs":240,"status":"ok","turnKey":"1","decision":0,"decisionMs":260}
+{"time":"2026-10-27T10:00:03.000Z","gameId":"game-b","requestId":null,"model":"jev-1.13.0","inputTokens":0,"outputTokens":0,"latencyMs":15,"status":"rate_limited","turnKey":"2","decision":1,"decisionMs":20}

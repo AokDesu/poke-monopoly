@@ -44,11 +44,12 @@ const answerSchema = z.discriminatedUnion('type', [
   // Noul answers carry no confidence.
   z.object({ type: z.literal('noul'), noul: probability }),
 ]);
+const usageSchema = z.object({ input_tokens: tokenCount, output_tokens: tokenCount });
 // The SDK does not validate the body: a non-JSON body arrives as a plain string.
 const responseSchema = z.object({
   model: z.string(),
   answers: z.record(z.string(), answerSchema),
-  usage: z.object({ input_tokens: tokenCount, output_tokens: tokenCount }),
+  usage: usageSchema,
 });
 
 export type JevAnswer = z.infer<typeof answerSchema>;
@@ -78,6 +79,8 @@ export interface JevFailure {
   retryAfterMs?: number;
   /** `false` when the failure happened before any request went out, so it is not a call. */
   requestSent?: false;
+  /** The tokens reported by an answer that arrived but was unusable, so they still count (spec §9). */
+  usage?: JevUsage;
 }
 
 export type JevResult = JevSuccess | JevFailure;
@@ -185,8 +188,12 @@ const askSdk = async (
   })();
   try {
     const result = await Promise.race([call, deadline]);
-    // A response that lands after either deadline is discarded, never returned as success.
-    return signal.aborted ? fail('timeout') : result;
+    if (!signal.aborted) return result;
+    // A response that lands after either deadline is discarded, never returned as success, but
+    // the tokens it reports still count.
+    const late = fail('timeout');
+    if (result.usage) late.usage = result.usage;
+    return late;
   } finally {
     clearTimeout(timer);
     signal.removeEventListener('abort', onAbort);
@@ -201,17 +208,23 @@ const toSuccess = (
   latencyMs: number,
 ): JevResult => {
   const parsed = responseSchema.safeParse(data);
-  if (!parsed.success || parsed.data.model !== model) return fail('schema_mismatch');
+  if (!parsed.success || parsed.data.model !== model) return mismatch(data);
   const { answers, usage } = parsed.data;
-  if (!answersMatch(request.questions, answers)) return fail('schema_mismatch');
-  return {
-    ok: true,
-    answers,
-    requestId,
-    model,
-    latencyMs,
-    usage: { inputTokens: usage.input_tokens, outputTokens: usage.output_tokens },
-  };
+  if (!answersMatch(request.questions, answers)) return mismatch(data);
+  return { ok: true, answers, requestId, model, latencyMs, usage: toUsage(usage) };
+};
+
+const toUsage = (usage: z.infer<typeof usageSchema>): JevUsage => ({
+  inputTokens: usage.input_tokens,
+  outputTokens: usage.output_tokens,
+});
+
+/** A body that failed validation keeps the usage it reports, so its tokens still count (spec §9). */
+const mismatch = (data: unknown): JevFailure => {
+  const failure = fail('schema_mismatch');
+  const body = z.object({ usage: usageSchema }).safeParse(data);
+  if (body.success) failure.usage = toUsage(body.data.usage);
+  return failure;
 };
 
 /** Every question is answered with its own type, and every label is one the question offered. */
