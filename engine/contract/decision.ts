@@ -78,6 +78,7 @@ export const decisionFallbackReasonSchema = z.enum([
   'network',
   'schema_mismatch',
   'disabled',
+  'budget_exceeded',
   'missing_key',
   'not_an_option',
   'decider_error',
@@ -104,11 +105,11 @@ export const decisionResponseSchema = z
     },
   );
 
-/** `GET /api/ai/status`, for the "Backup bot mode" badge (spec §9 kill switch). */
+/** `GET /api/ai/status`, for the "Backup bot mode" badge (spec §9 kill switch and spend cap). */
 export const aiStatusSchema = z.strictObject({
   jevEnabled: z.boolean(),
   backupOnly: z.boolean(),
-  reason: z.enum(['disabled', 'missing_key']).nullable(),
+  reason: z.enum(['disabled', 'budget_exceeded', 'missing_key']).nullable(),
 });
 
 export type DecisionPoint = z.infer<typeof decisionPointSchema>;
