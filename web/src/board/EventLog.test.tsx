@@ -3,6 +3,7 @@ import { expect, test } from 'vitest';
 import { fixtureSchema, observe, type EngineEvent } from '../../../engine/index.ts';
 import fixture from '../../../engine/fixtures/start-of-game-2p.json';
 import { t } from '../i18n/en.ts';
+import type { SeatFeedEntry } from '../game/store.ts';
 import { EventLog } from './EventLog.tsx';
 
 const observation = observe(fixtureSchema.parse(fixture).state, 0);
@@ -54,3 +55,53 @@ test('an empty event feed still explains the state', () => {
   render(<EventLog observation={observation} events={[]} />);
   expect(screen.getByText(t('board.logEmpty'))).toBeTruthy();
 });
+
+// Spec §5.7: dialogue annotations are persisted separately; showing lines is deferred.
+test.each(['events', 'feed'] as const)(
+  '%s keeps dialogue annotations out of the event log while preserving game events',
+  (source) => {
+    const annotations: EngineEvent[] = [
+      {
+        kind: 'line_selected',
+        situation: 'game_start',
+        personalityId: 'greedy',
+        trustBucket: 'neutral',
+        lineId: 'INTERNAL-LINE-ID',
+      },
+      { kind: 'random_result', purpose: 'line:game_start', result: 2, drawCounter: 1 },
+    ];
+    const props = (events: EngineEvent[]) => ({
+      observation,
+      events,
+      ...(source === 'feed' && {
+        feed: [
+          {
+            before: observation.public,
+            record: {
+              action: {
+                kind: 'skip',
+                actorId: 'player-0',
+                actionSeq: 1,
+                stateRevisionBefore: 0,
+                payload: {},
+              },
+              events,
+            },
+          },
+        ] satisfies SeatFeedEntry[],
+      }),
+    });
+    const { container, rerender } = render(
+      <EventLog
+        {...props([...annotations, { kind: 'random_result', purpose: 'movement', result: 6 }])}
+      />,
+    );
+    expect(screen.getAllByRole('listitem').map((row) => row.textContent)).toEqual([
+      'The die rolled 6.',
+    ]);
+    expect(container.textContent).not.toContain('INTERNAL-LINE-ID');
+    rerender(<EventLog {...props(annotations)} />);
+    expect(screen.getByText(t('board.logEmpty'))).toBeTruthy();
+    expect(screen.queryByRole('listitem')).toBeNull();
+  },
+);
