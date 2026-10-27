@@ -1,0 +1,1735 @@
+{
+  "model": "jev-1.13.0",
+  "sdkVersion": "0.6.0",
+  "network": "home-wifi",
+  "city": "Bangkok",
+  "startedAt": "2026-10-26T09:15:52.449Z",
+  "finishedAt": "2026-10-26T09:16:22.502Z",
+  "settings": { "calls": 100, "timeoutMs": 1000, "maxRetries": 0 },
+  "modelCheck": {
+    "pinnedModelListed": false,
+    "models": ["jev-latest", "jev-preview"],
+    "errorClass": null
+  },
+  "summary": {
+    "calls": 100,
+    "okCalls": 100,
+    "latencyMs": { "p50": 284, "p95": 374, "max": 488 },
+    "okLatencyMs": { "p50": 284, "p95": 374, "max": 488 },
+    "meanInputTokens": 3242.2,
+    "meanOutputTokens": 127.6,
+    "statuses": { "200": 100 },
+    "errorClasses": { "none": 100 },
+    "rateLimited": 0,
+    "serverErrors": 0,
+    "retryAfterMs": [],
+    "p95AboveRequestDeadline": false,
+    "cost": [
+      { "games": 1, "inputTokens": 453912, "usd": 0.019064, "thb": 0.6291 },
+      { "games": 300, "inputTokens": 136173660, "usd": 5.719294, "thb": 188.7367 },
+      { "games": 1000, "inputTokens": 453912200, "usd": 19.064312, "thb": 629.1223 }
+    ]
+  },
+  "calls": [
+    {
+      "index": 0,
+      "latencyMs": 290,
+      "status": 200,
+      "requestId": "req_01a1777eafbd7259b4d4cf633f68343d",
+      "inputTokens": 1348,
+      "outputTokens": 88,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 4,
+        "lineOptions": 3,
+        "targetInputTokens": 600,
+        "estimatedInputTokens": 611
+      }
+    },
+    {
+      "index": 1,
+      "latencyMs": 263,
+      "status": 200,
+      "requestId": "req_01a1777eb0e27a2195a7aae515d1e9a2",
+      "inputTokens": 2736,
+      "outputTokens": 104,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 5,
+        "lineOptions": 4,
+        "targetInputTokens": 1300,
+        "estimatedInputTokens": 1300
+      }
+    },
+    {
+      "index": 2,
+      "latencyMs": 287,
+      "status": 200,
+      "requestId": "req_01a1777eb1f179c6be3aa4c7fe8c734c",
+      "inputTokens": 4166,
+      "outputTokens": 119,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 6,
+        "lineOptions": 5,
+        "targetInputTokens": 2000,
+        "estimatedInputTokens": 2007
+      }
+    },
+    {
+      "index": 3,
+      "latencyMs": 292,
+      "status": 200,
+      "requestId": "req_01a1777eb30b73109e516ffcd546dda0",
+      "inputTokens": 1525,
+      "outputTokens": 112,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 7,
+        "lineOptions": 3,
+        "targetInputTokens": 700,
+        "estimatedInputTokens": 711
+      }
+    },
+    {
+      "index": 4,
+      "latencyMs": 311,
+      "status": 200,
+      "requestId": "req_01a1777eb42d7be2a8d36130da023077",
+      "inputTokens": 2919,
+      "outputTokens": 127,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 8,
+        "lineOptions": 4,
+        "targetInputTokens": 1400,
+        "estimatedInputTokens": 1400
+      }
+    },
+    {
+      "index": 5,
+      "latencyMs": 274,
+      "status": 200,
+      "requestId": "req_01a1777eb56d7af0b5a44f7273a85da9",
+      "inputTokens": 4360,
+      "outputTokens": 144,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 9,
+        "lineOptions": 5,
+        "targetInputTokens": 2100,
+        "estimatedInputTokens": 2106
+      }
+    },
+    {
+      "index": 6,
+      "latencyMs": 257,
+      "status": 200,
+      "requestId": "req_01a1777eb6767b0cbe803770c54ad74b",
+      "inputTokens": 1695,
+      "outputTokens": 135,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 10,
+        "lineOptions": 3,
+        "targetInputTokens": 800,
+        "estimatedInputTokens": 805
+      }
+    },
+    {
+      "index": 7,
+      "latencyMs": 262,
+      "status": 200,
+      "requestId": "req_01a1777eb77570148de89d894780d0b3",
+      "inputTokens": 3119,
+      "outputTokens": 153,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 11,
+        "lineOptions": 4,
+        "targetInputTokens": 1500,
+        "estimatedInputTokens": 1509
+      }
+    },
+    {
+      "index": 8,
+      "latencyMs": 363,
+      "status": 200,
+      "requestId": "req_01a1777eb8817a9784eb379d07f20909",
+      "inputTokens": 4553,
+      "outputTokens": 170,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 12,
+        "lineOptions": 5,
+        "targetInputTokens": 2200,
+        "estimatedInputTokens": 2213
+      }
+    },
+    {
+      "index": 9,
+      "latencyMs": 269,
+      "status": 200,
+      "requestId": "req_01a1777eb9dc70d3b3c4c20e6e289d80",
+      "inputTokens": 1942,
+      "outputTokens": 88,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 4,
+        "lineOptions": 3,
+        "targetInputTokens": 900,
+        "estimatedInputTokens": 905
+      }
+    },
+    {
+      "index": 10,
+      "latencyMs": 267,
+      "status": 200,
+      "requestId": "req_01a1777ebafe768a80a3fb56ab5753e7",
+      "inputTokens": 3366,
+      "outputTokens": 103,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 5,
+        "lineOptions": 4,
+        "targetInputTokens": 1600,
+        "estimatedInputTokens": 1605
+      }
+    },
+    {
+      "index": 11,
+      "latencyMs": 314,
+      "status": 200,
+      "requestId": "req_01a1777ebc077b64bfa32780d1b86435",
+      "inputTokens": 4801,
+      "outputTokens": 120,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 6,
+        "lineOptions": 5,
+        "targetInputTokens": 2300,
+        "estimatedInputTokens": 2314
+      }
+    },
+    {
+      "index": 12,
+      "latencyMs": 247,
+      "status": 200,
+      "requestId": "req_01a1777ebd3c7b789e539f7ff921f9c1",
+      "inputTokens": 2128,
+      "outputTokens": 111,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 7,
+        "lineOptions": 3,
+        "targetInputTokens": 1000,
+        "estimatedInputTokens": 1008
+      }
+    },
+    {
+      "index": 13,
+      "latencyMs": 281,
+      "status": 200,
+      "requestId": "req_01a1777ebe40774bb4f47d87a2219440",
+      "inputTokens": 3546,
+      "outputTokens": 128,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 8,
+        "lineOptions": 4,
+        "targetInputTokens": 1700,
+        "estimatedInputTokens": 1701
+      }
+    },
+    {
+      "index": 14,
+      "latencyMs": 296,
+      "status": 200,
+      "requestId": "req_01a1777ebf567dea94e79d4103be792c",
+      "inputTokens": 4980,
+      "outputTokens": 143,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 9,
+        "lineOptions": 5,
+        "targetInputTokens": 2400,
+        "estimatedInputTokens": 2412
+      }
+    },
+    {
+      "index": 15,
+      "latencyMs": 364,
+      "status": 200,
+      "requestId": "req_01a1777ec0737175948f389af68fa2a6",
+      "inputTokens": 2316,
+      "outputTokens": 136,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 10,
+        "lineOptions": 3,
+        "targetInputTokens": 1100,
+        "estimatedInputTokens": 1111
+      }
+    },
+    {
+      "index": 16,
+      "latencyMs": 277,
+      "status": 200,
+      "requestId": "req_01a1777ec1e3747ebfe590cb9ca36caa",
+      "inputTokens": 3753,
+      "outputTokens": 153,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 11,
+        "lineOptions": 4,
+        "targetInputTokens": 1800,
+        "estimatedInputTokens": 1814
+      }
+    },
+    {
+      "index": 17,
+      "latencyMs": 488,
+      "status": 200,
+      "requestId": "req_01a1777ec30a781fb5b99e68973faf6c",
+      "inputTokens": 5148,
+      "outputTokens": 170,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 12,
+        "lineOptions": 5,
+        "targetInputTokens": 2500,
+        "estimatedInputTokens": 2509
+      }
+    },
+    {
+      "index": 18,
+      "latencyMs": 253,
+      "status": 200,
+      "requestId": "req_01a1777ec4dd71be95f93d32cefcee36",
+      "inputTokens": 2552,
+      "outputTokens": 87,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 4,
+        "lineOptions": 3,
+        "targetInputTokens": 1200,
+        "estimatedInputTokens": 1200
+      }
+    },
+    {
+      "index": 19,
+      "latencyMs": 286,
+      "status": 200,
+      "requestId": "req_01a1777ec5df7ac58ebd978a3689a654",
+      "inputTokens": 3993,
+      "outputTokens": 104,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 5,
+        "lineOptions": 4,
+        "targetInputTokens": 1900,
+        "estimatedInputTokens": 1909
+      }
+    },
+    {
+      "index": 20,
+      "latencyMs": 378,
+      "status": 200,
+      "requestId": "req_01a1777ec70276d0a21e84692b0a821d",
+      "inputTokens": 1306,
+      "outputTokens": 120,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 6,
+        "lineOptions": 5,
+        "targetInputTokens": 600,
+        "estimatedInputTokens": 603
+      }
+    },
+    {
+      "index": 21,
+      "latencyMs": 282,
+      "status": 200,
+      "requestId": "req_01a1777ec88372d4815917fa11b3853b",
+      "inputTokens": 2732,
+      "outputTokens": 112,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 7,
+        "lineOptions": 3,
+        "targetInputTokens": 1300,
+        "estimatedInputTokens": 1306
+      }
+    },
+    {
+      "index": 22,
+      "latencyMs": 292,
+      "status": 200,
+      "requestId": "req_01a1777ec9a5733c9acbeb1e9d920af0",
+      "inputTokens": 4150,
+      "outputTokens": 127,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 8,
+        "lineOptions": 4,
+        "targetInputTokens": 2000,
+        "estimatedInputTokens": 2003
+      }
+    },
+    {
+      "index": 23,
+      "latencyMs": 334,
+      "status": 200,
+      "requestId": "req_01a1777ecac27e5fa71b0b88f5158c17",
+      "inputTokens": 1484,
+      "outputTokens": 144,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 9,
+        "lineOptions": 5,
+        "targetInputTokens": 700,
+        "estimatedInputTokens": 700
+      }
+    },
+    {
+      "index": 24,
+      "latencyMs": 285,
+      "status": 200,
+      "requestId": "req_01a1777ecc1c7c6e808fb8da9817ba52",
+      "inputTokens": 2911,
+      "outputTokens": 135,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 10,
+        "lineOptions": 3,
+        "targetInputTokens": 1400,
+        "estimatedInputTokens": 1404
+      }
+    },
+    {
+      "index": 25,
+      "latencyMs": 285,
+      "status": 200,
+      "requestId": "req_01a1777ecd297d9bb76f2c84668d060b",
+      "inputTokens": 4338,
+      "outputTokens": 153,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 11,
+        "lineOptions": 4,
+        "targetInputTokens": 2100,
+        "estimatedInputTokens": 2107
+      }
+    },
+    {
+      "index": 26,
+      "latencyMs": 257,
+      "status": 200,
+      "requestId": "req_01a1777ece4770e9a9fd0a65c3ae5e52",
+      "inputTokens": 1682,
+      "outputTokens": 169,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 12,
+        "lineOptions": 5,
+        "targetInputTokens": 800,
+        "estimatedInputTokens": 811
+      }
+    },
+    {
+      "index": 27,
+      "latencyMs": 280,
+      "status": 200,
+      "requestId": "req_01a1777ecf4e7a8fa35128c78761ed8b",
+      "inputTokens": 3187,
+      "outputTokens": 88,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 4,
+        "lineOptions": 3,
+        "targetInputTokens": 1500,
+        "estimatedInputTokens": 1506
+      }
+    },
+    {
+      "index": 28,
+      "latencyMs": 273,
+      "status": 200,
+      "requestId": "req_01a1777ed0667cbb8fb9b00b9cf46de1",
+      "inputTokens": 4616,
+      "outputTokens": 103,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 5,
+        "lineOptions": 4,
+        "targetInputTokens": 2200,
+        "estimatedInputTokens": 2211
+      }
+    },
+    {
+      "index": 29,
+      "latencyMs": 462,
+      "status": 200,
+      "requestId": "req_01a1777ed1737eca93cf2c11ed6bec9f",
+      "inputTokens": 1928,
+      "outputTokens": 120,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 6,
+        "lineOptions": 5,
+        "targetInputTokens": 900,
+        "estimatedInputTokens": 904
+      }
+    },
+    {
+      "index": 30,
+      "latencyMs": 279,
+      "status": 200,
+      "requestId": "req_01a1777ed3457cf89b539d99ec93e798",
+      "inputTokens": 3348,
+      "outputTokens": 111,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 7,
+        "lineOptions": 3,
+        "targetInputTokens": 1600,
+        "estimatedInputTokens": 1605
+      }
+    },
+    {
+      "index": 31,
+      "latencyMs": 273,
+      "status": 200,
+      "requestId": "req_01a1777ed4617230bbe9420ef3a7ef8e",
+      "inputTokens": 4787,
+      "outputTokens": 128,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 8,
+        "lineOptions": 4,
+        "targetInputTokens": 2300,
+        "estimatedInputTokens": 2315
+      }
+    },
+    {
+      "index": 32,
+      "latencyMs": 296,
+      "status": 200,
+      "requestId": "req_01a1777ed56e74c7b0d285ce23cffb0b",
+      "inputTokens": 2090,
+      "outputTokens": 144,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 9,
+        "lineOptions": 5,
+        "targetInputTokens": 1000,
+        "estimatedInputTokens": 1001
+      }
+    },
+    {
+      "index": 33,
+      "latencyMs": 263,
+      "status": 200,
+      "requestId": "req_01a1777ed6967aeda90adc6c4a0c3a66",
+      "inputTokens": 3544,
+      "outputTokens": 136,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 10,
+        "lineOptions": 3,
+        "targetInputTokens": 1700,
+        "estimatedInputTokens": 1711
+      }
+    },
+    {
+      "index": 34,
+      "latencyMs": 287,
+      "status": 200,
+      "requestId": "req_01a1777ed7a8771da3a6cb468f409262",
+      "inputTokens": 4972,
+      "outputTokens": 152,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 11,
+        "lineOptions": 4,
+        "targetInputTokens": 2400,
+        "estimatedInputTokens": 2415
+      }
+    },
+    {
+      "index": 35,
+      "latencyMs": 301,
+      "status": 200,
+      "requestId": "req_01a1777ed8c271929712615fcb2b4d82",
+      "inputTokens": 2276,
+      "outputTokens": 171,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 12,
+        "lineOptions": 5,
+        "targetInputTokens": 1100,
+        "estimatedInputTokens": 1102
+      }
+    },
+    {
+      "index": 36,
+      "latencyMs": 259,
+      "status": 200,
+      "requestId": "req_01a1777ed9ee7a5badf7ee17c5bb8ffc",
+      "inputTokens": 3788,
+      "outputTokens": 87,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 4,
+        "lineOptions": 3,
+        "targetInputTokens": 1800,
+        "estimatedInputTokens": 1812
+      }
+    },
+    {
+      "index": 37,
+      "latencyMs": 269,
+      "status": 200,
+      "requestId": "req_01a1777edaf37e28babab06754348cfa",
+      "inputTokens": 5208,
+      "outputTokens": 104,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 5,
+        "lineOptions": 4,
+        "targetInputTokens": 2500,
+        "estimatedInputTokens": 2505
+      }
+    },
+    {
+      "index": 38,
+      "latencyMs": 340,
+      "status": 200,
+      "requestId": "req_01a1777edbfb7b22b10ae747c62eacc4",
+      "inputTokens": 2543,
+      "outputTokens": 119,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 6,
+        "lineOptions": 5,
+        "targetInputTokens": 1200,
+        "estimatedInputTokens": 1205
+      }
+    },
+    {
+      "index": 39,
+      "latencyMs": 293,
+      "status": 200,
+      "requestId": "req_01a1777edd667f568c8d20f0ee332b25",
+      "inputTokens": 3974,
+      "outputTokens": 112,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 7,
+        "lineOptions": 3,
+        "targetInputTokens": 1900,
+        "estimatedInputTokens": 1903
+      }
+    },
+    {
+      "index": 40,
+      "latencyMs": 283,
+      "status": 200,
+      "requestId": "req_01a1777ede827d70857c3d028264bd75",
+      "inputTokens": 1325,
+      "outputTokens": 128,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 8,
+        "lineOptions": 4,
+        "targetInputTokens": 600,
+        "estimatedInputTokens": 615
+      }
+    },
+    {
+      "index": 41,
+      "latencyMs": 306,
+      "status": 200,
+      "requestId": "req_01a1777edfa27cd7bd7caa3c1f57e605",
+      "inputTokens": 2710,
+      "outputTokens": 144,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 9,
+        "lineOptions": 5,
+        "targetInputTokens": 1300,
+        "estimatedInputTokens": 1304
+      }
+    },
+    {
+      "index": 42,
+      "latencyMs": 282,
+      "status": 200,
+      "requestId": "req_01a1777ee0cd7637898aa58265334624",
+      "inputTokens": 4140,
+      "outputTokens": 135,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 10,
+        "lineOptions": 3,
+        "targetInputTokens": 2000,
+        "estimatedInputTokens": 2007
+      }
+    },
+    {
+      "index": 43,
+      "latencyMs": 284,
+      "status": 200,
+      "requestId": "req_01a1777ee1e970eabbd00de4a05856a5",
+      "inputTokens": 1483,
+      "outputTokens": 153,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 11,
+        "lineOptions": 4,
+        "targetInputTokens": 700,
+        "estimatedInputTokens": 707
+      }
+    },
+    {
+      "index": 44,
+      "latencyMs": 282,
+      "status": 200,
+      "requestId": "req_01a1777ee3097a189178657ad7742f8b",
+      "inputTokens": 2906,
+      "outputTokens": 170,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 12,
+        "lineOptions": 5,
+        "targetInputTokens": 1400,
+        "estimatedInputTokens": 1408
+      }
+    },
+    {
+      "index": 45,
+      "latencyMs": 283,
+      "status": 200,
+      "requestId": "req_01a1777ee4217b598dfd7e04a3b0fc69",
+      "inputTokens": 4425,
+      "outputTokens": 88,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 4,
+        "lineOptions": 3,
+        "targetInputTokens": 2100,
+        "estimatedInputTokens": 2117
+      }
+    },
+    {
+      "index": 46,
+      "latencyMs": 252,
+      "status": 200,
+      "requestId": "req_01a1777ee5367dc989803b9bf35cf603",
+      "inputTokens": 1713,
+      "outputTokens": 103,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 5,
+        "lineOptions": 4,
+        "targetInputTokens": 800,
+        "estimatedInputTokens": 800
+      }
+    },
+    {
+      "index": 47,
+      "latencyMs": 292,
+      "status": 200,
+      "requestId": "req_01a1777ee63c77bca0cd1865092f3844",
+      "inputTokens": 3147,
+      "outputTokens": 120,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 6,
+        "lineOptions": 5,
+        "targetInputTokens": 1500,
+        "estimatedInputTokens": 1503
+      }
+    },
+    {
+      "index": 48,
+      "latencyMs": 299,
+      "status": 200,
+      "requestId": "req_01a1777ee75779e2b217af0599111a2b",
+      "inputTokens": 4568,
+      "outputTokens": 112,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 7,
+        "lineOptions": 3,
+        "targetInputTokens": 2200,
+        "estimatedInputTokens": 2203
+      }
+    },
+    {
+      "index": 49,
+      "latencyMs": 320,
+      "status": 200,
+      "requestId": "req_01a1777ee88d741792f859afaebe7223",
+      "inputTokens": 1914,
+      "outputTokens": 128,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 8,
+        "lineOptions": 4,
+        "targetInputTokens": 900,
+        "estimatedInputTokens": 903
+      }
+    },
+    {
+      "index": 50,
+      "latencyMs": 263,
+      "status": 200,
+      "requestId": "req_01a1777ee9cd71ccbe9de609894ad401",
+      "inputTokens": 3338,
+      "outputTokens": 143,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 9,
+        "lineOptions": 5,
+        "targetInputTokens": 1600,
+        "estimatedInputTokens": 1602
+      }
+    },
+    {
+      "index": 51,
+      "latencyMs": 295,
+      "status": 200,
+      "requestId": "req_01a1777eead57084ad6fc9846a564e2e",
+      "inputTokens": 4765,
+      "outputTokens": 136,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 10,
+        "lineOptions": 3,
+        "targetInputTokens": 2300,
+        "estimatedInputTokens": 2310
+      }
+    },
+    {
+      "index": 52,
+      "latencyMs": 267,
+      "status": 200,
+      "requestId": "req_01a1777eebf57b2c9ab8ee222f3c0ab7",
+      "inputTokens": 2073,
+      "outputTokens": 153,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 11,
+        "lineOptions": 4,
+        "targetInputTokens": 1000,
+        "estimatedInputTokens": 1001
+      }
+    },
+    {
+      "index": 53,
+      "latencyMs": 348,
+      "status": 200,
+      "requestId": "req_01a1777eed077b3db14fa33747fe6597",
+      "inputTokens": 3501,
+      "outputTokens": 170,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 12,
+        "lineOptions": 5,
+        "targetInputTokens": 1700,
+        "estimatedInputTokens": 1701
+      }
+    },
+    {
+      "index": 54,
+      "latencyMs": 277,
+      "status": 200,
+      "requestId": "req_01a1777eee647d1e91bc0c22b16ce88b",
+      "inputTokens": 5017,
+      "outputTokens": 87,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 4,
+        "lineOptions": 3,
+        "targetInputTokens": 2400,
+        "estimatedInputTokens": 2409
+      }
+    },
+    {
+      "index": 55,
+      "latencyMs": 306,
+      "status": 200,
+      "requestId": "req_01a1777eef8778fdb115a57eadee02ee",
+      "inputTokens": 2356,
+      "outputTokens": 104,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 5,
+        "lineOptions": 4,
+        "targetInputTokens": 1100,
+        "estimatedInputTokens": 1109
+      }
+    },
+    {
+      "index": 56,
+      "latencyMs": 363,
+      "status": 200,
+      "requestId": "req_01a1777ef0b67390939dcaab4232e972",
+      "inputTokens": 3748,
+      "outputTokens": 120,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 6,
+        "lineOptions": 5,
+        "targetInputTokens": 1800,
+        "estimatedInputTokens": 1803
+      }
+    },
+    {
+      "index": 57,
+      "latencyMs": 400,
+      "status": 200,
+      "requestId": "req_01a1777ef22b76429c87e7fe57bae0fc",
+      "inputTokens": 5198,
+      "outputTokens": 112,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 7,
+        "lineOptions": 3,
+        "targetInputTokens": 2500,
+        "estimatedInputTokens": 2506
+      }
+    },
+    {
+      "index": 58,
+      "latencyMs": 297,
+      "status": 200,
+      "requestId": "req_01a1777ef3b374d8a2db4b7fb8d27011",
+      "inputTokens": 2536,
+      "outputTokens": 127,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 8,
+        "lineOptions": 4,
+        "targetInputTokens": 1200,
+        "estimatedInputTokens": 1211
+      }
+    },
+    {
+      "index": 59,
+      "latencyMs": 268,
+      "status": 200,
+      "requestId": "req_01a1777ef4e475ada932c99332527eba",
+      "inputTokens": 3931,
+      "outputTokens": 144,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 9,
+        "lineOptions": 5,
+        "targetInputTokens": 1900,
+        "estimatedInputTokens": 1900
+      }
+    },
+    {
+      "index": 60,
+      "latencyMs": 268,
+      "status": 200,
+      "requestId": "req_01a1777ef5e17e0c86b79b4504217462",
+      "inputTokens": 1310,
+      "outputTokens": 136,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 10,
+        "lineOptions": 3,
+        "targetInputTokens": 600,
+        "estimatedInputTokens": 614
+      }
+    },
+    {
+      "index": 61,
+      "latencyMs": 266,
+      "status": 200,
+      "requestId": "req_01a1777ef6f27c828fc3ca7b2bbb61b1",
+      "inputTokens": 2703,
+      "outputTokens": 153,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 11,
+        "lineOptions": 4,
+        "targetInputTokens": 1300,
+        "estimatedInputTokens": 1305
+      }
+    },
+    {
+      "index": 62,
+      "latencyMs": 263,
+      "status": 200,
+      "requestId": "req_01a1777ef7ff79a1a4103c687d2b345e",
+      "inputTokens": 4128,
+      "outputTokens": 169,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 12,
+        "lineOptions": 5,
+        "targetInputTokens": 2000,
+        "estimatedInputTokens": 2009
+      }
+    },
+    {
+      "index": 63,
+      "latencyMs": 303,
+      "status": 200,
+      "requestId": "req_01a1777ef9107967ab7f6ed5fb096e12",
+      "inputTokens": 1544,
+      "outputTokens": 88,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 4,
+        "lineOptions": 3,
+        "targetInputTokens": 700,
+        "estimatedInputTokens": 706
+      }
+    },
+    {
+      "index": 64,
+      "latencyMs": 302,
+      "status": 200,
+      "requestId": "req_01a1777efa2d75188c0e320a0a88979a",
+      "inputTokens": 2953,
+      "outputTokens": 104,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 5,
+        "lineOptions": 4,
+        "targetInputTokens": 1400,
+        "estimatedInputTokens": 1405
+      }
+    },
+    {
+      "index": 65,
+      "latencyMs": 301,
+      "status": 200,
+      "requestId": "req_01a1777efb607152bd38636e578500e2",
+      "inputTokens": 4375,
+      "outputTokens": 120,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 6,
+        "lineOptions": 5,
+        "targetInputTokens": 2100,
+        "estimatedInputTokens": 2100
+      }
+    },
+    {
+      "index": 66,
+      "latencyMs": 281,
+      "status": 200,
+      "requestId": "req_01a1777efc9e75168db55f1323238839",
+      "inputTokens": 1712,
+      "outputTokens": 111,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 7,
+        "lineOptions": 3,
+        "targetInputTokens": 800,
+        "estimatedInputTokens": 808
+      }
+    },
+    {
+      "index": 67,
+      "latencyMs": 290,
+      "status": 200,
+      "requestId": "req_01a1777efda77ac1a5d908f8a7efe9b3",
+      "inputTokens": 3137,
+      "outputTokens": 128,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 8,
+        "lineOptions": 4,
+        "targetInputTokens": 1500,
+        "estimatedInputTokens": 1507
+      }
+    },
+    {
+      "index": 68,
+      "latencyMs": 296,
+      "status": 200,
+      "requestId": "req_01a1777efed9722cad523d36a70f2253",
+      "inputTokens": 4554,
+      "outputTokens": 143,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 9,
+        "lineOptions": 5,
+        "targetInputTokens": 2200,
+        "estimatedInputTokens": 2203
+      }
+    },
+    {
+      "index": 69,
+      "latencyMs": 361,
+      "status": 200,
+      "requestId": "req_01a1777efffe7c98bb5654031a744d62",
+      "inputTokens": 1893,
+      "outputTokens": 136,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 10,
+        "lineOptions": 3,
+        "targetInputTokens": 900,
+        "estimatedInputTokens": 905
+      }
+    },
+    {
+      "index": 70,
+      "latencyMs": 249,
+      "status": 200,
+      "requestId": "req_01a1777f015b7a249874788a3f1b5f74",
+      "inputTokens": 3331,
+      "outputTokens": 152,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 11,
+        "lineOptions": 4,
+        "targetInputTokens": 1600,
+        "estimatedInputTokens": 1613
+      }
+    },
+    {
+      "index": 71,
+      "latencyMs": 289,
+      "status": 200,
+      "requestId": "req_01a1777f026774f99a2e048fa2be93ee",
+      "inputTokens": 4762,
+      "outputTokens": 170,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 12,
+        "lineOptions": 5,
+        "targetInputTokens": 2300,
+        "estimatedInputTokens": 2315
+      }
+    },
+    {
+      "index": 72,
+      "latencyMs": 330,
+      "status": 200,
+      "requestId": "req_01a1777f03867825a47983b4369b9f05",
+      "inputTokens": 2174,
+      "outputTokens": 87,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 4,
+        "lineOptions": 3,
+        "targetInputTokens": 1000,
+        "estimatedInputTokens": 1011
+      }
+    },
+    {
+      "index": 73,
+      "latencyMs": 279,
+      "status": 200,
+      "requestId": "req_01a1777f04ce799491176ce4b6c40234",
+      "inputTokens": 3570,
+      "outputTokens": 104,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 5,
+        "lineOptions": 4,
+        "targetInputTokens": 1700,
+        "estimatedInputTokens": 1703
+      }
+    },
+    {
+      "index": 74,
+      "latencyMs": 296,
+      "status": 200,
+      "requestId": "req_01a1777f05d97871bf16860881ecf9de",
+      "inputTokens": 5007,
+      "outputTokens": 119,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 6,
+        "lineOptions": 5,
+        "targetInputTokens": 2400,
+        "estimatedInputTokens": 2416
+      }
+    },
+    {
+      "index": 75,
+      "latencyMs": 260,
+      "status": 200,
+      "requestId": "req_01a1777f070074b88e6af0091e8f2fc6",
+      "inputTokens": 2342,
+      "outputTokens": 112,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 7,
+        "lineOptions": 3,
+        "targetInputTokens": 1100,
+        "estimatedInputTokens": 1111
+      }
+    },
+    {
+      "index": 76,
+      "latencyMs": 284,
+      "status": 200,
+      "requestId": "req_01a1777f081478b7b80704736d1b74e9",
+      "inputTokens": 3730,
+      "outputTokens": 128,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 8,
+        "lineOptions": 4,
+        "targetInputTokens": 1800,
+        "estimatedInputTokens": 1800
+      }
+    },
+    {
+      "index": 77,
+      "latencyMs": 274,
+      "status": 200,
+      "requestId": "req_01a1777f092b736d86283708c3a23f9f",
+      "inputTokens": 5166,
+      "outputTokens": 144,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 9,
+        "lineOptions": 5,
+        "targetInputTokens": 2500,
+        "estimatedInputTokens": 2503
+      }
+    },
+    {
+      "index": 78,
+      "latencyMs": 265,
+      "status": 200,
+      "requestId": "req_01a1777f0a3d77048d54c2c2773a1d50",
+      "inputTokens": 2528,
+      "outputTokens": 135,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 10,
+        "lineOptions": 3,
+        "targetInputTokens": 1200,
+        "estimatedInputTokens": 1216
+      }
+    },
+    {
+      "index": 79,
+      "latencyMs": 290,
+      "status": 200,
+      "requestId": "req_01a1777f0b517d0f8234a27e60c6b7bc",
+      "inputTokens": 3922,
+      "outputTokens": 154,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 11,
+        "lineOptions": 4,
+        "targetInputTokens": 1900,
+        "estimatedInputTokens": 1900
+      }
+    },
+    {
+      "index": 80,
+      "latencyMs": 434,
+      "status": 200,
+      "requestId": "req_01a1777f0c687906bd42cb4c342e4d4b",
+      "inputTokens": 1266,
+      "outputTokens": 170,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 12,
+        "lineOptions": 5,
+        "targetInputTokens": 600,
+        "estimatedInputTokens": 604
+      }
+    },
+    {
+      "index": 81,
+      "latencyMs": 294,
+      "status": 200,
+      "requestId": "req_01a1777f0e257823a83ba10f58a0ef94",
+      "inputTokens": 2771,
+      "outputTokens": 88,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 4,
+        "lineOptions": 3,
+        "targetInputTokens": 1300,
+        "estimatedInputTokens": 1311
+      }
+    },
+    {
+      "index": 82,
+      "latencyMs": 374,
+      "status": 200,
+      "requestId": "req_01a1777f0f4c7725bbfc3e61e25aa68a",
+      "inputTokens": 4196,
+      "outputTokens": 103,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 5,
+        "lineOptions": 4,
+        "targetInputTokens": 2000,
+        "estimatedInputTokens": 2007
+      }
+    },
+    {
+      "index": 83,
+      "latencyMs": 295,
+      "status": 200,
+      "requestId": "req_01a1777f10c0755eacb38fe906ec73e5",
+      "inputTokens": 1530,
+      "outputTokens": 120,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 6,
+        "lineOptions": 5,
+        "targetInputTokens": 700,
+        "estimatedInputTokens": 704
+      }
+    },
+    {
+      "index": 84,
+      "latencyMs": 319,
+      "status": 200,
+      "requestId": "req_01a1777f11e274439a3efead3c18ccd6",
+      "inputTokens": 2933,
+      "outputTokens": 112,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 7,
+        "lineOptions": 3,
+        "targetInputTokens": 1400,
+        "estimatedInputTokens": 1401
+      }
+    },
+    {
+      "index": 85,
+      "latencyMs": 280,
+      "status": 200,
+      "requestId": "req_01a1777f132372069a38c2043675694c",
+      "inputTokens": 4358,
+      "outputTokens": 128,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 8,
+        "lineOptions": 4,
+        "targetInputTokens": 2100,
+        "estimatedInputTokens": 2100
+      }
+    },
+    {
+      "index": 86,
+      "latencyMs": 265,
+      "status": 200,
+      "requestId": "req_01a1777f143770bdb9a0e6892ef7df02",
+      "inputTokens": 1667,
+      "outputTokens": 143,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 9,
+        "lineOptions": 5,
+        "targetInputTokens": 800,
+        "estimatedInputTokens": 800
+      }
+    },
+    {
+      "index": 87,
+      "latencyMs": 262,
+      "status": 200,
+      "requestId": "req_01a1777f153b79b590a6f97998b25488",
+      "inputTokens": 3121,
+      "outputTokens": 136,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 10,
+        "lineOptions": 3,
+        "targetInputTokens": 1500,
+        "estimatedInputTokens": 1502
+      }
+    },
+    {
+      "index": 88,
+      "latencyMs": 271,
+      "status": 200,
+      "requestId": "req_01a1777f16497d1a91aadce311b38b45",
+      "inputTokens": 4551,
+      "outputTokens": 153,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 11,
+        "lineOptions": 4,
+        "targetInputTokens": 2200,
+        "estimatedInputTokens": 2210
+      }
+    },
+    {
+      "index": 89,
+      "latencyMs": 265,
+      "status": 200,
+      "requestId": "req_01a1777f175d742abdede7a584e8530b",
+      "inputTokens": 1894,
+      "outputTokens": 170,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 12,
+        "lineOptions": 5,
+        "targetInputTokens": 900,
+        "estimatedInputTokens": 911
+      }
+    },
+    {
+      "index": 90,
+      "latencyMs": 280,
+      "status": 200,
+      "requestId": "req_01a1777f1866785d9a2182f63de260d9",
+      "inputTokens": 3364,
+      "outputTokens": 87,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 4,
+        "lineOptions": 3,
+        "targetInputTokens": 1600,
+        "estimatedInputTokens": 1602
+      }
+    },
+    {
+      "index": 91,
+      "latencyMs": 269,
+      "status": 200,
+      "requestId": "req_01a1777f19787f8f82fa215a7ae1a8df",
+      "inputTokens": 4789,
+      "outputTokens": 104,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 5,
+        "lineOptions": 4,
+        "targetInputTokens": 2300,
+        "estimatedInputTokens": 2301
+      }
+    },
+    {
+      "index": 92,
+      "latencyMs": 273,
+      "status": 200,
+      "requestId": "req_01a1777f1a817ca99acaed0d2f1bfe8c",
+      "inputTokens": 2124,
+      "outputTokens": 119,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 6,
+        "lineOptions": 5,
+        "targetInputTokens": 1000,
+        "estimatedInputTokens": 1001
+      }
+    },
+    {
+      "index": 93,
+      "latencyMs": 282,
+      "status": 200,
+      "requestId": "req_01a1777f1b9a79edbfc577b7c753fca3",
+      "inputTokens": 3556,
+      "outputTokens": 112,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 7,
+        "lineOptions": 3,
+        "targetInputTokens": 1700,
+        "estimatedInputTokens": 1702
+      }
+    },
+    {
+      "index": 94,
+      "latencyMs": 297,
+      "status": 200,
+      "requestId": "req_01a1777f1cbe7accbc697b8682739751",
+      "inputTokens": 4984,
+      "outputTokens": 127,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 8,
+        "lineOptions": 4,
+        "targetInputTokens": 2400,
+        "estimatedInputTokens": 2406
+      }
+    },
+    {
+      "index": 95,
+      "latencyMs": 301,
+      "status": 200,
+      "requestId": "req_01a1777f1deb7e7d951b41b93a7450ad",
+      "inputTokens": 2329,
+      "outputTokens": 144,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 9,
+        "lineOptions": 5,
+        "targetInputTokens": 1100,
+        "estimatedInputTokens": 1110
+      }
+    },
+    {
+      "index": 96,
+      "latencyMs": 282,
+      "status": 200,
+      "requestId": "req_01a1777f1f1176b983a1b16571639f8a",
+      "inputTokens": 3712,
+      "outputTokens": 136,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 10,
+        "lineOptions": 3,
+        "targetInputTokens": 1800,
+        "estimatedInputTokens": 1800
+      }
+    },
+    {
+      "index": 97,
+      "latencyMs": 313,
+      "status": 200,
+      "requestId": "req_01a1777f20347528a7bea90f1c795de0",
+      "inputTokens": 5153,
+      "outputTokens": 153,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 11,
+        "lineOptions": 4,
+        "targetInputTokens": 2500,
+        "estimatedInputTokens": 2505
+      }
+    },
+    {
+      "index": 98,
+      "latencyMs": 268,
+      "status": 200,
+      "requestId": "req_01a1777f216970ba8838a58083569163",
+      "inputTokens": 2479,
+      "outputTokens": 169,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 12,
+        "lineOptions": 5,
+        "targetInputTokens": 1200,
+        "estimatedInputTokens": 1201
+      }
+    },
+    {
+      "index": 99,
+      "latencyMs": 277,
+      "status": 200,
+      "requestId": "req_01a1777f22777e519cae9ed0c13acedc",
+      "inputTokens": 4001,
+      "outputTokens": 88,
+      "errorClass": null,
+      "retryAfterMs": null,
+      "responseModel": "jev-1.13.0",
+      "shape": {
+        "strategyOptions": 4,
+        "lineOptions": 3,
+        "targetInputTokens": 1900,
+        "estimatedInputTokens": 1907
+      }
+    }
+  ]
+}
