@@ -1,5 +1,6 @@
 import { access, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { format, resolveConfig } from 'prettier';
 import { createSdkJevClient, decisionDeadline, type JevClient } from '../../ai/jev/client.ts';
 import type { OrchestratorFallbackReason } from '../../ai/orchestrator.ts';
 import {
@@ -190,7 +191,7 @@ export const recordFixture = async (
     { ...parsed.data, requestHash: requestHash(parsed.data.request), recorded: result },
     input,
   );
-  await writeFile(output, `${JSON.stringify(fixture, null, 2)}\n`, { flag: 'wx' });
+  await writeFile(output, await serialize(fixture), { flag: 'wx' });
 };
 const fixturePath = (directory: string, id: string) => join(directory, `${id}.json`);
 /** The scenario's fixture when it exists; a file that fails to parse is reported, never replaced. */
@@ -205,8 +206,14 @@ async function existing(directory: string, id: string): Promise<Fixture | undefi
     return undefined;
   return parseFixture(await readJson(path), path);
 }
-const write = (directory: string, fixture: Fixture) =>
-  writeFile(fixturePath(directory, fixture.id), `${JSON.stringify(fixture, null, 2)}\n`);
+/** The fixture as `npm run format:check` expects it, so a recording can be committed as written. */
+const serialize = async (fixture: Fixture): Promise<string> =>
+  format(JSON.stringify(fixture), {
+    ...(await resolveConfig(fixturePath(DEFAULT_FIXTURES, fixture.id))),
+    parser: 'json',
+  });
+const write = async (directory: string, fixture: Fixture) =>
+  writeFile(fixturePath(directory, fixture.id), await serialize(fixture));
 /**
  * Human-only: records live every scenario whose fixture is missing, synthetic or stale, through
  * the orchestrator with the `ai/` client, and writes it with `synthetic: false`. A current

@@ -2,8 +2,10 @@ import { access, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
+import { check, resolveConfig } from 'prettier';
 import { afterEach, expect, test, vi } from 'vitest';
 import {
+  DEFAULT_FIXTURES,
   recordFixture,
   recordScenarios,
   runOffline,
@@ -131,6 +133,11 @@ test('a scenario recorded through the real wrapper keeps the request ID and neve
       synthetic: false,
       recorded: { requestId: 'req_live_49', usage: { inputTokens: 3240 } },
     });
+    // Committed as written: the recording passes `npm run format:check` with no manual step.
+    const committed = join(DEFAULT_FIXTURES, 'encounter-scyther-great.json');
+    expect(await check(saved, { ...(await resolveConfig(committed)), filepath: committed })).toBe(
+      true,
+    );
     expect((await runOffline(dir, scenarios)).every((row) => !row.synthetic)).toBe(true);
   } finally {
     await rm(dir, { recursive: true, force: true });

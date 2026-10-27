@@ -270,9 +270,7 @@
     }
   },
   "acceptable": {
-    "strategy": [
-      "a2"
-    ]
+    "strategy": ["a2"]
   },
   "synthetic": false,
   "requestHash": "43e03d9e7548bc83aa945b99b9e84ff3d47faca232b6eb2b1536b9034acab1f6",

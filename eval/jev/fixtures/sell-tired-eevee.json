@@ -235,13 +235,8 @@
     }
   },
   "acceptable": {
-    "sell_team_0": [
-      "false"
-    ],
-    "sell_team_1": [
-      "true",
-      "false"
-    ]
+    "sell_team_0": ["false"],
+    "sell_team_1": ["true", "false"]
   },
   "synthetic": false,
   "requestHash": "2b824b4b63bd873d00fbb31f1c2f773a0d5e71a8c502f5e28111d5defec85e68",

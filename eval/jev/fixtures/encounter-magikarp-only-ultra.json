@@ -206,9 +206,7 @@
     }
   },
   "acceptable": {
-    "encounter": [
-      "release"
-    ]
+    "encounter": ["release"]
   },
   "synthetic": false,
   "requestHash": "b0f714ef0acbf942996fe316d9f42b4f59f1dc3a49f89a5ef321470cdc5ac414",

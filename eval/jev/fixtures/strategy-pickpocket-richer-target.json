@@ -236,9 +236,7 @@
     }
   },
   "acceptable": {
-    "strategy": [
-      "a1"
-    ]
+    "strategy": ["a1"]
   },
   "synthetic": false,
   "requestHash": "0fa0f7a4ebb19732b3a83f77d41742d86ced85e429c0f4b367a57a4d46d75651",

@@ -256,15 +256,9 @@
     }
   },
   "acceptable": {
-    "sell_team_0": [
-      "true"
-    ],
-    "sell_team_1": [
-      "true"
-    ],
-    "sell_team_2": [
-      "true"
-    ]
+    "sell_team_0": ["true"],
+    "sell_team_1": ["true"],
+    "sell_team_2": ["true"]
   },
   "synthetic": false,
   "requestHash": "8fe79455ea7176a9ff4cdd3722ed119dd8d43270f584e0eadb1a59db3f89ca33",

@@ -207,9 +207,7 @@
     }
   },
   "acceptable": {
-    "encounter": [
-      "ultra_ball"
-    ]
+    "encounter": ["ultra_ball"]
   },
   "synthetic": false,
   "requestHash": "18eed1282686f7ee5e523c7991f842da1bbd1807a4185bc78199c1f815efe465",

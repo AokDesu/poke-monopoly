@@ -206,9 +206,7 @@
     }
   },
   "acceptable": {
-    "encounter": [
-      "poke_ball"
-    ]
+    "encounter": ["poke_ball"]
   },
   "synthetic": false,
   "requestHash": "333b393f1a6b050eba0f997180655525104398517476a6801e45644af72c0f21",

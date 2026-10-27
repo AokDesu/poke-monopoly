@@ -207,9 +207,7 @@
     }
   },
   "acceptable": {
-    "encounter": [
-      "great_ball"
-    ]
+    "encounter": ["great_ball"]
   },
   "synthetic": false,
   "requestHash": "7fed05065b14bece0e54afe01caad9c0c9a7b64848056a62d711d030e08dd974",
