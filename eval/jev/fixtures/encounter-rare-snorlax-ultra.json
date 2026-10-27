@@ -1,136 +1,37 @@
 {
   "id": "encounter-rare-snorlax-ultra",
   "description": "A rare Snorlax; holds a few Poké Balls and one Ultra Ball.",
-  "tags": {
-    "decisionPoint": "encounter",
-    "personality": "Greedy"
-  },
+  "tags": { "decisionPoint": "encounter", "personality": "Greedy" },
   "request": {
     "state": {
       "phase": "encounter",
       "active_seat_id": 0,
       "final_table_round": false,
       "board": [
-        {
-          "space_id": 0,
-          "kind": "start",
-          "name": "Start"
-        },
-        {
-          "space_id": 1,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 2,
-          "kind": "event",
-          "name": "Event"
-        },
-        {
-          "space_id": 3,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 4,
-          "kind": "shop",
-          "name": "Shop"
-        },
-        {
-          "space_id": 5,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 6,
-          "kind": "gym",
-          "name": "Gym"
-        },
-        {
-          "space_id": 7,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 8,
-          "kind": "event",
-          "name": "Event"
-        },
-        {
-          "space_id": 9,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 10,
-          "kind": "shop",
-          "name": "Shop"
-        },
-        {
-          "space_id": 11,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 12,
-          "kind": "gym",
-          "name": "Gym"
-        },
-        {
-          "space_id": 13,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 14,
-          "kind": "event",
-          "name": "Event"
-        },
-        {
-          "space_id": 15,
-          "kind": "shop",
-          "name": "Shop"
-        },
-        {
-          "space_id": 16,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 17,
-          "kind": "event",
-          "name": "Event"
-        },
-        {
-          "space_id": 18,
-          "kind": "gym",
-          "name": "Gym"
-        },
-        {
-          "space_id": 19,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 20,
-          "kind": "shop",
-          "name": "Shop"
-        },
-        {
-          "space_id": 21,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 22,
-          "kind": "event",
-          "name": "Event"
-        },
-        {
-          "space_id": 23,
-          "kind": "wild",
-          "name": "Wild"
-        }
+        { "space_id": 0, "kind": "start", "name": "Start" },
+        { "space_id": 1, "kind": "wild", "name": "Wild" },
+        { "space_id": 2, "kind": "event", "name": "Event" },
+        { "space_id": 3, "kind": "wild", "name": "Wild" },
+        { "space_id": 4, "kind": "shop", "name": "Shop" },
+        { "space_id": 5, "kind": "wild", "name": "Wild" },
+        { "space_id": 6, "kind": "gym", "name": "Gym" },
+        { "space_id": 7, "kind": "wild", "name": "Wild" },
+        { "space_id": 8, "kind": "event", "name": "Event" },
+        { "space_id": 9, "kind": "wild", "name": "Wild" },
+        { "space_id": 10, "kind": "shop", "name": "Shop" },
+        { "space_id": 11, "kind": "wild", "name": "Wild" },
+        { "space_id": 12, "kind": "gym", "name": "Gym" },
+        { "space_id": 13, "kind": "wild", "name": "Wild" },
+        { "space_id": 14, "kind": "event", "name": "Event" },
+        { "space_id": 15, "kind": "shop", "name": "Shop" },
+        { "space_id": 16, "kind": "wild", "name": "Wild" },
+        { "space_id": 17, "kind": "event", "name": "Event" },
+        { "space_id": 18, "kind": "gym", "name": "Gym" },
+        { "space_id": 19, "kind": "wild", "name": "Wild" },
+        { "space_id": 20, "kind": "shop", "name": "Shop" },
+        { "space_id": 21, "kind": "wild", "name": "Wild" },
+        { "space_id": 22, "kind": "event", "name": "Event" },
+        { "space_id": 23, "kind": "wild", "name": "Wild" }
       ],
       "you": {
         "id": "P1",
@@ -152,11 +53,7 @@
           }
         ],
         "items": [],
-        "balls": {
-          "poke": "few",
-          "great": "none",
-          "ultra": "one"
-        },
+        "balls": { "poke": "few", "great": "none", "ultra": "one" },
         "private_results": [],
         "personality": "Greedy: Values cash now over long-term team building; avoids fights it may lose."
       },
@@ -180,57 +77,39 @@
               "ability_ready": true
             }
           ],
-          "known_items": [
-            {
-              "id": "class-item:1",
-              "item_id": "lucky-egg",
-              "name": "Lucky Egg"
-            }
-          ]
+          "known_items": [{ "id": "class-item:1", "item_id": "lucky-egg", "name": "Lucky Egg" }]
         }
       ],
-      "encounter": {
-        "pokemon": "Snorlax",
-        "rarity": "rare"
-      }
+      "encounter": { "pokemon": "Snorlax", "rarity": "rare" }
     },
     "questions": {
       "encounter": {
         "type": "choice",
-        "instructions": "A wild Pokémon is here (`encounter.pokemon`). Pick the ONE option that best fits `you.personality` right now: throw one of your Balls at it, or release it. Only the listed options are allowed. Catch chance, from worst to best, is very low, low, even, high or very high; \"even\" means as likely to succeed as to fail, and \"very high\" includes a certain catch. A throw uses up the Ball whether or not the catch succeeds.",
+        "instructions": "A wild Pokémon is here (`encounter.pokemon`, with its `rarity`). Pick the ONE option that best fits `you.personality` right now: throw one of your Balls at it, or release it. Only the listed options are allowed. A Pokémon you catch joins your team, and you can sell it at Start for coins or keep it; a rarer Pokémon sells for more coins than a common one. Releasing keeps your Balls but earns nothing from this Pokémon. A throw uses up the Ball whether or not the catch succeeds, and a used Ball costs coins to replace: a Poké Ball costs least and an Ultra Ball most. Catch chance, from worst to best, is very low, low, even, high or very high; \"even\" means as likely to succeed as to fail, and \"very high\" includes a certain catch.",
         "criteria": {
-          "poke_ball": "Throw one Poké Ball at the wild Snorlax. Catch chance with this Ball: even. Poké Balls you hold now, counting this one: a few. Whether the catch succeeds is unknown until the die is rolled.",
-          "ultra_ball": "Throw one Ultra Ball at the wild Snorlax. Catch chance with this Ball: very high. Ultra Balls you hold now, counting this one: one. Whether the catch succeeds is unknown until the die is rolled.",
-          "release": "Release the wild Snorlax without throwing a Ball. You keep all your Balls and do not get the Snorlax."
+          "poke_ball": "Throw one Poké Ball at the wild Snorlax. Catch chance with this Ball: even. If the catch succeeds, the Snorlax joins your team and you can sell it at Start for coins. If it fails, the Snorlax is gone. Either way this Poké Ball is used up. Poké Balls you hold now, counting this one: a few. Whether the catch succeeds is unknown until the die is rolled.",
+          "ultra_ball": "Throw one Ultra Ball at the wild Snorlax. Catch chance with this Ball: very high. If the catch succeeds, the Snorlax joins your team and you can sell it at Start for coins. If it fails, the Snorlax is gone. Either way this Ultra Ball is used up. Ultra Balls you hold now, counting this one: one. Whether the catch succeeds is unknown until the die is rolled.",
+          "release": "Release the wild Snorlax without throwing a Ball. You keep all your Balls, but you do not get the Snorlax and earn no coins from it."
         }
       }
     }
   },
-  "acceptable": {
-    "encounter": ["ultra_ball"]
-  },
+  "acceptable": { "encounter": ["ultra_ball"] },
   "synthetic": false,
-  "requestHash": "18eed1282686f7ee5e523c7991f842da1bbd1807a4185bc78199c1f815efe465",
+  "requestHash": "bdb1d3e0012f78e381b20e699b1ee86da4b805ff49412c9de73c9b5a4a55ee13",
   "recorded": {
     "ok": true,
     "answers": {
       "encounter": {
         "type": "choice",
         "choice": "ultra_ball",
-        "confidence": 0.18,
-        "probabilities": {
-          "poke_ball": 0.12,
-          "ultra_ball": 0.45,
-          "release": 0.43
-        }
+        "confidence": 0.53,
+        "probabilities": { "poke_ball": 0.23, "ultra_ball": 0.69, "release": 0.08 }
       }
     },
-    "requestId": "req_01a17c8f57397461bce05e124862ac5c",
+    "requestId": "req_01a17e2fce5479b0a384205f829f11bc",
     "model": "jev-1.13.0",
-    "latencyMs": 265,
-    "usage": {
-      "inputTokens": 1614,
-      "outputTokens": 45
-    }
+    "latencyMs": 289,
+    "usage": { "inputTokens": 1781, "outputTokens": 45 }
   }
 }
