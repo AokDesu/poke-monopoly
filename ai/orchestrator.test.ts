@@ -700,6 +700,64 @@ describe('spend guard and usage log (spec §1, §9)', () => {
     );
   });
 
+  test('an answer that fails validation counts its reported tokens in the log, cap and game budget', async () => {
+    const lines: UsageLine[] = [];
+    const usage = new SpendLedger({ append: (line) => lines.push(line) });
+    const client = sdkClient(() =>
+      json({
+        model: PINNED_JEV_MODEL,
+        answers: {
+          encounter: {
+            type: 'choice',
+            choice: 'ultra_ball',
+            confidence: 0.85,
+            probabilities: { poke_ball: 0.05, great_ball: 0.05, release: 0.9 },
+          },
+        },
+        usage: { input_tokens: 3000, output_tokens: 0 },
+      }),
+    );
+    const config = { ...ORCHESTRATOR_CONFIG, inputTokensPerGame: 3000 };
+    const orchestrator = new Orchestrator({ client, usage, config });
+    const decision = await orchestrator.decide(encounterRequest());
+    expect(decision).toMatchObject({ fallbackReason: 'schema_mismatch', requests: 1 });
+    await settle();
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ status: 'schema_mismatch', inputTokens: 3000 });
+    expect(lines[0]).not.toHaveProperty('estimated');
+    expect(orchestrator.usage.totals().inputTokens).toBe(3000);
+    expect(usage.spentThb()).toBeCloseTo(
+      ((3000 * SPEND_CONFIG.inputUsdPerMillionTokens) / 1_000_000) * SPEND_CONFIG.thbPerUsd,
+      12,
+    );
+    const next = await orchestrator.decide(encounterRequest({ turnKey: 't2' }));
+    expect(next).toMatchObject({ fallbackReason: 'token_budget', requests: 0 });
+  });
+
+  test('a timeout counts the estimated tokens, marked estimated, toward the cap and game budget', async () => {
+    const lines: UsageLine[] = [];
+    const usage = new SpendLedger({
+      lines: [spent(SPEND_CONFIG.totalCapThb - 0.001)],
+      append: (line) => lines.push(line),
+      warn: () => {},
+    });
+    vi.useFakeTimers();
+    const client = sdkClient(() => new Promise<Response>(() => {}));
+    const orchestrator = new Orchestrator({ client, usage });
+    const pending = orchestrator.decide(encounterRequest());
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(await pending).toMatchObject({ fallbackReason: 'timeout', requests: 1 });
+    vi.useRealTimers();
+    await settle();
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ status: 'timeout', inputTokens: 3240, estimated: true });
+    expect(orchestrator.usage.totals().inputTokens).toBe(3240);
+    // The estimate takes the ledger over the cap, so the next decision sends nothing.
+    expect(usage.budgetExceeded()).toBe(true);
+    const next = await orchestrator.decide(encounterRequest({ turnKey: 't2' }));
+    expect(next).toMatchObject({ fallbackReason: 'budget_exceeded', requests: 0 });
+  });
+
   test('decisions that send nothing log nothing', async () => {
     const lines: UsageLine[] = [];
     const usage = new SpendLedger({ append: (line) => lines.push(line) });

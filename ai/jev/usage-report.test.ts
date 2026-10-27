@@ -61,6 +61,16 @@ describe('the usage report over a fixture log (spec §1, §9)', () => {
     ]);
   });
 
+  test('counts and prints requests whose tokens are the timeout estimate', () => {
+    const late = { ...lines[3]!, inputTokens: 3240, estimated: true as const };
+    const estimated = usageReport([...lines.slice(0, 3), late], TODAY);
+    expect(estimated).toMatchObject({ estimated: 1, inputTokens: 12_240 });
+    expect(report.estimated).toBe(0);
+    expect(formatUsageReport(estimated, { path: 'late.jsonl' })[2]).toBe(
+      '  Input tokens          12,240 (1 timed-out request(s) estimated)',
+    );
+  });
+
   test('warns about lines it could not read', () => {
     const parsed = parseUsageLog('{"time":"x"}\nnot json\n\n');
     expect(parsed).toEqual({ lines: [], invalid: [1, 2] });

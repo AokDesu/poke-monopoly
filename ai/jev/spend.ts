@@ -14,6 +14,11 @@ export const SPEND_CONFIG = Object.freeze({
   totalCapThb: 1500,
   /** Issue #48: warn once when spend reaches this share of the cap. */
   warnAtShareOfCap: 0.8,
+  /**
+   * Issue #48: input tokens counted for a timed-out request whose usage never arrived, the #5
+   * spike's measured average, so the cap and the per-game budget err on the safe side.
+   */
+  estimatedInputTokensPerRequest: 3240,
 });
 
 export type SpendConfig = {
@@ -22,6 +27,7 @@ export type SpendConfig = {
   thbPerUsd: number;
   totalCapThb: number;
   warnAtShareOfCap: number;
+  estimatedInputTokensPerRequest: number;
 };
 
 /** Git-ignored (`logs/`): one JSON line per Jev request. */
@@ -33,6 +39,7 @@ const count = z.int().nonnegative();
  * One Jev request (spec §9): IDs, token counts and timings only, never a state body or the key.
  * `status` is `ok` or the client's fallback reason. `decision` numbers the decision within the
  * game, so a decision that sent several requests counts its `decisionMs` once per turn.
+ * `estimated` marks a timed-out request whose tokens are the configured estimate, not measured.
  */
 export const usageLineSchema = z.strictObject({
   time: z.iso.datetime(),
@@ -46,6 +53,7 @@ export const usageLineSchema = z.strictObject({
   turnKey: z.string(),
   decision: count,
   decisionMs: count,
+  estimated: z.literal(true).optional(),
 });
 
 export type UsageLine = z.infer<typeof usageLineSchema>;

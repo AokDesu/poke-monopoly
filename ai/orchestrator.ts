@@ -14,7 +14,7 @@ import {
   type JevSuccess,
 } from './jev/client.ts';
 import type { UsageRecorder } from './jev/spend.ts';
-import { requestWentOut, UsageMeter } from './jev/usage.ts';
+import { billedUsage, UsageMeter } from './jev/usage.ts';
 import {
   buildEncounterQuestion,
   buildSellQuestions,
@@ -381,7 +381,7 @@ export class Orchestrator {
         this.#turn.requests++;
         requests++;
         const call = this.#client.ask({ state, questions }, { decisionSignal: deadline.signal });
-        // A late answer still counts its tokens against the game's budget.
+        // A late or unusable answer still counts its tokens against the game's budget.
         void call.then((result) => this.usage.record(result));
         this.#logRequest(call, log);
         // §5.6: return at the deadline even if the client does not, and never apply an answer
@@ -415,19 +415,21 @@ export class Orchestrator {
     }));
     void Promise.all([answered, log.finished])
       .then(([{ result, latencyMs }, decisionMs]) => {
-        if (!requestWentOut(result)) return;
+        const billed = billedUsage(result);
+        if (!billed) return;
         usage.record({
           time,
           gameId: this.#gameId,
           requestId: result.ok ? (result.requestId ?? null) : null,
           model: result.ok ? result.model : resolveJevModel(),
-          inputTokens: result.ok ? result.usage.inputTokens : 0,
-          outputTokens: result.ok ? result.usage.outputTokens : 0,
+          inputTokens: billed.inputTokens,
+          outputTokens: billed.outputTokens,
           latencyMs,
           status: result.ok ? 'ok' : result.fallbackReason,
           turnKey: log.turnKey,
           decision: log.decision,
           decisionMs,
+          ...(billed.estimated && { estimated: true }),
         });
       })
       .catch((error: unknown) => {

@@ -5,6 +5,8 @@ export interface UsageReport {
   /** Requests whose status is `ok`. */
   answered: number;
   inputTokens: number;
+  /** Timed-out requests whose input tokens are the configured estimate, not measured. */
+  estimated: number;
   outputTokens: number;
   usd: number;
   thb: number;
@@ -33,12 +35,14 @@ export function usageReport(
   let inputTokens = 0;
   let outputTokens = 0;
   let answered = 0;
+  let estimated = 0;
   let todayUsd = 0;
   const turns = new Map<string, Map<number, number>>();
   for (const line of lines) {
     inputTokens += line.inputTokens;
     outputTokens += line.outputTokens;
     if (line.status === 'ok') answered++;
+    if (line.estimated) estimated++;
     if (line.time.startsWith(day)) todayUsd += costUsd(line, config);
     const key = JSON.stringify([line.gameId, line.turnKey]);
     const decisions = turns.get(key) ?? new Map<number, number>();
@@ -54,6 +58,7 @@ export function usageReport(
     requests: lines.length,
     answered,
     inputTokens,
+    estimated,
     outputTokens,
     usd,
     thb,
@@ -88,7 +93,13 @@ export function formatUsageReport(
   const lines = [
     `Jev usage: ${path}`,
     row('Requests', `${number(report.requests)} (ok ${report.answered}, failed ${failed})`),
-    row('Input tokens', number(report.inputTokens)),
+    row(
+      'Input tokens',
+      number(report.inputTokens) +
+        (report.estimated > 0
+          ? ` (${number(report.estimated)} timed-out request(s) estimated)`
+          : ''),
+    ),
     row('Output tokens', number(report.outputTokens)),
     row('Spend', `USD ${report.usd.toFixed(4)}, THB ${amount(report.thb)}`),
     row('Cap', `${amount(report.capPercent)}% of THB ${number(config.totalCapThb)}`),
