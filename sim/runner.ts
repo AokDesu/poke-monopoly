@@ -387,7 +387,7 @@ async function playGame(
  * The listed action a policy picked, or the sale it composed: a batch is enabled when it names
  * distinct Pokémon that each have their own enabled sale (§4.7); the engine validates it whole.
  */
-function resolveChoice(
+export function resolveChoice(
   legal: LegalActions,
   picked: PolicyChoice,
 ): { choice?: LegalAction; enabled: boolean } {
@@ -408,7 +408,7 @@ function resolveChoice(
   };
 }
 
-function command(state: GameState, actorId: string, choice: LegalAction): Action {
+export function command(state: GameState, actorId: string, choice: LegalAction): Action {
   return {
     actorId,
     actionSeq: state.stateRevision + 1,

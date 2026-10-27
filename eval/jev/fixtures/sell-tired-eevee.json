@@ -1,0 +1,263 @@
+{
+  "id": "sell-tired-eevee",
+  "description": "A tired caught Eevee sells for less now; keeping it lets it recover.",
+  "tags": {
+    "decisionPoint": "sell",
+    "personality": "Greedy"
+  },
+  "request": {
+    "state": {
+      "phase": "sell",
+      "active_seat_id": 0,
+      "final_table_round": false,
+      "board": [
+        {
+          "space_id": 0,
+          "kind": "start",
+          "name": "Start"
+        },
+        {
+          "space_id": 1,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "space_id": 2,
+          "kind": "event",
+          "name": "Event"
+        },
+        {
+          "space_id": 3,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "space_id": 4,
+          "kind": "shop",
+          "name": "Shop"
+        },
+        {
+          "space_id": 5,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "space_id": 6,
+          "kind": "gym",
+          "name": "Gym"
+        },
+        {
+          "space_id": 7,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "space_id": 8,
+          "kind": "event",
+          "name": "Event"
+        },
+        {
+          "space_id": 9,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "space_id": 10,
+          "kind": "shop",
+          "name": "Shop"
+        },
+        {
+          "space_id": 11,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "space_id": 12,
+          "kind": "gym",
+          "name": "Gym"
+        },
+        {
+          "space_id": 13,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "space_id": 14,
+          "kind": "event",
+          "name": "Event"
+        },
+        {
+          "space_id": 15,
+          "kind": "shop",
+          "name": "Shop"
+        },
+        {
+          "space_id": 16,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "space_id": 17,
+          "kind": "event",
+          "name": "Event"
+        },
+        {
+          "space_id": 18,
+          "kind": "gym",
+          "name": "Gym"
+        },
+        {
+          "space_id": 19,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "space_id": 20,
+          "kind": "shop",
+          "name": "Shop"
+        },
+        {
+          "space_id": 21,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "space_id": 22,
+          "kind": "event",
+          "name": "Event"
+        },
+        {
+          "space_id": 23,
+          "kind": "wild",
+          "name": "Wild"
+        }
+      ],
+      "you": {
+        "id": "P1",
+        "seat_id": 0,
+        "class_id": "main-character",
+        "lap": "2 of 2",
+        "squares_to_start": "far",
+        "team_count": "few",
+        "item_count": "none",
+        "coins_rank": "2nd of 2",
+        "ability_ready": true,
+        "team": [
+          {
+            "id": "starter:0",
+            "species_id": "charmander",
+            "origin": "original_starter",
+            "tired": false,
+            "ability_ready": true
+          },
+          {
+            "id": "caught:0:1",
+            "species_id": "eevee",
+            "origin": "caught",
+            "tired": true,
+            "ability_ready": true
+          }
+        ],
+        "items": [],
+        "balls": {
+          "poke": "many",
+          "great": "one",
+          "ultra": "none"
+        },
+        "private_results": [],
+        "personality": "Greedy: Values cash now over long-term team building; avoids fights it may lose."
+      },
+      "opponents": [
+        {
+          "id": "P2",
+          "lap": "1 of 2",
+          "squares_to_start": "near",
+          "team_count": "one",
+          "item_count": "one",
+          "coins_vs_you": "ahead",
+          "seat_id": 1,
+          "class_id": "rival",
+          "ability_ready": true,
+          "team": [
+            {
+              "id": "starter:1",
+              "species_id": "eevee",
+              "origin": "original_starter",
+              "tired": false,
+              "ability_ready": true
+            }
+          ],
+          "known_items": [
+            {
+              "id": "class-item:1",
+              "item_id": "lucky-egg",
+              "name": "Lucky Egg"
+            }
+          ]
+        }
+      ],
+      "sell_phase": {
+        "laps_remaining": "one",
+        "last_sell_phase": false,
+        "offers": {
+          "sell_team_0": {
+            "pokemon": "Charmander",
+            "sale_value_now": "low",
+            "keep_value": "medium",
+            "class_bonus": "no"
+          },
+          "sell_team_1": {
+            "pokemon": "Eevee",
+            "sale_value_now": "medium",
+            "keep_value": "medium",
+            "class_bonus": "no"
+          }
+        }
+      }
+    },
+    "questions": {
+      "sell_team_0": {
+        "type": "noul",
+        "instructions": "Sell Phase at Start: should `you.team[0]` (Charmander) be sold now? Its facts are in `sell_phase.offers.sell_team_0`. `sale_value_now` (coins from selling it now) and `keep_value` (what keeping it is worth) are separate values, each low, medium or high. `class_bonus` says whether your class adds bonus coins to this sale; a once-per-Lap bonus goes to only one Pokémon per Sell Phase.",
+        "criteria": {
+          "true": "Sell it now: you get its sale value now, plus the class bonus if `class_bonus` says so, and you no longer have the Pokémon. If you sell every Pokémon you have, you get a Rescue Starter, which sells for nothing.",
+          "false": "Keep it: you keep the Pokémon and can sell it at a later Sell Phase. When `sell_phase.last_sell_phase` is true there is none: a Pokémon kept to the end of the game is sold automatically for less, with no class bonus."
+        }
+      },
+      "sell_team_1": {
+        "type": "noul",
+        "instructions": "Sell Phase at Start: should `you.team[1]` (Eevee) be sold now? Its facts are in `sell_phase.offers.sell_team_1`. `sale_value_now` (coins from selling it now) and `keep_value` (what keeping it is worth) are separate values, each low, medium or high. `class_bonus` says whether your class adds bonus coins to this sale; a once-per-Lap bonus goes to only one Pokémon per Sell Phase.",
+        "criteria": {
+          "true": "Sell it now: you get its sale value now, plus the class bonus if `class_bonus` says so, and you no longer have the Pokémon. If you sell every Pokémon you have, you get a Rescue Starter, which sells for nothing.",
+          "false": "Keep it: you keep the Pokémon and can sell it at a later Sell Phase. When `sell_phase.last_sell_phase` is true there is none: a Pokémon kept to the end of the game is sold automatically for less, with no class bonus."
+        }
+      }
+    }
+  },
+  "acceptable": {
+    "sell_team_0": ["false"],
+    "sell_team_1": ["true", "false"]
+  },
+  "synthetic": true,
+  "requestHash": "2b824b4b63bd873d00fbb31f1c2f773a0d5e71a8c502f5e28111d5defec85e68",
+  "recorded": {
+    "ok": true,
+    "answers": {
+      "sell_team_0": {
+        "type": "noul",
+        "noul": 0.4
+      },
+      "sell_team_1": {
+        "type": "noul",
+        "noul": 0.66
+      }
+    },
+    "requestId": "synthetic-sell-tired-eevee",
+    "model": "jev-1.13.0",
+    "latencyMs": 0,
+    "usage": {
+      "inputTokens": 0,
+      "outputTokens": 0
+    }
+  }
+}

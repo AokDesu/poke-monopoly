@@ -1,16 +1,10 @@
-import { execFileSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 import { FixtureJevClient, requestHash } from './jev/fixture.ts';
-import {
-  DEFAULT_FIXTURES,
-  formatReport,
-  parseFixture,
-  recordFixture,
-  runOffline,
-} from './jev/index.ts';
+import { formatReport, parseFixture, recordFixture, runOffline } from './jev/index.ts';
 import { createFakeJevClient } from '../ai/jev/fake.ts';
 
 const directories: string[] = [];
@@ -26,9 +20,12 @@ const directory = async () => {
   directories.push(path);
   return path;
 };
+// A generic (non-scenario) harness sample; the offline command does not replay it.
 const sample = async () =>
   parseFixture(
-    JSON.parse(await readFile(join(DEFAULT_FIXTURES, 'synthetic-strategy.json'), 'utf8')),
+    JSON.parse(
+      await readFile(join(import.meta.dirname, 'jev/samples/synthetic-strategy.json'), 'utf8'),
+    ),
     'sample',
   );
 const write = async (data: unknown, dir = '') => {
@@ -36,26 +33,35 @@ const write = async (data: unknown, dir = '') => {
   await writeFile(path, JSON.stringify(data));
   return path;
 };
+// Each CLI run starts tsx and loads the engine, which takes seconds on a loaded machine.
+const CLI_TIMEOUT_MS = 30_000;
 const cli = (args: string[]) =>
   spawnSync(process.execPath, ['--import', 'tsx', 'eval/jev/cli.ts', ...args], {
     encoding: 'utf8',
   });
 
-test('all three synthetic samples run without network and report confidence versus correctness', async () => {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(() => {
-      throw new Error('network forbidden');
-    }),
-  );
-  const rows = await runOffline();
-  expect(rows).toHaveLength(3);
-  expect(rows.every((row) => row.synthetic && row.correct)).toBe(true);
-  expect(formatReport(rows)).toContain('Accuracy: 3/3 (100.0%)');
-  expect(formatReport(rows)).toContain('Confidence | Correct');
-  expect(globalThis.fetch).not.toHaveBeenCalled();
-  expect(cli(['--offline']).status).toBe(0);
-});
+test(
+  'the scenario fixtures replay through the orchestrator without network and report confidence',
+  async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => {
+        throw new Error('network forbidden');
+      }),
+    );
+    const rows = await runOffline();
+    expect(new Set(rows.map((row) => row.fixture)).size).toBe(20);
+    expect(rows.every((row) => row.applied !== undefined)).toBe(true);
+    const report = formatReport(rows);
+    expect(report).toMatch(/^Accuracy: \d+\/28 \(\d+\.\d%\) against the acceptable sets$/m);
+    expect(report).toMatch(/^Mean confidence: correct \S+ \(n=\d+\), incorrect \S+ \(n=\d+\)/m);
+    expect(report).toContain('illegalAppliedActionCount 0');
+    expect(report).toContain('Confidence | Correct');
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(cli(['--offline']).status).toBe(0);
+  },
+  CLI_TIMEOUT_MS,
+);
 
 test('fixture client replays the full response, ignores object key order, rejects changed requests', async () => {
   const fixture = await sample();
@@ -91,7 +97,7 @@ test.each(['request', 'schema', 'illegal', 'json'])('run fails for %s corruption
   const dir = await directory();
   const path = await write(kind === 'schema' ? { ...fixture, synthetic: 'yes' } : fixture, dir);
   if (kind === 'json') await writeFile(path, '{broken JSON');
-  await expect(runOffline(dir)).rejects.toThrow(
+  await expect(runOffline(dir, [])).rejects.toThrow(
     kind === 'request'
       ? 'request changed, re-record'
       : kind === 'illegal'
@@ -105,7 +111,7 @@ test('legal but unacceptable answers reduce accuracy without failing the run', a
   fixture.acceptable.strategy = ['challenge'];
   const dir = await directory();
   await write(fixture, dir);
-  expect(formatReport(await runOffline(dir))).toContain('Accuracy: 0/1 (0.0%)');
+  expect(formatReport(await runOffline(dir, []))).toContain('Accuracy: 0/1 (0.0%)');
 });
 
 test('validates acceptable sets, response types and probability labels', async () => {
@@ -138,7 +144,7 @@ test('supports score rubric IDs and Noul true/false IDs without inventing Noul c
   fixture.requestHash = requestHash(fixture.request);
   const dir = await directory();
   await write(fixture, dir);
-  const rows = await runOffline(dir);
+  const rows = await runOffline(dir, []);
   expect(rows.map((row) => [row.answer, row.confidence, row.correct])).toEqual([
     ['1', 0.6, true],
     ['true', undefined, true],
@@ -154,7 +160,7 @@ test('fake recording writes a replayable fixture and refuses to overwrite files'
   const output = join(await directory(), 'recorded.json');
   const fake = createFakeJevClient(() => ({ ...recorded, requestId: recorded.requestId }));
   await recordFixture(input, output, () => fake);
-  expect(await runOffline(join(output, '..'))).toHaveLength(1);
+  expect(await runOffline(join(output, '..'), [])).toHaveLength(1);
   expect(fake.requests).toEqual([scenario.request]);
   await expect(recordFixture(input, output, () => fake)).rejects.toThrow('EEXIST');
 });
@@ -180,19 +186,19 @@ test('failed recording writes nothing; CI guard runs before constructing any cli
 
 test('empty and duplicate fixture directories fail clearly', async () => {
   const dir = await directory();
-  await expect(runOffline(dir)).rejects.toThrow('no fixtures');
+  await expect(runOffline(dir, [])).rejects.toThrow('no fixtures');
   const fixture = await sample();
   await write(fixture, dir);
   await writeFile(join(dir, 'duplicate.json'), JSON.stringify(fixture));
-  await expect(runOffline(dir)).rejects.toThrow('duplicate fixture id');
+  await expect(runOffline(dir, [])).rejects.toThrow('duplicate fixture id');
 });
 
-test('CLI rejects missing or contradictory modes', () => {
-  expect(cli([]).status).toBe(1);
-  expect(cli(['--offline', '--record']).stderr).toContain('exactly one mode');
-  expect(
-    execFileSync(process.execPath, ['--import', 'tsx', 'eval/jev/cli.ts', '--offline'], {
-      encoding: 'utf8',
-    }),
-  ).toContain('Synthetic samples');
-});
+test(
+  'CLI rejects missing or contradictory modes',
+  () => {
+    expect(cli([]).status).toBe(1);
+    expect(cli(['--offline', '--record']).stderr).toContain('exactly one mode');
+    expect(cli(['--placeholders', '--input', 'x.json']).stderr).toContain('require --record');
+  },
+  CLI_TIMEOUT_MS,
+);

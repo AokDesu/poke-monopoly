@@ -1,0 +1,236 @@
+{
+  "id": "strategy-far-ahead-pickpocket-poor",
+  "description": "Far ahead in coins; holds Pickpocket and the only opponent has 2 coins.",
+  "tags": {
+    "decisionPoint": "strategy",
+    "personality": "Greedy"
+  },
+  "request": {
+    "state": {
+      "phase": "strategy",
+      "active_seat_id": 0,
+      "final_table_round": false,
+      "board": [
+        {
+          "space_id": 0,
+          "kind": "start",
+          "name": "Start"
+        },
+        {
+          "space_id": 1,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "space_id": 2,
+          "kind": "event",
+          "name": "Event"
+        },
+        {
+          "space_id": 3,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "space_id": 4,
+          "kind": "shop",
+          "name": "Shop"
+        },
+        {
+          "space_id": 5,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "space_id": 6,
+          "kind": "gym",
+          "name": "Gym"
+        },
+        {
+          "space_id": 7,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "space_id": 8,
+          "kind": "event",
+          "name": "Event"
+        },
+        {
+          "space_id": 9,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "space_id": 10,
+          "kind": "shop",
+          "name": "Shop"
+        },
+        {
+          "space_id": 11,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "space_id": 12,
+          "kind": "gym",
+          "name": "Gym"
+        },
+        {
+          "space_id": 13,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "space_id": 14,
+          "kind": "event",
+          "name": "Event"
+        },
+        {
+          "space_id": 15,
+          "kind": "shop",
+          "name": "Shop"
+        },
+        {
+          "space_id": 16,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "space_id": 17,
+          "kind": "event",
+          "name": "Event"
+        },
+        {
+          "space_id": 18,
+          "kind": "gym",
+          "name": "Gym"
+        },
+        {
+          "space_id": 19,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "space_id": 20,
+          "kind": "shop",
+          "name": "Shop"
+        },
+        {
+          "space_id": 21,
+          "kind": "wild",
+          "name": "Wild"
+        },
+        {
+          "space_id": 22,
+          "kind": "event",
+          "name": "Event"
+        },
+        {
+          "space_id": 23,
+          "kind": "wild",
+          "name": "Wild"
+        }
+      ],
+      "you": {
+        "id": "P1",
+        "seat_id": 0,
+        "class_id": "main-character",
+        "lap": "2 of 2",
+        "squares_to_start": "far",
+        "team_count": "one",
+        "item_count": "one",
+        "coins_rank": "1st of 2",
+        "ability_ready": true,
+        "team": [
+          {
+            "id": "starter:0",
+            "species_id": "charmander",
+            "origin": "original_starter",
+            "tired": false,
+            "ability_ready": true
+          }
+        ],
+        "items": [
+          {
+            "id": "bought:0:0",
+            "item_id": "pickpocket",
+            "name": "Pickpocket"
+          }
+        ],
+        "balls": {
+          "poke": "many",
+          "great": "one",
+          "ultra": "none"
+        },
+        "private_results": [],
+        "personality": "Greedy: Values cash now over long-term team building; avoids fights it may lose."
+      },
+      "opponents": [
+        {
+          "id": "P2",
+          "lap": "2 of 2",
+          "squares_to_start": "far",
+          "team_count": "one",
+          "item_count": "one",
+          "coins_vs_you": "far behind",
+          "seat_id": 1,
+          "class_id": "rival",
+          "ability_ready": true,
+          "team": [
+            {
+              "id": "starter:1",
+              "species_id": "eevee",
+              "origin": "original_starter",
+              "tired": false,
+              "ability_ready": true
+            }
+          ],
+          "known_items": [
+            {
+              "id": "class-item:1",
+              "item_id": "lucky-egg",
+              "name": "Lucky Egg"
+            }
+          ]
+        }
+      ]
+    },
+    "questions": {
+      "strategy": {
+        "type": "choice",
+        "instructions": "Pick the ONE action that best fits `you.personality` right now. Only the listed actions are allowed. Each option states its effect and what is unknown when you choose it.",
+        "criteria": {
+          "a1": "Use your Pickpocket on P2, the target. Pickpocket effect: Take up to 5 coins from the target. This uses up the item and your tactical action for this turn. P2 will learn that you used it on them.",
+          "skip": "Do nothing this phase and keep all your items. Your tactical action for this turn stays unused."
+        }
+      }
+    }
+  },
+  "acceptable": {
+    "strategy": ["a1", "skip"]
+  },
+  "synthetic": true,
+  "requestHash": "2ac35f9d6928d57baeb2d25e287e87184400558c18a0dbcdec1b53ab47328d2c",
+  "recorded": {
+    "ok": true,
+    "answers": {
+      "strategy": {
+        "type": "choice",
+        "choice": "skip",
+        "confidence": 0.128,
+        "probabilities": {
+          "a1": 0.436,
+          "skip": 0.564
+        }
+      }
+    },
+    "requestId": "synthetic-strategy-far-ahead-pickpocket-poor",
+    "model": "jev-1.13.0",
+    "latencyMs": 0,
+    "usage": {
+      "inputTokens": 0,
+      "outputTokens": 0
+    }
+  }
+}
