@@ -4,6 +4,7 @@ import type {
   DecisionRequest,
 } from '../engine/contract/decision.ts';
 import { jevEnabled } from './jev/client.ts';
+import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
 
 /** What a decider picks: an action ID, or the Pokémon to sell at the Sell Phase. */
 export type DeciderPick = { choice: string } | { sellUids: string[] };
@@ -18,11 +19,19 @@ export interface DeciderContext {
 /** The pluggable seam `POST /api/ai/decide` calls; the orchestrator (B4) replaces the stub. */
 export type Decider = (request: DecisionRequest, context: DeciderContext) => Promise<DeciderAnswer>;
 
-/** Spec §9 kill switch and key presence, read per call so the badge tells the truth. */
-export const jevStatus = (): AiStatus => {
+/**
+ * Spec §9 kill switch, key presence and spend guard, read per call so the badge tells the truth.
+ * The usage ledger is opened only once a key is set, so a keyless server never reads the log.
+ */
+export const jevStatus = (
+  usage: () => Pick<UsageRecorder, 'budgetExceeded'> = defaultUsageLedger,
+): AiStatus => {
   if (!jevEnabled()) return { jevEnabled: false, backupOnly: true, reason: 'disabled' };
   if (!process.env.TYPESAFE_API_KEY?.trim()) {
     return { jevEnabled: true, backupOnly: true, reason: 'missing_key' };
+  }
+  if (usage().budgetExceeded()) {
+    return { jevEnabled: true, backupOnly: true, reason: 'budget_exceeded' };
   }
   return { jevEnabled: true, backupOnly: false, reason: null };
 };

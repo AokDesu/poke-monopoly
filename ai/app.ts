@@ -14,6 +14,7 @@ import {
   type Decider,
   type DeciderAnswer,
 } from './decider.ts';
+import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
 import { decideShop, shopRequestSchema } from './shop.ts';
 
 /** Spec §6 item 2: the endpoint validates payload size before it reads the body. */
@@ -21,6 +22,8 @@ export const MAX_BODY_BYTES = 32 * 1024;
 
 export interface AppOptions {
   decider?: Decider;
+  /** The spend guard the status reads; defaults to the ledger over `logs/jev-usage.jsonl`. */
+  usage?: () => Pick<UsageRecorder, 'budgetExceeded'>;
 }
 
 /** Copies only IDs and telemetry, so nothing else a decider returns can reach the browser. */
@@ -33,13 +36,16 @@ const toResponse = (answer: DeciderAnswer, requestId: string, started: number): 
     latencyMs: Math.round(performance.now() - started),
   });
 
-export const createApp = ({ decider = stubDecider }: AppOptions = {}) => {
+export const createApp = ({
+  decider = stubDecider,
+  usage = defaultUsageLedger,
+}: AppOptions = {}) => {
   const app = new Hono();
 
   // Never a stack trace or an error message: either could carry request or key material.
   app.onError((_error, c) => c.json({ error: 'internal_error' }, 500));
 
-  app.get('/api/ai/status', (c) => c.json(aiStatusSchema.parse(jevStatus())));
+  app.get('/api/ai/status', (c) => c.json(aiStatusSchema.parse(jevStatus(usage))));
 
   app.post(
     '/api/ai/decide',
@@ -66,7 +72,7 @@ export const createApp = ({ decider = stubDecider }: AppOptions = {}) => {
       }
       let answer: DeciderAnswer;
       try {
-        answer = await decider(request, { status: jevStatus() });
+        answer = await decider(request, { status: jevStatus(usage) });
         if (!isOption(request, answer)) answer = fallbackAnswer(request, 'not_an_option');
       } catch {
         answer = fallbackAnswer(request, 'decider_error');

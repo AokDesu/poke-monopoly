@@ -1,3 +1,6 @@
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { choice } from '@typesafe-ai/sdk';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { parsePersonality, type Personality } from '../content/personality-schema.ts';
@@ -29,6 +32,7 @@ import {
   type JevResult,
 } from './jev/client.ts';
 import { createChaosJevClient, createFakeJevClient } from './jev/fake.ts';
+import { openUsageLedger, SPEND_CONFIG, SpendLedger, type UsageLine } from './jev/spend.ts';
 import {
   confidenceFloor,
   decisionRates,
@@ -584,6 +588,178 @@ describe('log events (§6.8, §9)', () => {
   });
 });
 
+describe('spend guard and usage log (spec §1, §9)', () => {
+  /** Input tokens that cost `thb`, logged as one earlier request. */
+  const spent = (thb: number): UsageLine => ({
+    time: new Date().toISOString(),
+    gameId: 'earlier-game',
+    requestId: 'req_old',
+    model: PINNED_JEV_MODEL,
+    inputTokens: Math.ceil(
+      (thb / SPEND_CONFIG.thbPerUsd / SPEND_CONFIG.inputUsdPerMillionTokens) * 1_000_000,
+    ),
+    outputTokens: 0,
+    latencyMs: 200,
+    status: 'ok',
+    turnKey: '1',
+    decision: 0,
+    decisionMs: 210,
+  });
+
+  /** Lets the usage lines of a returned decision land. */
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  test('at 100% of the cap the next decision falls back with budget_exceeded and sends nothing', async () => {
+    const client = createFakeJevClient(confidentRelease);
+    const usage = new SpendLedger({ lines: [spent(SPEND_CONFIG.totalCapThb)], warn: () => {} });
+    const orchestrator = new Orchestrator({ client, usage });
+    const decision = await orchestrator.decide(encounterRequest());
+    expect(decision).toMatchObject({
+      source: 'fallback',
+      fallbackReason: 'budget_exceeded',
+      requests: 0,
+    });
+    expect(decision.choice).toBe(fallbackChoice(encounterRequest()));
+    expect(client.requests).toHaveLength(0);
+    const planned = await orchestrator.decide(encounterRequest({ ...strategy, facts: {} }));
+    expect(planned).toMatchObject({ fallbackReason: 'budget_exceeded', requests: 0 });
+  });
+
+  test('the request that reaches the cap is the last; the decision after it falls back', async () => {
+    const warn = vi.fn();
+    const usage = new SpendLedger({ lines: [spent(SPEND_CONFIG.totalCapThb - 0.001)], warn });
+    expect(warn).toHaveBeenCalledOnce();
+    const client = createFakeJevClient((request) =>
+      answered(request, () => ({ poke_ball: 0.05, great_ball: 0.05, release: 0.9 }), {
+        inputTokens: 3240,
+      }),
+    );
+    const orchestrator = new Orchestrator({ client, usage });
+    expect(await orchestrator.decide(encounterRequest())).toMatchObject({ source: 'jev' });
+    await settle();
+    const next = await orchestrator.decide(encounterRequest({ turnKey: 't2' }));
+    expect(next).toMatchObject({ fallbackReason: 'budget_exceeded', requests: 0 });
+    expect(client.requests).toHaveLength(1);
+    expect(warn).toHaveBeenCalledOnce();
+  });
+
+  test('the daily budget switches to the fallback the same way', async () => {
+    const client = createFakeJevClient(confidentRelease);
+    const usage = new SpendLedger({ lines: [spent(5)], dailyBudgetThb: 5 });
+    const decision = await new Orchestrator({ client, usage }).decide(encounterRequest());
+    expect(decision.fallbackReason).toBe('budget_exceeded');
+    expect(client.requests).toHaveLength(0);
+  });
+
+  test('the kill switch wins over the spend guard', async () => {
+    vi.stubEnv('JEV_ENABLED', 'false');
+    const usage = new SpendLedger({ lines: [spent(SPEND_CONFIG.totalCapThb)], warn: () => {} });
+    const client = createFakeJevClient(confidentRelease);
+    const decision = await new Orchestrator({ client, usage }).decide(encounterRequest());
+    expect(decision.fallbackReason).toBe('disabled');
+  });
+
+  test('logs one line per request sent, with its decision time and turn key', async () => {
+    const lines: UsageLine[] = [];
+    const usage = new SpendLedger({ append: (line) => lines.push(line) });
+    let calls = 0;
+    const client = createFakeJevClient((request) =>
+      ++calls === 2
+        ? { ok: false, fallbackReason: 'rate_limited', status: 429 }
+        : answered(request, () => ({ poke_ball: 0.05, great_ball: 0.05, release: 0.9 }), {
+            inputTokens: 3240,
+          }),
+    );
+    const orchestrator = new Orchestrator({ client, usage, gameId: 'game-log-1' });
+    await orchestrator.decide(encounterRequest());
+    await orchestrator.decide(encounterRequest());
+    await settle();
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toEqual({
+      time: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+      gameId: 'game-log-1',
+      requestId: 'req_fake_1',
+      model: PINNED_JEV_MODEL,
+      inputTokens: 3240,
+      outputTokens: 0,
+      latencyMs: expect.any(Number),
+      status: 'ok',
+      turnKey: 't1',
+      decision: 0,
+      decisionMs: expect.any(Number),
+    });
+    expect(lines[1]).toMatchObject({
+      requestId: null,
+      inputTokens: 0,
+      status: 'rate_limited',
+      decision: 1,
+    });
+    expect(usage.spentThb()).toBeCloseTo(
+      ((3240 * SPEND_CONFIG.inputUsdPerMillionTokens) / 1_000_000) * SPEND_CONFIG.thbPerUsd,
+      12,
+    );
+  });
+
+  test('decisions that send nothing log nothing', async () => {
+    const lines: UsageLine[] = [];
+    const usage = new SpendLedger({ append: (line) => lines.push(line) });
+    vi.stubEnv('JEV_ENABLED', 'false');
+    await new Orchestrator({ client: createFakeJevClient(confidentRelease), usage }).decide(
+      encounterRequest(),
+    );
+    await settle();
+    expect(lines).toEqual([]);
+  });
+
+  test('the usage log never holds the key or any state or question text', async () => {
+    vi.stubEnv('TYPESAFE_API_KEY', PLACEHOLDER_KEY);
+    const file = join(mkdtempSync(join(tmpdir(), 'jev-usage-')), 'logs', 'jev-usage.jsonl');
+    const usage = openUsageLedger(file, { dailyBudgetThb: undefined });
+    const bodies: string[] = [];
+    const orchestrator = new Orchestrator({
+      usage,
+      client: createSdkJevClient({
+        fetch: async (_url, init) => {
+          bodies.push(String(init?.body));
+          return json({
+            model: PINNED_JEV_MODEL,
+            answers: {
+              encounter: {
+                type: 'choice',
+                choice: 'release',
+                confidence: 0.85,
+                probabilities: { poke_ball: 0.05, great_ball: 0.05, release: 0.9 },
+              },
+            },
+            usage: { input_tokens: 3240, output_tokens: 0 },
+          });
+        },
+      }),
+    });
+    await orchestrator.decide(encounterRequest());
+    await orchestrator.decide(encounterRequest({ turnKey: 't2' }));
+    await settle();
+    const log = readFileSync(file, 'utf8');
+    expect(log.trim().split('\n')).toHaveLength(2);
+    expect(log).not.toContain(PLACEHOLDER_KEY);
+    const sent = JSON.parse(bodies[0]!) as { state: unknown; questions: unknown };
+    // Every string the request carried, from its state and its questions' text.
+    const texts = new Set<string>();
+    const collect = (value: unknown): void => {
+      if (typeof value === 'string' && value.length >= 4) texts.add(value);
+      else if (value && typeof value === 'object') Object.values(value).forEach(collect);
+    };
+    collect(sent.state);
+    collect(sent.questions);
+    expect(texts.size).toBeGreaterThan(5);
+    for (const text of texts) {
+      if (text === PINNED_JEV_MODEL) continue;
+      expect(log).not.toContain(text);
+    }
+    expect(log).not.toMatch(/"(state|questions|answers|criteria)"/);
+  });
+});
+
 describe('counters (§5.6)', () => {
   test('invalidOutputRate and fallbackRate by cause', () => {
     const stats = new DecisionStats();
@@ -635,13 +811,33 @@ describe('`--policy jev` in the sim (§5.6, §8)', () => {
     );
   });
 
-  test('JEV_ENABLED=false plays every decision on the fallback with no request', async () => {
+  test('JEV_ENABLED=false: 100 games, no network call, every Jev decision a disabled fallback', async () => {
     vi.stubEnv('JEV_ENABLED', 'false');
-    const { summary } = await runSim(realEngine, { ...options, games: 2 });
-    expect(summary).toMatchObject({ aborted: 0, illegalAppliedActionCount: 0 });
-    expect(summary.jev!.requests).toBe(0);
-    expect(summary.jev!.fallbackRate).toEqual({ total: 1, byCause: { disabled: 1 } });
-  });
+    const fetch = vi.fn(() => Promise.reject(new Error('no network in the kill-switch sim')));
+    vi.stubGlobal('fetch', fetch);
+    try {
+      const { summary, failures } = await runSim(realEngine, {
+        ...DEFAULT_OPTIONS,
+        games: 100,
+        seed: 1,
+        policy: 'jev',
+      });
+      expect(failures).toEqual([]);
+      expect(summary).toMatchObject({ games: 100, aborted: 0, illegalAppliedActionCount: 0 });
+      expect(fetch).not.toHaveBeenCalled();
+      expect(summary.jev!.decisions).toBeGreaterThan(0);
+      expect(summary.jev!.requests).toBe(0);
+      expect(summary.jev!.fallbackRate).toEqual({ total: 1, byCause: { disabled: 1 } });
+      expect(summary.policyCounts).toEqual({
+        decisions: summary.jev!.decisions,
+        requests: 0,
+        invalid_outputs: 0,
+        'fallback:disabled': summary.jev!.decisions,
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  }, 120_000);
 
   test('every seat of one game shares one orchestrator, and each game gets its own', () => {
     const game = { seed: 1 };

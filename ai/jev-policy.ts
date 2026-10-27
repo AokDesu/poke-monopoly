@@ -4,6 +4,7 @@ import type { Policy, PolicyFacts, PolicyGame, PolicyRng } from '../sim/policy.t
 import { PERSONALITIES } from './fallback/index.ts';
 import { createSdkJevClient, disabledJevClient, jevEnabled, type JevClient } from './jev/client.ts';
 import { createChaosJevClient } from './jev/fake.ts';
+import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
 export { decisionRates, type DecisionRates } from './orchestrator.ts';
 import {
   DecisionStats,
@@ -74,10 +75,17 @@ function decideFacts(facts: PolicyFacts): DecideFacts {
 /**
  * The sim's Jev client: none with `JEV_ENABLED=false`, the real service only when a person runs
  * the sim with the key in their environment, and otherwise the seeded chaos fake (tests and CI).
+ * Only the real service writes the usage log and is held to the spend guard (§9).
  */
-export function simJevClient(seed: number): { client: JevClient; decisionMs?: number } {
+export function simJevClient(seed: number): {
+  client: JevClient;
+  decisionMs?: number;
+  usage?: UsageRecorder;
+} {
   if (!jevEnabled()) return { client: disabledJevClient };
-  if (process.env.TYPESAFE_API_KEY?.trim()) return { client: createSdkJevClient() };
+  if (process.env.TYPESAFE_API_KEY?.trim()) {
+    return { client: createSdkJevClient(), usage: defaultUsageLedger() };
+  }
   return { client: createChaosJevClient(`jev:${seed}`), decisionMs: OFFLINE_DECISION_MS };
 }
 
