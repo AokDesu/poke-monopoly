@@ -516,6 +516,19 @@ describe('Sell Phase Nouls (§5.3)', () => {
     expect(await run(() => 0)).toBe('finish-sell');
   });
 
+  test('none sold finishes a current-version Sell Phase, whose finish is an empty sale', async () => {
+    const enabled = sell.legalActions.enabled.map((action) =>
+      action.kind === 'finish_sell'
+        ? { id: action.id, kind: 'sell' as const, payload: { pokemonInstanceIds: [] } }
+        : action,
+    );
+    const client = createFakeJevClient((request) => answered(request, () => ({}), { noul: 0 }));
+    const decision = await new Orchestrator({ client }).decide(
+      sellRequest({ legalActions: { ...sell.legalActions, enabled } }),
+    );
+    expect(decision).toMatchObject({ choice: 'finish-sell', source: 'jev', fallbackReason: null });
+  });
+
   test('without engine sale facts the Sell Phase falls back', async () => {
     const client = createFakeJevClient(confidentRelease);
     const decision = await new Orchestrator({ client }).decide(sellRequest({ facts: {} }));

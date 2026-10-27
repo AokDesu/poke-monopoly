@@ -394,9 +394,18 @@ function sample(
   return ids.findLast((id) => probabilities[id]! > 0);
 }
 
-/** The listed action for this sale: `finish_sell` for none, the one-Pokémon sale, or a batch. */
+/**
+ * The listed action for this sale: the finish for none (an empty sale in the current engine,
+ * `finish_sell` in older saves), the one-Pokémon sale, or a batch.
+ */
 function sellChoice(enabled: readonly LegalAction[], sellUids: string[]): PolicyChoice | undefined {
-  if (sellUids.length === 0) return enabled.find((action) => action.kind === 'finish_sell')?.id;
+  if (sellUids.length === 0) {
+    return enabled.find(
+      (action) =>
+        action.kind === 'finish_sell' ||
+        (action.kind === 'sell' && action.payload.pokemonInstanceIds.length === 0),
+    )?.id;
+  }
   const sales = enabled.filter((action) => action.kind === 'sell');
   const single = (id: string) =>
     sales.find(
