@@ -207,30 +207,33 @@
     }
   },
   "acceptable": {
-    "encounter": ["poke_ball", "great_ball"]
+    "encounter": [
+      "poke_ball",
+      "great_ball"
+    ]
   },
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "4fbda60ac2857f62c17534ee3263f03e9656ba842d3fc89855fc20c11bd00768",
   "recorded": {
     "ok": true,
     "answers": {
       "encounter": {
         "type": "choice",
-        "choice": "great_ball",
-        "confidence": 0.532,
+        "choice": "release",
+        "confidence": 0.25,
         "probabilities": {
-          "poke_ball": 0.225,
-          "great_ball": 0.688,
-          "release": 0.088
+          "poke_ball": 0.31,
+          "great_ball": 0.19,
+          "release": 0.5
         }
       }
     },
-    "requestId": "synthetic-encounter-pidgey-poke-or-great",
+    "requestId": "req_01a17c8f5ac670b2a16c9784b8de576b",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
+    "latencyMs": 284,
     "usage": {
-      "inputTokens": 0,
-      "outputTokens": 0
+      "inputTokens": 1613,
+      "outputTokens": 42
     }
   }
 }

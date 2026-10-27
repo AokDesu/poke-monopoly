@@ -206,9 +206,11 @@
     }
   },
   "acceptable": {
-    "encounter": ["release"]
+    "encounter": [
+      "release"
+    ]
   },
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "b0f714ef0acbf942996fe316d9f42b4f59f1dc3a49f89a5ef321470cdc5ac414",
   "recorded": {
     "ok": true,
@@ -216,19 +218,19 @@
       "encounter": {
         "type": "choice",
         "choice": "release",
-        "confidence": 0.192,
+        "confidence": 0.46,
         "probabilities": {
-          "ultra_ball": 0.404,
-          "release": 0.596
+          "ultra_ball": 0.27,
+          "release": 0.73
         }
       }
     },
-    "requestId": "synthetic-encounter-magikarp-only-ultra",
+    "requestId": "req_01a17c8f58517a33bca94825c25ad247",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
+    "latencyMs": 250,
     "usage": {
-      "inputTokens": 0,
-      "outputTokens": 0
+      "inputTokens": 1556,
+      "outputTokens": 35
     }
   }
 }

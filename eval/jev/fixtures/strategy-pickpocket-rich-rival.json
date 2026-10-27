@@ -208,9 +208,11 @@
     }
   },
   "acceptable": {
-    "strategy": ["a1"]
+    "strategy": [
+      "a1"
+    ]
   },
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "b0b76626897029d25b364e13896f3e1a407f1dca59dd0cddab6cdbea1e518a16",
   "recorded": {
     "ok": true,
@@ -218,19 +220,19 @@
       "strategy": {
         "type": "choice",
         "choice": "a1",
-        "confidence": 0.49,
+        "confidence": 0.88,
         "probabilities": {
-          "a1": 0.745,
-          "skip": 0.255
+          "a1": 0.94,
+          "skip": 0.06
         }
       }
     },
-    "requestId": "synthetic-strategy-pickpocket-rich-rival",
+    "requestId": "req_01a17c8f4c177894aef09fd9aff0d9cd",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
+    "latencyMs": 372,
     "usage": {
-      "inputTokens": 0,
-      "outputTokens": 0
+      "inputTokens": 1500,
+      "outputTokens": 33
     }
   }
 }

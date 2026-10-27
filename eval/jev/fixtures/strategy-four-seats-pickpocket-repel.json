@@ -270,32 +270,34 @@
     }
   },
   "acceptable": {
-    "strategy": ["a2"]
+    "strategy": [
+      "a2"
+    ]
   },
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "43e03d9e7548bc83aa945b99b9e84ff3d47faca232b6eb2b1536b9034acab1f6",
   "recorded": {
     "ok": true,
     "answers": {
       "strategy": {
         "type": "choice",
-        "choice": "a4",
-        "confidence": 0.277,
+        "choice": "a2",
+        "confidence": 0.44,
         "probabilities": {
-          "a1": 0.082,
-          "a2": 0.073,
-          "a3": 0.377,
-          "a4": 0.422,
-          "skip": 0.045
+          "a1": 0.13,
+          "a2": 0.55,
+          "a3": 0.21,
+          "a4": 0.03,
+          "skip": 0.08
         }
       }
     },
-    "requestId": "synthetic-strategy-four-seats-pickpocket-repel",
+    "requestId": "req_01a17c8f54cc75d79ab0b6221ce7ef09",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
+    "latencyMs": 331,
     "usage": {
-      "inputTokens": 0,
-      "outputTokens": 0
+      "inputTokens": 2099,
+      "outputTokens": 57
     }
   }
 }

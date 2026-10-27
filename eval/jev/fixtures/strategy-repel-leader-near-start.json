@@ -208,29 +208,32 @@
     }
   },
   "acceptable": {
-    "strategy": ["a1", "skip"]
+    "strategy": [
+      "a1",
+      "skip"
+    ]
   },
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "13c30ce6667f04b245e502973f7c8211634936d5aef2ba199cfa16113e94ec4d",
   "recorded": {
     "ok": true,
     "answers": {
       "strategy": {
         "type": "choice",
-        "choice": "a1",
-        "confidence": 0.834,
+        "choice": "skip",
+        "confidence": 0.14,
         "probabilities": {
-          "a1": 0.917,
-          "skip": 0.083
+          "a1": 0.43,
+          "skip": 0.57
         }
       }
     },
-    "requestId": "synthetic-strategy-repel-leader-near-start",
+    "requestId": "req_01a17c8f50667163b28f2a198fa4976c",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
+    "latencyMs": 440,
     "usage": {
-      "inputTokens": 0,
-      "outputTokens": 0
+      "inputTokens": 1506,
+      "outputTokens": 32
     }
   }
 }

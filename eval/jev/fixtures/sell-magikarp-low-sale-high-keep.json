@@ -235,29 +235,33 @@
     }
   },
   "acceptable": {
-    "sell_team_0": ["false"],
-    "sell_team_1": ["false"]
+    "sell_team_0": [
+      "false"
+    ],
+    "sell_team_1": [
+      "false"
+    ]
   },
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "b947994565b3a544a7bec83f5ca5d95fde29906a936d3cd1c75af96c9b6c5bd0",
   "recorded": {
     "ok": true,
     "answers": {
       "sell_team_0": {
         "type": "noul",
-        "noul": 0.52
+        "noul": 0.44
       },
       "sell_team_1": {
         "type": "noul",
-        "noul": 0.5
+        "noul": 0.31
       }
     },
-    "requestId": "synthetic-sell-magikarp-low-sale-high-keep",
+    "requestId": "req_01a17c8f5f10753d861bb1de26faa709",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
+    "latencyMs": 270,
     "usage": {
-      "inputTokens": 0,
-      "outputTokens": 0
+      "inputTokens": 1931,
+      "outputTokens": 42
     }
   }
 }

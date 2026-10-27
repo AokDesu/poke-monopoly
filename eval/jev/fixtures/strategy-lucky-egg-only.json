@@ -208,9 +208,12 @@
     }
   },
   "acceptable": {
-    "strategy": ["a1", "skip"]
+    "strategy": [
+      "a1",
+      "skip"
+    ]
   },
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "34439c7cdb217e8aa969ef35a814f21a4820ec95211c3373d41dba993d07b013",
   "recorded": {
     "ok": true,
@@ -218,19 +221,19 @@
       "strategy": {
         "type": "choice",
         "choice": "skip",
-        "confidence": 0.77,
+        "confidence": 0.5,
         "probabilities": {
-          "a1": 0.115,
-          "skip": 0.885
+          "a1": 0.25,
+          "skip": 0.75
         }
       }
     },
-    "requestId": "synthetic-strategy-lucky-egg-only",
+    "requestId": "req_01a17c8f516679788054158d306c1bb8",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
+    "latencyMs": 293,
     "usage": {
-      "inputTokens": 0,
-      "outputTokens": 0
+      "inputTokens": 1501,
+      "outputTokens": 32
     }
   }
 }

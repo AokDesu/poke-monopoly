@@ -33,11 +33,12 @@ When question wording changes, for example Strategy criteria text, the run fails
 Every scenario needs a fixture. Replay ignores `JEV_ENABLED`, because fixtures never reach the
 network.
 
-The 20 committed scenario fixtures are `synthetic: true` placeholders until a person with the
-key records them. Their answers are seeded from the fixture ID and come from no model. They
-prove the harness, not Jev quality. `npm run eval:jev -- --placeholders` (offline, no key)
-writes a placeholder for a new or stale unrecorded scenario. It also copies a changed
-description or acceptable set into a current fixture. It never replaces a recording.
+The 20 committed scenario fixtures are real recordings (`synthetic: false`) from `jev-1.13.0`,
+each with its request ID. `npm run eval:jev -- --placeholders` (offline, no key) writes a
+`synthetic: true` placeholder for a new or stale unrecorded scenario. Its answers are seeded
+from the fixture ID and come from no model, so it proves the harness, not Jev quality, until a
+person with the key records it. It also copies a changed description or acceptable set into a
+current fixture. It never replaces a recording.
 
 ### Recording (a person with the key, never CI or a coding agent)
 

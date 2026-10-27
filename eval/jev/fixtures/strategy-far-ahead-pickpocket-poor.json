@@ -208,29 +208,32 @@
     }
   },
   "acceptable": {
-    "strategy": ["a1", "skip"]
+    "strategy": [
+      "a1",
+      "skip"
+    ]
   },
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "2ac35f9d6928d57baeb2d25e287e87184400558c18a0dbcdec1b53ab47328d2c",
   "recorded": {
     "ok": true,
     "answers": {
       "strategy": {
         "type": "choice",
-        "choice": "skip",
-        "confidence": 0.128,
+        "choice": "a1",
+        "confidence": 0.6,
         "probabilities": {
-          "a1": 0.436,
-          "skip": 0.564
+          "a1": 0.8,
+          "skip": 0.2
         }
       }
     },
-    "requestId": "synthetic-strategy-far-ahead-pickpocket-poor",
+    "requestId": "req_01a17c8f53ae715d9eabd0c22d9109e7",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
+    "latencyMs": 276,
     "usage": {
-      "inputTokens": 0,
-      "outputTokens": 0
+      "inputTokens": 1500,
+      "outputTokens": 33
     }
   }
 }

@@ -206,29 +206,31 @@
     }
   },
   "acceptable": {
-    "encounter": ["poke_ball"]
+    "encounter": [
+      "poke_ball"
+    ]
   },
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "6a8de1c6c6f9160684b72c85df69bcb59052e270bb4ad3d9ca0d2c2556f976af",
   "recorded": {
     "ok": true,
     "answers": {
       "encounter": {
         "type": "choice",
-        "choice": "poke_ball",
-        "confidence": 0.402,
+        "choice": "release",
+        "confidence": 0.24,
         "probabilities": {
-          "poke_ball": 0.701,
-          "release": 0.299
+          "poke_ball": 0.38,
+          "release": 0.62
         }
       }
     },
-    "requestId": "synthetic-encounter-common-many-poke-balls",
+    "requestId": "req_01a17c8f5624712fb866e4bb6bdcfffd",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
+    "latencyMs": 286,
     "usage": {
-      "inputTokens": 0,
-      "outputTokens": 0
+      "inputTokens": 1557,
+      "outputTokens": 34
     }
   }
 }

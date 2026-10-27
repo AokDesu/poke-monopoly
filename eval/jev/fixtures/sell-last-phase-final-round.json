@@ -256,34 +256,40 @@
     }
   },
   "acceptable": {
-    "sell_team_0": ["true"],
-    "sell_team_1": ["true"],
-    "sell_team_2": ["true"]
+    "sell_team_0": [
+      "true"
+    ],
+    "sell_team_1": [
+      "true"
+    ],
+    "sell_team_2": [
+      "true"
+    ]
   },
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "8fe79455ea7176a9ff4cdd3722ed119dd8d43270f584e0eadb1a59db3f89ca33",
   "recorded": {
     "ok": true,
     "answers": {
       "sell_team_0": {
         "type": "noul",
-        "noul": 0.98
+        "noul": 0.59
       },
       "sell_team_1": {
         "type": "noul",
-        "noul": 0.9
+        "noul": 0.73
       },
       "sell_team_2": {
         "type": "noul",
-        "noul": 0.81
+        "noul": 0.89
       }
     },
-    "requestId": "synthetic-sell-last-phase-final-round",
+    "requestId": "req_01a17c8f5cf27a9f9393ec68441a9cb9",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
+    "latencyMs": 271,
     "usage": {
-      "inputTokens": 0,
-      "outputTokens": 0
+      "inputTokens": 2246,
+      "outputTokens": 61
     }
   }
 }

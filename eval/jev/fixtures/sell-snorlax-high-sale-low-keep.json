@@ -235,29 +235,33 @@
     }
   },
   "acceptable": {
-    "sell_team_0": ["false"],
-    "sell_team_1": ["true"]
+    "sell_team_0": [
+      "false"
+    ],
+    "sell_team_1": [
+      "true"
+    ]
   },
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "441a0969675e80301231d5a9b28ea93b9532387596d204321df3cc0ec4942fca",
   "recorded": {
     "ok": true,
     "answers": {
       "sell_team_0": {
         "type": "noul",
-        "noul": 0.55
+        "noul": 0.22
       },
       "sell_team_1": {
         "type": "noul",
-        "noul": 0.21
+        "noul": 0.8
       }
     },
-    "requestId": "synthetic-sell-snorlax-high-sale-low-keep",
+    "requestId": "req_01a17c8f5e1079cc9ab64cd7b3224ad8",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
+    "latencyMs": 267,
     "usage": {
-      "inputTokens": 0,
-      "outputTokens": 0
+      "inputTokens": 1931,
+      "outputTokens": 42
     }
   }
 }

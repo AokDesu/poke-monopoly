@@ -262,34 +262,41 @@
     }
   },
   "acceptable": {
-    "sell_team_0": ["false"],
-    "sell_team_1": ["true", "false"],
-    "sell_team_2": ["true"]
+    "sell_team_0": [
+      "false"
+    ],
+    "sell_team_1": [
+      "true",
+      "false"
+    ],
+    "sell_team_2": [
+      "true"
+    ]
   },
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "cde5d83ca494c7d425c9ae01688b7013b5882a157ad197345ddb3f63b865cd6a",
   "recorded": {
     "ok": true,
     "answers": {
       "sell_team_0": {
         "type": "noul",
-        "noul": 0.2
+        "noul": 0.28
       },
       "sell_team_1": {
         "type": "noul",
-        "noul": 0.09
+        "noul": 0.66
       },
       "sell_team_2": {
         "type": "noul",
-        "noul": 0.36
+        "noul": 0.47
       }
     },
-    "requestId": "synthetic-sell-researcher-class-bonus",
+    "requestId": "req_01a17c8f60267c8ba8acaf8f07fe1cc0",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
+    "latencyMs": 275,
     "usage": {
-      "inputTokens": 0,
-      "outputTokens": 0
+      "inputTokens": 2308,
+      "outputTokens": 61
     }
   }
 }

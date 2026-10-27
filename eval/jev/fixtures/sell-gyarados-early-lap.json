@@ -235,29 +235,33 @@
     }
   },
   "acceptable": {
-    "sell_team_0": ["false"],
-    "sell_team_1": ["true"]
+    "sell_team_0": [
+      "false"
+    ],
+    "sell_team_1": [
+      "true"
+    ]
   },
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "2fff39bdddc7dc992ea7e10252c137f0395da2cbb1048dcbc79c431d43941a17",
   "recorded": {
     "ok": true,
     "answers": {
       "sell_team_0": {
         "type": "noul",
-        "noul": 0.59
+        "noul": 0.25
       },
       "sell_team_1": {
         "type": "noul",
-        "noul": 0.02
+        "noul": 0.76
       }
     },
-    "requestId": "synthetic-sell-gyarados-early-lap",
+    "requestId": "req_01a17c8f62597396a6864601cc26171f",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
+    "latencyMs": 342,
     "usage": {
-      "inputTokens": 0,
-      "outputTokens": 0
+      "inputTokens": 1931,
+      "outputTokens": 42
     }
   }
 }

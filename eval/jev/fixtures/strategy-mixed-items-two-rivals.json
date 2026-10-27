@@ -248,9 +248,11 @@
     }
   },
   "acceptable": {
-    "strategy": ["a1"]
+    "strategy": [
+      "a1"
+    ]
   },
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "2381c96f9c372cfbf4288f079b95f087cf4ea85e513895d7aa45e816f3733fd6",
   "recorded": {
     "ok": true,
@@ -258,22 +260,22 @@
       "strategy": {
         "type": "choice",
         "choice": "a1",
-        "confidence": 0.225,
+        "confidence": 0.87,
         "probabilities": {
-          "a1": 0.38,
-          "a2": 0.053,
-          "a3": 0.285,
-          "a4": 0.029,
-          "skip": 0.253
+          "a1": 0.9,
+          "a2": 0.02,
+          "a3": 0.03,
+          "a4": 0.01,
+          "skip": 0.04
         }
       }
     },
-    "requestId": "synthetic-strategy-mixed-items-two-rivals",
+    "requestId": "req_01a17c8f52997b87b98063b416bbfd34",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
+    "latencyMs": 279,
     "usage": {
-      "inputTokens": 0,
-      "outputTokens": 0
+      "inputTokens": 1959,
+      "outputTokens": 57
     }
   }
 }

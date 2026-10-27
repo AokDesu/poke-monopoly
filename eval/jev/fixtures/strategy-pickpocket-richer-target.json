@@ -236,30 +236,32 @@
     }
   },
   "acceptable": {
-    "strategy": ["a1"]
+    "strategy": [
+      "a1"
+    ]
   },
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "0fa0f7a4ebb19732b3a83f77d41742d86ced85e429c0f4b367a57a4d46d75651",
   "recorded": {
     "ok": true,
     "answers": {
       "strategy": {
         "type": "choice",
-        "choice": "skip",
-        "confidence": 0.041,
+        "choice": "a1",
+        "confidence": 0.83,
         "probabilities": {
-          "a1": 0.325,
-          "a2": 0.314,
-          "skip": 0.361
+          "a1": 0.89,
+          "a2": 0.03,
+          "skip": 0.08
         }
       }
     },
-    "requestId": "synthetic-strategy-pickpocket-richer-target",
+    "requestId": "req_01a17c8f4d257d38ae207da5d1fb9e6a",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
+    "latencyMs": 321,
     "usage": {
-      "inputTokens": 0,
-      "outputTokens": 0
+      "inputTokens": 1746,
+      "outputTokens": 41
     }
   }
 }

@@ -235,29 +235,34 @@
     }
   },
   "acceptable": {
-    "sell_team_0": ["false"],
-    "sell_team_1": ["true", "false"]
+    "sell_team_0": [
+      "false"
+    ],
+    "sell_team_1": [
+      "true",
+      "false"
+    ]
   },
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "2b824b4b63bd873d00fbb31f1c2f773a0d5e71a8c502f5e28111d5defec85e68",
   "recorded": {
     "ok": true,
     "answers": {
       "sell_team_0": {
         "type": "noul",
-        "noul": 0.4
+        "noul": 0.3
       },
       "sell_team_1": {
         "type": "noul",
-        "noul": 0.66
+        "noul": 0.54
       }
     },
-    "requestId": "synthetic-sell-tired-eevee",
+    "requestId": "req_01a17c8f614b7f14b0ffc22b530fb47f",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
+    "latencyMs": 267,
     "usage": {
-      "inputTokens": 0,
-      "outputTokens": 0
+      "inputTokens": 1930,
+      "outputTokens": 42
     }
   }
 }

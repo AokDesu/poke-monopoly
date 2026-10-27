@@ -206,9 +206,11 @@
     }
   },
   "acceptable": {
-    "encounter": ["poke_ball"]
+    "encounter": [
+      "poke_ball"
+    ]
   },
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "333b393f1a6b050eba0f997180655525104398517476a6801e45644af72c0f21",
   "recorded": {
     "ok": true,
@@ -216,19 +218,19 @@
       "encounter": {
         "type": "choice",
         "choice": "release",
-        "confidence": 0.434,
+        "confidence": 0.38,
         "probabilities": {
-          "poke_ball": 0.283,
-          "release": 0.717
+          "poke_ball": 0.31,
+          "release": 0.69
         }
       }
     },
-    "requestId": "synthetic-encounter-rare-dratini-poke-only",
+    "requestId": "req_01a17c8f594a76d49a0d745e3c3a84f3",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
+    "latencyMs": 367,
     "usage": {
-      "inputTokens": 0,
-      "outputTokens": 0
+      "inputTokens": 1552,
+      "outputTokens": 34
     }
   }
 }

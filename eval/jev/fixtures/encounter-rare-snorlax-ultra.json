@@ -207,9 +207,11 @@
     }
   },
   "acceptable": {
-    "encounter": ["ultra_ball"]
+    "encounter": [
+      "ultra_ball"
+    ]
   },
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "18eed1282686f7ee5e523c7991f842da1bbd1807a4185bc78199c1f815efe465",
   "recorded": {
     "ok": true,
@@ -217,20 +219,20 @@
       "encounter": {
         "type": "choice",
         "choice": "ultra_ball",
-        "confidence": 0.288,
+        "confidence": 0.18,
         "probabilities": {
-          "poke_ball": 0.412,
-          "ultra_ball": 0.525,
-          "release": 0.064
+          "poke_ball": 0.12,
+          "ultra_ball": 0.45,
+          "release": 0.43
         }
       }
     },
-    "requestId": "synthetic-encounter-rare-snorlax-ultra",
+    "requestId": "req_01a17c8f57397461bce05e124862ac5c",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
+    "latencyMs": 265,
     "usage": {
-      "inputTokens": 0,
-      "outputTokens": 0
+      "inputTokens": 1614,
+      "outputTokens": 45
     }
   }
 }

@@ -207,9 +207,11 @@
     }
   },
   "acceptable": {
-    "encounter": ["great_ball"]
+    "encounter": [
+      "great_ball"
+    ]
   },
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "7fed05065b14bece0e54afe01caad9c0c9a7b64848056a62d711d030e08dd974",
   "recorded": {
     "ok": true,
@@ -217,20 +219,20 @@
       "encounter": {
         "type": "choice",
         "choice": "release",
-        "confidence": 0.204,
+        "confidence": 0.25,
         "probabilities": {
-          "poke_ball": 0.308,
-          "great_ball": 0.223,
-          "release": 0.469
+          "poke_ball": 0.19,
+          "great_ball": 0.31,
+          "release": 0.5
         }
       }
     },
-    "requestId": "synthetic-encounter-scyther-great",
+    "requestId": "req_01a17c8f5bdf77868f9371d0e87326ce",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
+    "latencyMs": 261,
     "usage": {
-      "inputTokens": 0,
-      "outputTokens": 0
+      "inputTokens": 1615,
+      "outputTokens": 42
     }
   }
 }

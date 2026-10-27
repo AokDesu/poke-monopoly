@@ -208,29 +208,31 @@
     }
   },
   "acceptable": {
-    "strategy": ["a1"]
+    "strategy": [
+      "a1"
+    ]
   },
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "ef88827f430543e9c8c6b2e40d28b3757da5e56aff921447a9f90183dca730fa",
   "recorded": {
     "ok": true,
     "answers": {
       "strategy": {
         "type": "choice",
-        "choice": "skip",
-        "confidence": 0.954,
+        "choice": "a1",
+        "confidence": 0.82,
         "probabilities": {
-          "a1": 0.023,
-          "skip": 0.977
+          "a1": 0.91,
+          "skip": 0.09
         }
       }
     },
-    "requestId": "synthetic-strategy-pickpocket-final-round",
+    "requestId": "req_01a17c8f4e6a7632b79ccb0209d4a5ba",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
+    "latencyMs": 311,
     "usage": {
-      "inputTokens": 0,
-      "outputTokens": 0
+      "inputTokens": 1499,
+      "outputTokens": 33
     }
   }
 }
