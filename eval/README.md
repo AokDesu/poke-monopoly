@@ -42,3 +42,24 @@ output file without overwriting an existing fixture. To re-record, use a new out
 path, review it, and replace the old fixture manually. Agents only replay offline
 fixtures or inject the existing fake client in tests. Live recording remains
 manual and subject to the spec §9 budget.
+
+## Thai chat trial (issue #12)
+
+Spec: v1.0 §3.1, §5.1, §5.3, §12. `eval/jev/thai-trial.json` holds 20 Thai chat
+messages, each with an expected intent, an expected manipulation flag and an English
+gloss for reviewers (the gloss is never sent). `eval/jev/thai-trial.ts` sends each
+message once through `createSdkJevClient` (pinned `jev-1.13.0`, 1,000 ms timeout, no
+retries) with the chat-intent Choice and the manipulation Noul from spec §5.3, then
+writes the chosen intent, probabilities, Choice confidence and Noul probability back
+into the same file and prints a summary. It is a trial, not a measurement.
+
+A person with the key in the git-ignored `.env` runs it from the repository root:
+
+```bash
+npx tsx eval/jev/thai-trial.ts
+```
+
+It refuses when `CI` is set, when `JEV_ENABLED` is false, when `JEV_MODEL` is not
+`jev-1.13.0`, and when the file already holds a recorded run (restore it with
+`git checkout -- eval/jev/thai-trial.json` to run again). Tests use a fake client
+or a fake `fetch` only.
