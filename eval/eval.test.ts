@@ -6,6 +6,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { FixtureJevClient, requestHash } from './jev/fixture.ts';
 import { formatReport, parseFixture, recordFixture, runOffline } from './jev/index.ts';
 import { createFakeJevClient } from '../ai/jev/fake.ts';
+import { SpendLedger, type UsageLine } from '../ai/jev/spend.ts';
 
 const directories: string[] = [];
 afterEach(async () => {
@@ -159,10 +160,37 @@ test('fake recording writes a replayable fixture and refuses to overwrite files'
   const input = await write(scenario);
   const output = join(await directory(), 'recorded.json');
   const fake = createFakeJevClient(() => ({ ...recorded, requestId: recorded.requestId }));
-  await recordFixture(input, output, () => fake);
+  const lines: UsageLine[] = [];
+  const ledger = new SpendLedger({ append: (line) => lines.push(line) });
+  await recordFixture(
+    input,
+    output,
+    () => fake,
+    () => ledger,
+  );
   expect(await runOffline(join(output, '..'), [])).toHaveLength(1);
   expect(fake.requests).toEqual([scenario.request]);
-  await expect(recordFixture(input, output, () => fake)).rejects.toThrow('EEXIST');
+  expect(lines).toMatchObject([{ status: 'ok', requestId: recorded.requestId ?? null }]);
+  await expect(
+    recordFixture(
+      input,
+      output,
+      () => fake,
+      () => ledger,
+    ),
+  ).rejects.toThrow('EEXIST');
+  const spent = createFakeJevClient(() => ({ ...recorded, requestId: recorded.requestId }));
+  const fresh = join(await directory(), 'never.json');
+  await expect(
+    recordFixture(
+      input,
+      fresh,
+      () => spent,
+      () => ({ record: () => {}, budgetExceeded: () => true }),
+    ),
+  ).rejects.toThrow('spend cap or daily budget');
+  expect(spent.requests).toEqual([]);
+  await expect(readFile(fresh)).rejects.toThrow('ENOENT');
 });
 
 test('failed recording writes nothing; CI guard runs before constructing any client', async () => {
@@ -173,8 +201,11 @@ test('failed recording writes nothing; CI guard runs before constructing any cli
   const input = await write(scenario);
   const output = join(await directory(), 'absent.json');
   await expect(
-    recordFixture(input, output, () =>
-      createFakeJevClient(() => ({ ok: false, fallbackReason: 'disabled' })),
+    recordFixture(
+      input,
+      output,
+      () => createFakeJevClient(() => ({ ok: false, fallbackReason: 'disabled' })),
+      () => new SpendLedger(),
     ),
   ).rejects.toThrow('no fixture written');
   await expect(readFile(output)).rejects.toThrow('ENOENT');

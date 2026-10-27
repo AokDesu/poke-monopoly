@@ -14,6 +14,7 @@ import {
 import { placeholderResult } from '../../eval/jev/replay.ts';
 import { SCENARIOS } from '../../eval/jev/scenarios.ts';
 import { createSdkJevClient, PINNED_JEV_MODEL, type JevRequest } from './client.ts';
+import { SpendLedger } from './spend.ts';
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -124,6 +125,7 @@ test('a scenario recorded through the real wrapper keeps the request ID and neve
       dir,
       () => createSdkJevClient({ apiKey: key, fetch }),
       scenarios,
+      () => new SpendLedger(),
     );
     expect(result.recorded).toEqual(['encounter-scyther-great']);
     expect(authorization).toBe(`Bearer ${key}`);

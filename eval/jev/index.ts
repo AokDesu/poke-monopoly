@@ -1,7 +1,14 @@
 import { access, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { format, resolveConfig } from 'prettier';
-import { createSdkJevClient, decisionDeadline, type JevClient } from '../../ai/jev/client.ts';
+import {
+  createSdkJevClient,
+  decisionDeadline,
+  resolveJevModel,
+  type JevClient,
+} from '../../ai/jev/client.ts';
+import { defaultUsageLedger, type UsageRecorder } from '../../ai/jev/spend.ts';
+import { billedUsage } from '../../ai/jev/usage.ts';
 import type { OrchestratorFallbackReason } from '../../ai/orchestrator.ts';
 import {
   FixtureJevClient,
@@ -173,18 +180,46 @@ export const formatReport = (rows: EvalRow[]): string => {
     ),
   ].join('\n');
 };
-/** Human-only entry point; tests inject a fake instead of making a live call. */
+const BUDGET_EXCEEDED =
+  'Recording refused: the Jev spend cap or daily budget is reached (spec §9).';
+/**
+ * Human-only entry point; the request is logged to and guarded by the usage ledger (spec §9).
+ * Tests inject a fake client and ledger instead of making a live call.
+ */
 export const recordFixture = async (
   input: string,
   output: string,
   createClient: () => JevClient = createSdkJevClient,
+  createUsage: () => UsageRecorder = defaultUsageLedger,
 ): Promise<void> => {
   if (process.env.CI !== undefined) throw new Error('--record refuses to run when CI is set.');
   const client = createClient(); // Key handling belongs exclusively to ai/.
+  const usage = createUsage();
   const parsed = scenarioSchema.safeParse(await readJson(input));
   if (!parsed.success) throw new Error(`${input}: schema error: ${parsed.error.message}`);
   validateScenario(parsed.data);
+  if (usage.budgetExceeded()) throw new Error(BUDGET_EXCEEDED);
+  const time = new Date().toISOString();
+  const sent = performance.now();
   const result = await client.ask(parsed.data.request, { decisionSignal: decisionDeadline() });
+  const latencyMs = Math.round(performance.now() - sent);
+  const billed = billedUsage(result);
+  if (billed) {
+    usage.record({
+      time,
+      gameId: `record:${parsed.data.id}`,
+      requestId: result.ok ? (result.requestId ?? null) : null,
+      model: result.ok ? result.model : resolveJevModel(),
+      inputTokens: billed.inputTokens,
+      outputTokens: billed.outputTokens,
+      latencyMs,
+      status: result.ok ? 'ok' : result.fallbackReason,
+      turnKey: 'record',
+      decision: 0,
+      decisionMs: latencyMs,
+      ...(billed.estimated && { estimated: true }),
+    });
+  }
   if (!result.ok)
     throw new Error(`Recording failed (${result.fallbackReason}); no fixture written.`);
   const fixture = parseFixture(
@@ -217,15 +252,17 @@ const write = async (directory: string, fixture: Fixture) =>
 /**
  * Human-only: records live every scenario whose fixture is missing, synthetic or stale, through
  * the orchestrator with the `ai/` client, and writes it with `synthetic: false`. A current
- * recording is kept. One request per scenario, within the spec §9 budget.
+ * recording is kept. One request per scenario, logged to and guarded by the usage ledger (§9).
  */
 export const recordScenarios = async (
   directory = DEFAULT_FIXTURES,
   createClient: () => JevClient = createSdkJevClient,
   scenarios: readonly EvalScenario[] = SCENARIOS,
+  createUsage: () => UsageRecorder = defaultUsageLedger,
 ): Promise<{ recorded: string[]; current: string[] }> => {
   if (process.env.CI !== undefined) throw new Error('--record refuses to run when CI is set.');
   const client = createClient(); // Key handling belongs exclusively to ai/.
+  const usage = createUsage();
   const recorded: string[] = [];
   const current: string[] = [];
   const failed: string[] = [];
@@ -239,11 +276,11 @@ export const recordScenarios = async (
       current.push(scenario.id);
       continue;
     }
-    const run = await runScenario(scenario, client);
+    const run = await runScenario(scenario, client, usage);
     const [result] = run.results;
     if (run.requests.length !== 1 || !result?.ok) {
       failed.push(
-        `${scenario.id} (${result && !result.ok ? result.fallbackReason : 'no request'})`,
+        `${scenario.id} (${result && !result.ok ? result.fallbackReason : (run.decision.fallbackReason ?? 'no request')})`,
       );
       continue;
     }

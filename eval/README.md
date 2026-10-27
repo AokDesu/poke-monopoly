@@ -54,7 +54,8 @@ environment; the CLI does not load `.env` itself. The recorder sends each scenar
 fixture is missing, synthetic or stale through the orchestrator, using `createSdkJevClient`
 from `ai/`. It writes the full response with `synthetic: false`. A current recording is kept and
 not sent again. That is one request of roughly 3k input tokens per scenario: 20 requests cost
-well under a cent of the spec §9 budget. It refuses when `CI` is set or the key is missing, and
+well under a cent of the spec §9 budget. Each request is logged to `logs/jev-usage.jsonl` and nothing is sent once
+the spec §9 total cap or `JEV_DAILY_BUDGET_THB` is reached, as for the sim and the server. It refuses when `CI` is set or the key is missing, and
 it never serializes credentials. A scenario whose call fails is reported and keeps its old
 fixture. Review the diff, then commit the fixtures.
 

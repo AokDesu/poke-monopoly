@@ -8,6 +8,7 @@ import {
   type JevResult,
   type JevSuccess,
 } from '../../ai/jev/client.ts';
+import type { UsageRecorder } from '../../ai/jev/spend.ts';
 import {
   confidenceFloor,
   Orchestrator,
@@ -50,7 +51,11 @@ async function withJevOn<T>(run: () => Promise<T>): Promise<T> {
 }
 
 /** One decision through the real orchestrator, its choice applied by the engine (spec §3.1, §5.6). */
-export async function runScenario(scenario: EvalScenario, client: JevClient): Promise<ScenarioRun> {
+export async function runScenario(
+  scenario: EvalScenario,
+  client: JevClient,
+  usage?: UsageRecorder,
+): Promise<ScenarioRun> {
   const { state, request } = decideRequest(scenario);
   const decisionPoint = request.observation.public.phase.kind;
   if (decisionPoint !== 'strategy' && decisionPoint !== 'encounter' && decisionPoint !== 'sell') {
@@ -66,7 +71,9 @@ export async function runScenario(scenario: EvalScenario, client: JevClient): Pr
       return result;
     },
   };
-  const decision = await withJevOn(() => new Orchestrator({ client: capture }).decide(request));
+  const decision = await withJevOn(() =>
+    new Orchestrator({ client: capture, usage }).decide(request),
+  );
   const { choice, enabled } = resolveChoice(request.legalActions, decision.choice);
   const actorId = state.config.seats.find((seat) => seat.seatIndex === 0)!.actorId;
   const applied = choice && applyAction(state, command(state, actorId, choice));

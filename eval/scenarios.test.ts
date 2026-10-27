@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 import type { JevAnswer, JevResult } from '../ai/jev/client.ts';
 import { createFakeJevClient } from '../ai/jev/fake.ts';
+import { SpendLedger, type UsageLine } from '../ai/jev/spend.ts';
 import { CONTENT } from '../ai/questions/content.ts';
 import {
   DEFAULT_FIXTURES,
@@ -130,15 +131,32 @@ test('the recorder records placeholders and stale fixtures once, then keeps curr
     ...placeholderResult('live', request),
     requestId: 'req_live',
   }));
-  expect(await recordScenarios(dir, () => fake, subset)).toEqual({
+  const lines: UsageLine[] = [];
+  const ledger = new SpendLedger({ append: (line) => lines.push(line) });
+  expect(
+    await recordScenarios(
+      dir,
+      () => fake,
+      subset,
+      () => ledger,
+    ),
+  ).toEqual({
     recorded: subset.map((s) => s.id),
     current: [],
   });
   expect(fake.requests).toHaveLength(2);
+  await vi.waitFor(() => expect(lines.map((line) => line.status)).toEqual(['ok', 'ok']));
   const rows = await runOffline(dir, subset);
   expect(rows.every((row) => !row.synthetic)).toBe(true);
   // A current recording is neither recorded again nor replaced by a placeholder.
-  expect(await recordScenarios(dir, () => fake, subset)).toEqual({
+  expect(
+    await recordScenarios(
+      dir,
+      () => fake,
+      subset,
+      () => ledger,
+    ),
+  ).toEqual({
     recorded: [],
     current: subset.map((s) => s.id),
   });
@@ -160,6 +178,7 @@ test('a failed live answer writes no fixture and the recorder refuses in CI befo
       dir,
       () => createFakeJevClient(() => ({ ok: false, fallbackReason: 'timeout' })),
       [scenario!],
+      () => new SpendLedger(),
     ),
   ).rejects.toThrow(`Recording failed for ${scenario!.id} (timeout)`);
   expect(await readdir(dir)).toEqual([]);
@@ -167,6 +186,26 @@ test('a failed live answer writes no fixture and the recorder refuses in CI befo
   const createClient = vi.fn();
   await expect(recordScenarios(dir, createClient)).rejects.toThrow('CI is set');
   expect(createClient).not.toHaveBeenCalled();
+});
+
+test('the recorder sends nothing once the spend cap or daily budget is reached (spec §9)', async () => {
+  vi.stubEnv('CI', undefined);
+  const dir = await directory();
+  const [scenario] = SCENARIOS;
+  const fake = createFakeJevClient((request) => placeholderResult('live', request));
+  await expect(
+    recordScenarios(
+      dir,
+      () => fake,
+      [scenario!],
+      () => ({
+        record: () => {},
+        budgetExceeded: () => true,
+      }),
+    ),
+  ).rejects.toThrow(`Recording failed for ${scenario!.id} (budget_exceeded)`);
+  expect(fake.requests).toHaveLength(0);
+  expect(await readdir(dir)).toEqual([]);
 });
 
 test('acceptable sets come from eval/jev/scenarios.ts; a fixture that drifts fails', async () => {
