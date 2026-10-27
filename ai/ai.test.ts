@@ -8,6 +8,7 @@ import sellFixture from '../engine/fixtures/sell-phase-three-pokemon.json';
 import strategyFixture from '../engine/fixtures/strategy-with-items.json';
 import { createApp, MAX_BODY_BYTES } from './app.ts';
 import type { Decider } from './decider.ts';
+import { SpendLedger } from './jev/spend.ts';
 
 // Offline only: a placeholder key, Hono's in-memory `app.request()` and no network.
 const KEY_ENV = 'TYPESAFE_API_KEY';
@@ -18,14 +19,19 @@ const seen: string[] = [];
 
 type App = ReturnType<typeof createApp>;
 
+/** An empty spend ledger, so no test reads a real `logs/jev-usage.jsonl`. */
+const noSpend = () => new SpendLedger();
+const overBudget = () => ({ budgetExceeded: () => true });
+
 const record = async (response: Response) => {
   seen.push(await response.clone().text(), JSON.stringify([...response.headers]));
   return response;
 };
 
-const status = async (app: App = createApp()) => record(await app.request('/api/ai/status'));
+const status = async (app: App = createApp({ usage: noSpend })) =>
+  record(await app.request('/api/ai/status'));
 
-const decide = async (body: unknown, app: App = createApp()) =>
+const decide = async (body: unknown, app: App = createApp({ usage: noSpend })) =>
   record(
     await app.request('/api/ai/decide', {
       method: 'POST',
@@ -97,6 +103,14 @@ describe('GET /api/ai/status', () => {
     });
   });
 
+  test('reports backup-only mode once the spend cap or daily budget is reached', async () => {
+    expect(await (await status(createApp({ usage: overBudget }))).json()).toEqual({
+      jevEnabled: true,
+      backupOnly: true,
+      reason: 'budget_exceeded',
+    });
+  });
+
   test('reports backup-only mode when the key is missing', async () => {
     vi.stubEnv(KEY_ENV, undefined);
     expect(await (await status()).json()).toEqual({
@@ -130,6 +144,14 @@ describe('POST /api/ai/decide', () => {
     expect(sold).not.toHaveProperty('choice');
   });
 
+  test('falls back with budget_exceeded once the spend guard trips', async () => {
+    const response = await decide(strategy, createApp({ usage: overBudget }));
+    expect(await response.json()).toMatchObject({
+      source: 'fallback',
+      fallbackReason: 'budget_exceeded',
+    });
+  });
+
   test('works under the kill switch with no key set', async () => {
     vi.stubEnv('JEV_ENABLED', 'false');
     vi.stubEnv(KEY_ENV, undefined);
@@ -158,7 +180,7 @@ describe('POST /api/ai/decide', () => {
       },
     });
     const response = await record(
-      await createApp().request('/api/ai/decide', {
+      await createApp({ usage: noSpend }).request('/api/ai/decide', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'transfer-encoding': 'chunked' },
         body,
@@ -201,13 +223,19 @@ describe('POST /api/ai/decide', () => {
   });
 
   test('an answer that is not among the options falls back (spec §3.1)', async () => {
-    const app = createApp({ decider: answering({ choice: 'buy:everything', source: 'jev' }) });
+    const app = createApp({
+      usage: noSpend,
+      decider: answering({ choice: 'buy:everything', source: 'jev' }),
+    });
     expect(await (await decide(strategy, app)).json()).toMatchObject({
       choice: 'use-item:item-0',
       source: 'fallback',
       fallbackReason: 'not_an_option',
     });
-    const seller = createApp({ decider: answering({ sellUids: ['pokemon-1'], source: 'jev' }) });
+    const seller = createApp({
+      usage: noSpend,
+      decider: answering({ sellUids: ['pokemon-1'], source: 'jev' }),
+    });
     expect(await (await decide(sell, seller)).json()).toMatchObject({
       sellUids: ['pokemon-0'],
       fallbackReason: 'not_an_option',
@@ -216,6 +244,7 @@ describe('POST /api/ai/decide', () => {
 
   test('a Jev answer among the options is returned without a fallback reason', async () => {
     const app = createApp({
+      usage: noSpend,
       decider: answering({ sellUids: ['pokemon-2', 'pokemon-3'], source: 'jev' }),
     });
     const body = await (await decide(sell, app)).json();
@@ -225,6 +254,7 @@ describe('POST /api/ai/decide', () => {
 
   test('only IDs and telemetry leave, whatever the decider returns', async () => {
     const app = createApp({
+      usage: noSpend,
       decider: answering({
         choice: 'skip',
         source: 'jev',
@@ -238,6 +268,7 @@ describe('POST /api/ai/decide', () => {
 
   test('a decider that throws falls back without leaking the error', async () => {
     const app = createApp({
+      usage: noSpend,
       decider: async () => {
         throw new Error(`boom ${PLACEHOLDER_KEY}`);
       },

@@ -219,19 +219,31 @@ describe('error taxonomy', () => {
       { ok: false, fallbackReason: 'schema_mismatch' },
     ],
     [
-      'a choice outside the options',
+      'a choice outside the options, keeping its reported usage',
       () => json(wrongChoice),
-      { ok: false, fallbackReason: 'schema_mismatch' },
+      {
+        ok: false,
+        fallbackReason: 'schema_mismatch',
+        usage: { inputTokens: 612, outputTokens: 24 },
+      },
     ],
     [
-      'a missing answer',
+      'a missing answer, keeping its reported usage',
       () => json({ ...okBody, answers: { strategy: okBody.answers.strategy } }),
-      { ok: false, fallbackReason: 'schema_mismatch' },
+      {
+        ok: false,
+        fallbackReason: 'schema_mismatch',
+        usage: { inputTokens: 612, outputTokens: 24 },
+      },
     ],
     [
-      'an answer from another model',
+      'an answer from another model, keeping its reported usage',
       () => json({ ...okBody, model: 'jev-1.12.0' }),
-      { ok: false, fallbackReason: 'schema_mismatch' },
+      {
+        ok: false,
+        fallbackReason: 'schema_mismatch',
+        usage: { inputTokens: 612, outputTokens: 24 },
+      },
     ],
     [
       'a connection failure',
