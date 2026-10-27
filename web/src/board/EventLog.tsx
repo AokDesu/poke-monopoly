@@ -8,14 +8,17 @@ import { turnMessages } from './turnMessages.ts';
 function eventMessage(
   event: EngineEvent,
   observation: Observation,
-): { key: MessageKey; text: string } {
+): { key: MessageKey; text: string }[] {
   const seat = (index: number) => seatLabel(index, observation.own.seatIndex);
-  const message = (key: MessageKey, values?: Record<string, string | number>) => ({
-    key,
-    text: t(key, values),
-  });
+  const message = (key: MessageKey, values?: Record<string, string | number>) => [
+    { key, text: t(key, values) },
+  ];
   switch (event.kind) {
+    // Spec §5.7: persisted dialogue annotations are not gameplay announcements.
+    case 'line_selected':
+      return [];
     case 'random_result':
+      if (event.purpose.startsWith('line:')) return [];
       // Strings/arrays may be internal draw IDs or deck order in historical fixtures. Never dump them.
       return typeof event.result === 'number' &&
         /^(first-player:|move:|catch:|movement$)/.test(event.purpose)
@@ -76,9 +79,9 @@ export function EventLog({
   const rows = feed
     ? feed.flatMap((entry) => [
         ...turnMessages(entry),
-        ...entry.record.events.map((event) => eventMessage(event, observation)),
+        ...entry.record.events.flatMap((event) => eventMessage(event, observation)),
       ])
-    : events.map((event) => eventMessage(event, observation));
+    : events.flatMap((event) => eventMessage(event, observation));
   return (
     <section className="panel field-log" aria-labelledby="field-log-heading">
       <h2 id="field-log-heading">{t('board.log')}</h2>
