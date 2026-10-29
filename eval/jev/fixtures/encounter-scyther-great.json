@@ -1,136 +1,37 @@
 {
   "id": "encounter-scyther-great",
   "description": "An uncommon Scyther; holds a few Poké Balls and one Great Ball.",
-  "tags": {
-    "decisionPoint": "encounter",
-    "personality": "Greedy"
-  },
+  "tags": { "decisionPoint": "encounter", "personality": "Greedy" },
   "request": {
     "state": {
       "phase": "encounter",
       "active_seat_id": 0,
       "final_table_round": false,
       "board": [
-        {
-          "space_id": 0,
-          "kind": "start",
-          "name": "Start"
-        },
-        {
-          "space_id": 1,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 2,
-          "kind": "event",
-          "name": "Event"
-        },
-        {
-          "space_id": 3,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 4,
-          "kind": "shop",
-          "name": "Shop"
-        },
-        {
-          "space_id": 5,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 6,
-          "kind": "gym",
-          "name": "Gym"
-        },
-        {
-          "space_id": 7,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 8,
-          "kind": "event",
-          "name": "Event"
-        },
-        {
-          "space_id": 9,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 10,
-          "kind": "shop",
-          "name": "Shop"
-        },
-        {
-          "space_id": 11,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 12,
-          "kind": "gym",
-          "name": "Gym"
-        },
-        {
-          "space_id": 13,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 14,
-          "kind": "event",
-          "name": "Event"
-        },
-        {
-          "space_id": 15,
-          "kind": "shop",
-          "name": "Shop"
-        },
-        {
-          "space_id": 16,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 17,
-          "kind": "event",
-          "name": "Event"
-        },
-        {
-          "space_id": 18,
-          "kind": "gym",
-          "name": "Gym"
-        },
-        {
-          "space_id": 19,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 20,
-          "kind": "shop",
-          "name": "Shop"
-        },
-        {
-          "space_id": 21,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 22,
-          "kind": "event",
-          "name": "Event"
-        },
-        {
-          "space_id": 23,
-          "kind": "wild",
-          "name": "Wild"
-        }
+        { "space_id": 0, "kind": "start", "name": "Start" },
+        { "space_id": 1, "kind": "wild", "name": "Wild" },
+        { "space_id": 2, "kind": "event", "name": "Event" },
+        { "space_id": 3, "kind": "wild", "name": "Wild" },
+        { "space_id": 4, "kind": "shop", "name": "Shop" },
+        { "space_id": 5, "kind": "wild", "name": "Wild" },
+        { "space_id": 6, "kind": "gym", "name": "Gym" },
+        { "space_id": 7, "kind": "wild", "name": "Wild" },
+        { "space_id": 8, "kind": "event", "name": "Event" },
+        { "space_id": 9, "kind": "wild", "name": "Wild" },
+        { "space_id": 10, "kind": "shop", "name": "Shop" },
+        { "space_id": 11, "kind": "wild", "name": "Wild" },
+        { "space_id": 12, "kind": "gym", "name": "Gym" },
+        { "space_id": 13, "kind": "wild", "name": "Wild" },
+        { "space_id": 14, "kind": "event", "name": "Event" },
+        { "space_id": 15, "kind": "shop", "name": "Shop" },
+        { "space_id": 16, "kind": "wild", "name": "Wild" },
+        { "space_id": 17, "kind": "event", "name": "Event" },
+        { "space_id": 18, "kind": "gym", "name": "Gym" },
+        { "space_id": 19, "kind": "wild", "name": "Wild" },
+        { "space_id": 20, "kind": "shop", "name": "Shop" },
+        { "space_id": 21, "kind": "wild", "name": "Wild" },
+        { "space_id": 22, "kind": "event", "name": "Event" },
+        { "space_id": 23, "kind": "wild", "name": "Wild" }
       ],
       "you": {
         "id": "P1",
@@ -152,11 +53,7 @@
           }
         ],
         "items": [],
-        "balls": {
-          "poke": "few",
-          "great": "one",
-          "ultra": "none"
-        },
+        "balls": { "poke": "few", "great": "one", "ultra": "none" },
         "private_results": [],
         "personality": "Greedy: Values cash now over long-term team building; avoids fights it may lose."
       },
@@ -180,57 +77,39 @@
               "ability_ready": true
             }
           ],
-          "known_items": [
-            {
-              "id": "class-item:1",
-              "item_id": "lucky-egg",
-              "name": "Lucky Egg"
-            }
-          ]
+          "known_items": [{ "id": "class-item:1", "item_id": "lucky-egg", "name": "Lucky Egg" }]
         }
       ],
-      "encounter": {
-        "pokemon": "Scyther",
-        "rarity": "uncommon"
-      }
+      "encounter": { "pokemon": "Scyther", "rarity": "uncommon" }
     },
     "questions": {
       "encounter": {
         "type": "choice",
-        "instructions": "A wild Pokémon is here (`encounter.pokemon`). Pick the ONE option that best fits `you.personality` right now: throw one of your Balls at it, or release it. Only the listed options are allowed. Catch chance, from worst to best, is very low, low, even, high or very high; \"even\" means as likely to succeed as to fail, and \"very high\" includes a certain catch. A throw uses up the Ball whether or not the catch succeeds.",
+        "instructions": "A wild Pokémon is here (`encounter.pokemon`, with its `rarity`). Pick the ONE option that best fits `you.personality` right now: throw one of your Balls at it, or release it. Only the listed options are allowed. A Pokémon you catch joins your team, and you can sell it at Start for coins or keep it; a rarer Pokémon sells for more coins than a common one. Releasing keeps your Balls but earns nothing from this Pokémon. A throw uses up the Ball whether or not the catch succeeds, and a used Ball costs coins to replace: a Poké Ball costs least and an Ultra Ball most. Catch chance, from worst to best, is very low, low, even, high or very high; \"even\" means as likely to succeed as to fail, and \"very high\" includes a certain catch.",
         "criteria": {
-          "poke_ball": "Throw one Poké Ball at the wild Scyther. Catch chance with this Ball: high. Poké Balls you hold now, counting this one: a few. Whether the catch succeeds is unknown until the die is rolled.",
-          "great_ball": "Throw one Great Ball at the wild Scyther. Catch chance with this Ball: very high. Great Balls you hold now, counting this one: one. Whether the catch succeeds is unknown until the die is rolled.",
-          "release": "Release the wild Scyther without throwing a Ball. You keep all your Balls and do not get the Scyther."
+          "poke_ball": "Throw one Poké Ball at the wild Scyther. Catch chance with this Ball: high. If the catch succeeds, the Scyther joins your team and you can sell it at Start for coins. If it fails, the Scyther is gone. Either way this Poké Ball is used up. Poké Balls you hold now, counting this one: a few. Whether the catch succeeds is unknown until the die is rolled.",
+          "great_ball": "Throw one Great Ball at the wild Scyther. Catch chance with this Ball: very high. If the catch succeeds, the Scyther joins your team and you can sell it at Start for coins. If it fails, the Scyther is gone. Either way this Great Ball is used up. Great Balls you hold now, counting this one: one. Whether the catch succeeds is unknown until the die is rolled.",
+          "release": "Release the wild Scyther without throwing a Ball. You keep all your Balls, but you do not get the Scyther and earn no coins from it."
         }
       }
     }
   },
-  "acceptable": {
-    "encounter": ["great_ball"]
-  },
+  "acceptable": { "encounter": ["great_ball"] },
   "synthetic": false,
-  "requestHash": "7fed05065b14bece0e54afe01caad9c0c9a7b64848056a62d711d030e08dd974",
+  "requestHash": "188262196e51586fcf0e54a541a1f344e1b95cab25f4bf44ac7a7d716f5a0545",
   "recorded": {
     "ok": true,
     "answers": {
       "encounter": {
         "type": "choice",
-        "choice": "release",
+        "choice": "great_ball",
         "confidence": 0.25,
-        "probabilities": {
-          "poke_ball": 0.19,
-          "great_ball": 0.31,
-          "release": 0.5
-        }
+        "probabilities": { "poke_ball": 0.34, "great_ball": 0.5, "release": 0.16 }
       }
     },
-    "requestId": "req_01a17c8f5bdf77868f9371d0e87326ce",
+    "requestId": "req_01a17e2fd3767dc1b0a3917844e08667",
     "model": "jev-1.13.0",
-    "latencyMs": 261,
-    "usage": {
-      "inputTokens": 1615,
-      "outputTokens": 42
-    }
+    "latencyMs": 388,
+    "usage": { "inputTokens": 1782, "outputTokens": 43 }
   }
 }

@@ -1,136 +1,37 @@
 {
   "id": "encounter-magikarp-only-ultra",
   "description": "A common Magikarp; the only Ball held is one Ultra Ball.",
-  "tags": {
-    "decisionPoint": "encounter",
-    "personality": "Greedy"
-  },
+  "tags": { "decisionPoint": "encounter", "personality": "Greedy" },
   "request": {
     "state": {
       "phase": "encounter",
       "active_seat_id": 0,
       "final_table_round": false,
       "board": [
-        {
-          "space_id": 0,
-          "kind": "start",
-          "name": "Start"
-        },
-        {
-          "space_id": 1,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 2,
-          "kind": "event",
-          "name": "Event"
-        },
-        {
-          "space_id": 3,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 4,
-          "kind": "shop",
-          "name": "Shop"
-        },
-        {
-          "space_id": 5,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 6,
-          "kind": "gym",
-          "name": "Gym"
-        },
-        {
-          "space_id": 7,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 8,
-          "kind": "event",
-          "name": "Event"
-        },
-        {
-          "space_id": 9,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 10,
-          "kind": "shop",
-          "name": "Shop"
-        },
-        {
-          "space_id": 11,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 12,
-          "kind": "gym",
-          "name": "Gym"
-        },
-        {
-          "space_id": 13,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 14,
-          "kind": "event",
-          "name": "Event"
-        },
-        {
-          "space_id": 15,
-          "kind": "shop",
-          "name": "Shop"
-        },
-        {
-          "space_id": 16,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 17,
-          "kind": "event",
-          "name": "Event"
-        },
-        {
-          "space_id": 18,
-          "kind": "gym",
-          "name": "Gym"
-        },
-        {
-          "space_id": 19,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 20,
-          "kind": "shop",
-          "name": "Shop"
-        },
-        {
-          "space_id": 21,
-          "kind": "wild",
-          "name": "Wild"
-        },
-        {
-          "space_id": 22,
-          "kind": "event",
-          "name": "Event"
-        },
-        {
-          "space_id": 23,
-          "kind": "wild",
-          "name": "Wild"
-        }
+        { "space_id": 0, "kind": "start", "name": "Start" },
+        { "space_id": 1, "kind": "wild", "name": "Wild" },
+        { "space_id": 2, "kind": "event", "name": "Event" },
+        { "space_id": 3, "kind": "wild", "name": "Wild" },
+        { "space_id": 4, "kind": "shop", "name": "Shop" },
+        { "space_id": 5, "kind": "wild", "name": "Wild" },
+        { "space_id": 6, "kind": "gym", "name": "Gym" },
+        { "space_id": 7, "kind": "wild", "name": "Wild" },
+        { "space_id": 8, "kind": "event", "name": "Event" },
+        { "space_id": 9, "kind": "wild", "name": "Wild" },
+        { "space_id": 10, "kind": "shop", "name": "Shop" },
+        { "space_id": 11, "kind": "wild", "name": "Wild" },
+        { "space_id": 12, "kind": "gym", "name": "Gym" },
+        { "space_id": 13, "kind": "wild", "name": "Wild" },
+        { "space_id": 14, "kind": "event", "name": "Event" },
+        { "space_id": 15, "kind": "shop", "name": "Shop" },
+        { "space_id": 16, "kind": "wild", "name": "Wild" },
+        { "space_id": 17, "kind": "event", "name": "Event" },
+        { "space_id": 18, "kind": "gym", "name": "Gym" },
+        { "space_id": 19, "kind": "wild", "name": "Wild" },
+        { "space_id": 20, "kind": "shop", "name": "Shop" },
+        { "space_id": 21, "kind": "wild", "name": "Wild" },
+        { "space_id": 22, "kind": "event", "name": "Event" },
+        { "space_id": 23, "kind": "wild", "name": "Wild" }
       ],
       "you": {
         "id": "P1",
@@ -152,11 +53,7 @@
           }
         ],
         "items": [],
-        "balls": {
-          "poke": "none",
-          "great": "none",
-          "ultra": "one"
-        },
+        "balls": { "poke": "none", "great": "none", "ultra": "one" },
         "private_results": [],
         "personality": "Greedy: Values cash now over long-term team building; avoids fights it may lose."
       },
@@ -180,55 +77,38 @@
               "ability_ready": true
             }
           ],
-          "known_items": [
-            {
-              "id": "class-item:1",
-              "item_id": "lucky-egg",
-              "name": "Lucky Egg"
-            }
-          ]
+          "known_items": [{ "id": "class-item:1", "item_id": "lucky-egg", "name": "Lucky Egg" }]
         }
       ],
-      "encounter": {
-        "pokemon": "Magikarp",
-        "rarity": "common"
-      }
+      "encounter": { "pokemon": "Magikarp", "rarity": "common" }
     },
     "questions": {
       "encounter": {
         "type": "choice",
-        "instructions": "A wild Pokémon is here (`encounter.pokemon`). Pick the ONE option that best fits `you.personality` right now: throw one of your Balls at it, or release it. Only the listed options are allowed. Catch chance, from worst to best, is very low, low, even, high or very high; \"even\" means as likely to succeed as to fail, and \"very high\" includes a certain catch. A throw uses up the Ball whether or not the catch succeeds.",
+        "instructions": "A wild Pokémon is here (`encounter.pokemon`, with its `rarity`). Pick the ONE option that best fits `you.personality` right now: throw one of your Balls at it, or release it. Only the listed options are allowed. A Pokémon you catch joins your team, and you can sell it at Start for coins or keep it; a rarer Pokémon sells for more coins than a common one. Releasing keeps your Balls but earns nothing from this Pokémon. A throw uses up the Ball whether or not the catch succeeds, and a used Ball costs coins to replace: a Poké Ball costs least and an Ultra Ball most. Catch chance, from worst to best, is very low, low, even, high or very high; \"even\" means as likely to succeed as to fail, and \"very high\" includes a certain catch.",
         "criteria": {
-          "ultra_ball": "Throw one Ultra Ball at the wild Magikarp. Catch chance with this Ball: very high. Ultra Balls you hold now, counting this one: one. Whether the catch succeeds is unknown until the die is rolled.",
-          "release": "Release the wild Magikarp without throwing a Ball. You keep all your Balls and do not get the Magikarp."
+          "ultra_ball": "Throw one Ultra Ball at the wild Magikarp. Catch chance with this Ball: very high. If the catch succeeds, the Magikarp joins your team and you can sell it at Start for coins. If it fails, the Magikarp is gone. Either way this Ultra Ball is used up. Ultra Balls you hold now, counting this one: one. Whether the catch succeeds is unknown until the die is rolled.",
+          "release": "Release the wild Magikarp without throwing a Ball. You keep all your Balls, but you do not get the Magikarp and earn no coins from it."
         }
       }
     }
   },
-  "acceptable": {
-    "encounter": ["release"]
-  },
+  "acceptable": { "encounter": ["release"] },
   "synthetic": false,
-  "requestHash": "b0f714ef0acbf942996fe316d9f42b4f59f1dc3a49f89a5ef321470cdc5ac414",
+  "requestHash": "d82c977d5563732cea46ba9635da6abf0989b4aafa815c4f0612b395e3b63918",
   "recorded": {
     "ok": true,
     "answers": {
       "encounter": {
         "type": "choice",
         "choice": "release",
-        "confidence": 0.46,
-        "probabilities": {
-          "ultra_ball": 0.27,
-          "release": 0.73
-        }
+        "confidence": 0.34,
+        "probabilities": { "ultra_ball": 0.33, "release": 0.67 }
       }
     },
-    "requestId": "req_01a17c8f58517a33bca94825c25ad247",
+    "requestId": "req_01a17e2fcfa470dbacf8790a514edff3",
     "model": "jev-1.13.0",
-    "latencyMs": 250,
-    "usage": {
-      "inputTokens": 1556,
-      "outputTokens": 35
-    }
+    "latencyMs": 332,
+    "usage": { "inputTokens": 1680, "outputTokens": 35 }
   }
 }

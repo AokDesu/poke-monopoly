@@ -41,11 +41,14 @@ export function ballCountWords(count: number): 'none' | 'one' | 'a few' | 'many'
 }
 
 export const ENCOUNTER_INSTRUCTIONS =
-  'A wild Pokémon is here (`encounter.pokemon`). Pick the ONE option that best fits ' +
-  '`you.personality` right now: throw one of your Balls at it, or release it. Only the listed ' +
-  'options are allowed. Catch chance, from worst to best, is very low, low, even, high or very ' +
-  'high; "even" means as likely to succeed as to fail, and "very high" includes a certain catch. ' +
-  'A throw uses up the Ball whether or not the catch succeeds.';
+  'A wild Pokémon is here (`encounter.pokemon`, with its `rarity`). Pick the ONE option that ' +
+  'best fits `you.personality` right now: throw one of your Balls at it, or release it. Only the ' +
+  'listed options are allowed. A Pokémon you catch joins your team, and you can sell it at Start ' +
+  'for coins or keep it; a rarer Pokémon sells for more coins than a common one. Releasing keeps ' +
+  'your Balls but earns nothing from this Pokémon. A throw uses up the Ball whether or not the ' +
+  'catch succeeds, and a used Ball costs coins to replace: a Poké Ball costs least and an Ultra ' +
+  'Ball most. Catch chance, from worst to best, is very low, low, even, high or very high; ' +
+  '"even" means as likely to succeed as to fail, and "very high" includes a certain catch.';
 
 const LABELS: Record<BallType, string> = {
   poke: 'poke_ball',
@@ -84,8 +87,8 @@ export function buildEncounterQuestion(
     if (action.kind === 'release') {
       options.release = action.id;
       criteria.release =
-        `Release the wild ${pokemon.name} without throwing a Ball. You keep all your Balls ` +
-        `and do not get the ${pokemon.name}.`;
+        `Release the wild ${pokemon.name} without throwing a Ball. You keep all your Balls, ` +
+        `but you do not get the ${pokemon.name} and earn no coins from it.`;
       continue;
     }
     if (action.kind !== 'catch') {
@@ -99,7 +102,9 @@ export function buildEncounterQuestion(
     options[label] = action.id;
     criteria[label] =
       `Throw one ${ball} at the wild ${pokemon.name}. Catch chance with this Ball: ` +
-      `${bucketCatchChance(odds.successFaces)}. ${ball}s you hold now, counting this one: ` +
+      `${bucketCatchChance(odds.successFaces)}. If the catch succeeds, the ${pokemon.name} joins ` +
+      `your team and you can sell it at Start for coins. If it fails, the ${pokemon.name} is gone. ` +
+      `Either way this ${ball} is used up. ${ball}s you hold now, counting this one: ` +
       `${ballCountWords(observation.own.balls[ballType])}. Whether the catch succeeds is ` +
       'unknown until the die is rolled.';
   }
