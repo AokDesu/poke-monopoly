@@ -9,8 +9,9 @@ import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
 /** What a decider picks: an action ID, or the Pokémon to sell at the Sell Phase. */
 export type DeciderPick = { choice: string } | { sellUids: string[] };
 
-export type DeciderAnswer = DeciderPick &
-  ({ source: 'jev' } | { source: 'fallback'; fallbackReason: DecisionFallbackReason });
+export type DeciderAnswer = DeciderPick & { lineId?: string } & (
+    { source: 'jev' } | { source: 'fallback'; fallbackReason: DecisionFallbackReason }
+  );
 
 export interface DeciderContext {
   status: AiStatus;

@@ -28,7 +28,9 @@ function start(seed = 1) {
       request.enabledActions.find((entry: { kind: string }) =>
         ['release', 'skip', 'skip_shop'].includes(entry.kind),
       ) ?? request.enabledActions[0];
-    return new Response(JSON.stringify({ choice: choice.id }));
+    return new Response(
+      JSON.stringify({ choice: choice.id, source: 'fallback', fallbackReason: 'stub' }),
+    );
   });
   const store = createGameStore();
   store.start(
@@ -183,7 +185,13 @@ test('an unavailable opponent service has an explicit retry and preserves the de
   const before = store.getSession();
   vi.stubGlobal('fetch', async (_url: RequestInfo | URL, init?: RequestInit) => {
     const request = JSON.parse(String(init?.body));
-    return new Response(JSON.stringify({ choice: request.enabledActions[0].id }));
+    return new Response(
+      JSON.stringify({
+        choice: request.enabledActions[0].id,
+        source: 'fallback',
+        fallbackReason: 'stub',
+      }),
+    );
   });
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name: t('turn.retry') }));

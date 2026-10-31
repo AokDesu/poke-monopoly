@@ -30,6 +30,30 @@ Install with `npm ci`. Optionally copy `.env.example` to `.env`; the Jev key is 
 
 CI (job `ci`) runs typecheck, lint, format check, tests, the sim and the offline eval on every pull request.
 
+## AI turn playback
+
+Spec: §3, §3.1, §5.7. The board shows each rival's accepted action in the field log.
+Turn speed (Normal, Fast, Instant) changes presentation pauses only; Skip line
+closes the speech bubble without changing a decision. Line IDs resolve through the
+English catalog from `content/lines/en/`; no server-supplied prose is rendered.
+
+The browser requests only the local API. It prepares `POST /api/ai/fallback`
+alongside `POST /api/ai/decide`, then uses that server-selected fallback if the
+decision exceeds 1.5 seconds. Late replies are discarded. If the local server
+cannot supply either result, the board shows an error and Retry opponent turn;
+it does not invent an action.
+
+`GET /api/ai/status` supplies backup-only mode and its reason; decision `source`
+supplies per-rival backup status. When every rival is using backup, one combined
+banner stays visible and the game continues. To try this without a key, run
+`JEV_ENABLED=false npm start` after `npm run build`.
+
+The decision JSON contract is unchanged. Additive response headers carry
+`X-AI-Decision-Ms`, `X-AI-Line-Id` and `X-AI-Dialogue-Events`. Dialogue annotations
+are saved separately from commands and never advance gameplay RNG or command
+replay. The existing HTTP decider and Shop policy are unchanged; connecting the
+orchestrator to the HTTP decider is separate work.
+
 ## Folders
 
 | Folder     | What it is                                |

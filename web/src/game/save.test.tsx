@@ -338,7 +338,9 @@ test('a finished game shows engine coins, exports a replayable log, and play aga
       request.enabledActions.find((entry) =>
         ['release', 'skip', 'skip_shop'].includes(entry.kind),
       ) ?? request.enabledActions[0];
-    return new Response(JSON.stringify({ choice: choice?.id }));
+    return new Response(
+      JSON.stringify({ choice: choice?.id, source: 'fallback', fallbackReason: 'stub' }),
+    );
   });
   const user = userEvent.setup();
   const box = memory();

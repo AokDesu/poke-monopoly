@@ -15,6 +15,7 @@ import {
   type DeciderAnswer,
 } from './decider.ts';
 import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
+import { presentationHeaders } from './presentation.ts';
 import { decideShop, shopRequestSchema } from './shop.ts';
 
 /** Spec §6 item 2: the endpoint validates payload size before it reads the body. */
@@ -47,39 +48,57 @@ export const createApp = ({
 
   app.get('/api/ai/status', (c) => c.json(aiStatusSchema.parse(jevStatus(usage))));
 
-  app.post(
-    '/api/ai/decide',
-    bodyLimit({
-      maxSize: MAX_BODY_BYTES,
-      onError: (c) => c.json({ error: 'payload_too_large' }, 413),
-    }),
-    async (c) => {
-      const started = performance.now();
-      let body: unknown;
-      try {
-        body = await c.req.json();
-      } catch {
-        return c.json({ error: 'invalid_json' }, 400);
-      }
-      const parsed = decisionRequestSchema.or(shopRequestSchema).safeParse(body);
-      if (!parsed.success) {
-        const paths = parsed.error.issues.map((issue) => issue.path.join('.'));
-        return c.json({ error: 'invalid_request', paths }, 400);
-      }
-      const request = parsed.data;
-      if (request.decisionPoint === 'shop') {
-        return c.json(toResponse(decideShop(request), crypto.randomUUID(), started));
-      }
-      let answer: DeciderAnswer;
-      try {
-        answer = await decider(request, { status: jevStatus(usage) });
-        if (!isOption(request, answer)) answer = fallbackAnswer(request, 'not_an_option');
-      } catch {
-        answer = fallbackAnswer(request, 'decider_error');
-      }
-      return c.json(toResponse(answer, crypto.randomUUID(), started));
-    },
-  );
+  for (const path of ['/api/ai/decide', '/api/ai/fallback'])
+    app.post(
+      path,
+      bodyLimit({
+        maxSize: MAX_BODY_BYTES,
+        onError: (c) => c.json({ error: 'payload_too_large' }, 413),
+      }),
+      async (c) => {
+        const started = performance.now();
+        let body: unknown;
+        try {
+          body = await c.req.json();
+        } catch {
+          return c.json({ error: 'invalid_json' }, 400);
+        }
+        const parsed = decisionRequestSchema.or(shopRequestSchema).safeParse(body);
+        if (!parsed.success) {
+          const paths = parsed.error.issues.map((issue) => issue.path.join('.'));
+          return c.json({ error: 'invalid_request', paths }, 400);
+        }
+        const request = parsed.data;
+        if (request.decisionPoint === 'shop') {
+          const answer = decideShop(request);
+          return c.json(
+            toResponse(answer, crypto.randomUUID(), started),
+            200,
+            presentationHeaders(request, answer),
+          );
+        }
+        if (path === '/api/ai/fallback') {
+          const answer = fallbackAnswer(request, jevStatus(usage).reason ?? 'timeout');
+          return c.json(
+            toResponse(answer, crypto.randomUUID(), started),
+            200,
+            presentationHeaders(request, answer),
+          );
+        }
+        let answer: DeciderAnswer;
+        try {
+          answer = await decider(request, { status: jevStatus(usage) });
+          if (!isOption(request, answer)) answer = fallbackAnswer(request, 'not_an_option');
+        } catch {
+          answer = fallbackAnswer(request, 'decider_error');
+        }
+        return c.json(
+          toResponse(answer, crypto.randomUUID(), started),
+          200,
+          presentationHeaders(request, answer),
+        );
+      },
+    );
 
   return app;
 };
