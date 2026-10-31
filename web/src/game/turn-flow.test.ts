@@ -79,7 +79,13 @@ test('opponent requests contain only that seat projection; the returned legal ch
     expect(JSON.stringify(request)).not.toMatch(
       /private-game-seed|"rng"|"eventDeck"|"initialState"/,
     );
-    return new Response(JSON.stringify({ choice: request.enabledActions[0].id }));
+    return new Response(
+      JSON.stringify({
+        choice: request.enabledActions[0].id,
+        source: 'fallback',
+        fallbackReason: 'stub',
+      }),
+    );
   });
   vi.stubGlobal('fetch', transport);
   expect(await store.playOpponent(new AbortController().signal)).toBe(true);

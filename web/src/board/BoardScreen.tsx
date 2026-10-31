@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useRef, useState, useSyncExternalStore } from 'react';
 import type { GameStore } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
 import { Screen } from '../ui/Screen.tsx';
 import { Board } from './Board.tsx';
+import { AiTurn } from './AiTurn.tsx';
+import { useTurnPlayback } from './useTurnPlayback.ts';
 import { EncounterDialog } from './EncounterDialog.tsx';
 import { phaseLabel } from './labels.ts';
 import { ShopPanel } from './ShopPanel.tsx';
@@ -24,28 +26,9 @@ export function BoardScreen({
 }) {
   const view = useSyncExternalStore(store.subscribe, store.getView);
   const openedAt = useRef<number | null>(null);
-  const [failure, setFailure] = useState<number | null>(null);
-  const [retry, setRetry] = useState(0);
+  const playback = useTurnPlayback(store, view);
   const [actionError, setActionError] = useState<number | null>(null);
   if (view && openedAt.current === null) openedAt.current = view.observation.public.stateRevision;
-
-  useEffect(() => {
-    if (!view || view.observation.public.phase.kind === 'finished') return;
-    const controller = new AbortController();
-    // A presentation pause exposes movement, automatic releases and the Start handoff.
-    // The engine still decides whether a step is automatic; this timer never chooses an action.
-    const timer = window.setTimeout(() => {
-      if (store.advance({ human: true })) return;
-      if (view.observation.public.activeSeatIndex === view.seatIndex) return;
-      void store.playOpponent(controller.signal).catch(() => {
-        if (!controller.signal.aborted) setFailure(view.observation.public.stateRevision);
-      });
-    }, 1200);
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [store, view, retry]);
 
   if (!view) return <Screen heading={t('play.heading')} body={t('board.noGame')} />;
   const { public: game } = view.observation;
@@ -79,12 +62,16 @@ export function BoardScreen({
     (event) => event.kind === 'random_result' && event.purpose.startsWith('move:'),
   );
   const you = game.players.find((player) => player.seatIndex === view.seatIndex)!;
-  const opponentFailed = failure === game.stateRevision;
+  const opponentFailed = playback.failed;
+  const opponentMessage =
+    automatic?.before.activeSeatIndex === game.activeSeatIndex
+      ? turnMessages(automatic).find((message) => message.key.startsWith('ai.'))
+      : undefined;
   let body =
     game.phase.kind === 'finished'
       ? t('turn.finished')
       : !humanTurn
-        ? t('turn.opponent')
+        ? (opponentMessage?.text ?? t('ai.playing'))
         : game.phase.kind === 'sell'
           ? t('turn.sellBody')
           : game.phase.kind === 'shop'
@@ -120,12 +107,15 @@ export function BoardScreen({
             {automaticMessage.text}
           </p>
         )}
-        {!decisionOpen && roll?.kind === 'random_result' && typeof roll.result === 'number' && (
-          <p className="move-summary">
-            {t('turn.lastMove', { roll: roll.result, position: you.position })}
-          </p>
-        )}
-        {result && !decisionOpen && (
+        {humanTurn &&
+          !decisionOpen &&
+          roll?.kind === 'random_result' &&
+          typeof roll.result === 'number' && (
+            <p className="move-summary">
+              {t('turn.lastMove', { roll: roll.result, position: you.position })}
+            </p>
+          )}
+        {humanTurn && result && !decisionOpen && (
           <p className="catch-result" role="status" data-message-key={result.key}>
             {result.text}
           </p>
@@ -137,6 +127,7 @@ export function BoardScreen({
           </p>
         )}
       </div>
+      <AiTurn view={view} playback={playback} />
       {receivedRescue && (
         <p className="rescue-preview" role="status">
           {t('sell.rescueStarter')}
@@ -173,13 +164,7 @@ export function BoardScreen({
         />
       )}
       {opponentFailed && (
-        <ActionButton
-          enabled
-          onClick={() => {
-            setFailure(null);
-            setRetry((value) => value + 1);
-          }}
-        >
+        <ActionButton enabled onClick={playback.retry}>
           {t('turn.retry')}
         </ActionButton>
       )}

@@ -213,3 +213,43 @@ test('Shop, Strategy previews and atomic Sell decisions have catalog coverage', 
   ];
   for (const key of keys) expect(t(key).trim(), key).not.toBe('');
 });
+
+test('AI playback controls, status reasons and line bank notices go through the catalog', () => {
+  const keys: MessageKey[] = [
+    'ai.thinking',
+    'ai.playing',
+    'ai.statusUnavailable',
+    'ai.speed',
+    'ai.speed.normal',
+    'ai.speed.fast',
+    'ai.speed.instant',
+    'ai.skipLine',
+    'ai.speech',
+    'ai.reason.disabled',
+    'ai.reason.missing_key',
+    'ai.reason.budget_exceeded',
+    'ai.reason.timeout',
+    'ai.reason.rate_limited',
+    'ai.reason.auth',
+    'ai.reason.stub',
+    'ai.action.roll',
+    'ai.action.skip',
+    'ai.action.catch',
+    'ai.action.release',
+    'ai.action.buy',
+    'ai.action.skip_shop',
+    'ai.action.use_item',
+    'ai.action.sell',
+    'ai.action.keep',
+    'ai.result.caught',
+    'ai.result.escaped',
+    'ai.result.released',
+    'ai.line.fallback-notice-greedy-neutral-1',
+    'ai.line.fallback-notice-greedy-neutral-2',
+    'ai.line.fallback-notice-greedy-neutral-3',
+  ];
+  for (const key of keys) expect(t(key).trim(), key).not.toBe('');
+  expect(t('ai.line.fallback-notice-greedy-neutral-2', { turn: 7 })).toBe(
+    'From turn 7, a backup bot is making my moves.',
+  );
+});

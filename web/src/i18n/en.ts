@@ -1,3 +1,16 @@
+import fallbackNotice from '../../../content/lines/en/fallback_notice.json';
+import gameStart from '../../../content/lines/en/game_start.json';
+import catchSuccess from '../../../content/lines/en/catch_success.json';
+import catchFail from '../../../content/lines/en/catch_fail.json';
+import soldPokemon from '../../../content/lines/en/sold_pokemon.json';
+
+const dialogue = Object.fromEntries(
+  [...fallbackNotice, ...gameStart, ...catchSuccess, ...catchFail, ...soldPokemon].map((line) => [
+    `ai.line.${line.id}`,
+    line.text,
+  ]),
+) as Record<`ai.line.${string}`, string>;
+
 /**
  * Every player-facing string in the web app (spec §3: the UI is in English).
  * Components never type UI text inline; they call `t(key)`. Numbers are not
@@ -5,6 +18,7 @@
  * names come from the content tables (`content/*.json`).
  */
 export const en = {
+  ...dialogue,
   'app.title': 'Poke Monopoly',
 
   'nav.home': 'Back to Home',
@@ -315,6 +329,34 @@ export const en = {
     'Your team will be empty. You receive a Rescue Starter worth {value} coins.',
 
   'ai.backupBadge': 'Backup bot mode',
+  'ai.thinking': 'Thinking… If Jev takes too long, the backup bot decides.',
+  'ai.playing': 'The rival is playing. Its choices appear in the field log.',
+  'ai.statusUnavailable': 'AI status could not be checked. Each decision still reports its source.',
+  'ai.speed': 'Turn speed',
+  'ai.speed.normal': 'Normal',
+  'ai.speed.fast': 'Fast',
+  'ai.speed.instant': 'Instant',
+  'ai.skipLine': 'Skip line',
+  'ai.speech': '{name} says: {line}',
+  'ai.reason.disabled': 'Jev is switched off.',
+  'ai.reason.missing_key': 'Jev is not configured on this server.',
+  'ai.reason.budget_exceeded': 'The AI spending limit has been reached.',
+  'ai.reason.timeout': 'Jev did not answer in time.',
+  'ai.reason.rate_limited': 'Jev is receiving too many requests.',
+  'ai.reason.auth': 'The server could not connect to Jev with its current settings.',
+  'ai.reason.stub': 'This decision uses the backup policy.',
+  'ai.action.roll': '{name} rolled the die.',
+  'ai.action.skip': '{name} continued past {phase}.',
+  'ai.action.catch': '{name} chose to catch {pokemon} with a {ball}.',
+  'ai.action.release': '{name} released {pokemon}.',
+  'ai.action.buy': '{name} bought an offer from the Shop.',
+  'ai.action.skip_shop': '{name} left the Shop without buying.',
+  'ai.action.use_item': '{name} used an item.',
+  'ai.action.sell': '{name} sold Pokémon at Start.',
+  'ai.action.keep': '{name} kept the whole team.',
+  'ai.result.caught': '{name} caught {pokemon}.',
+  'ai.result.escaped': '{pokemon} escaped from {name}. Its Ball was spent.',
+  'ai.result.released': '{name} released {pokemon}. No Ball was spent.',
   'ai.backupUnavailable':
     'The AI decision service is unavailable. The backup bot decides instead, and the game goes on.',
   'deal.reconfirmAfterFallback':
@@ -340,10 +382,10 @@ export const en = {
   'event.deckReshuffled': 'The Event deck ran out. The used cards were shuffled back in.',
 } as const satisfies Record<string, string>;
 
-export type MessageKey = keyof typeof en;
+export type MessageKey = keyof typeof en | keyof typeof dialogue;
 
 export function t(key: MessageKey, values?: Readonly<Record<string, string | number>>): string {
-  const message = en[key];
+  const message = (en as typeof en & typeof dialogue)[key]!;
   return values
     ? message.replace(/\{(\w+)\}/g, (slot, name: string) => String(values[name] ?? slot))
     : message;

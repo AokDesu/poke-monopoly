@@ -6,6 +6,7 @@ import {
   createGameConfig,
   createGameLog,
   eventsVisibleTo,
+  engineEventSchema,
   fixtureSchema,
   GAME_PRESETS,
   legalActions,
@@ -28,6 +29,7 @@ import {
   type Observation,
   type SeatActionRecord,
 } from '../../../engine/index.ts';
+import { requestOpponent, type AiDecision } from './ai.ts';
 import type { DifficultyId, GameSetup, PersonalityId } from './setup.ts';
 
 /**
@@ -56,6 +58,8 @@ export interface SeatFeedEntry {
   /** What the seat saw just before the action: the public phase and whose turn it was. */
   readonly before: Pick<Observation['public'], 'phase' | 'activeSeatIndex' | 'globalTurnNo'>;
   readonly record: SeatActionRecord;
+  readonly decision?: AiDecision;
+  readonly lineContext?: { pokemonSpeciesId?: string; coins?: number; targetSeatIndex?: number };
 }
 
 /**
@@ -212,18 +216,49 @@ export function createGameStore(): GameStore {
       opponents,
     };
   };
-  const commit = (next: GameSession, before: GameState, records: readonly ActionRecord[]) => {
+  const commit = (
+    next: GameSession,
+    before: GameState,
+    records: readonly ActionRecord[],
+    decision?: AiDecision,
+  ) => {
     const seatIndex = humanSeat(before);
     let feed = view?.feed ?? [];
     if (seatIndex !== undefined && records.length > 0) {
-      const { phase, activeSeatIndex, globalTurnNo } = observe(before, seatIndex).public;
+      const { phase, activeSeatIndex, globalTurnNo, players } = observe(before, seatIndex).public;
       // Each step applies one record (engine contract: `advanceAutomatically` does not loop).
       feed = [
         ...feed,
-        ...records.map((record) => ({
-          before: { phase, activeSeatIndex, globalTurnNo },
-          record: actionVisibleTo(before, record, seatIndex),
-        })),
+        ...records.map((record) => {
+          const visible = actionVisibleTo(before, record, seatIndex);
+          const sale = visible.events.find(
+            (event) => event.kind === 'coin_transfer' && event.reason === 'pokemon_sale',
+          );
+          const sold = visible.events.find(
+            (event) => event.kind === 'uid_destroyed' && event.reason === 'sold',
+          );
+          const pokemon =
+            sold?.kind === 'uid_destroyed'
+              ? players
+                  .find((player) => player.seatIndex === activeSeatIndex)
+                  ?.team.find((entry) => entry.instanceId === sold.instanceId)
+              : undefined;
+          return {
+            before: { phase, activeSeatIndex, globalTurnNo },
+            record: visible,
+            ...(decision && {
+              decision,
+              lineContext: {
+                ...(pokemon && { pokemonSpeciesId: pokemon.speciesId }),
+                ...(sale?.kind === 'coin_transfer' && { coins: sale.amount }),
+                ...(visible.action.kind === 'use_item' &&
+                  visible.action.payload.targetSeatIndex !== undefined && {
+                    targetSeatIndex: visible.action.payload.targetSeatIndex,
+                  }),
+              },
+            }),
+          };
+        }),
       ];
     }
     publish(next, feed);
@@ -232,7 +267,11 @@ export function createGameStore(): GameStore {
     if (!session) throw new Error('No game in progress');
     return session;
   };
-  const submit = (command: Command): ApplyActionResult => {
+  const submit = (
+    command: Command,
+    decision?: AiDecision,
+    dialogueEvents: EngineEvent[] = [],
+  ): ApplyActionResult => {
     const { state, log } = current();
     const result = applyAction(state, {
       ...command,
@@ -241,9 +280,19 @@ export function createGameStore(): GameStore {
     });
     if ('accepted' in result) {
       commit(
-        { state: result.state, log: { ...log, actions: [...log.actions, result.record] } },
+        {
+          state: result.state,
+          log: {
+            ...log,
+            actions: [...log.actions, result.record],
+            ...(dialogueEvents.length > 0 && {
+              dialogueEvents: [...(log.dialogueEvents ?? []), ...dialogueEvents],
+            }),
+          },
+        },
         state,
         [result.record],
+        decision,
       );
     }
     return result;
@@ -319,11 +368,8 @@ export function createGameStore(): GameStore {
         throw new Error('Unsupported opponent decision point');
       }
       const settings = opponents.find((opponent) => opponent.seatIndex === seatIndex);
-      const response = await fetch('/api/ai/decide', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        signal,
-        body: JSON.stringify({
+      const answer = await requestOpponent(
+        JSON.stringify({
           gameId: gameToken,
           seatIndex,
           decisionPoint,
@@ -336,28 +382,59 @@ export function createGameStore(): GameStore {
           personalityId: settings?.personality ?? 'greedy',
           turnKey: `${state.globalTurnNo}:${seatIndex}`,
         }),
+        signal,
+        (pick) => {
+          if ('choice' in pick) return enabledActions.some((entry) => entry.id === pick.choice);
+          if (decisionPoint !== 'sell' || new Set(pick.sellUids).size !== pick.sellUids.length)
+            return false;
+          const sellable = enabledActions.flatMap((entry) =>
+            entry.kind === 'sell' ? entry.payload.pokemonInstanceIds : [],
+          );
+          return pick.sellUids.every((uid) => sellable.includes(uid));
+        },
+      ).catch((error: unknown) => {
+        if (signal.aborted || token !== gameToken || session !== snapshot) return null;
+        throw error;
       });
-      if (!response.ok) throw new Error('Opponent service failed');
-      const answer: unknown = await response.json();
-      if (signal.aborted || token !== gameToken || session !== snapshot) return false;
-      if (!answer || typeof answer !== 'object') throw new Error('Invalid opponent answer');
+      if (!answer || signal.aborted || token !== gameToken || session !== snapshot) return false;
+      const decision: AiDecision = {
+        source: answer.source,
+        fallbackReason: answer.fallbackReason,
+        lineId: answer.lineId,
+      };
+      const annotations = engineEventSchema.array().safeParse(answer.dialogueEvents ?? []);
+      const dialogueEvents = annotations.success
+        ? annotations.data.filter(
+            (event) =>
+              event.kind === 'line_selected' ||
+              (event.kind === 'random_result' && event.purpose.startsWith('line:')),
+          )
+        : [];
       const actorId = state.players.find((player) => player.seatIndex === seatIndex)!.actorId;
       let result: ApplyActionResult;
       if ('choice' in answer && typeof answer.choice === 'string') {
         const choice = enabledActions.find((entry) => entry.id === answer.choice);
         if (!choice) throw new Error('Opponent chose an unavailable action');
-        result = submit({ actorId, kind: choice.kind, payload: choice.payload } as Command);
+        result = submit(
+          { actorId, kind: choice.kind, payload: choice.payload } as Command,
+          decision,
+          dialogueEvents,
+        );
       } else if (
         decisionPoint === 'sell' &&
         'sellUids' in answer &&
         Array.isArray(answer.sellUids) &&
         answer.sellUids.every((id: unknown) => typeof id === 'string')
       ) {
-        result = submit({
-          actorId,
-          kind: 'sell',
-          payload: { pokemonInstanceIds: answer.sellUids },
-        });
+        result = submit(
+          {
+            actorId,
+            kind: 'sell',
+            payload: { pokemonInstanceIds: answer.sellUids },
+          },
+          decision,
+          dialogueEvents,
+        );
       } else {
         throw new Error('Invalid opponent answer');
       }
