@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from 'react';
-import { firstPlayerRoll, rollForFirstPlayer } from '../game/firstPlayer.ts';
+import { firstPlayerRoll } from '../game/firstPlayer.ts';
 import type { GameStore } from '../game/store.ts';
 import { className } from '../i18n/names.ts';
 import { t } from '../i18n/en.ts';
@@ -18,16 +18,15 @@ interface FirstPlayerScreenProps {
 /**
  * The first-player roll (spec §3): every seat's roll, attempt by attempt, read from the human
  * seat's view. A tie for the top roll starts a new attempt for the tied seats only; the human
- * re-rolls with a button, the AIs roll on their own. Every number is an engine dice result.
+ * and AI seats all roll automatically (§3.1). Every number is an engine dice result.
  */
 export function FirstPlayerScreen({ store, onToBoard, onQuit }: FirstPlayerScreenProps) {
   const view = useSyncExternalStore(store.subscribe, store.getView);
   useEffect(() => {
     if (!view || view.observation.public.phase.kind !== 'first_player_roll') return;
-    if (view.legalActions.enabled.some((choice) => choice.kind === 'roll')) return;
     // Deferred so Continue can show the saved rolls before the next automatic step.
     const timer = window.setTimeout(() => {
-      store.advance();
+      store.advance({ human: true });
     }, 1200);
     return () => window.clearTimeout(timer);
   }, [store, view]);
@@ -62,12 +61,6 @@ export function FirstPlayerScreen({ store, onToBoard, onQuit }: FirstPlayerScree
       actions={
         <>
           {quit}
-          {humanToRoll && (
-            <Button variant="primary" className="ms-auto" onClick={() => rollForFirstPlayer(store)}>
-              <DieIcon className="size-6" />
-              {t('firstPlayer.rollAgain')}
-            </Button>
-          )}
           {firstSeat !== undefined && (
             <Button variant="primary" className="ms-auto" onClick={onToBoard}>
               {t('firstPlayer.toBoard')}
