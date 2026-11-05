@@ -42,11 +42,12 @@ export function firstPlayerRoll(view: SeatView): FirstPlayerRoll {
 }
 
 /**
- * The human's roll, then every engine result and AI roll until the human must roll again or
- * the engine has picked the first player. Stops there: the first turn belongs to the board.
+ * Apply every sole roll and engine result, including tied re-rolls, automatically (§3.1).
+ * Stop once the engine picks the first player: the first turn belongs to the board.
  */
 export function rollForFirstPlayer(store: GameStore): void {
-  const roll = store.getView()?.legalActions.enabled.find((choice) => choice.kind === 'roll');
-  if (roll) store.choose(roll.id);
-  while (store.getView()?.observation.public.phase.kind === 'first_player_roll' && store.advance());
+  while (
+    store.getView()?.observation.public.phase.kind === 'first_player_roll' &&
+    store.advance({ human: true })
+  );
 }

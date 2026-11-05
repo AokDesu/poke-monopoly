@@ -104,8 +104,8 @@ export interface GameStore {
   /** Read-only engine quote; only this human seat's active Sell selection is accessible. */
   quoteSale(pokemonInstanceIds: string[]): SaleQuote;
   /**
-   * Applies one pending result or sole choice. Board play opts human steps in; first-player
-   * setup retains its explicit roll confirmation. The engine alone decides what is automatic.
+   * Applies one pending result or sole choice. Board play and first-player setup opt human
+   * steps in. The engine alone decides what is automatic.
    */
   advance(options?: { human?: boolean }): boolean;
   /** Sends an AI seat's own projection to the server, then validates its answer via applyAction. */

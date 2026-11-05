@@ -1,4 +1,6 @@
 import { expect, test } from 'vitest';
+import { deserialize, replay, verifyReplay } from '../../../engine/index.ts';
+import { saveText } from './save.ts';
 import { engineContent } from './content.ts';
 import { firstPlayerRoll, rollForFirstPlayer } from './firstPlayer.ts';
 import type { GameSetup, OpponentChoice } from './setup.ts';
@@ -28,7 +30,7 @@ function startedStore(setup: GameSetup, seed: number) {
   return store;
 }
 
-test('before anyone rolls, every seat is a contender and the human is asked to roll', () => {
+test('before automatic advancement, every seat is a contender with a pending roll', () => {
   const view = startedStore(twoSeats, 7).getView()!;
   expect(firstPlayerRoll(view)).toEqual({
     attempts: [{ contenders: [0, 1], rolls: [] }],
@@ -77,24 +79,50 @@ test('a scripted tie re-rolls only the tied seats, and the AIs roll on their own
   expect(store.getView()!.observation.public.phase.kind).toBe('start');
 });
 
-test('when the human ties for the top roll, the human re-rolls by choice, never automatically', () => {
-  // Seed 6, three seats: the human and seat 2 both roll 4, seat 1 rolls 1.
+test('human top-roll ties re-roll automatically and stop before the first turn (§3.1)', () => {
+  // Seed 6: the human and seat 2 both roll 4, seat 1 rolls 1.
   const store = startedStore(threeSeats, 6);
   rollForFirstPlayer(store);
-
-  let result = firstPlayerRoll(store.getView()!);
-  expect(result.humanToRoll).toBe(true);
-  expect(result.firstSeat).toBeUndefined();
+  const result = firstPlayerRoll(store.getView()!);
+  expect(result.humanToRoll).toBe(false);
   expect(result.attempts.map((attempt) => attempt.contenders)).toEqual([
     [0, 1, 2],
     [0, 2],
   ]);
-  expect(result.attempts[1]!.rolls).toEqual([]);
-  // Nothing moves until the human rolls.
-  expect(store.advance()).toBe(false);
-
-  rollForFirstPlayer(store);
-  result = firstPlayerRoll(store.getView()!);
   expect(result.attempts[1]!.rolls.map((roll) => roll.seatIndex)).toEqual([0, 2]);
   expect(result.firstSeat).toBe(2);
+  expect(store.getSession()!.log.actions.every((record) => record.auto === true)).toBe(true);
+  expect(store.getSession()!.state.phase.kind).toBe('start');
+});
+
+test('exported first-player rolls are automatic, contribute no meaningful choices, and replay (§3.1; protocol §6)', () => {
+  const store = startedStore(twoSeats, 101);
+  rollForFirstPlayer(store);
+  const loaded = deserialize(saveText(store.getSession()!));
+  expect(loaded.log.actions[0]).toMatchObject({
+    auto: true,
+    action: { actorId: 'human', kind: 'roll', actionSeq: 1 },
+  });
+  expect(loaded.log.actions.every((record) => record.auto === true)).toBe(true);
+  expect(
+    loaded.log.actions.filter((record) => record.action.actorId === 'human' && !record.auto),
+  ).toHaveLength(0);
+  expect(replay(loaded.log)).toEqual(loaded.state);
+  expect(verifyReplay(loaded).pass).toBe(true);
+});
+
+test('an existing unmarked first-player roll saves, resumes, and replays unchanged (§6.8)', () => {
+  const original = startedStore(threeSeats, 6);
+  // A pre-fix log saved after the deliberate click, before its die result.
+  expect('accepted' in original.choose('roll')).toBe(true);
+  const loaded = deserialize(saveText(original.getSession()!));
+  expect(loaded.log.actions[0]!.auto).toBeUndefined();
+  expect(verifyReplay(loaded).pass).toBe(true);
+  const restored = createGameStore();
+  restored.restore(loaded);
+  rollForFirstPlayer(original);
+  rollForFirstPlayer(restored);
+  expect(restored.getSession()).toEqual(original.getSession());
+  expect(restored.getSession()!.log.actions[0]!.auto).toBeUndefined();
+  expect(verifyReplay(deserialize(saveText(restored.getSession()!))).pass).toBe(true);
 });

@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, test, vi } from 'vitest';
 import { engineContent } from '../game/content.ts';
@@ -52,19 +52,31 @@ test('a scripted tie shows only the tied seats re-rolling, each with its roll (�
   expect(screen.queryByRole('button', { name: t('firstPlayer.rollAgain') })).toBeNull();
 });
 
-test('when the human ties, nothing rolls until the human presses Roll again (§3.1)', async () => {
-  const user = userEvent.setup();
-  // Seed 6: the human and seat 2 both roll 4; seat 1 rolls 1 and stays out.
-  render(<FirstPlayerScreen store={rolled(6)} onToBoard={vi.fn()} onQuit={vi.fn()} />);
-  let [, second] = attempts();
-  expect(seatsIn(second!)).toEqual(['0', '2']);
-  expect(within(second!).getAllByText(t('firstPlayer.waiting'))).toHaveLength(2);
-  expect(screen.queryByRole('button', { name: t('firstPlayer.toBoard') })).toBeNull();
-
-  await user.click(screen.getByRole('button', { name: t('firstPlayer.rollAgain') }));
-  [, second] = attempts();
-  expect(within(second!).queryByText(t('firstPlayer.waiting'))).toBeNull();
-  expect(screen.getByRole('button', { name: t('firstPlayer.toBoard') })).toBeTruthy();
+test('a resumed human tie advances automatically with no roll button (§3.1)', async () => {
+  vi.useFakeTimers();
+  try {
+    // A saved tie awaiting the human re-roll: seats 0 and 2 tied, seat 1 stays out.
+    const store = createGameStore();
+    store.start(configForSetup(threeSeats, 6), engineContent);
+    for (let step = 0; step < 6; step++) expect(store.advance({ human: true })).toBe(true);
+    render(<FirstPlayerScreen store={store} onToBoard={vi.fn()} onQuit={vi.fn()} />);
+    let [, second] = attempts();
+    expect(seatsIn(second!)).toEqual(['0', '2']);
+    expect(within(second!).getAllByText(t('firstPlayer.waiting'))).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: t('firstPlayer.rollAgain') })).toBeNull();
+    // One engine action per timer keeps the saved rolls visible on Continue.
+    for (let step = 0; step < 4; step++) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1200);
+      });
+    }
+    [, second] = attempts();
+    expect(within(second!).queryByText(t('firstPlayer.waiting'))).toBeNull();
+    expect(screen.getByRole('button', { name: t('firstPlayer.toBoard') })).toBeTruthy();
+    expect(store.getSession()!.log.actions.every((record) => record.auto === true)).toBe(true);
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 test('without a game the screen says so and offers a way home (§3.1)', async () => {

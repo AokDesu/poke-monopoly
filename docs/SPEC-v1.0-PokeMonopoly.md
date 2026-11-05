@@ -111,7 +111,7 @@ Every case needs a test that can actually reach it ("You cannot test what you ca
 
 | Situation | Specified behaviour |
 |---|---|
-| Only one legal action (e.g. must roll) | The engine applies it automatically without calling Jev |
+| Only one legal action (e.g. must roll) | The engine applies it automatically without calling Jev, including the first-player roll and tied re-rolls. These action records carry `auto: true` and do not count as meaningful choices (playtest protocol §6). |
 | Shortlist empty after personality filtering | Include at least one option per legal action kind; if still empty, skip |
 | Pokémon found but no Ball | The only option is to release; the catch button is greyed out with the reason "No Ball" |
 | Not enough coins for anything in the Shop | Items are greyed out with "Not enough coins", plus a skip button |
