@@ -26,8 +26,8 @@ After the first-player roll, **Go to the board** starts the turn driver. The sto
 `advance({ human: true })` asks the engine to apply one pending result or sole legal action;
 it never chooses between multiple human actions. A brief presentation pause keeps automatic
 steps readable, and their `auto` records appear as short banners and field-log entries.
-First-player setup still calls `advance()` without opting human rolls in, preserving the
-explicit tie re-roll screen.
+First-player setup uses the same `advance({ human: true })`, so the first roll and any tied
+re-rolls are applied automatically and logged with `auto: true` (spec §3.1).
 
 The Encounter dialog shows each held Ball with the percentage returned by `oddsForAllBalls`
 through the adapter, plus Release. With no Balls it shows a disabled Catch, the catalog
