@@ -67,6 +67,71 @@
 .encounter-choices .btn {
   min-height: 3.5rem;
 }
+.sell-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(46rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 3rem);
+  padding: clamp(1.5rem, 4vw, 2.25rem);
+  border: 0;
+  border-radius: 22px;
+  color: var(--color-ink);
+  overflow-y: auto;
+  scrollbar-color: var(--color-panel-lip) var(--color-panel-tint);
+}
+.sell-dialog::backdrop {
+  background: rgb(15 35 61 / 0.65);
+}
+.sell-dialog h2 {
+  font-size: clamp(1.6rem, 4vw, 2rem);
+  line-height: 1.2;
+  text-wrap: balance;
+}
+.sell-copy {
+  margin-top: 0.6rem;
+  color: var(--color-ink-soft);
+}
+.sell-dialog .sale-team {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1.1rem;
+  padding: 0.25rem;
+  max-height: min(42dvh, 20rem);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-panel-lip) var(--color-panel-tint);
+}
+.sell-dialog .sale-choice {
+  padding: 0.8rem 0.7rem;
+}
+.sell-dialog .sale-detail {
+  gap: 0.15rem;
+}
+.sell-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.4rem;
+}
+.sell-actions .action-control {
+  margin-top: 0;
+  flex: 1 1 auto;
+  min-width: 11rem;
+}
+.sell-actions .btn {
+  width: 100%;
+  min-height: 3.25rem;
+}
+@media (max-width: 600px) {
+  .sell-actions {
+    flex-direction: column;
+  }
+  .sell-actions .action-control {
+    min-width: 0;
+  }
+}
 .ai-playback {
   display: grid;
   gap: 0.8rem;

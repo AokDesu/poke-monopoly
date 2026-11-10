@@ -138,7 +138,9 @@ test('Start opens Sell before the destination resolves, then continues through t
     await tick();
   }
   expect(store.getView()!.observation.public.phase.kind).toBe('sell');
-  expect(screen.getByRole('heading', { name: t('turn.sellHeading') })).toBeTruthy();
+  const sellDialog = screen.getByRole('dialog');
+  expect(within(sellDialog).getByRole('heading', { name: t('turn.sellHeading') })).toBeTruthy();
+  expect(within(sellDialog).getByRole('button', { name: t('sell.keep') })).toBeTruthy();
   const records = store.getSession()!.log.actions;
   const move = records.findLast((record) =>
     record.events.some((event) => event.kind === 'phase_changed' && event.to === 'sell'),
