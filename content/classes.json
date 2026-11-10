@@ -23,6 +23,7 @@
   },
   {
     "id": "nurse-joy",
+    "passive": "turn_start_team_heal",
     "name": "Nurse Joy",
     "starterSpeciesIds": ["chansey"],
     "classItemId": "price-shield",

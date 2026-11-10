@@ -10,6 +10,8 @@ export const pokemonInstanceSchema = z.strictObject({
   origin: z.enum(['original_starter', 'rescue_starter', 'caught']),
   evolutionStage: count,
   tired: z.boolean(),
+  // UID-bound lifetime, measured in the owner's turns (§4.4).
+  tiredExpiresOwnTurnNo: count.optional(),
   abilityReady: z.boolean(),
   // Historical instances omit this; newly granted Rescue Starters explicitly forbid trading.
   tradeable: z.boolean().optional(),
@@ -46,7 +48,9 @@ export const contentSchema = z.strictObject({
       starterSpeciesIds: z.array(id).min(1),
       classItemId: id,
       // Names an engine-owned passive; its numbers and timing live in engine/classes.ts.
-      passive: z.enum(['lap_first_sale_bonus', 'lap_first_catch_bonus']).optional(),
+      passive: z
+        .enum(['lap_first_sale_bonus', 'lap_first_catch_bonus', 'turn_start_team_heal'])
+        .optional(),
     }),
   ),
   items: z.array(
@@ -205,7 +209,12 @@ const actionBodySchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('catch'), payload: z.strictObject({ ballType }) }),
   z.object({
     kind: z.literal('use_item'),
-    payload: z.strictObject({ itemInstanceId: id, targetSeatIndex: count.optional() }),
+    payload: z.strictObject({
+      itemInstanceId: id,
+      targetSeatIndex: count.optional(),
+      targetPokemonInstanceId: id.optional(),
+      status: z.literal('tired').optional(),
+    }),
   }),
   z.object({
     kind: z.literal('sell'),
@@ -257,6 +266,15 @@ const lineSelectedEventSchema = z.strictObject({
   lineId: id,
 });
 export const engineEventSchema = z.discriminatedUnion('kind', [
+  z.strictObject({
+    kind: z.literal('status_changed'),
+    ownerId: id,
+    instanceId: id,
+    status: z.literal('tired'),
+    operation: z.enum(['applied', 'reapplied', 'cleared']),
+    expiresOwnTurnNo: count.optional(),
+    reason: id,
+  }),
   lineSelectedEventSchema,
   z.strictObject({
     kind: z.literal('random_result'),

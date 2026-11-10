@@ -409,7 +409,7 @@ describe('the parsed content is the engine’s Content', () => {
   });
 
   test('the engine reads the Main Character and Researcher passives from the real content', () => {
-    // Only these two Appendix A passives have an engine implementation on main; the rest stay unset.
+    // Implemented Appendix A passives are registered by engine-owned ID.
     expect(
       Object.fromEntries(
         content.classes.flatMap((entry) => (entry.passive ? [[entry.id, entry.passive]] : [])),
@@ -417,6 +417,7 @@ describe('the parsed content is the engine’s Content', () => {
     ).toEqual({
       'main-character': 'lap_first_catch_bonus',
       researcher: 'lap_first_sale_bonus',
+      'nurse-joy': 'turn_start_team_heal',
     });
     const seat = (classId: string, seatIndex: number, starterSpeciesId: string) => ({
       actorId: `player-${seatIndex}`,

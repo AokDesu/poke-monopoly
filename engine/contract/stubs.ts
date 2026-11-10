@@ -88,20 +88,6 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
         payload: { itemInstanceId: item.instanceId },
       });
     }
-    // Potion effects are deferred; only its no-target state is executable (debuffs do not exist yet).
-    const potions =
-      state.config.engineVersion === ENGINE_VERSION && !player.team.some((pokemon) => pokemon.tired)
-        ? player.items.filter((item) => item.itemId === 'potion')
-        : [];
-    for (const item of potions) {
-      result.disabled.push({
-        id: `use-item:${item.instanceId}`,
-        kind: 'use_item',
-        payload: { itemInstanceId: item.instanceId },
-        reasonCode: 'NO_VALID_TARGET',
-        reasonText: 'No tired or debuffed Pokémon to heal',
-      });
-    }
     result.enabled.push({ id: 'skip', kind: 'skip', payload: {} });
   }
   if (state.phase.kind === 'move' && !state.phase.awaitingResult) {

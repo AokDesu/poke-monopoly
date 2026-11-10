@@ -16,8 +16,8 @@ export const engineContent = toEngineContent(content);
 
 /**
  * Core classes in content order; stretch classes stay out until after G2 (spec §1). A class is
- * playable once the engine implements its passive, which content records by naming it in
- * `passive` (skills/content-authoring), so a newly implemented class appears without UI changes.
+ * playable once its full passive is implemented. S03 registers Nurse Joy healing only;
+ * keep her unavailable until the combat portion of her passive also ships.
  */
 export const classOptions: readonly ClassOption[] = content.classes
   .filter((entry) => !entry.stretch)
@@ -25,7 +25,7 @@ export const classOptions: readonly ClassOption[] = content.classes
     id: entry.id,
     starterSpeciesIds: entry.starterSpeciesIds,
     classItemId: entry.classItemId,
-    playable: entry.passive !== undefined,
+    playable: entry.passive !== undefined && entry.passive !== 'turn_start_team_heal',
   }));
 
 /** Pokémon types the content tags use; any other species shows as normal. */

@@ -15,6 +15,8 @@ function eventMessage(
   ];
   switch (event.kind) {
     // Spec §5.7: persisted dialogue annotations are not gameplay announcements.
+    // Status records remain available in the engine feed; dedicated UI is a later slice.
+    case 'status_changed':
     case 'line_selected':
       return [];
     case 'random_result':

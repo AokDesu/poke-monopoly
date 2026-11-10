@@ -1,3 +1,4 @@
+import { healStatus } from './status.ts';
 import type {
   Action,
   EngineEvent,
@@ -14,6 +15,39 @@ const HOSTILE = ['repel', 'pickpocket'];
 export function itemChoices(state: GameState, seatIndex: number, result: LegalActions): void {
   const player = state.players.find((entry) => entry.seatIndex === seatIndex)!;
   for (const item of player.items) {
+    if (item.itemId === 'potion') {
+      const targets = player.team.filter((pokemon) => pokemon.tired);
+      const choices: LegalAction[] = targets.length
+        ? targets.map((pokemon) => ({
+            id: `use-item:${item.instanceId}:${pokemon.instanceId}:tired`,
+            kind: 'use_item',
+            payload: {
+              itemInstanceId: item.instanceId,
+              targetPokemonInstanceId: pokemon.instanceId,
+              status: 'tired',
+            },
+          }))
+        : [
+            {
+              id: `use-item:${item.instanceId}`,
+              kind: 'use_item',
+              payload: { itemInstanceId: item.instanceId },
+            },
+          ];
+      for (const action of choices) {
+        const reason =
+          disabledReason(state, item.itemId, undefined) ??
+          (!targets.length
+            ? {
+                reasonCode: 'NO_VALID_TARGET' as const,
+                reasonText: 'No tired or debuffed Pokémon to heal',
+              }
+            : undefined);
+        if (reason) result.disabled.push({ ...action, ...reason });
+        else result.enabled.push(action);
+      }
+      continue;
+    }
     if (item.itemId !== 'lucky-egg' && !HOSTILE.includes(item.itemId)) continue;
     const targets =
       item.itemId === 'lucky-egg'
@@ -68,6 +102,12 @@ export function useItem(next: GameState, action: Action): EngineEvent[] {
     entity: 'item',
     reason: 'used',
   };
+  if (itemId === 'potion') {
+    return [
+      ...healStatus(player, action.payload.targetPokemonInstanceId!, 'tired', 'potion'),
+      destroyed,
+    ];
+  }
   if (itemId === 'lucky-egg') {
     // +1 to this turn's own catch roll only; no movement bonus (Appendix A).
     next.turnEffects = { itemBonus: 1 };

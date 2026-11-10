@@ -31,3 +31,11 @@ export {
   type SavedGame,
   type WaitingFor,
 } from './save.ts';
+
+export {
+  applyStatus,
+  healStatus,
+  expireStatuses,
+  battleReadyMembers,
+  type PokemonStatus,
+} from './status.ts';
