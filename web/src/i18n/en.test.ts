@@ -218,6 +218,7 @@ test('AI playback controls, status reasons and line bank notices go through the 
   const keys: MessageKey[] = [
     'ai.thinking',
     'ai.playing',
+    'ai.now',
     'ai.statusUnavailable',
     'ai.speed',
     'ai.speed.normal',

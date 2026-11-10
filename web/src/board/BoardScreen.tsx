@@ -67,6 +67,23 @@ export function BoardScreen({
     automatic?.before.activeSeatIndex === game.activeSeatIndex
       ? turnMessages(automatic).find((message) => message.key.startsWith('ai.'))
       : undefined;
+  // The current rival action, spelled out under the board loop so the text sits right
+  // where the spotlight is (issue #123). Same wording as the field-log row.
+  const focus =
+    !humanTurn && game.phase.kind !== 'finished' && opponentMessage ? (
+      <div className="now-strip" data-seat={game.activeSeatIndex}>
+        <span className="seat-disc" data-seat={game.activeSeatIndex}>
+          {game.activeSeatIndex}
+        </span>
+        <p>
+          <strong>{t('ai.now')}</strong>
+          <span aria-hidden="true" className="now-between">
+            {' — '}
+          </span>
+          {opponentMessage.text}
+        </p>
+      </div>
+    ) : undefined;
   let body =
     game.phase.kind === 'finished'
       ? t('turn.finished')
@@ -177,7 +194,7 @@ export function BoardScreen({
   );
   return (
     <>
-      <Board observation={view.observation} feed={view.feed} controls={controls} />
+      <Board observation={view.observation} feed={view.feed} controls={controls} focus={focus} />
       {humanTurn && game.phase.kind === 'encounter' && !game.phase.catchRoll && (
         <EncounterDialog
           observation={view.observation}

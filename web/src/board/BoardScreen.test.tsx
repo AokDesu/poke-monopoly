@@ -6,6 +6,7 @@ import { engineContent } from '../game/content.ts';
 import { configForSetup, createGameStore } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { BoardScreen } from './BoardScreen.tsx';
+import { STEP_MS } from './useTurnPlayback.ts';
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () {
@@ -64,7 +65,7 @@ function start(seed = 1) {
 }
 const tick = () =>
   act(async () => {
-    await vi.advanceTimersByTimeAsync(1600);
+    await vi.advanceTimersByTimeAsync(STEP_MS.normal);
   });
 function clickDecision() {
   const area =

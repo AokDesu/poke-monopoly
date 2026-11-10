@@ -65,8 +65,13 @@ Opponent single-action steps use the same engine automation. At a multi-choice s
 engine catch odds to `/api/ai/decide`, then submits the returned choice or Sell batch through
 `applyAction`. No opponent projection is exposed by `getView()`. Abort, replaced-game and
 revision checks discard late responses; failed or invalid responses leave the decision
-unchanged and show a notice with Retry. This is interim plumbing, not AI turn presentation:
-the board says **Opponent turn**, with no dialogue, speed controls or backup-mode badge.
+unchanged and show a notice with Retry.
+
+Each accepted rival action is announced: the acting rival's square and pawn are
+spotlighted in its seat colour on the board, and a "Now" strip under the board loop spells
+out the current action in the same words as the field-log row (#123). Speed (Normal, Fast,
+Instant) and Skip line only change presentation pauses; they never cancel or reissue a
+decision, and Instant reaches the same final state as Normal for the same seed.
 
 Tokens use the `position` already projected by `observe()` (including negative and multi-Lap
 progress). Lap counts are paid Laps completed, not a UI-computed current-Lap number. Square

@@ -33,9 +33,13 @@ CI (job `ci`) runs typecheck, lint, format check, tests, the sim and the offline
 ## AI turn playback
 
 Spec: §3, §3.1, §5.7. The board shows each rival's accepted action in the field log.
-Turn speed (Normal, Fast, Instant) changes presentation pauses only; Skip line
-closes the speech bubble without changing a decision. Line IDs resolve through the
-English catalog from `content/lines/en/`; no server-supplied prose is rendered.
+The default speed is readable: every rival action pauses two seconds, the board
+spotlights the acting rival's square and pawn in its seat colour, and a "Now" strip
+under the board names the current action in the same words as the field-log row, so
+the board and the text always point to the same move (#123). Turn speed (Normal,
+Fast, Instant) changes presentation pauses only; Skip line closes the speech bubble
+without changing a decision. Line IDs resolve through the English catalog from
+`content/lines/en/`; no server-supplied prose is rendered.
 
 The browser requests only the local API. It prepares `POST /api/ai/fallback`
 alongside `POST /api/ai/decide`, then uses that server-selected fallback if the

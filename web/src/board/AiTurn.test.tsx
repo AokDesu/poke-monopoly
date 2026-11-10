@@ -10,6 +10,8 @@ import {
 } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { BoardScreen } from './BoardScreen.tsx';
+import { turnMessages } from './turnMessages.ts';
+import { STEP_MS } from './useTurnPlayback.ts';
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () {
@@ -156,7 +158,7 @@ test('backup-only status marks an AI turn before a decision, with one catalog ba
   expect(screen.getAllByText(t('ai.allBackupBanner'))).toHaveLength(1);
   expect(screen.getByText(t('ai.reason.disabled'))).toBeTruthy();
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(1200);
+    await vi.advanceTimersByTimeAsync(STEP_MS.normal);
   });
   expect(screen.getByText('A backup bot is playing for me right now.')).toBeTruthy();
   const committed = store.getSession();
@@ -166,6 +168,38 @@ test('backup-only status marks an AI turn before a decision, with one catalog ba
   expect(requests.every((url) => url.startsWith('/api/'))).toBe(true);
 });
 
+test('during an opponent turn the now-strip names the same action as the log and the board points at the rival', async () => {
+  vi.useFakeTimers();
+  transport();
+  const store = game();
+  seekOpponent(store);
+  render(<BoardScreen store={store} />);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  for (let i = 0; i < 6 && !document.querySelector('.now-strip'); i++) {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(STEP_MS.normal);
+    });
+  }
+  const view = store.getView()!;
+  const latest = view.feed.at(-1)!;
+  const message = turnMessages(latest).find((entry) => entry.key.startsWith('ai.'));
+  expect(message).toBeTruthy();
+  const seat = latest.before.activeSeatIndex;
+  const strip = document.querySelector('.now-strip');
+  expect(strip).not.toBeNull();
+  expect(strip!.getAttribute('data-seat')).toBe(String(seat));
+  expect(strip!.textContent).toContain(message!.text);
+  const rival = view.observation.public.players.find((player) => player.seatIndex === seat)!;
+  const square = document.querySelector('.loop-square[data-focus="ai"]');
+  expect(square).not.toBeNull();
+  expect(square!.getAttribute('data-position')).toBe(String(rival.position));
+  expect(square!.getAttribute('data-focus-seat')).toBe(String(seat));
+  const pawn = document.querySelector('.trainer-pawn[data-focus="ai"]');
+  expect(pawn?.getAttribute('data-seat')).toBe(String(seat));
+});
+
 test('a pending decision always resolves to the fallback or a visible retry error', async () => {
   vi.useFakeTimers();
   transport({ broken: true });
@@ -173,7 +207,7 @@ test('a pending decision always resolves to the fallback or a visible retry erro
   seekOpponent(store);
   render(<BoardScreen store={store} />);
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(1200);
+    await vi.advanceTimersByTimeAsync(STEP_MS.normal);
   });
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1500);
@@ -200,7 +234,7 @@ test('normal and instant playback finish with identical accepted actions and gam
     ) {
       await act(async () => {
         pass(store);
-        await vi.advanceTimersByTimeAsync(1200);
+        await vi.advanceTimersByTimeAsync(STEP_MS.normal);
       });
     }
     const session = store.getSession()!;
@@ -223,7 +257,7 @@ test('changing speed while thinking neither restarts the decision nor changes it
   const revision = store.getView()!.observation.public.stateRevision;
   render(<BoardScreen store={store} />);
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(1200);
+    await vi.advanceTimersByTimeAsync(STEP_MS.normal);
   });
   expect(screen.getByText(t('ai.thinking'))).toBeTruthy();
   fireEvent.change(screen.getByRole('combobox', { name: t('ai.speed') }), {
@@ -254,7 +288,7 @@ test('a decision-specific fallback belongs only to that AI and a later Jev decis
   seekOpponent(store);
   render(<BoardScreen store={store} />);
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(1200);
+    await vi.advanceTimersByTimeAsync(STEP_MS.normal);
   });
   expect(document.querySelector('[data-ai-seat="1"]')?.textContent).toContain(t('ai.backupBadge'));
   expect(document.querySelector('[data-ai-seat="0"]')).toBeNull();
@@ -264,7 +298,7 @@ test('a decision-specific fallback belongs only to that AI and a later Jev decis
     seekOpponent(store);
   });
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(1200);
+    await vi.advanceTimersByTimeAsync(STEP_MS.normal);
   });
   expect(screen.queryByText(t('ai.backupBadge'))).toBeNull();
   expect(screen.queryByText(t('ai.allBackupBanner'))).toBeNull();

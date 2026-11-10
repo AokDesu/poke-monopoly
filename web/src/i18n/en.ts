@@ -330,7 +330,8 @@ export const en = {
 
   'ai.backupBadge': 'Backup bot mode',
   'ai.thinking': 'Thinking… If Jev takes too long, the backup bot decides.',
-  'ai.playing': 'The rival is playing. Its choices appear in the field log.',
+  'ai.playing': 'The rival is playing. Its next move appears under the board.',
+  'ai.now': 'Now',
   'ai.statusUnavailable': 'AI status could not be checked. Each decision still reports its source.',
   'ai.speed': 'Turn speed',
   'ai.speed.normal': 'Normal',

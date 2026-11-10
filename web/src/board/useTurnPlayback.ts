@@ -7,8 +7,9 @@ import { content } from '../game/content.ts';
 import { seatLabel } from './labels.ts';
 
 export type TurnSpeed = 'normal' | 'fast' | 'instant';
-const STEP_MS = { normal: 1200, fast: 250, instant: 0 };
-const LINE_MS = { normal: 3000, fast: 700, instant: 0 };
+/** Presentation pauses between rival actions, per speed. Normal is readable aloud (issue #123). */
+export const STEP_MS = { normal: 2000, fast: 250, instant: 0 } as const;
+export const LINE_MS = { normal: 3000, fast: 700, instant: 0 } as const;
 
 export interface TurnPlayback {
   speed: TurnSpeed;
