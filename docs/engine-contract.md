@@ -180,3 +180,21 @@ Spec: §1 (hard gates), §6.5, §8. `checkInvariants(before, action, result)` in
 ## Dialogue log events (issue #42)
 
 Spec: §3, §5.2, §5.5, §5.7, §9. `EngineEvent` also accepts `line_selected` with `situation`, `personalityId`, `trustBucket` and `lineId`. `GameLog` has an optional `dialogueEvents` array for these events and `random_result` events whose purpose starts with `line:`. Callers append `selectLine`'s returned events here; `serialize` and `deserialize` preserve them. Selection uses a separate presentation RNG, retained by the caller between picks. These annotations do not alter accepted actions or gameplay state and command replay ignores them. Gameplay display and Jev selection integration are deferred.
+
+### Effective forms (issue 55 S02)
+
+Spec: §4.5, §4.7, §6.1/6.8, §8, Appendix A Evolution.
+
+`toEngineContent(parseContent(files))` retains `evolutions` and species `ability` descriptions.
+`effectiveForm(content, formId)` returns detached effective stats and Ability metadata. Explicit
+species definitions win; other declared forms inherit from the preceding stage with Battle +2
+and Base Sale rounded after each ×1.5 step. No fallback species rows are added. The same lookup
+feeds Sell and final liquidation; combat and Ability execution can consume it in later slices.
+`nextEvolutionForms` lists next-stage IDs and `evolvedForm` rejects a target outside that list.
+These reads neither change instances/cooldowns nor consume RNG; they do not execute evolution.
+Ability prose is retained as data, pending the separate primitive mapping decision.
+
+Historical illustrative fixtures may omit evolution metadata and Ability descriptions; direct
+species lookup still works for them. The engine stamp advances to 0.12.0 because effective sale
+values change. Prior executable engine versions remain rejected; content JSON, content version,
+RNG version and command-log format are unchanged.

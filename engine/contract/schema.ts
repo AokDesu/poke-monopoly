@@ -26,8 +26,33 @@ const boardSpaceSchema = z.strictObject({
   name: id,
 });
 const boardSchema = z.array(boardSpaceSchema).length(24);
+/** Authored descriptions only; executable Ability primitives are a later slice. */
+export const abilityDefinitionSchema = z.strictObject({
+  name: id,
+  text: id,
+  timing: z.enum([
+    'OWN_STRATEGY',
+    'CHALLENGE_DECLARE',
+    'BEFORE_OWN_ROLL',
+    'AFTER_OWN_ROLL',
+    'REACTION',
+  ]),
+});
+export const evolutionStageSchema = z
+  .strictObject({ forms: z.array(id).min(1), choice: z.literal('player').optional() })
+  .refine((stage) => stage.forms.length > 1 === (stage.choice === 'player'), {
+    message:
+      'a stage with several forms needs choice: "player", and a single form must not have it',
+  });
+export const evolutionsSchema = z.strictObject({
+  forms: z.array(z.strictObject({ id, name: id })),
+  lines: z.array(z.strictObject({ speciesId: id, stages: z.array(evolutionStageSchema).min(1) })),
+});
+
 export const contentSchema = z.strictObject({
   board: boardSchema,
+  // Optional for historical contract fixtures; real authored content always supplies this.
+  evolutions: evolutionsSchema.optional(),
   species: z.array(
     z.strictObject({
       id,
@@ -37,6 +62,7 @@ export const contentSchema = z.strictObject({
       battle: count,
       base: count,
       tags: z.array(id),
+      ability: abilityDefinitionSchema.optional(),
     }),
   ),
   classes: z.array(

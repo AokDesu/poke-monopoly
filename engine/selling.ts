@@ -1,3 +1,4 @@
+import { effectiveForm } from './forms.ts';
 import { classBonus } from './classes.ts';
 import type {
   Content,
@@ -11,7 +12,7 @@ import type {
 export function saleBasis(content: Content, pokemon: PokemonInstance): number {
   if (pokemon.origin === 'rescue_starter') return 0;
   if (pokemon.origin === 'original_starter' && pokemon.evolutionStage === 0) return 5;
-  return content.species.find((entry) => entry.id === pokemon.speciesId)!.base;
+  return effectiveForm(content, pokemon.speciesId).base;
 }
 
 /** Price parts for one atomic batch; the class bonus follows the tired adjustment (§4.7 step 2). */
