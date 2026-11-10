@@ -187,6 +187,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 
 - `d6 + classBonus + ballBonus + abilityBonus + itemBonus >= catchDC`. The roll is snapshotted after every party confirms modifiers and before rolling. Battle stats are not part of the catch formula.
 - Every attempt consumes 1 Ball, success or failure. With no Ball the Pokémon must be released. The UI shows the success % for every Ball type held.
+- Fisherman's +2 applies to every catch against a species tagged `water`; Bug Catcher's +1 applies to every catch against a species tagged `bug`. Both the confirmed roll and the odds API use the encounter species tags.
 - Main Character's first-catch bonus is used whenever a real roll is made, even on failure. Skipping an encounter does not use it.
 
 **C1 catching scope (#23):** see the [catching contract](engine-contract.md#wild-encounters-and-catching-issue-23) for implemented catching and deferred effects. The item hook returns Lucky Egg's +1 from C2 (#31, §4.6). Exact success percentages come from the engine's odds API (#32), which runs every d6 face through the same resolver as the real roll; see the [odds contract](engine-contract.md#catch-odds-and-disabled-reasons-issue-32). This implementation scope does not change the full catching rules above.
@@ -290,7 +291,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 2. **Sale price:**
    - `saleBasis`: Rescue = 0; an Original Starter still in base form = 5; everything else uses the Base Sale of its current form.
    - A tired Pokémon uses `round(saleBasis×0.8)` before the class bonus.
-   - Class bonuses apply only in the Sell Phase at Start.
+   - Class bonuses apply only in the Sell Phase at Start. Bug Catcher adds +2 to each sold Pokémon whose current species is tagged `bug`, after the tired adjustment; Rescue Starters receive no sale bonus.
    - **Approved rule (captain, 2026-10-07):** a once-per-Lap sale bonus such as the Researcher's applies once per Sell Phase, to the sold Pokémon with the highest `saleBasis` (ties broken by lowest instance ID), so the result never depends on the order the player lists them. A Rescue Starter never receives it, and selling nothing does not use it.
 3. **Game end:**
    - When the first player reaches the Lap target, announce the Final Table Round and play until every seat has had the same number of turns.

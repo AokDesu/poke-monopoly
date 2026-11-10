@@ -15,9 +15,9 @@ export const content = parseContent({ board, classes, config, events, evolutions
 export const engineContent = toEngineContent(content);
 
 /**
- * Core classes in content order; stretch classes stay out until after G2 (spec §1). A class is
- * playable once the engine implements its passive, which content records by naming it in
- * `passive` (skills/content-authoring), so a newly implemented class appears without UI changes.
+ * Core classes in content order; stretch classes stay out until after G2 (spec §1).
+ * Keep the browser roster at Main Character/Researcher during engine-only issue #55 S01.
+ * A later UI slice must remove this guard when the new classes have browser support.
  */
 export const classOptions: readonly ClassOption[] = content.classes
   .filter((entry) => !entry.stretch)
@@ -25,7 +25,8 @@ export const classOptions: readonly ClassOption[] = content.classes
     id: entry.id,
     starterSpeciesIds: entry.starterSpeciesIds,
     classItemId: entry.classItemId,
-    playable: entry.passive !== undefined,
+    playable:
+      entry.passive !== undefined && (entry.id === 'main-character' || entry.id === 'researcher'),
   }));
 
 /** Pokémon types the content tags use; any other species shows as normal. */
