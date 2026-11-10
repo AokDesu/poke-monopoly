@@ -203,7 +203,7 @@ export const en = {
   'firstPlayer.rolled': 'Rolled',
   'firstPlayer.waiting': 'Waiting to roll',
   'firstPlayer.tie': 'The top roll was a tie, so only the tied players roll again.',
-  'firstPlayer.yourTie': 'You tied for the top roll. Roll again to decide who goes first.',
+  'firstPlayer.yourTie': 'You tied for the top roll. Re-rolling to decide who goes first.',
   'firstPlayer.rollAgain': 'Roll again',
   'firstPlayer.youStart': 'You go first',
   'firstPlayer.aiStarts': 'Your AI rival goes first',

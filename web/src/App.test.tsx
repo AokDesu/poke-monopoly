@@ -69,9 +69,9 @@ test('?seed=7 gives the same first-player result every time, tie included (§3)'
     const { click } = setup({ seed: 7, random: () => 0 });
     await click(button(t('home.randomAll')));
     await click(button(t('review.roll')));
-    // Seed 7 ties on the first roll; the human re-rolls by choice.
-    expect(screen.getByText(t('firstPlayer.yourTie'))).toBeTruthy();
-    await click(button(t('firstPlayer.rollAgain')));
+    // Seed 7 ties on the first roll; tied seats re-roll automatically (§3.1).
+    expect(screen.queryByRole('button', { name: t('firstPlayer.rollAgain') })).toBeNull();
+    expect(screen.getByRole('button', { name: t('firstPlayer.toBoard') })).toBeTruthy();
     const result = screen.getAllByRole('status').map((status) => status.textContent);
     const rolls = screen.getAllByRole('listitem').map((item) => item.textContent);
     cleanup();
