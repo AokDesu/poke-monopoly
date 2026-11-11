@@ -1,3 +1,4 @@
+import { effectiveForm } from './forms.ts';
 import { healStatus } from './status.ts';
 import type {
   EngineEvent,
@@ -35,11 +36,7 @@ export function classBonus(content: Content, classId: string, hook: ClassBonusHo
       return hook.kind === 'catch' && hook.speciesTags.includes('water') ? 2 : 0;
     case 'bug_catch_sale_bonus':
       if (hook.kind === 'catch') return hook.speciesTags.includes('bug') ? 1 : 0;
-      return content.species
-        .find((entry) => entry.id === hook.pokemon.speciesId)
-        ?.tags.includes('bug')
-        ? 2
-        : 0;
+      return effectiveForm(content, hook.pokemon.speciesId).tags.includes('bug') ? 2 : 0;
     case 'turn_start_team_heal':
     case undefined:
       return 0;

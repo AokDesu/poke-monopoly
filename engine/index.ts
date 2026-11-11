@@ -39,3 +39,4 @@ export {
   battleReadyMembers,
   type PokemonStatus,
 } from './status.ts';
+export { effectiveForm, evolvedForm, nextEvolutionForms, type EffectiveForm } from './forms.ts';

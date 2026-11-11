@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { contentSchema, type Content } from '../engine/contract/schema.ts';
+import {
+  abilityDefinitionSchema,
+  evolutionsSchema as engineEvolutionsSchema,
+  contentSchema,
+  type Content,
+} from '../engine/contract/schema.ts';
 import { CONTENT_VERSION } from './index.ts';
 
 // Rows extend the engine's own row schemas (engine/contract/schema.ts), so the engine fields and
@@ -58,20 +63,12 @@ const boardSchema = contentSchema.shape.board.superRefine((squares, ctx) => {
   }
 });
 
-// Appendix A timing legend: S, C, B, A, R.
-const abilityTiming = z.enum([
-  'OWN_STRATEGY',
-  'CHALLENGE_DECLARE',
-  'BEFORE_OWN_ROLL',
-  'AFTER_OWN_ROLL',
-  'REACTION',
-]);
 const speciesSchema = z
   .array(
     contentSchema.shape.species.element.extend({
       // Spec §4.5: the encounter pool is every species except the 3 starters and Porygon.
       inEncounterPool: z.boolean(),
-      ability: z.strictObject({ name: id, text: id, timing: abilityTiming }),
+      ability: abilityDefinitionSchema,
     }),
   )
   .superRefine(uniqueIds('species'));
@@ -109,16 +106,8 @@ const itemsSchema = z
     });
   });
 
-// A line starts at a base species. A stage with several forms is the player's choice (Eevee).
-const stageSchema = z
-  .strictObject({ forms: z.array(id).min(1), choice: z.literal('player').optional() })
-  .refine((stage) => stage.forms.length > 1 === (stage.choice === 'player'), {
-    message: `a stage with several forms needs choice: "player", and a single form must not have it`,
-  });
-const evolutionsSchema = z.strictObject({
-  // Evolved forms that have no species definition (spec §4.5 fallback rule).
-  forms: z.array(z.strictObject({ id, name: id })).superRefine(uniqueIds('form')),
-  lines: z.array(z.strictObject({ speciesId: id, stages: z.array(stageSchema).min(1) })),
+const evolutionsSchema = engineEvolutionsSchema.extend({
+  forms: engineEvolutionsSchema.shape.forms.superRefine(uniqueIds('form')),
 });
 
 const eventsSchema = z.array(z.strictObject({ id, text: id })).superRefine(uniqueIds('event'));
@@ -172,6 +161,7 @@ const contentFilesSchema = z
       }
     });
     const bases = new Set<string>();
+    const evolvedIds = new Set<string>();
     content.evolutions.lines.forEach((line, index) => {
       if (!speciesIds.has(line.speciesId)) {
         problem(['evolutions', 'lines', index, 'speciesId'], `unknown species "${line.speciesId}"`);
@@ -182,6 +172,14 @@ const contentFilesSchema = z
       bases.add(line.speciesId);
       line.stages.forEach((stage, at) =>
         stage.forms.forEach((form, slot) => {
+          const path = ['evolutions', 'lines', index, 'stages', at, 'forms', slot];
+          if (form === line.speciesId || evolvedIds.has(form)) {
+            problem(path, `repeated evolution form "${form}"`);
+          }
+          evolvedIds.add(form);
+          if (at > 0 && line.stages[at - 1]!.forms.length > 1 && !speciesIds.has(form)) {
+            problem(path, `fallback form "${form}" has ambiguous previous forms`);
+          }
           if (!speciesIds.has(form) && !formIds.has(form)) {
             problem(
               ['evolutions', 'lines', index, 'stages', at, 'forms', slot],
@@ -228,6 +226,7 @@ const engineFields = (schema: { shape: object }, row: object) =>
 export function toEngineContent(content: ParsedContent): Content {
   return contentSchema.parse({
     board: content.board,
+    evolutions: content.evolutions,
     species: content.species.map((row) => engineFields(contentSchema.shape.species.element, row)),
     classes: content.classes.map((row) => engineFields(contentSchema.shape.classes.element, row)),
     items: content.items.map((row) =>

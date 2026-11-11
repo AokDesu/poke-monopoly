@@ -227,7 +227,8 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
   - The engine supports only these effect primitives: fixedMove, moveDebuff, rollBonus, forcePvP, shield, heal, gainBall, peek.
 - **Evolution:**
   - If the next form has a definition, use that form's stats and Ability.
-  - Otherwise use Battle +2, Base Sale `round(current×1.5)` and the existing Ability.
+  - Otherwise use Battle +2, Base Sale `round(current×1.5)` and the existing Ability. Resolve this once per preceding stage, rounding at each stage; inherited tags, rarity and Catch DC remain unchanged.
+  - The current form ID is carried in the instance’s `speciesId`. Engine content retains evolution lines, form IDs/names and authored Ability descriptions. A pure effective-form lookup supplies current stats and Ability to combat, selling and final liquidation without adding fallback forms to the encounter pool. Branches must follow the authored next stage; an unknown form or invalid branch is rejected.
   - No new systems may be added during evolution. Status follows the UID to the new form.
 - **Original Starter:** sellable, with its price normalised to 5 coins for every class while it is still the base form.
 - **Rescue Starter:**
