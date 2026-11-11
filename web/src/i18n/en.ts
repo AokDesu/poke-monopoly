@@ -323,8 +323,8 @@ export const en = {
   'sell.soloPrice': 'If sold alone',
   'sell.selectedPrice': 'In this batch',
   'sell.total': 'Sale total',
-  'sell.confirm': 'Confirm sale',
-  'sell.keep': 'Keep the whole team',
+  'sell.confirm': 'Sell selected',
+  'sell.keep': 'Keep all',
   'sell.rescuePreview':
     'Your team will be empty. You receive a Rescue Starter worth {value} coins.',
 
