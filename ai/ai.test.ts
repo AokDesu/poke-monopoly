@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ESLint } from 'eslint';
@@ -632,9 +632,42 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
       });
       await decide(strategy, app);
       await decide({ ...strategy, turnKey: 'next' }, app);
-      const lines = readFileSync(path, 'utf8').trimEnd().split('\n');
+      const lines = await vi.waitFor(() => {
+        const written = readFileSync(path, 'utf8').trimEnd().split('\n');
+        expect(written).toHaveLength(2);
+        return written;
+      });
       expect(lines.map((line) => JSON.parse(line).turnKey)).toEqual([strategy.turnKey, 'next']);
       expect(Object.keys(JSON.parse(lines[0]!)).sort()).toEqual(FIELDS);
+    });
+
+    test('a file log that cannot write leaves the decision unchanged and warns once', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const dir = mkdtempSync(join(tmpdir(), 'jev-decisions-'));
+        const blocker = join(dir, 'not-a-folder');
+        writeFileSync(blocker, '');
+        const withLog = testApp({
+          jevClient: () => createFakeJevClient(pickSkip),
+          decisionLog: fileDecisionLog(join(blocker, 'jev-decisions.jsonl')),
+        });
+        const without = testApp({ jevClient: () => createFakeJevClient(pickSkip) });
+        const body = async (app: App, request: DecisionRequest) => {
+          const response = await decide(request, app);
+          expect(response.status).toBe(200);
+          const { choice, source, fallbackReason } = await response.json();
+          return { choice, source, fallbackReason };
+        };
+        for (const turnKey of [strategy.turnKey, 'next'])
+          expect(await body(withLog, { ...strategy, turnKey })).toEqual(
+            await body(without, { ...strategy, turnKey }),
+          );
+        await vi.waitFor(() => expect(warn).toHaveBeenCalled());
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(warn).toHaveBeenCalledTimes(1);
+      } finally {
+        warn.mockRestore();
+      }
     });
 
     test('a log that throws never fails the decision or leaks its error', async () => {
@@ -647,6 +680,10 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
           },
         });
         expect(await (await decide(strategy, app)).json()).toMatchObject({ source: 'jev' });
+        expect(await (await decide({ ...strategy, turnKey: 'next' }, app)).json()).toMatchObject({
+          source: 'jev',
+        });
+        expect(warn).toHaveBeenCalledTimes(1);
         expect(JSON.stringify(warn.mock.calls)).not.toContain(PLACEHOLDER_KEY);
       } finally {
         warn.mockRestore();

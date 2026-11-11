@@ -222,6 +222,7 @@ export const createOrchestratorDecider = ({
   const games = new Map<string, Orchestrator>();
   const quotas = new Map<string, GameQuota>();
   let jev: JevClient | undefined;
+  let logWarned = false;
 
   const orchestratorFor = (gameId: string): Orchestrator => {
     // The quota first, so it is kept even when this game's orchestrator is dropped later.
@@ -269,7 +270,8 @@ export const createOrchestratorDecider = ({
         log(line);
       } catch {
         // Never the error itself: it could carry a path or request material.
-        console.warn('Could not write the Jev decision log.');
+        if (!logWarned) console.warn('Could not write the Jev decision log.');
+        logWarned = true;
       }
     }
   };

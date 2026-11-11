@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 /** Spec §6.8, git-ignored with the rest of `logs/`: one line per Jev decision event. */
@@ -28,10 +28,22 @@ export interface DecisionRecord {
 
 export type DecisionLog = (record: DecisionRecord) => void;
 
-/** A log that appends each record to `path`, creating its folder. */
-export const fileDecisionLog =
-  (path: string = DECISION_LOG_PATH): DecisionLog =>
-  (record) => {
-    mkdirSync(dirname(path), { recursive: true });
-    appendFileSync(path, `${JSON.stringify(record)}\n`);
+/**
+ * A log that appends each record to `path` in the background, creating its folder on the first
+ * write. Writes keep their order and are never awaited by a decision; a failed write is dropped
+ * with one warning for the log's lifetime.
+ */
+export const fileDecisionLog = (path: string = DECISION_LOG_PATH): DecisionLog => {
+  let queue: Promise<void> | undefined;
+  let warned = false;
+  return (record) => {
+    const line = `${JSON.stringify(record)}\n`;
+    queue = (queue ?? mkdir(dirname(path), { recursive: true }).then(() => {}))
+      .then(() => appendFile(path, line))
+      .catch(() => {
+        if (warned) return;
+        warned = true;
+        console.warn('Could not write the Jev decision log.');
+      });
   };
+};
