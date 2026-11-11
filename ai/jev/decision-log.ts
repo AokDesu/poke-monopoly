@@ -29,17 +29,26 @@ export interface DecisionRecord {
 export type DecisionLog = (record: DecisionRecord) => void;
 
 /**
- * A log that appends each record to `path` in the background, creating its folder on the first
- * write. Writes keep their order and are never awaited by a decision; a failed write is dropped
- * with one warning for the log's lifetime.
+ * A log that appends each record to `path` in the background, making its folder whenever it is
+ * missing (on the first write, or after it was removed). Writes keep their order and are never
+ * awaited by a decision; a failed write is dropped with one warning for the log's lifetime.
  */
 export const fileDecisionLog = (path: string = DECISION_LOG_PATH): DecisionLog => {
-  let queue: Promise<void> | undefined;
+  let queue: Promise<void> = Promise.resolve();
   let warned = false;
+  const append = async (line: string) => {
+    try {
+      await appendFile(path, line);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      await mkdir(dirname(path), { recursive: true });
+      await appendFile(path, line);
+    }
+  };
   return (record) => {
     const line = `${JSON.stringify(record)}\n`;
-    queue = (queue ?? mkdir(dirname(path), { recursive: true }).then(() => {}))
-      .then(() => appendFile(path, line))
+    queue = queue
+      .then(() => append(line))
       .catch(() => {
         if (warned) return;
         warned = true;

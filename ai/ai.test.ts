@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ESLint } from 'eslint';
@@ -639,6 +639,32 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
       });
       expect(lines.map((line) => JSON.parse(line).turnKey)).toEqual([strategy.turnKey, 'next']);
       expect(Object.keys(JSON.parse(lines[0]!)).sort()).toEqual(FIELDS);
+    });
+
+    test('the file log makes its folder again when it is removed while running', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const dir = mkdtempSync(join(tmpdir(), 'jev-decisions-'));
+        const folder = join(dir, 'logs');
+        const path = join(folder, 'jev-decisions.jsonl');
+        const app = testApp({
+          jevClient: () => createFakeJevClient(pickSkip),
+          decisionLog: fileDecisionLog(path),
+        });
+        await decide(strategy, app);
+        await vi.waitFor(() => expect(readFileSync(path, 'utf8')).not.toBe(''));
+        rmSync(folder, { recursive: true });
+        await decide({ ...strategy, turnKey: 'next' }, app);
+        const lines = await vi.waitFor(() => {
+          const written = readFileSync(path, 'utf8').trimEnd().split('\n');
+          expect(written).toHaveLength(1);
+          return written;
+        });
+        expect(JSON.parse(lines[0]!).turnKey).toBe('next');
+        expect(warn).not.toHaveBeenCalled();
+      } finally {
+        warn.mockRestore();
+      }
     });
 
     test('a file log that cannot write leaves the decision unchanged and warns once', async () => {
