@@ -8,6 +8,7 @@ import {
 } from '../engine/contract/decision.ts';
 import {
   fallbackAnswer,
+  policyAnswer,
   isOption,
   jevStatus,
   createOrchestratorDecider,
@@ -83,7 +84,7 @@ export const createApp = ({
           );
         }
         if (path === '/api/ai/fallback') {
-          const answer = fallbackAnswer(request, jevStatus(usage).reason ?? 'timeout');
+          const answer = policyAnswer(request, jevStatus(usage).reason ?? 'timeout');
           return c.json(
             toResponse(answer, crypto.randomUUID(), started),
             200,

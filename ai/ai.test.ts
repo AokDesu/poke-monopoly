@@ -335,6 +335,24 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
     },
   );
 
+  test('POST /api/ai/fallback returns the fallback policy choice, never the first enabled action', async () => {
+    for (const request of [strategy, encounter]) {
+      const response = await record(
+        await testApp().request('/api/ai/fallback', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(request),
+        }),
+      );
+      expect(await response.json()).toMatchObject({
+        choice: policyChoice(request),
+        source: 'fallback',
+        fallbackReason: 'timeout',
+      });
+      expect(policyChoice(request)).not.toBe(request.enabledActions[0]!.id);
+    }
+  });
+
   test('with a client it returns source: jev and only IDs and telemetry', async () => {
     const fake = createFakeJevClient(pickSkip);
     const body = await (await decide(strategy, testApp({ jevClient: () => fake }))).json();

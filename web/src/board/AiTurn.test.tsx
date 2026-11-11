@@ -62,13 +62,17 @@ function seekOpponent(store: GameStore) {
   }
   throw new Error('No opponent decision');
 }
-function answer(request: { enabledActions: { id: string; kind: string }[] }, fallback = true) {
+function answer(
+  request: { enabledActions: { id: string; kind: string }[] },
+  fallback = true,
+  fallbackReason = 'rate_limited',
+) {
   const choice = fallback ? request.enabledActions[0]! : request.enabledActions.at(-1)!;
   return new Response(
     JSON.stringify({
       choice: choice.id,
       source: fallback ? 'fallback' : 'jev',
-      ...(fallback && { fallbackReason: 'stub' }),
+      ...(fallback && { fallbackReason }),
       requestId: 'test-decision',
       latencyMs: 0,
     }),
@@ -97,6 +101,7 @@ function transport({
   delay = 0,
   broken = false,
   decisionFallback = false,
+  fallbackReason = 'rate_limited',
 } = {}) {
   const requests: string[] = [];
   vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
@@ -116,7 +121,11 @@ function transport({
       setTimeout(resolve, delay);
       await promise;
     }
-    return answer(request, url === '/api/ai/fallback' || backupOnly || decisionFallback);
+    return answer(
+      request,
+      url === '/api/ai/fallback' || backupOnly || decisionFallback,
+      fallbackReason,
+    );
   });
   return requests;
 }
@@ -364,7 +373,7 @@ test('a decision-specific fallback belongs only to that AI and a later Jev decis
   });
   expect(document.querySelector('[data-ai-seat="1"]')?.textContent).toContain(t('ai.backupBadge'));
   expect(document.querySelector('[data-ai-seat="0"]')).toBeNull();
-  expect(screen.getByText(t('ai.reason.stub'))).toBeTruthy();
+  expect(screen.getByText(t('ai.reason.rate_limited'))).toBeTruthy();
   transport({ backupOnly: false });
   act(() => {
     seekOpponent(store);
@@ -375,6 +384,25 @@ test('a decision-specific fallback belongs only to that AI and a later Jev decis
   expect(screen.queryByText(t('ai.backupBadge'))).toBeNull();
   expect(screen.queryByText(t('ai.allBackupBanner'))).toBeNull();
 });
+
+test.each(['auto', 'low_confidence', 'stub', 'invalid_choice'])(
+  'a %s fallback is normal play: no Backup bot badge or banner (spec §3, §5.6)',
+  async (fallbackReason) => {
+    vi.useFakeTimers();
+    transport({ backupOnly: false, decisionFallback: true, fallbackReason });
+    const store = game();
+    seekOpponent(store);
+    render(<BoardScreen store={store} />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1200);
+    });
+    expect(
+      store.getView()!.feed.some((entry) => entry.decision?.fallbackReason === fallbackReason),
+    ).toBe(true);
+    expect(screen.queryByText(t('ai.backupBadge'))).toBeNull();
+    expect(screen.queryByText(t('ai.allBackupBanner'))).toBeNull();
+  },
+);
 
 test('dialogue annotations survive save/load without changing command replay', async () => {
   transport();
