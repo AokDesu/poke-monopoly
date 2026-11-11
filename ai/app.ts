@@ -10,10 +10,11 @@ import {
   fallbackAnswer,
   isOption,
   jevStatus,
-  stubDecider,
+  createOrchestratorDecider,
   type Decider,
   type DeciderAnswer,
 } from './decider.ts';
+import type { JevClient } from './jev/client.ts';
 import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
 import { presentationHeaders } from './presentation.ts';
 import { decideShop, shopRequestSchema } from './shop.ts';
@@ -22,9 +23,12 @@ import { decideShop, shopRequestSchema } from './shop.ts';
 export const MAX_BODY_BYTES = 32 * 1024;
 
 export interface AppOptions {
+  /** Defaults to the orchestrator-backed decider over `jevClient` and `usage`. */
   decider?: Decider;
-  /** The spend guard the status reads; defaults to the ledger over `logs/jev-usage.jsonl`. */
-  usage?: () => Pick<UsageRecorder, 'budgetExceeded'>;
+  /** The spend guard and usage log; defaults to the ledger over `logs/jev-usage.jsonl`. */
+  usage?: () => UsageRecorder;
+  /** Made on first use, only with Jev enabled and a key; defaults to the real SDK client. */
+  jevClient?: () => JevClient;
 }
 
 /** Copies only IDs and telemetry, so nothing else a decider returns can reach the browser. */
@@ -38,8 +42,9 @@ const toResponse = (answer: DeciderAnswer, requestId: string, started: number): 
   });
 
 export const createApp = ({
-  decider = stubDecider,
   usage = defaultUsageLedger,
+  jevClient,
+  decider = createOrchestratorDecider({ usage, ...(jevClient && { client: jevClient }) }),
 }: AppOptions = {}) => {
   const app = new Hono();
 

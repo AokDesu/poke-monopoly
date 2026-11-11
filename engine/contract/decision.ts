@@ -83,6 +83,15 @@ export const decisionFallbackReasonSchema = z.enum([
   'not_an_option',
   'decider_error',
   'stub',
+  // The orchestrator's own reasons (spec §5.6, §9), beyond the client's failures above.
+  'invalid_choice',
+  'revision_mismatch',
+  'low_confidence',
+  'request_limit',
+  'token_budget',
+  'missing_facts',
+  // No Jev question was asked (one legal action), so the fallback policy chose.
+  'auto',
 ]);
 
 const telemetry = {
