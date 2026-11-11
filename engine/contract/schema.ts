@@ -147,6 +147,33 @@ export const chatMessageSchema = z.strictObject({
   itemId: id.optional(),
   globalTurnNo: count,
 });
+/** `no_attack` (§4.8): the promiser will not attack the recipient until `closesOwnTurnNo` ends. */
+export const noAttackPromiseSchema = z.strictObject({
+  promiserSeatIndex: count,
+  recipientSeatIndex: count,
+  createdGlobalTurnNo: count,
+  // The promiser's `ownTurnNo` whose end closes it: their `ownTurnNo` at confirmation plus 1.
+  closesOwnTurnNo: count,
+});
+export const promiseDirectionSchema = z.enum(['offer', 'ask']);
+/**
+ * A question another seat owes an answer to before the game goes on (the responding-seat seam).
+ * `initiatorSeatIndex` is the seat whose turn it is; `responderSeatIndex` owes the next command.
+ */
+export const pendingResponseSchema = z.discriminatedUnion('kind', [
+  z.strictObject({
+    kind: z.literal('promise_offer'),
+    initiatorSeatIndex: count,
+    responderSeatIndex: count,
+    // `offer`: the initiator promises the responder; `ask`: the initiator asks the responder to promise.
+    direction: promiseDirectionSchema,
+  }),
+]);
+export const respondPayloadSchema = z.strictObject({ answer: z.enum(['accept', 'reject']) });
+export const offerPromisePayloadSchema = z.strictObject({
+  targetSeatIndex: count,
+  direction: promiseDirectionSchema,
+});
 const privateResultSchema = z.strictObject({ kind: z.literal('peek'), eventId: id });
 export const playerSchema = z.strictObject({
   actorId: id,
@@ -233,6 +260,10 @@ export const gameStateSchema = z.strictObject({
     // Present only when `config.socialWindow` is on: one interaction per human turn (§4.2).
     socialInteraction: count.optional(),
   }),
+  // The unanswered question the game waits on, if any; the responder is then the acting seat.
+  pendingResponse: pendingResponseSchema.optional(),
+  // Every confirmed `no_attack` promise, oldest first; absent until a first one is accepted.
+  promises: z.array(noAttackPromiseSchema).optional(),
   // The last 3 chat messages of each pair, `seats` ordered low to high; absent until a first message.
   chats: z
     .array(
@@ -267,6 +298,8 @@ const actionBodySchema = z.discriminatedUnion('kind', [
     payload: z.strictObject({}),
   }),
   z.object({ kind: z.literal('chat'), payload: chatPayloadSchema }),
+  z.object({ kind: z.literal('offer_promise'), payload: offerPromisePayloadSchema }),
+  z.object({ kind: z.literal('respond'), payload: respondPayloadSchema }),
   z.object({ kind: z.literal('catch'), payload: z.strictObject({ ballType }) }),
   z.object({
     kind: z.literal('use_item'),
@@ -393,6 +426,25 @@ export const engineEventSchema = z.discriminatedUnion('kind', [
     leaderSeatIndex: count.optional(),
     itemId: id.optional(),
   }),
+  // Told only to the two seats of the offer (§4.8): the initiator and the responder.
+  z.strictObject({
+    kind: z.literal('promise_offered'),
+    initiatorSeatIndex: count,
+    responderSeatIndex: count,
+    direction: promiseDirectionSchema,
+  }),
+  // The two parties' alone: a confirmed `no_attack` promise.
+  z.strictObject({
+    kind: z.literal('promise_accepted'),
+    promiserSeatIndex: count,
+    recipientSeatIndex: count,
+    closesOwnTurnNo: count,
+  }),
+  z.strictObject({
+    kind: z.literal('promise_rejected'),
+    promiserSeatIndex: count,
+    recipientSeatIndex: count,
+  }),
 ]);
 export const observationSchema = z.strictObject({
   public: z.strictObject({
@@ -427,6 +479,9 @@ export const observationSchema = z.strictObject({
     privateResults: z.array(privateResultSchema),
     // Only messages this seat sent or received; present only when `config.socialWindow` is on.
     chats: z.array(chatMessageSchema).optional(),
+    // Only promises this seat made or received, and the question it is part of; Social window only.
+    promises: z.array(noAttackPromiseSchema).optional(),
+    pendingResponse: pendingResponseSchema.optional(),
   }),
 });
 export const fixtureSchema = z.strictObject({
@@ -478,6 +533,8 @@ export type PokemonInstance = z.infer<typeof pokemonInstanceSchema>;
 export type ChatTopic = z.infer<typeof chatTopicSchema>;
 export type ChatPayload = z.infer<typeof chatPayloadSchema>;
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
+export type NoAttackPromise = z.infer<typeof noAttackPromiseSchema>;
+export type PendingResponse = z.infer<typeof pendingResponseSchema>;
 export type ItemInstance = z.infer<typeof itemInstanceSchema>;
 export type BallPouch = z.infer<typeof ballPouchSchema>;
 export type Action = z.infer<typeof actionSchema>;

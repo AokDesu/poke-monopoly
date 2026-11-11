@@ -11,6 +11,7 @@ import { createLogHeader, ENGINE_VERSION } from './versions.ts';
 import { createRng, d6, RNG_VERSION } from './rng.ts';
 import { pendingRollPurpose } from './turns.ts';
 import { canonicalJson } from './state-hash.ts';
+import { actingSeatIndex } from './responses.ts';
 
 /** A single step: later gameplay transitions may expose another decision. */
 export function advanceAutomatically(state: GameState): {
@@ -34,9 +35,10 @@ export function advanceAutomatically(state: GameState): {
       events: result.events,
     };
   }
-  const choices = legalActions(state, state.activeSeatIndex).enabled;
+  const acting = actingSeatIndex(state);
+  const choices = legalActions(state, acting).enabled;
   if (choices.length !== 1) return { state, records: [], events: [] };
-  const actor = state.config.seats.find((seat) => seat.seatIndex === state.activeSeatIndex);
+  const actor = state.config.seats.find((seat) => seat.seatIndex === acting);
   if (!actor) return { state, records: [], events: [] };
   const choice = choices[0]!;
   const result = applyAction(state, {

@@ -10,6 +10,7 @@ import {
   type Phase,
 } from './contract/schema.ts';
 import { pendingRollPurpose } from './turns.ts';
+import { actingSeatIndex } from './responses.ts';
 import { canonicalJson, stateHash } from './state-hash.ts';
 import { replay } from './pipeline.ts';
 import { RNG_VERSION } from './rng.ts';
@@ -131,7 +132,8 @@ function waitingFor(state: GameState): WaitingFor {
   if (state.phase.kind === 'finished') return { kind: 'finished' };
   const purpose = pendingRollPurpose(state);
   if (purpose) return { kind: 'engine_result', purpose };
-  const seat = state.config.seats.find((entry) => entry.seatIndex === state.activeSeatIndex)!;
+  // The seat that owes the next command: the responder while a question is pending.
+  const seat = state.config.seats.find((entry) => entry.seatIndex === actingSeatIndex(state))!;
   return {
     kind: 'decision',
     seatIndex: seat.seatIndex,

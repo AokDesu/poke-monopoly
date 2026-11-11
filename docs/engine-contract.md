@@ -249,3 +249,57 @@ Spec: §4.2, §4.8 Chat, §5.4, §9.
 **Visibility.** `observe(state, seat).own.chats` lists only the messages that seat sent or received (oldest first; present only when the flag is on). `chat_sent` reaches only its sender and recipient. `actionVisibleTo` strips every `chat` payload field for any other seat, but the record itself still exists in the sequence, so a third seat can see that some seat took a `chat` action, not what or to whom. Nothing about chat reaches `ai/` until stream B's slices read `own.chats` through `observe`.
 
 **Versioning.** The stamp advances to 0.15.0 because the action union, events, state and observation gain fields; saves of 0.14.0 are refused rather than migrated. Chats round-trip through saves and command replay. Tests: [engine/social.test.ts](../engine/social.test.ts).
+
+## Responding seat and the `no_attack` promise (issue #56 S03)
+
+Spec: §4.2, §4.8 Promise, §6, §8. This is the contract stream A's PvP accept/decline and reaction Abilities reuse: build on `pendingResponse` and `actingSeatIndex`, not a parallel mechanism.
+
+### The seam
+
+`GameState.pendingResponse` is optional and absent unless a seat owes an answer. It is a discriminated union on `kind`; today there is one, `promise_offer { initiatorSeatIndex, responderSeatIndex, direction }`. `initiatorSeatIndex` is the seat whose turn it is (it stays `activeSeatIndex` throughout); `responderSeatIndex` owes the next command.
+
+`actingSeatIndex(state)` (exported from the engine, [engine/responses.ts](../engine/responses.ts)) is `pendingResponse.responderSeatIndex` while one waits and `activeSeatIndex` otherwise. Every caller that asks "whose command is next" uses it, and nothing reads `activeSeatIndex` for that any more:
+
+| Place | Behaviour while a response is pending |
+| --- | --- |
+| `applyAction` | Only the acting seat's actor is accepted. Anyone else, including the active seat, is rejected as `wrong_actor` and the state is untouched. The acting seat's command must be in its enabled legal set, else `illegal_action`. Engine-generated records (`dice_result`, `shuffle`, `event_draw`) are unaffected: none can be pending at the same time. |
+| `legalActions(state, seat)` | The responder gets exactly the choices of the pending kind (for `promise_offer`: `respond:accept` and `respond:reject`, command `respond` with payload `{ answer: 'accept' \| 'reject' }`). Every other seat, the active one included, has no enabled choice and the usual disabled `skip` (`NOT_YOUR_TURN`). |
+| `advanceAutomatically` | Looks at the acting seat. It never answers for a responder: a response always has at least two choices, so it is a decision, not an automatic step. |
+| `resume(...).waitingFor` | `{ kind: 'decision', seatIndex, actorId, phase, legalActions }` of the acting seat, the responder here; `phase` is still the turn's phase (`social`). A reload re-asks the same question from the saved state, and the record is in the save. |
+| Invariant `game-can-finish` | "An unfinished game always has a seat with an enabled choice" checks the acting seat. |
+| Sim runner and `sim/legal-games.ts` | Decide and probe foreign actors for the acting seat. |
+
+`respond` is accepted only when a response is pending; without one it is `illegal_action`. The record is cleared by the answer, in the same accepted action, so the state never holds a stale pending response, and replay applies the same records in the same order, so replay is deterministic and `verifyReplay` passes mid-question.
+
+### Adding a response kind (stream A)
+
+1. Add a variant to `pendingResponseSchema` in [engine/contract/schema.ts](../engine/contract/schema.ts) carrying the initiator, the responder and what the answer needs; bump `ENGINE_VERSION`.
+2. Create the record in the initiating command (as `offerPromise` does) and give it a case in `responseChoices` ([engine/responses.ts](../engine/responses.ts)). Widen `respondPayloadSchema.answer` for a different answer set (PvP uses `decline` where the spec says so).
+3. Resolve it in the `respond` branch of `applyAction` by `pendingResponse.kind`, deleting the record in the same action. Spend the turn's budgets only in the initiating or answering action, never both.
+4. Extend visibility ([engine/visibility.ts](../engine/visibility.ts)) so only the parties see the events, and `observe` so only they see `own.pendingResponse`.
+5. Phases do not change: the question lives beside the phase, so a reaction in Strategy or Move leaves `phase` as it was.
+
+### The `no_attack` promise
+
+**Offer.** With `socialWindow` on, the active human in Social with the interaction unspent may send `offer_promise { targetSeatIndex, direction }` to any **AI** seat, in either direction (Q2a):
+
+- `offer`: "I won't attack you". The human is the promiser, the AI the recipient and the responder, who accepts or rejects.
+- `ask`: "promise not to attack me". The AI is the promiser, the human the recipient; the AI agrees (`accept`) or refuses (`reject`).
+
+Choice IDs are `offer-promise:seat-<n>:offer|ask`. The choices depend on seats, flags and promise history only, never on what any seat holds, so offering leaks no card (§4.8 Privacy). An AI seat is never offered one. The offer itself changes nothing but `pendingResponse` and the event; the turn's `socialInteraction` is spent by the **answer**, so either answer, `accept` or `reject`, uses up the interaction (a chat, too, spends it, so a chat and an offer are mutually exclusive in one turn) and neither spends `tacticalAction`. While the offer is pending nothing else can be sent (§4.2: the game pauses only inside this window).
+
+**Accept** appends `{ promiserSeatIndex, recipientSeatIndex, createdGlobalTurnNo, closesOwnTurnNo }` to `GameState.promises` with `closesOwnTurnNo = promiser.ownTurnNo + 1`: the promise runs until the end of the promiser's next turn. **Reject** creates nothing. Both clear `pendingResponse` and emit one event: `promise_offered` (at the offer), then `promise_accepted { promiserSeatIndex, recipientSeatIndex, closesOwnTurnNo }` or `promise_rejected { promiserSeatIndex, recipientSeatIndex }`. Nothing else changes: coins, teams, items, Balls, RNG, dice, phase and legality of every other command are as before (§4.8 hard line, tested).
+
+**Limits** (checked when the offer is listed, and so again by `applyAction`):
+
+- *One active promise per directed pair.* A promise is active from confirmation until the end of the promiser's turn `closesOwnTurnNo`: while the promiser's `ownTurnNo` is below it, or equals it and the promiser is the active seat. The other direction of the same two seats is a different pair.
+- *No renewal.* The promiser's closing turn still counts as active, so the same pair cannot be re-offered then. Once it has closed, a new promise is a fresh one, not a renewal; §4.8's "max +2 per pair per game" trust cap presumes more than one over a game. This is this slice's reading of "no renewal"; stream B's settlement slice (S07) may tighten it.
+- *Not past game end.* Once `finalTableRound` is announced, nobody plays an own turn above `targetOwnTurnNo`, so a promise whose `closesOwnTurnNo` exceeds it would outlive the game and is not offered. Before the round is announced the game end is unknown, so an offer is allowed; such a promise is later `closed_by_game_end` (S07).
+
+**Visibility.** `promise_offered` reaches only the initiator and responder, `promise_accepted` and `promise_rejected` only the promiser and recipient (the same two seats). `observe(state, seat).own.promises` lists only the promises that seat made or received (present with the flag on), and `own.pendingResponse` exists only for the initiator and the responder. For any other seat, `actionVisibleTo` strips the payloads of `offer_promise` and `respond`; as for `chat`, the record itself stays in the sequence, so a third seat can see that some seat sent an `offer_promise` and that another `respond`ed, not the target, the direction or the answer.
+
+**Not in this slice.** Settling promises at End, breaches, trust and memory (S07, which also activates the `promise-closes-on-own-turn` invariant), Deal Cards and the Deal response (S05), and the AI's Jev decisions for `respond` (the `ai/` layer). `GameState.promises` therefore keeps every promise, closed ones included, for S07.
+
+**Sim.** `npm run sim -- --games <n> --seed <n> --social` plays seat 0 as a `human` with the random policy and `socialWindow` on; the other seats keep `--policy`. The summary gains `social { promiseOffers, promisesAccepted, promisesRejected }` only with the flag, so a run without it is byte-for-byte unchanged.
+
+**Versioning.** The stamp advances to 0.16.0: the action union, events, state and observation gain fields. Saves of 0.15.0 are refused rather than migrated. Tests: [engine/promises.test.ts](../engine/promises.test.ts), the `--social` cases in [sim/sim.test.ts](../sim/sim.test.ts) and the social property in [sim/legal-games.property.test.ts](../sim/legal-games.property.test.ts).
