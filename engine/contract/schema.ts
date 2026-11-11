@@ -110,6 +110,8 @@ export const gameConfigSchema = z.strictObject({
     .max(4),
   seed: z.union([z.int(), id]),
   lapTarget: z.int().positive(),
+  // Opens the human's Social window to chat messages (§4.2, §4.8); absent or false leaves Social a skip.
+  socialWindow: z.boolean().optional(),
   engineVersion: id,
   contentVersion: id,
   rngVersion: id,
@@ -129,6 +131,22 @@ export const logHeaderSchema = z
       }
     }
   });
+export const chatTopicSchema = z.enum(['truce', 'trade', 'point_leader', 'use_item', 'hold_item']);
+/** `itemId` names a content item, never an instance, so asking cannot reveal a held item (§4.8). */
+export const chatPayloadSchema = z.strictObject({
+  targetSeatIndex: count,
+  topic: chatTopicSchema,
+  leaderSeatIndex: count.optional(),
+  itemId: id.optional(),
+});
+export const chatMessageSchema = z.strictObject({
+  fromSeatIndex: count,
+  toSeatIndex: count,
+  topic: chatTopicSchema,
+  leaderSeatIndex: count.optional(),
+  itemId: id.optional(),
+  globalTurnNo: count,
+});
 const privateResultSchema = z.strictObject({ kind: z.literal('peek'), eventId: id });
 export const playerSchema = z.strictObject({
   actorId: id,
@@ -212,7 +230,18 @@ export const gameStateSchema = z.strictObject({
     tacticalAction: count,
     catchAttempt: count,
     pokemonAbility: count,
+    // Present only when `config.socialWindow` is on: one interaction per human turn (§4.2).
+    socialInteraction: count.optional(),
   }),
+  // The last 3 chat messages of each pair, `seats` ordered low to high; absent until a first message.
+  chats: z
+    .array(
+      z.strictObject({
+        seats: z.tuple([count, count]),
+        messages: z.array(chatMessageSchema).max(3),
+      }),
+    )
+    .optional(),
   finalTableRound: finalTableRoundSchema,
   // Active-turn item effects, cleared when the next turn starts; absent when none.
   turnEffects: z.strictObject({ itemBonus: z.int() }).optional(),
@@ -234,10 +263,10 @@ const actionBodySchema = z.discriminatedUnion('kind', [
       'ability',
       'deal',
       'promise',
-      'chat',
     ]),
     payload: z.strictObject({}),
   }),
+  z.object({ kind: z.literal('chat'), payload: chatPayloadSchema }),
   z.object({ kind: z.literal('catch'), payload: z.strictObject({ ballType }) }),
   z.object({
     kind: z.literal('use_item'),
@@ -355,6 +384,15 @@ export const engineEventSchema = z.discriminatedUnion('kind', [
     triggerSeatIndex: count,
     targetOwnTurnNo: count,
   }),
+  // Told only to the sender and the recipient (§4.8).
+  z.strictObject({
+    kind: z.literal('chat_sent'),
+    fromSeatIndex: count,
+    toSeatIndex: count,
+    topic: chatTopicSchema,
+    leaderSeatIndex: count.optional(),
+    itemId: id.optional(),
+  }),
 ]);
 export const observationSchema = z.strictObject({
   public: z.strictObject({
@@ -387,6 +425,8 @@ export const observationSchema = z.strictObject({
     items: z.array(itemInstanceSchema),
     balls: ballPouchSchema,
     privateResults: z.array(privateResultSchema),
+    // Only messages this seat sent or received; present only when `config.socialWindow` is on.
+    chats: z.array(chatMessageSchema).optional(),
   }),
 });
 export const fixtureSchema = z.strictObject({
@@ -435,6 +475,9 @@ export type GameState = z.infer<typeof gameStateSchema>;
 export type Player = z.infer<typeof playerSchema>;
 export type Phase = z.infer<typeof phaseSchema>;
 export type PokemonInstance = z.infer<typeof pokemonInstanceSchema>;
+export type ChatTopic = z.infer<typeof chatTopicSchema>;
+export type ChatPayload = z.infer<typeof chatPayloadSchema>;
+export type ChatMessage = z.infer<typeof chatMessageSchema>;
 export type ItemInstance = z.infer<typeof itemInstanceSchema>;
 export type BallPouch = z.infer<typeof ballPouchSchema>;
 export type Action = z.infer<typeof actionSchema>;

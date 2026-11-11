@@ -13,6 +13,7 @@ import { confirmShop } from '../shop.ts';
 import { itemChoices, useItem } from '../items.ts';
 import { ENGINE_VERSION } from '../versions.ts';
 import { recordSale, validSale } from '../selling.ts';
+import { chatChoices, chatsOf, recordChat, validChat } from '../social.ts';
 import type {
   GameState,
   Observation,
@@ -56,6 +57,8 @@ export function observe(state: GameState, seatIndex: number): Observation {
       items: ownPlayer.items,
       balls: ownPlayer.balls,
       privateResults: ownPlayer.privateResults,
+      // Only conversations this seat is part of; the key exists only when the Social window is on.
+      ...(state.config.socialWindow === true && { chats: chatsOf(state, seatIndex) }),
     },
   });
 }
@@ -99,6 +102,7 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   ) {
     result.enabled.push({ id: 'skip', kind: 'skip', payload: {} });
   }
+  if (state.phase.kind === 'social') chatChoices(state, seatIndex, result);
   if (state.phase.kind === 'encounter' && !state.phase.catchRoll) {
     for (const ballType of ['poke', 'great', 'ultra'] as const) {
       const action: LegalAction = { id: `catch:${ballType}`, kind: 'catch', payload: { ballType } };
@@ -263,13 +267,15 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
           : undefined
       : undefined;
   if (
-    !(saleIds !== undefined
-      ? validSale(state, saleIds)
-      : legalActions(state, state.activeSeatIndex).enabled.some(
-          (choice) =>
-            choice.kind === action.kind &&
-            JSON.stringify(choice.payload) === JSON.stringify(action.payload),
-        ))
+    !(action.kind === 'chat'
+      ? validChat(state, state.activeSeatIndex, action.payload)
+      : saleIds !== undefined
+        ? validSale(state, saleIds)
+        : legalActions(state, state.activeSeatIndex).enabled.some(
+            (choice) =>
+              choice.kind === action.kind &&
+              JSON.stringify(choice.payload) === JSON.stringify(action.payload),
+          ))
   ) {
     return { rejected: true, reason: 'illegal_action', state };
   }
@@ -279,17 +285,19 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
     next.phase.awaitingResult = true;
   }
   const events =
-    saleIds !== undefined
-      ? recordSale(next, saleIds)
-      : next.config.engineVersion !== ENGINE_VERSION
-        ? recordTurnCommand(next, action.kind)
-        : next.phase.kind === 'encounter'
-          ? confirmCatch(next, action)
-          : next.phase.kind === 'shop'
-            ? confirmShop(next, action)
-            : action.kind === 'use_item'
-              ? useItem(next, action)
-              : recordTurnCommand(next, action.kind);
+    action.kind === 'chat'
+      ? recordChat(next, action.payload)
+      : saleIds !== undefined
+        ? recordSale(next, saleIds)
+        : next.config.engineVersion !== ENGINE_VERSION
+          ? recordTurnCommand(next, action.kind)
+          : next.phase.kind === 'encounter'
+            ? confirmCatch(next, action)
+            : next.phase.kind === 'shop'
+              ? confirmShop(next, action)
+              : action.kind === 'use_item'
+                ? useItem(next, action)
+                : recordTurnCommand(next, action.kind);
   return {
     accepted: true,
     state: next,

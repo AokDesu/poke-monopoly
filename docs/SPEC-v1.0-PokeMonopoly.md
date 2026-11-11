@@ -309,6 +309,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 - Asking for a specific item never makes the engine reveal whether the AI holds it.
 - **The hard line:** messages may change only the AI's intent in choosing action, target, item and willingness. They must never change coins, assets, Deal Card terms, dice results or legality.
 - Loose talk is not a contract, and the UI must show when something is only words.
+- **Engine interaction (#56 S01):** the engine accepts a topic message only from the active human in the Social window, when the optional `GameConfig.socialWindow` is `true`. With the flag absent or `false` Social offers only Skip. One message spends the turn's whole social interaction (`turnBudgets.socialInteraction`, reset at Start); AI seats never start one. It keeps the last 3 messages per pair, shows a seat only the messages it sent or received, and changes nothing else. The item named in an item message is a content item ID, so the choices never depend on what the target holds. Free text arrives in a later slice.
 
 **Deal Card**
 

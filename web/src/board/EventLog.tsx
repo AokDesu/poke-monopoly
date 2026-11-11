@@ -19,6 +19,9 @@ function eventMessage(
     case 'status_changed':
     case 'line_selected':
       return [];
+    // Chat has its own screen (#57); the flag keeping the Social window closed is off until then.
+    case 'chat_sent':
+      return [];
     case 'random_result':
       if (event.purpose.startsWith('line:')) return [];
       // Strings/arrays may be internal draw IDs or deck order in historical fixtures. Never dump them.

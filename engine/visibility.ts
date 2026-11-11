@@ -19,6 +19,10 @@ function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): bo
   if (event.kind === 'hostile_item_used') {
     return event.userSeatIndex === seatIndex || event.targetSeatIndex === seatIndex;
   }
+  // A chat message is its sender's and recipient's alone (§4.8, §5.4).
+  if (event.kind === 'chat_sent') {
+    return event.fromSeatIndex === seatIndex || event.toSeatIndex === seatIndex;
+  }
   // Items created during play are bought, hence secret (§4.1).
   if (event.kind === 'uid_created' && event.entity === 'item') {
     return (
@@ -63,6 +67,17 @@ export function actionVisibleTo(
     if (item?.visibility !== 'public') delete action.payload.itemInstanceId;
     // A hostile item use is its user's and target's alone (§4.1, §4.4).
     if (action.payload.targetSeatIndex !== seatIndex) delete action.payload.targetSeatIndex;
+  }
+  // A third seat learns nothing of a conversation's content or who it was with (§4.8).
+  if (
+    action.kind === 'chat' &&
+    actor?.seatIndex !== seatIndex &&
+    action.payload.targetSeatIndex !== seatIndex
+  ) {
+    delete action.payload.targetSeatIndex;
+    delete action.payload.topic;
+    delete action.payload.leaderSeatIndex;
+    delete action.payload.itemId;
   }
   // Deck order and the drawn card are nobody's until an effect makes them public (§4.6).
   if (action.kind === 'shuffle') delete action.payload.order;
