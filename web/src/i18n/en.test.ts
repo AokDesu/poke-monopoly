@@ -255,3 +255,18 @@ test('AI playback controls, status reasons and line bank notices go through the 
     'From turn 7, a backup bot is making my moves.',
   );
 });
+
+test('read-only team inspection covers form paths, instance identity and status explanations', () => {
+  const keys: MessageKey[] = [
+    'team.details',
+    'team.instance',
+    'team.ability',
+    'team.noAbility',
+    'team.nextForms',
+    'team.finalForm',
+    'team.readOnly',
+    'team.tiredReason',
+    'team.rescueRestriction',
+  ];
+  for (const key of keys) expect(t(key).trim(), key).not.toBe('');
+});
