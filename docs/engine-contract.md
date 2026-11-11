@@ -141,7 +141,7 @@ Spec: §4.3, §4.5 Rescue Starter, §4.7, §6.1, §8, Appendix A Classes. Conten
 
 Spec: §3.1, §6.7, §6.8, §6.9, §8. A save is the text `serialize({ state, log })` returns: a strict object with `saveVersion: "save-v1"`, the `engineVersion`, `contentVersion` and `rngVersion` stamps, the current `state` and the command `log` as sibling keys. The log carries the initial config, seed, stamps, revision-zero state and every accepted record with its `random_result` events, so the dice are never re-rolled. No log is nested inside `state`, and the schema admits no other field, so no key or token can be saved. The schema also requires the top-level stamps to equal the log header, `state.config` to equal `initialConfig`, and `state.stateRevision` to equal the number of logged actions. The engine only builds and reads the text; storage belongs to the caller (the browser for stream C, files for the sim).
 
-`deserialize(text)` refuses another `saveVersion`, `engineVersion`, `contentVersion` or `rngVersion` before the full schema check, with a message naming both versions (for example "This save was made with engine version 0.11.0; this game runs engine version 0.12.0. Old saves cannot be loaded yet."); migrating old saves is a later issue. Any other schema failure throws `Invalid save: <path>: <message>; ...`.
+`deserialize(text)` refuses another `saveVersion`, `engineVersion`, `contentVersion` or `rngVersion` before the full schema check, with a message naming both versions (for example "This save was made with engine version 0.11.0; this game runs engine version 0.13.0. Old saves cannot be loaded yet."); migrating old saves is a later issue. Any other schema failure throws `Invalid save: <path>: <message>; ...`.
 
 `resume(game)` returns `{ state, lastAction, waitingFor }` from the saved snapshot without applying anything: `lastAction` is the last committed record (so a dice result taken before the save is shown again), and `waitingFor` is `{ kind: "decision", seatIndex, actorId, phase, legalActions }`, `{ kind: "engine_result", purpose }` for a die still to be generated, or `{ kind: "finished" }`. A request pending when the browser closed is not in the save; the caller asks again for `waitingFor` from the same state and never starts a new turn. A sole enabled choice is still reported as a decision; the caller applies it with `advanceAutomatically` as during play.
 
@@ -184,3 +184,21 @@ Spec: §1 (hard gates), §6.5, §8. `checkInvariants(before, action, result)` in
 ## Dialogue log events (issue #42)
 
 Spec: §3, §5.2, §5.5, §5.7, §9. `EngineEvent` also accepts `line_selected` with `situation`, `personalityId`, `trustBucket` and `lineId`. `GameLog` has an optional `dialogueEvents` array for these events and `random_result` events whose purpose starts with `line:`. Callers append `selectLine`'s returned events here; `serialize` and `deserialize` preserve them. Selection uses a separate presentation RNG, retained by the caller between picks. These annotations do not alter accepted actions or gameplay state and command replay ignores them. Gameplay display and Jev selection integration are deferred.
+
+### Effective forms (issue 55 S02)
+
+Spec: §4.5, §4.7, §6.1/6.8, §8, Appendix A Evolution.
+
+`toEngineContent(parseContent(files))` retains `evolutions` and species `ability` descriptions.
+`effectiveForm(content, formId)` returns detached effective stats and Ability metadata. Explicit
+species definitions win; other declared forms inherit from the preceding stage with Battle +2
+and Base Sale rounded after each ×1.5 step. No fallback species rows are added. The same lookup
+feeds Sell, final liquidation and Bug Catcher sale-tag checks; combat and Ability execution can consume it in later slices.
+`nextEvolutionForms` lists next-stage IDs and `evolvedForm` rejects a target outside that list.
+These reads neither change instances/cooldowns nor consume RNG; they do not execute evolution.
+Ability prose is retained as data, pending the separate primitive mapping decision.
+
+Historical illustrative fixtures may omit evolution metadata and Ability descriptions; direct
+species lookup still works for them. The engine stamp advances to 0.13.0 because effective sale
+values change. Prior executable engine versions remain rejected; content JSON, content version,
+RNG version and command-log format are unchanged.

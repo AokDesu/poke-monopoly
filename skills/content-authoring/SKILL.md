@@ -23,7 +23,7 @@ Content is data. Appendix A of `docs/SPEC-v1.0-PokeMonopoly.md` is the baseline 
 | `content/personalities/<name>.json` | One file per personality, validated by `content/personality-schema.ts` | §5.5             |
 | `content/lines/en/<situation>.json` | English line bank, validated by `content/lines-schema.ts`              | §3, §5.7         |
 
-Ids are lowercase kebab-case (`poke-ball`, `main-character`). The engine's `Content` type is inferred from `contentSchema` in `engine/contract/schema.ts`; the schema rows in `content/schema.ts` extend those rows, so every engine field is validated exactly as the engine does. Authoring-only fields (`ability`, `passiveText`, `inEncounterPool`, `bonus`, `effect`, `stretch`) are not in the engine's `Content`. `ParsedContent` is assignable to `Content`, but the engine's `createGame` parses strictly and rejects those extra fields: pass it `toEngineContent(parsed)`, never the parsed object.
+Ids are lowercase kebab-case (`poke-ball`, `main-character`). The engine's `Content` type is inferred from `contentSchema` in `engine/contract/schema.ts`; the schema rows in `content/schema.ts` extend those rows, so every engine field is validated exactly as the engine does. Authoring-only fields (`passiveText`, `inEncounterPool`, `bonus`, `effect`, `stretch`) are not in the engine's `Content`. Evolution forms/lines and authored Ability descriptions are retained for the engine's effective-form lookup; Ability prose is not an executable primitive mapping. `ParsedContent` is assignable to `Content`, but the engine's `createGame` parses strictly and rejects those extra fields: pass it `toEngineContent(parsed)`, never the parsed object.
 
 ## Loading
 
@@ -49,6 +49,7 @@ In `evolutions.json`, add `{ "speciesId": "<base>", "stages": [{ "forms": ["<for
 - `speciesId` must be a species. One line per species.
 - Every form id is either a species id (Magikarp to Gyarados) or declared once in `evolutions.forms` as `{ id, name }`. A form with no species definition uses the evolution fallback in §4.5.
 - A stage with several forms is the player's choice and needs `"choice": "player"` (Eevee). A stage with one form must not have it.
+- A form ID occurs in only one stage across the catalogue and cannot repeat its own line’s base. A fallback form after a branching stage is rejected because its preceding form would be ambiguous; give that form an explicit species definition instead.
 - Final forms (Scyther, Chansey, Gyarados, Snorlax, Porygon) have no line.
 
 ## Add a dialogue line

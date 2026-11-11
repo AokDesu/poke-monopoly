@@ -31,3 +31,5 @@ export {
   type SavedGame,
   type WaitingFor,
 } from './save.ts';
+
+export { effectiveForm, evolvedForm, nextEvolutionForms, type EffectiveForm } from './forms.ts';

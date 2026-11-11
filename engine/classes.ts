@@ -1,3 +1,4 @@
+import { effectiveForm } from './forms.ts';
 import type { Content, Player, PokemonInstance } from './contract/schema.ts';
 
 export type ClassBonusHook =
@@ -28,11 +29,7 @@ export function classBonus(content: Content, classId: string, hook: ClassBonusHo
       return hook.kind === 'catch' && hook.speciesTags.includes('water') ? 2 : 0;
     case 'bug_catch_sale_bonus':
       if (hook.kind === 'catch') return hook.speciesTags.includes('bug') ? 1 : 0;
-      return content.species
-        .find((entry) => entry.id === hook.pokemon.speciesId)
-        ?.tags.includes('bug')
-        ? 2
-        : 0;
+      return effectiveForm(content, hook.pokemon.speciesId).tags.includes('bug') ? 2 : 0;
     case undefined:
       return 0;
   }

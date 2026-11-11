@@ -331,16 +331,13 @@ describe('the parsed content is the engine’s Content', () => {
         Object.keys,
       ),
     );
-    const authoringOnly = [
-      'ability',
-      'passiveText',
-      'inEncounterPool',
-      'bonus',
-      'effect',
-      'stretch',
-    ];
+    const authoringOnly = ['passiveText', 'inEncounterPool', 'bonus', 'effect', 'stretch'];
     expect(authoringOnly.filter((key) => keys.has(key))).toEqual([]);
     expect(engineContent.species).toHaveLength(19);
+    expect(engineContent.evolutions).toEqual(content.evolutions);
+    expect(engineContent.species.map((s) => s.ability)).toEqual(
+      content.species.map((s) => s.ability),
+    );
     expect(engineContent.classes.map((entry) => entry.id)).toEqual(
       content.classes.map((entry) => entry.id),
     );
