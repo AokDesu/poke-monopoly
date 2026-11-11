@@ -315,6 +315,13 @@ export const en = {
   'strategy.cost': 'Consumes this item and your tactical action.',
   'strategy.confirm': 'Confirm {item}',
   'strategy.skip': 'Skip item use',
+  'strategy.potion.targets': 'Choose a Pokémon to heal',
+  'strategy.potion.member': '{pokemon} · {instanceId}',
+  'strategy.potion.target': 'Heal: {pokemon} · {instanceId}',
+  'strategy.potion.effect': 'Clears Tired from this Pokémon.',
+  'strategy.potion.chooseTarget': 'Choose a Pokémon to preview its healing. Nothing is spent yet.',
+  'strategy.potion.staleSelection':
+    'The available actions changed. Choose your Potion and Pokémon again before confirming.',
 
   'sell.coins': '{amount} coins',
   'sell.price': '{basePrice} coins',

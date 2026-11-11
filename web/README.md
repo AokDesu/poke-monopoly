@@ -46,10 +46,14 @@ zero-value Rescue Starter; after confirmation the new team comes from the next O
 **Shop** displays every engine offer and price, the engine's exact disabled reasons, and
 **Leave the Shop**. Buying one unit or skipping ends the visit. **Strategy** lists the
 engine's item choices, including disabled Potions; hostile targets come only from those
-choices, never the user's seat. Selecting an item/target shows its content `effect` text
-and observed target information before a separate confirmation. It does not predict a
-Pickpocket transfer or roll outcome in the browser. All commands cross the store adapter
-and `applyAction`; item selection and target selection alone do not spend anything.
+choices, never the user's seat. Potion lists the engine-offered own-team Pokémon by species
+and full instance identity, so even duplicate species can be selected independently. No
+Potion target is preselected: choose a member, inspect the healing preview, then confirm.
+Refreshing the legal-action list clears the selection; engine rejections show the current
+choices without spending a replacement item. Disabled items and targets retain the engine's
+visible reason. Other items keep their content `effect` preview and observed target information;
+the browser does not predict a Pickpocket transfer or roll outcome. All commands cross the
+store adapter and `applyAction`; item and target selection alone do not spend anything.
 
 These panels replace the earlier turn-flow placeholders without changing board rules or
 opponent behavior. Previous roll/result banners stay in the field log while a decision is
