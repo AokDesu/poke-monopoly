@@ -385,9 +385,15 @@ test('a decision-specific fallback belongs only to that AI and a later Jev decis
   expect(screen.queryByText(t('ai.allBackupBanner'))).toBeNull();
 });
 
-test.each(['auto', 'low_confidence', 'stub', 'invalid_choice'])(
-  'a %s fallback is normal play: no Backup bot badge or banner (spec §3, §5.6)',
-  async (fallbackReason) => {
+test.each([
+  ['not_an_option', 'ai.backupInvalidAnswer'],
+  ['invalid_choice', 'ai.backupInvalidAnswer'],
+  ['revision_mismatch', 'ai.backupRevisionMismatch'],
+  ['low_confidence', 'ai.backupLowConfidence'],
+  ['auto', null],
+] as const)(
+  'a %s fallback is normal play: its §3.1 note only, no Backup bot badge or banner (spec §3)',
+  async (fallbackReason, note) => {
     vi.useFakeTimers();
     transport({ backupOnly: false, decisionFallback: true, fallbackReason });
     const store = game();
@@ -401,6 +407,9 @@ test.each(['auto', 'low_confidence', 'stub', 'invalid_choice'])(
     ).toBe(true);
     expect(screen.queryByText(t('ai.backupBadge'))).toBeNull();
     expect(screen.queryByText(t('ai.allBackupBanner'))).toBeNull();
+    const shown = document.querySelector('.ai-turn-note');
+    if (note) expect(shown?.textContent).toBe(t(note));
+    else expect(shown).toBeNull();
   },
 );
 
