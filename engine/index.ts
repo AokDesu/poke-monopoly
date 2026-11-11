@@ -32,4 +32,11 @@ export {
   type WaitingFor,
 } from './save.ts';
 
+export {
+  applyStatus,
+  healStatus,
+  expireStatuses,
+  battleReadyMembers,
+  type PokemonStatus,
+} from './status.ts';
 export { effectiveForm, evolvedForm, nextEvolutionForms, type EffectiveForm } from './forms.ts';

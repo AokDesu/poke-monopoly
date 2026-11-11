@@ -1,4 +1,6 @@
 import type { GameState, EngineEvent, Player } from './contract/schema.ts';
+import { expireStatuses } from './status.ts';
+import { startTurnClassPassive } from './classes.ts';
 import { ENGINE_VERSION } from './versions.ts';
 import { drawEncounter } from './catching.ts';
 import { finishGame } from './game-end.ts';
@@ -7,13 +9,17 @@ import { slowedSteps } from './items.ts';
 import { positionOf } from './contract/position.ts';
 
 /** Internal transitions operate only on the executor's detached next snapshot. */
-function startTurn(next: GameState, seatIndex: number): void {
+function startTurn(next: GameState, seatIndex: number): EngineEvent[] {
   next.activeSeatIndex = seatIndex;
   next.globalTurnNo++;
   next.players.find((player) => player.seatIndex === seatIndex)!.ownTurnNo++;
   next.turnBudgets = { tacticalAction: 1, catchAttempt: 1, pokemonAbility: 1 };
   delete next.turnEffects;
   next.phase = { kind: 'start' };
+  return startTurnClassPassive(
+    next,
+    next.players.find((player) => player.seatIndex === seatIndex)!,
+  );
 }
 
 export function firstPlayerRollPurpose(state: GameState): string {
@@ -90,14 +96,17 @@ export function recordTurnCommand(next: GameState, kind: string): EngineEvent[] 
       next.phase = { kind: 'end' };
       return [...resolveDestination(next), { kind: 'phase_changed', from, to: next.phase.kind }];
     case 'end': {
+      const expired = expireStatuses(
+        next.players.find((player) => player.seatIndex === next.activeSeatIndex)!,
+      );
       const round = next.finalTableRound;
       if (round && next.players.every((player) => player.ownTurnNo >= round.targetOwnTurnNo)) {
-        return finishGame(next);
+        return [...expired, ...finishGame(next)];
       }
       const seats = [...next.config.seats].sort((a, b) => a.seatIndex - b.seatIndex);
       const current = seats.findIndex((seat) => seat.seatIndex === next.activeSeatIndex);
-      startTurn(next, seats[(current + 1) % seats.length]!.seatIndex);
-      break;
+      const healed = startTurn(next, seats[(current + 1) % seats.length]!.seatIndex);
+      return [...expired, ...healed, { kind: 'phase_changed', from, to: next.phase.kind }];
     }
     default:
       return [];
@@ -149,6 +158,6 @@ export function recordFirstPlayerRoll(next: GameState, value: number): EngineEve
     next.activeSeatIndex = leaders[0]!;
     return [];
   }
-  startTurn(next, leaders[0]!);
-  return [{ kind: 'phase_changed', from: 'first_player_roll', to: 'start' }];
+  const healed = startTurn(next, leaders[0]!);
+  return [...healed, { kind: 'phase_changed', from: 'first_player_roll', to: 'start' }];
 }

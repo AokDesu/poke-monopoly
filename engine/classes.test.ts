@@ -234,6 +234,7 @@ test('a Potion is a public Strategy item disabled with NO_VALID_TARGET while no 
   const state = researcherGame();
   state.globalTurnNo = 1;
   state.phase = { kind: 'strategy' };
+  state.turnBudgets.tacticalAction = 1;
   state.players[1]!.team[0]!.tired = true;
   expect(legalActions(state, 0)).toEqual({
     enabled: [{ id: 'skip', kind: 'skip', payload: {} }],

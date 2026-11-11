@@ -16,6 +16,7 @@ test('the playable classes are the ones whose passive the engine implements (§1
     'main-character',
     'researcher',
   ]);
+  expect(classOptions.find((option) => option.id === 'nurse-joy')?.playable).toBe(false);
   // Stretch classes stay out of setup until after G2.
   expect(classOptions.map((option) => option.id)).not.toContain('team-rocket');
 });

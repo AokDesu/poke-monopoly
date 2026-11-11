@@ -1,5 +1,12 @@
 import { effectiveForm } from './forms.ts';
-import type { Content, Player, PokemonInstance } from './contract/schema.ts';
+import { healStatus } from './status.ts';
+import type {
+  EngineEvent,
+  GameState,
+  Content,
+  Player,
+  PokemonInstance,
+} from './contract/schema.ts';
 
 export type ClassBonusHook =
   | { kind: 'catch'; player: Player; speciesTags: readonly string[] }
@@ -30,6 +37,7 @@ export function classBonus(content: Content, classId: string, hook: ClassBonusHo
     case 'bug_catch_sale_bonus':
       if (hook.kind === 'catch') return hook.speciesTags.includes('bug') ? 1 : 0;
       return effectiveForm(content, hook.pokemon.speciesId).tags.includes('bug') ? 2 : 0;
+    case 'turn_start_team_heal':
     case undefined:
       return 0;
   }
@@ -64,4 +72,16 @@ function lapSaleBonusTarget(
 export function useCatchClassBonus(content: Content, player: Player): void {
   const passive = content.classes.find((entry) => entry.id === player.classId)?.passive;
   if (passive === 'lap_first_catch_bonus') player.catchBonusUsedLap = player.creditedLap;
+}
+
+/** Nurse Joy heals the whole team only as its owner's turn starts (§4.2 step 1). */
+export function startTurnClassPassive(state: GameState, player: Player): EngineEvent[] {
+  if (
+    state.content.classes.find((entry) => entry.id === player.classId)?.passive !==
+    'turn_start_team_heal'
+  )
+    return [];
+  return player.team.flatMap((pokemon) =>
+    healStatus(player, pokemon.instanceId, 'tired', 'nurse_joy'),
+  );
 }

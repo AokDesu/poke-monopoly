@@ -63,6 +63,45 @@ export type InvariantDefinition =
   | (InvariantBase & { status: 'active'; check: (step: Step) => string[] })
   | (InvariantBase & { status: 'pending' });
 
+function checkStatuses({ before, result }: Step): string[] {
+  if (!('accepted' in result)) return [];
+  const errors: string[] = [];
+  for (const owner of result.state.players) {
+    const previous = before.players.find((player) => player.actorId === owner.actorId)!;
+    const started = owner.ownTurnNo > previous.ownTurnNo;
+    const nurse =
+      result.state.content.classes.find((entry) => entry.id === owner.classId)?.passive ===
+      'turn_start_team_heal';
+    const ended = before.phase.kind === 'end' && before.activeSeatIndex === owner.seatIndex;
+    for (const pokemon of owner.team) {
+      if (started && nurse && pokemon.tired) errors.push('Nurse Joy did not heal at turn start');
+      if (
+        ended &&
+        pokemon.tired &&
+        pokemon.tiredExpiresOwnTurnNo !== undefined &&
+        pokemon.tiredExpiresOwnTurnNo <= previous.ownTurnNo
+      )
+        errors.push('Tired outlived owner expiry');
+      if (!pokemon.tired && pokemon.tiredExpiresOwnTurnNo !== undefined)
+        errors.push('Cleared Tired retained expiry');
+      const old = previous.team.find((entry) => entry.instanceId === pokemon.instanceId);
+      if (
+        old &&
+        old.tired !== pokemon.tired &&
+        !result.events.some(
+          (event) =>
+            event.kind === 'status_changed' &&
+            event.instanceId === pokemon.instanceId &&
+            event.status === 'tired' &&
+            event.operation === (pokemon.tired ? 'applied' : 'cleared'),
+        )
+      )
+        errors.push('Status change lacks a UID log');
+    }
+  }
+  return errors;
+}
+
 const accepted = (result: ApplyActionResult) => 'accepted' in result;
 
 /** Instance IDs that players own. An instance ID is created at the catch (issue #23). */
@@ -430,7 +469,8 @@ export const INVARIANTS: readonly InvariantDefinition[] = [
   },
   {
     id: 'tired-and-nurse-joy-useful',
-    status: 'pending',
+    status: 'active',
+    check: checkStatuses,
     section: '§8',
     specLine: 'Tired and Nurse Joy each have real use cases.',
   },
