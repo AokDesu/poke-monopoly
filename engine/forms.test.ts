@@ -173,3 +173,22 @@ test('historical fixtures omit metadata deliberately; prior executable engine st
     /Unsupported setup/,
   );
 });
+
+test('Bug Catcher sale bonus follows fallback evolved form tags (§4.5, §4.7, Appendix A)', () => {
+  const state = game();
+  const player = state.players[0]!;
+  player.classId = 'bug-catcher';
+  const pokemon: PokemonInstance = {
+    ...player.team[0]!,
+    origin: 'caught',
+    speciesId: 'butterfree',
+    evolutionStage: 2,
+    tired: true,
+  };
+  expect(salePrices(state, player, [pokemon])).toEqual([
+    { basePrice: Math.round(saleBasis(content, pokemon) * 0.8), classBonus: 2 },
+  ]);
+  expect(salePrices(state, player, [{ ...pokemon, origin: 'rescue_starter' }])).toEqual([
+    { basePrice: 0, classBonus: 0 },
+  ]);
+});

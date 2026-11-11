@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { expect, test } from 'vitest';
+import { beforeAll, expect, test } from 'vitest';
 import {
   applyAction,
   createGameConfig,
@@ -17,6 +17,15 @@ import { t } from '../i18n/en.ts';
 import { ShopPanel } from './ShopPanel.tsx';
 import { StrategyPanel } from './StrategyPanel.tsx';
 import { SellPanel } from './SellPanel.tsx';
+
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function () {
+    this.open = true;
+  };
+  HTMLDialogElement.prototype.close = function () {
+    this.open = false;
+  };
+});
 
 function scenario(input: unknown): GameState {
   const state = fixtureSchema.parse(input).state;
@@ -201,15 +210,15 @@ function sellPanel(state: GameState) {
       current = command(state, 'sell', { pokemonInstanceIds: ids });
     },
   };
-  render(<SellPanel {...props} />);
-  return () => current;
+  const { unmount } = render(<SellPanel {...props} />);
+  return { current: () => current, unmount };
 }
 
 test('sale selection shows engine price parts and total, reallocating the class bonus for each batch', () => {
   const state = scenario(sellFixture);
   state.players[0]!.classId = 'researcher';
   state.players[0]!.team[2]!.tired = true;
-  const current = sellPanel(state);
+  const { current } = sellPanel(state);
   fireEvent.click(screen.getByRole('checkbox', { name: 'Caterpie' }));
   let quote = saleQuote(state, 0, ['pokemon-3']);
   expect(screen.getByLabelText(t('sell.total')).textContent).toBe(
@@ -238,7 +247,7 @@ test('sale selection shows engine price parts and total, reallocating the class 
 
 test('selling all previews a zero-value Rescue Starter and the committed observation shows the replacement', () => {
   const state = scenario(sellFixture);
-  const current = sellPanel(state);
+  const { current } = sellPanel(state);
   for (const checkbox of screen.getAllByRole('checkbox')) fireEvent.click(checkbox);
   expect(
     screen.getByText(
@@ -261,10 +270,54 @@ test('selling all previews a zero-value Rescue Starter and the committed observa
 
 test('selling none keeps the team and finishes without error or a Rescue Starter warning', () => {
   const state = scenario(sellFixture);
-  const current = sellPanel(state);
+  const { current } = sellPanel(state);
   expect(screen.queryByText(t('sell.rescuePreview', { value: 0 }))).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: t('sell.keep') }));
   expect(current().players[0]!.team).toEqual(state.players[0]!.team);
   expect(current().phase.kind).toBe('resolve');
   expect(screen.queryByRole('alert')).toBeNull();
+});
+
+test('several selected Pokémon show the engine batch total and their price parts on every card', () => {
+  const state = scenario(sellFixture);
+  const { current } = sellPanel(state);
+  const all = state.players[0]!.team.map((pokemon) => pokemon.instanceId);
+  expect(screen.queryByRole('button', { name: t('sell.confirm') })).toBeNull();
+  for (const checkbox of screen.getAllByRole('checkbox')) fireEvent.click(checkbox);
+  const quote = saleQuote(state, 0, all);
+  expect(screen.getByLabelText(t('sell.total')).textContent).toBe(
+    t('sell.coins', { amount: quote.total }),
+  );
+  for (const row of quote.rows) {
+    expect(screen.getByTestId(`sale-${row.instanceId}`).textContent).toContain(
+      t(row.classBonus === 0 ? 'sell.price' : 'sell.priceBonus', row),
+    );
+  }
+  fireEvent.click(screen.getByRole('button', { name: t('sell.confirm') }));
+  expect(current().players[0]!.team).toMatchObject([{ origin: 'rescue_starter' }]);
+  expect(current().phase.kind).toBe('resolve');
+});
+
+test('the Sell modal takes focus into the team and returns it on close', () => {
+  const state = scenario(sellFixture);
+  const outside = document.createElement('button');
+  outside.textContent = 'outside';
+  document.body.appendChild(outside);
+  outside.focus();
+  const { unmount } = sellPanel(state);
+  const dialog = screen.getByRole('dialog');
+  expect(document.activeElement).toBe(within(dialog).getAllByRole('checkbox')[0]);
+  unmount();
+  expect(document.activeElement).toBe(outside);
+  outside.remove();
+});
+
+test('Escape does not leave the Sell Phase: keeping is an explicit choice (§3.1)', () => {
+  const state = scenario(sellFixture);
+  const { current } = sellPanel(state);
+  const dialog = screen.getByRole('dialog');
+  fireEvent(dialog, new Event('cancel', { cancelable: true, bubbles: true }));
+  expect(current().phase.kind).toBe('sell');
+  expect(screen.getByRole('dialog')).toBe(dialog);
+  expect(screen.getByRole('button', { name: t('sell.keep') })).toBeTruthy();
 });

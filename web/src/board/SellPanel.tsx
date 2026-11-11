@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { Observation, SaleQuote } from '../../../engine/index.ts';
 import { speciesType } from '../game/content.ts';
 import { t } from '../i18n/en.ts';
@@ -16,17 +16,38 @@ export function SellPanel({
   onSell: (ids: string[]) => void;
 }) {
   const [selected, setSelected] = useState<string[]>([]);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const headingId = useId();
   const totalId = useId();
   const team = observation.public.players.find(
     (player) => player.seatIndex === observation.own.seatIndex,
   )!.team;
   const quote = quoteSale(selected);
+  // A Sell decision is protected like a catch: focus moves in and stays until the
+  // player chooses to sell a selection or to keep the whole team (§3.1, §4.7).
+  useEffect(() => {
+    const element = dialog.current!;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    element.showModal();
+    (element.querySelector<HTMLElement>('input[type="checkbox"]') ?? element).focus();
+    return () => {
+      element.close();
+      if (previous?.isConnected) previous.focus();
+    };
+  }, []);
   return (
-    <div className="decision-panel sell-panel">
+    <dialog
+      ref={dialog}
+      className="sell-dialog panel"
+      aria-labelledby={headingId}
+      onCancel={(event) => event.preventDefault()}
+    >
+      <h2 id={headingId}>{t('turn.sellHeading')}</h2>
+      <p className="sell-copy">{t('turn.sellBody')}</p>
       <ul className="sale-team" aria-label={t('board.yourTeam')}>
         {team.map((pokemon) => {
           const checked = selected.includes(pokemon.instanceId);
-          // Unselected rows show a solo quote, never a guessed share of the batch bonus.
+          // Unselected cards show a solo quote, never a guessed share of the batch bonus.
           const row =
             quote.rows.find((entry) => entry.instanceId === pokemon.instanceId) ??
             quoteSale([pokemon.instanceId]).rows[0]!;
@@ -45,7 +66,7 @@ export function SellPanel({
                     )
                   }
                 />
-                <TypeOrb type={speciesType(pokemon.speciesId)} className="size-9 shrink-0" />
+                <TypeOrb type={speciesType(pokemon.speciesId)} className="size-10 shrink-0" />
                 <span className="sale-detail">
                   <strong>{speciesName(pokemon.speciesId)}</strong>
                   <span>{t(row.classBonus === 0 ? 'sell.price' : 'sell.priceBonus', row)}</span>
@@ -58,7 +79,7 @@ export function SellPanel({
           );
         })}
       </ul>
-      {team.length === 0 && <p>{t('board.emptyTeam')}</p>}
+      {team.length === 0 && <p className="sell-copy">{t('board.emptyTeam')}</p>}
       <div className="sale-total" aria-live="polite">
         <span id={totalId}>{t('sell.total')}</span>
         <output aria-labelledby={totalId}>{t('sell.coins', { amount: quote.total })}</output>
@@ -68,14 +89,16 @@ export function SellPanel({
           {t('sell.rescuePreview', { value: quote.rescueStarter.saleValue })}
         </p>
       )}
-      {selected.length > 0 && (
-        <ActionButton enabled onClick={() => onSell(selected)}>
-          {t('sell.confirm')}
+      <div className="sell-actions">
+        {selected.length > 0 && (
+          <ActionButton enabled onClick={() => onSell(selected)}>
+            {t('sell.confirm')}
+          </ActionButton>
+        )}
+        <ActionButton enabled variant="secondary" onClick={() => onSell([])}>
+          {t('sell.keep')}
         </ActionButton>
-      )}
-      <ActionButton enabled variant="secondary" onClick={() => onSell([])}>
-        {t('sell.keep')}
-      </ActionButton>
-    </div>
+      </div>
+    </dialog>
   );
 }

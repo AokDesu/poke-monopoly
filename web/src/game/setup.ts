@@ -19,7 +19,7 @@ export type PersonalityId = (typeof PERSONALITIES)[number]['id'];
 export const DIFFICULTIES = ['easy', 'normal'] as const;
 export type DifficultyId = (typeof DIFFICULTIES)[number];
 
-/** A class as setup offers it. `playable` is false until the engine implements its passive. */
+/** A class as setup offers it. `playable` is false until the engine implements its passive and the browser supports the class. */
 export interface ClassOption {
   readonly id: string;
   readonly starterSpeciesIds: readonly string[];

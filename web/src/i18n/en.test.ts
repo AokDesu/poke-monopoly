@@ -212,6 +212,8 @@ test('Shop, Strategy previews and atomic Sell decisions have catalog coverage', 
     'action.engineReason',
   ];
   for (const key of keys) expect(t(key).trim(), key).not.toBe('');
+  expect(t('sell.confirm')).toBe('Sell selected');
+  expect(t('sell.keep')).toBe('Keep all');
 });
 
 test('AI playback controls, status reasons and line bank notices go through the catalog', () => {
