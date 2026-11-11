@@ -19,6 +19,7 @@
     "name": "Fisherman",
     "starterSpeciesIds": ["magikarp"],
     "classItemId": "great-ball",
+    "passive": "water_catch_bonus",
     "passiveText": "+2 catch against water"
   },
   {
@@ -34,6 +35,7 @@
     "name": "Bug Catcher",
     "starterSpeciesIds": ["caterpie"],
     "classItemId": "sticky-web",
+    "passive": "bug_catch_sale_bonus",
     "passiveText": "+1 catch against bug; sells bug +2"
   },
   {

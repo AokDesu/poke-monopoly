@@ -408,8 +408,7 @@ describe('the parsed content is the engine’s Content', () => {
     }
   });
 
-  test('the engine reads the Main Character and Researcher passives from the real content', () => {
-    // Implemented Appendix A passives are registered by engine-owned ID.
+  test('the engine reads the implemented class passives from the real content', () => {
     expect(
       Object.fromEntries(
         content.classes.flatMap((entry) => (entry.passive ? [[entry.id, entry.passive]] : [])),
@@ -418,6 +417,8 @@ describe('the parsed content is the engine’s Content', () => {
       'main-character': 'lap_first_catch_bonus',
       researcher: 'lap_first_sale_bonus',
       'nurse-joy': 'turn_start_team_heal',
+      fisherman: 'water_catch_bonus',
+      'bug-catcher': 'bug_catch_sale_bonus',
     });
     const seat = (classId: string, seatIndex: number, starterSpeciesId: string) => ({
       actorId: `player-${seatIndex}`,
@@ -444,9 +445,15 @@ describe('the parsed content is the engine’s Content', () => {
       });
     };
     // Appendix A: +1 on the first catch roll each Lap; +3 on the first Pokémon sold at Start each Lap.
-    expect(classBonus(engineContent, main.classId, { kind: 'catch', player: main })).toBe(1);
     expect(
-      classBonus(engineContent, researcher.classId, { kind: 'catch', player: researcher }),
+      classBonus(engineContent, main.classId, { kind: 'catch', player: main, speciesTags: [] }),
+    ).toBe(1);
+    expect(
+      classBonus(engineContent, researcher.classId, {
+        kind: 'catch',
+        player: researcher,
+        speciesTags: [],
+      }),
     ).toBe(0);
     expect(sale(researcher)).toBe(3);
     expect(sale(main)).toBe(0);

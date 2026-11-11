@@ -49,7 +49,13 @@ export const contentSchema = z.strictObject({
       classItemId: id,
       // Names an engine-owned passive; its numbers and timing live in engine/classes.ts.
       passive: z
-        .enum(['lap_first_sale_bonus', 'lap_first_catch_bonus', 'turn_start_team_heal'])
+        .enum([
+          'lap_first_sale_bonus',
+          'lap_first_catch_bonus',
+          'water_catch_bonus',
+          'bug_catch_sale_bonus',
+          'turn_start_team_heal',
+        ])
         .optional(),
     }),
   ),

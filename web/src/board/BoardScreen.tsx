@@ -148,21 +148,6 @@ export function BoardScreen({
           onChoose={choose}
         />
       )}
-      {humanTurn && game.phase.kind === 'sell' && (
-        <SellPanel
-          key={game.stateRevision}
-          observation={view.observation}
-          quoteSale={store.quoteSale}
-          onSell={(pokemonInstanceIds) => {
-            const result = store.submit({
-              actorId: you.actorId,
-              kind: 'sell',
-              payload: { pokemonInstanceIds },
-            });
-            if ('rejected' in result) setActionError(game.stateRevision);
-          }}
-        />
-      )}
       {opponentFailed && (
         <ActionButton enabled onClick={playback.retry}>
           {t('turn.retry')}
@@ -184,6 +169,21 @@ export function BoardScreen({
           legalActions={view.legalActions}
           catchOdds={view.catchOdds}
           onChoose={choose}
+        />
+      )}
+      {humanTurn && game.phase.kind === 'sell' && (
+        <SellPanel
+          key={game.stateRevision}
+          observation={view.observation}
+          quoteSale={store.quoteSale}
+          onSell={(pokemonInstanceIds) => {
+            const result = store.submit({
+              actorId: you.actorId,
+              kind: 'sell',
+              payload: { pokemonInstanceIds },
+            });
+            if ('rejected' in result) setActionError(game.stateRevision);
+          }}
         />
       )}
     </>

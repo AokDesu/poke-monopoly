@@ -8,7 +8,7 @@ import type {
 } from './contract/schema.ts';
 
 export type ClassBonusHook =
-  | { kind: 'catch'; player: Player }
+  | { kind: 'catch'; player: Player; speciesTags: readonly string[] }
   | {
       kind: 'sale';
       pokemon: PokemonInstance;
@@ -20,6 +20,7 @@ export type ClassBonusHook =
  * Sale hooks run only in the Start Sell Phase, so other sale paths must not call them.
  */
 export function classBonus(content: Content, classId: string, hook: ClassBonusHook): number {
+  if (hook.kind === 'sale' && hook.pokemon.origin === 'rescue_starter') return 0;
   const passive = content.classes.find((entry) => entry.id === classId)?.passive;
   switch (passive) {
     case 'lap_first_sale_bonus':
@@ -29,6 +30,15 @@ export function classBonus(content: Content, classId: string, hook: ClassBonusHo
     case 'lap_first_catch_bonus':
       return hook.kind === 'catch' && hook.player.catchBonusUsedLap !== hook.player.creditedLap
         ? 1
+        : 0;
+    case 'water_catch_bonus':
+      return hook.kind === 'catch' && hook.speciesTags.includes('water') ? 2 : 0;
+    case 'bug_catch_sale_bonus':
+      if (hook.kind === 'catch') return hook.speciesTags.includes('bug') ? 1 : 0;
+      return content.species
+        .find((entry) => entry.id === hook.pokemon.speciesId)
+        ?.tags.includes('bug')
+        ? 2
         : 0;
     case 'turn_start_team_heal':
     case undefined:

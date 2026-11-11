@@ -27,7 +27,11 @@ export function catchSnapshot(state: GameState, player: Player, ballType: BallTy
   return {
     ballType,
     catchDC: definition.dc,
-    classBonus: classBonus(state.content, player.classId, { kind: 'catch', player }),
+    classBonus: classBonus(state.content, player.classId, {
+      kind: 'catch',
+      player,
+      speciesTags: definition.tags,
+    }),
     ballBonus: { poke: 0, great: 1, ultra: 2 }[ballType],
     abilityBonus: abilityBonus(),
     itemBonus: itemBonus(state),
