@@ -1,3 +1,5 @@
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ESLint } from 'eslint';
 import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
@@ -9,9 +11,11 @@ import sellFixture from '../engine/fixtures/sell-phase-three-pokemon.json';
 import strategyFixture from '../engine/fixtures/strategy-with-items.json';
 import { createApp, MAX_BODY_BYTES } from './app.ts';
 import { createOrchestratorDecider, type Decider } from './decider.ts';
+import { Orchestrator } from './orchestrator.ts';
 import { FallbackPolicy, PERSONALITIES } from './fallback/index.ts';
 import type { JevAnswer, JevClient, JevRequest, JevResult } from './jev/client.ts';
 import { PINNED_JEV_MODEL } from './jev/client.ts';
+import { fileDecisionLog, type DecisionRecord } from './jev/decision-log.ts';
 import { createFakeJevClient } from './jev/fake.ts';
 import { SpendLedger, type UsageLine, type UsageRecorder } from './jev/spend.ts';
 
@@ -459,17 +463,215 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
   });
 
   test('one orchestrator per gameId, from a bounded cache', async () => {
+    const decider = createOrchestratorDecider({ client: () => offlineClient, usage: noSpend });
+    const spy = vi.spyOn(Orchestrator.prototype, 'decide');
+    try {
+      const app = testApp({ decider });
+      for (const gameId of ['a', 'a', 'b', 'a']) await decide({ ...strategy, gameId }, app);
+      const owners = spy.mock.contexts;
+      expect(owners).toHaveLength(4);
+      expect(owners[0]).toBe(owners[1]);
+      expect(owners[0]).toBe(owners[3]);
+      expect(owners[2]).not.toBe(owners[0]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test('a game’s limits survive its orchestrator being evicted by 64 other games', async () => {
     const fake = createFakeJevClient(pickSkip);
-    const decider = createOrchestratorDecider({ client: () => fake, usage: noSpend, maxGames: 1 });
-    const app = testApp({ decider });
-    const game = (gameId: string) => ({ ...strategy, gameId });
+    const app = testApp({ jevClient: () => fake });
+    const game = (gameId: string, turnKey = strategy.turnKey) => ({ ...strategy, gameId, turnKey });
     for (let call = 0; call < 3; call++) await decide(game('a'), app);
-    // Another game has its own counter, and evicts `a` from the one-game cache.
-    expect(await (await decide(game('b'), app)).json()).toMatchObject({ source: 'jev' });
-    expect(await (await decide(game('b'), app)).json()).toMatchObject({ source: 'jev' });
-    // `a` was evicted, so its turn counter starts again rather than hitting request_limit.
-    expect(await (await decide(game('a'), app)).json()).toMatchObject({ source: 'jev' });
-    expect(fake.requests).toHaveLength(6);
+    for (let other = 0; other < 65; other++) await decide(game(`other-${other}`), app);
+    expect(await (await decide(game('a'), app)).json()).toMatchObject({
+      source: 'fallback',
+      fallbackReason: 'request_limit',
+    });
+    expect(fake.requests).toHaveLength(3 + 65);
+  });
+
+  test('a game’s token budget survives eviction too', async () => {
+    const heavy = createFakeJevClient((request) => {
+      const result = pickSkip(request);
+      if (result.ok) result.usage.inputTokens = 400_000;
+      return result;
+    });
+    const app = testApp({ jevClient: () => heavy });
+    const game = (gameId: string, turnKey: string) => ({ ...strategy, gameId, turnKey });
+    await decide(game('a', 't1'), app);
+    await decide(game('a', 't2'), app); // 800,000 input tokens: over the 600,000 per game
+    for (let other = 0; other < 65; other++) await decide(game(`other-${other}`, 't1'), app);
+    expect(await (await decide(game('a', 't3'), app)).json()).toMatchObject({
+      source: 'fallback',
+      fallbackReason: 'token_budget',
+    });
+  });
+
+  test('the per-turnKey cap holds when turns interleave (A,A,A,A,B,A)', async () => {
+    const fake = createFakeJevClient(pickSkip);
+    const app = testApp({ jevClient: () => fake });
+    const bodies = [];
+    for (const turnKey of ['A', 'A', 'A', 'A', 'B', 'A']) {
+      bodies.push(await (await decide({ ...strategy, turnKey }, app)).json());
+    }
+    expect(bodies.map((body) => body.source)).toEqual([
+      'jev',
+      'jev',
+      'jev',
+      'fallback',
+      'jev',
+      'fallback',
+    ]);
+    expect(bodies[5]).toMatchObject({ fallbackReason: 'request_limit' });
+    expect(fake.requests).toHaveLength(4);
+  });
+
+  test('the per-turnKey cap holds for concurrent decisions (A,B,A,B,A,B,A)', async () => {
+    const slow = createFakeJevClient(async (request) => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return pickSkip(request);
+    });
+    const app = testApp({ jevClient: () => slow });
+    const bodies = await Promise.all(
+      ['A', 'B', 'A', 'B', 'A', 'B', 'A'].map(async (turnKey) =>
+        (await decide({ ...strategy, turnKey }, app)).json(),
+      ),
+    );
+    expect(bodies.filter((body) => body.source === 'jev')).toHaveLength(6);
+    expect(bodies[6]).toMatchObject({ source: 'fallback', fallbackReason: 'request_limit' });
+    expect(slow.requests).toHaveLength(6);
+  });
+
+  describe('decision events (spec §6.8)', () => {
+    const FIELDS = [
+      'choice',
+      'confidence',
+      'decisionPoint',
+      'fallbackReason',
+      'gameId',
+      'model',
+      'probabilities',
+      'questionId',
+      'requestId',
+      'sampled',
+      'seatIndex',
+      'stateRevision',
+      'time',
+      'turnKey',
+    ];
+
+    test('a Normal Jev decision logs its probabilities and confidence, and nothing else', async () => {
+      const records: DecisionRecord[] = [];
+      const fake = createFakeJevClient(pickSkip);
+      const app = testApp({ jevClient: () => fake, decisionLog: (line) => records.push(line) });
+      await decide(strategy, app);
+      expect(records).toHaveLength(1);
+      expect(Object.keys(records[0]!).sort()).toEqual(FIELDS);
+      expect(records[0]).toMatchObject({
+        gameId: strategy.gameId,
+        turnKey: strategy.turnKey,
+        stateRevision: strategy.stateRevision,
+        requestId: 'req_fake_1',
+        model: PINNED_JEV_MODEL,
+        questionId: 'strategy',
+        choice: 'skip',
+        probabilities: { skip: 1, 'use-item:item-0': 0 },
+        confidence: 1,
+        sampled: null,
+        fallbackReason: null,
+      });
+      expect(JSON.stringify(records)).not.toContain(PLACEHOLDER_KEY);
+    });
+
+    test('an Easy decision logs the sampled draw', async () => {
+      const records: DecisionRecord[] = [];
+      const app = testApp({
+        jevClient: () => createFakeJevClient(pickSkip),
+        decisionLog: (line) => records.push(line),
+      });
+      await decide({ ...strategy, difficulty: 'easy' }, app);
+      expect(records[0]!.sampled).toEqual(expect.any(Number));
+      expect(records[0]!.sampled).toBeLessThan(2 ** 32);
+    });
+
+    test('a fallback decision logs its reason, with and without the orchestrator', async () => {
+      const records: DecisionRecord[] = [];
+      const log = (line: DecisionRecord) => records.push(line);
+      await decide(
+        strategy,
+        testApp({
+          jevClient: () => createFakeJevClient(pickSkip),
+          decisionLog: log,
+          usage: overBudget,
+        }),
+      );
+      vi.stubEnv('JEV_ENABLED', 'false');
+      await decide(encounter, testApp({ decisionLog: log }));
+      expect(records.map((line) => [line.choice, line.fallbackReason, line.probabilities])).toEqual(
+        [
+          [policyChoice(strategy), 'budget_exceeded', null],
+          [policyChoice(encounter), 'disabled', null],
+        ],
+      );
+    });
+
+    test('a Sell decision logs one event per question asked', async () => {
+      const records: DecisionRecord[] = [];
+      await decide(sell, testApp({ decisionLog: (line) => records.push(line) }));
+      expect(records).toHaveLength(1);
+      expect(records[0]).toMatchObject({ questionId: 'sell', fallbackReason: 'missing_facts' });
+    });
+
+    test('the file log appends one JSON line per record, creating its folder', async () => {
+      const dir = mkdtempSync(join(tmpdir(), 'jev-decisions-'));
+      const path = join(dir, 'nested', 'jev-decisions.jsonl');
+      const app = testApp({
+        jevClient: () => createFakeJevClient(pickSkip),
+        decisionLog: fileDecisionLog(path),
+      });
+      await decide(strategy, app);
+      await decide({ ...strategy, turnKey: 'next' }, app);
+      const lines = readFileSync(path, 'utf8').trimEnd().split('\n');
+      expect(lines.map((line) => JSON.parse(line).turnKey)).toEqual([strategy.turnKey, 'next']);
+      expect(Object.keys(JSON.parse(lines[0]!)).sort()).toEqual(FIELDS);
+    });
+
+    test('a log that throws never fails the decision or leaks its error', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const app = testApp({
+          jevClient: () => createFakeJevClient(pickSkip),
+          decisionLog: () => {
+            throw new Error(`disk full ${PLACEHOLDER_KEY}`);
+          },
+        });
+        expect(await (await decide(strategy, app)).json()).toMatchObject({ source: 'jev' });
+        expect(JSON.stringify(warn.mock.calls)).not.toContain(PLACEHOLDER_KEY);
+      } finally {
+        warn.mockRestore();
+      }
+    });
+  });
+
+  test('when the client cannot be made the fallback policy decides, never the first action', async () => {
+    const factory = vi.fn(() => {
+      throw new Error(`cannot make a client ${PLACEHOLDER_KEY}`);
+    });
+    const app = testApp({ jevClient: factory });
+    expect(strategy.enabledActions[0]!.id).toBe('use-item:item-0');
+    const response = await decide(strategy, app);
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).toMatchObject({
+      choice: policyChoice(strategy),
+      source: 'fallback',
+      fallbackReason: 'decider_error',
+    });
+    expect(body.choice).toBe('skip');
+    // Nothing is cached from the failure: the next decision tries again.
+    await decide(strategy, app);
+    expect(factory).toHaveBeenCalledTimes(2);
   });
 
   test('a decision lands in the usage log without the key, and no console line carries it', async () => {

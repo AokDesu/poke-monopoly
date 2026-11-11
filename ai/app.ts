@@ -16,6 +16,7 @@ import {
   type DeciderAnswer,
 } from './decider.ts';
 import type { JevClient } from './jev/client.ts';
+import { fileDecisionLog, type DecisionLog } from './jev/decision-log.ts';
 import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
 import { presentationHeaders } from './presentation.ts';
 import { decideShop, shopRequestSchema } from './shop.ts';
@@ -30,6 +31,8 @@ export interface AppOptions {
   usage?: () => UsageRecorder;
   /** Made on first use, only with Jev enabled and a key; defaults to the real SDK client. */
   jevClient?: () => JevClient;
+  /** Receives each Jev decision's §6.8 events; none by default (the server below logs to a file). */
+  decisionLog?: DecisionLog;
 }
 
 /** Copies only IDs and telemetry, so nothing else a decider returns can reach the browser. */
@@ -45,7 +48,12 @@ const toResponse = (answer: DeciderAnswer, requestId: string, started: number): 
 export const createApp = ({
   usage = defaultUsageLedger,
   jevClient,
-  decider = createOrchestratorDecider({ usage, ...(jevClient && { client: jevClient }) }),
+  decisionLog,
+  decider = createOrchestratorDecider({
+    usage,
+    ...(jevClient && { client: jevClient }),
+    ...(decisionLog && { log: decisionLog }),
+  }),
 }: AppOptions = {}) => {
   const app = new Hono();
 
@@ -109,4 +117,4 @@ export const createApp = ({
   return app;
 };
 
-export const app = createApp();
+export const app = createApp({ decisionLog: fileDecisionLog() });
