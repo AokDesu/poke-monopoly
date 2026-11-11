@@ -11,7 +11,7 @@ import {
 import { t } from '../i18n/en.ts';
 import { BoardScreen } from './BoardScreen.tsx';
 import { turnMessages } from './turnMessages.ts';
-import { STEP_MS } from './useTurnPlayback.ts';
+import { HUMAN_STEP_MS, STEP_MS } from './useTurnPlayback.ts';
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () {
@@ -198,6 +198,78 @@ test('during an opponent turn the now-strip names the same action as the log and
   expect(square!.getAttribute('data-focus-seat')).toBe(String(seat));
   const pawn = document.querySelector('.trainer-pawn[data-focus="ai"]');
   expect(pawn?.getAttribute('data-seat')).toBe(String(seat));
+});
+
+test('during a rival movement die the now-strip stays visible, truthful and aligned with the spotlight', async () => {
+  vi.useFakeTimers();
+  transport();
+  const store = game();
+  seekOpponent(store);
+  render(<BoardScreen store={store} />);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  let seen = false;
+  for (let i = 0; i < 60 && !seen; i++) {
+    const view = store.getView()!;
+    if (view.observation.public.activeSeatIndex === 0) {
+      const enabled = view.legalActions.enabled;
+      const choice =
+        enabled.find(
+          (entry) =>
+            ['skip', 'release', 'skip_shop'].includes(entry.kind) || entry.id === 'finish-sell',
+        ) ?? enabled.at(-1);
+      if (enabled.length > 1 && choice) store.choose(choice.id);
+    }
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(STEP_MS.normal);
+    });
+    const latest = store.getView()!.feed.at(-1)!;
+    const movesDie =
+      latest.before.activeSeatIndex !== 0 &&
+      latest.record.action.kind === 'dice_result' &&
+      latest.before.phase.kind === 'move';
+    if (!movesDie) continue;
+    const message = turnMessages(latest).find((entry) => entry.key.startsWith('ai.'));
+    expect(message).toBeTruthy();
+    expect(message!.text).toContain(
+      String(latest.record.events.find((event) => event.kind === 'random_result')?.result),
+    );
+    const strip = document.querySelector('.now-strip');
+    expect(strip).not.toBeNull();
+    expect(strip!.getAttribute('data-seat')).toBe(String(latest.before.activeSeatIndex));
+    expect(strip!.textContent).toContain(message!.text);
+    const rival = store
+      .getView()!
+      .observation.public.players.find(
+        (player) => player.seatIndex === latest.before.activeSeatIndex,
+      )!;
+    const square = document.querySelector('.loop-square[data-focus="ai"]');
+    expect(square).not.toBeNull();
+    expect(square!.getAttribute('data-position')).toBe(String(rival.position));
+    expect(square!.getAttribute('data-focus-seat')).toBe(String(latest.before.activeSeatIndex));
+    seen = true;
+  }
+  expect(seen).toBe(true);
+});
+
+test('a human automatic step commits on the human pause, not the slower AI normal pace', async () => {
+  vi.useFakeTimers();
+  transport();
+  const store = game();
+  render(<BoardScreen store={store} />);
+  const before = store.getSession()!;
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(HUMAN_STEP_MS.normal - 1);
+  });
+  expect(store.getSession()).toBe(before);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  const after = store.getSession()!;
+  expect(after.log.actions).toHaveLength(before.log.actions.length + 1);
+  expect(after.log.actions.at(-1)!).toMatchObject({ auto: true, action: { kind: 'roll' } });
+  expect(HUMAN_STEP_MS.normal).toBeLessThan(STEP_MS.normal);
 });
 
 test('a pending decision always resolves to the fallback or a visible retry error', async () => {

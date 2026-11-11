@@ -162,12 +162,15 @@ test('Start opens Sell before the destination resolves, then continues through t
     kind: 'sell',
     payload: { pokemonInstanceIds: [] },
   });
+  const soldAt = store.getSession()!.log.actions.length;
   await tick();
+  // The human's own steps run on a short pause (not the AI pace), so the resolve and
+  // end-handoff may both commit within one tick; the destination still resolves.
   expect(
     store
       .getSession()!
-      .log.actions.at(-1)!
-      .events.some((event) => event.kind === 'space_resolved'),
+      .log.actions.slice(soldAt)
+      .some((record) => record.events.some((event) => event.kind === 'space_resolved')),
   ).toBe(true);
 }, 30000);
 

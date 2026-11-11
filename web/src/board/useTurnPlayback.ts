@@ -9,6 +9,8 @@ import { seatLabel } from './labels.ts';
 export type TurnSpeed = 'normal' | 'fast' | 'instant';
 /** Presentation pauses between rival actions, per speed. Normal is readable aloud (issue #123). */
 export const STEP_MS = { normal: 2000, fast: 250, instant: 0 } as const;
+/** Pause before a step that belongs to the human's own seat: never AI-paced (review on #127). */
+export const HUMAN_STEP_MS = { normal: 400, fast: 150, instant: 0 } as const;
 export const LINE_MS = { normal: 3000, fast: 700, instant: 0 } as const;
 
 export interface TurnPlayback {
@@ -126,11 +128,17 @@ export function useTurnPlayback(store: GameStore, view: SeatView | null): TurnPl
       lineSequence !== undefined
     )
       return;
+    // Only rival steps get the readable AI pace. The human's own automatic steps
+    // (rolls, phase handoffs) run on their own short pause (review on #127).
+    const pause =
+      view.observation.public.activeSeatIndex === view.seatIndex
+        ? HUMAN_STEP_MS[speed]
+        : STEP_MS[speed];
     const timer = setTimeout(() => {
       if (store.advance({ human: true })) return;
       if (view.observation.public.activeSeatIndex !== view.seatIndex)
         setRequested(view.observation.public.stateRevision);
-    }, STEP_MS[speed]);
+    }, pause);
     return () => clearTimeout(timer);
   }, [store, view, speed, lineSequence, failed, thinking, retry, game?.phase.kind]);
 
