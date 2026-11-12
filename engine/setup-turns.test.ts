@@ -366,7 +366,15 @@ test('reserved dice results require an outstanding roll and its exact purpose (Â
   });
   expect(forged).toEqual({ rejected: true, reason: 'illegal_action', state });
   let move = state;
-  for (let step = 0; step < 3; step++) move = advanceAutomatically(move).state;
+  for (let step = 0; step < 2; step++) move = advanceAutomatically(move).state;
+  // Strategy now includes targeted PvP, so skipping it is an explicit decision.
+  move = applyAction(move, {
+    actorId: move.players[move.activeSeatIndex]!.actorId,
+    kind: 'skip',
+    payload: {},
+    actionSeq: move.stateRevision + 1,
+    stateRevisionBefore: move.stateRevision,
+  }).state;
   expect(move.phase.kind).toBe('move');
   const movePurpose = 'move:2:1';
   expect(

@@ -308,3 +308,65 @@ state/events; content/RNG versions and the command-log format remain unchanged.
 ## Ability and battle timing contract (issue #55 S00)
 
 Spec: §4.2, §4.4–§4.6, §6.1, §8, Appendix A timing, Appendix C. [Spec Appendix C](SPEC-v1.0-PokeMonopoly.md#appendix-c--ability-and-battle-timing-contract) proposes the contract that the Ability, combat, Gym and protection slices (S05–S14) implement: the core Starter Ability to primitive-operation mapping, the timing windows, the PvP and Gym decision order, activation costs, shields, slows and the worked acceptance cases AC-1 to AC-5. Its decisions D1–D13 await Stream A team approval. The contract is not implemented: engine behaviour and the engine, content, RNG and command-log versions are unchanged.
+
+
+## Voluntary PvP and decision ownership (issue #55 S06)
+
+Spec: §4.2, §4.4, §4.8 (attack evidence), §6.1/6.3/6.4/6.8/6.9, §8;
+Appendix C.3 proposed D3/D4. S06 implements that proposed order for voluntary challenges;
+Ability activations, reactions, rerolls and protection remain later slices.
+
+In Strategy, `declare_pvp { targetSeatIndex }` is legal against any other seat at any
+board distance if both teams have a non-Tired member and the challenger has a tactical
+action. Declaration spends that action immediately, leaving other budgets untouched.
+It appends one public `attack_attempt` to `attackHistory` and the accepted action events:
+`{ attackId, actorId, targetId, source: 'pvp_declaration', actionSeq, globalTurnNo }`.
+The stable attack/battle/reward ID is `pvp:<declaration actionSeq>`. The canonical evidence
+survives declines and ties; later `no_attack` consumers need not infer attacks from dice,
+coin transfers or final outcomes. Observations and seat-visible event copies expose public
+declarations; no private item or willingness state is added. This slice adds no promises.
+
+`pendingDecision(state)` returns `{ seatIndex, actorId }`, distinct from active turn
+ownership. It returns the defender for `respond_pvp { accept }`, the winner for
+`choose_reward` (an explicit S04 `coins` or `evolve` choice), and null while either engine
+die is pending or the game is finished. All other decisions belong to the active seat.
+Wrong actors, stale revisions and unlisted choices reject without state or RNG changes.
+The automatic driver, resume, progress invariant, sim runner and property driver use this
+query, including when the deciding seat is an AI defender. Automatic singleton choices
+are still recorded as actions owned by their actual deciding seat.
+
+A decline costs no coins, rolls nothing and returns to the challenger's Strategy. On
+acceptance, `pvp_response` precedes `pvp_confirmed`. Appendix C only offers Ability windows
+when a ready eligible Ability exists; no such executable Ability exists in S06. Thus the
+attacker and defender windows close in that order without extra prompts, then S05's
+`pvpSnapshot` freezes all combat terms. S10 can insert its windows before that snapshot.
+The pending phase retains the confirmation and then the attacker's face. The engine draws
+one die per accepted `dice_result`, attacker first, with purposes
+`pvp:<declaration actionSeq>:attacker_roll` and `pvp:<declaration actionSeq>:defender_roll`.
+Dice with the wrong pending purpose or face reject; other generated actions cannot
+interleave into pending PvP. S05's `resolvePvp` supplies totals, outcome and reward seat in
+`pvp_resolved`. A tie returns directly to Strategy. On a win S04's resolver offers only
+the winner's reward and records its receipt; evolution never charges the loser.
+Protection is not added here: the pending request uses `coinLossBlocked: false` until S07.
+
+Every pending phase is serializable: declaration/response, confirmed attacker roll,
+defender roll, and winner reward. Save/resume re-asks the current owner from that exact
+revision; replay executes those accepted records without drawing or awarding twice.
+Throughout PvP the active seat, global turn and every own-turn counter stay fixed.
+Continuation returns to Strategy with the action spent, so neither a second item nor a
+second PvP is legal. End/next-seat advancement remains exclusively in the turn driver.
+
+The combined engine stamp is 0.16.0, one step beyond the dependency branches' 0.15.0.
+Historical illustrative fixtures and RNG/log/save format versions remain unchanged.
+The browser event formatter only recognizes the new event variants for type compatibility;
+PvP UI and AI integration are outside this slice.
+
+
+### Known limitation / follow-up for Stream B
+
+Pending PvP question integration, `buildStrategyQuestion` temporarily filters `declare_pvp`
+before singleton handling and shortlisting. This is a deliberate exception to keeping every
+legal action kind in §3.1/§5.3: engine legal actions and sim/property drivers still include
+PvP, while existing Jev item/skip questions and offline recordings remain unchanged. Pending
+PvP responses/rewards use the orchestrator's existing generic policy fallback. Stream B
+must remove this filter when it adds PvP Strategy questions.

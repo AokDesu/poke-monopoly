@@ -332,7 +332,7 @@ describe('sim registration (§1: games finish with Jev off)', () => {
     },
   );
 
-  test('each Sell Phase of a seed-1 two-seat Greedy game sells exactly the qualifying batch', async () => {
+  test('each Sell Phase across seeded two-seat Greedy games sells exactly the qualifying batch', async () => {
     const sales: { sold: string[]; qualifying: string[] }[] = [];
     const engine: SimEngine = {
       ...realEngine,
@@ -353,7 +353,7 @@ describe('sim registration (§1: games finish with Jev off)', () => {
         return realEngine.applyAction(state, action);
       },
     };
-    const options = { ...DEFAULT_OPTIONS, games: 1, seed: 1, seats: 2, policy: 'fallback' };
+    const options = { ...DEFAULT_OPTIONS, games: 4, seed: 1, seats: 2, policy: 'fallback' };
     const { summary } = await runSim(engine, options, POLICIES, checkInvariants);
     expect(summary).toMatchObject({ illegalAppliedActionCount: 0, invariantFailures: 0 });
     for (const { sold, qualifying } of sales) expect(sold).toEqual(qualifying);

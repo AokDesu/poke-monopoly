@@ -1,5 +1,6 @@
 import {
   GAME_PRESETS,
+  pendingDecision,
   type Action,
   type ActionRecord,
   type ApplyActionResult,
@@ -344,7 +345,8 @@ async function playGame(
         state = automatic.state;
         continue;
       }
-      const seatIndex = state.activeSeatIndex;
+      const seatIndex = pendingDecision(state)?.seatIndex;
+      if (seatIndex === undefined) throw new Error('No pending decision');
       const legal = engine.legalActions(state, seatIndex);
       if (legal.enabled.length === 0) {
         result.abortReason = `no enabled action for seat ${seatIndex}`;

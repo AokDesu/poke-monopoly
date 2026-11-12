@@ -200,6 +200,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
   - Both sides need a battle-ready Pokémon. Any opponent may be targeted regardless of distance, and it costs the `tacticalAction`.
   - The target may accept or decline. On a decline, the challenger loses the action but no coins.
   - Chat can change willingness but never legality.
+- **S06 voluntary PvP (#55):** targeted `declare_pvp` spends the challenger’s tactical action and records public directed attack evidence immediately. The defender owns `respond_pvp` (accept/decline); acceptance closes the currently unimplemented Ability windows in Appendix C.3 attacker-then-defender order and freezes S05’s shared snapshot. Two engine `dice_result` records roll attacker then defender. The winner alone owns S04’s exclusive `choose_reward`; ties create no reward request. Continuation returns to the challenger’s Strategy without advancing any turn counter. This implements the relevant **proposed D3/D4** order from Appendix C; activation, reroll, protection, forced challenges and Gym remain later slices. See the [voluntary PvP contract](engine-contract.md#voluntary-pvp-and-decision-ownership-issue-55-s06).
 - **Forced PvP sources:** only Battle Ticket, Rival's passive (once per Lap), or an Ability with `forcePvP`. If the target has no battle-ready Pokémon, the action is illegal.
 - **Battle Reward:** the winner takes up to 6 coins from the loser, or evolves one eligible Pokémon by one stage (the loser then pays nothing). A tie gives no reward.
   - **S04 implementation seam (#55):** the shared engine reward resolver accepts one explicit `coins` or `evolve` choice after a confirmed win. PvP coins come only from the loser (`min(6, loser.coins)`, or zero when coin loss is blocked); Gym's 6 coins come from the bank. The resolver records a durable reward ID so retrying either choice cannot grant another reward. PvP/Gym callers own pending choices, confirmed protection, actor/revision checks and continuation; ties do not create a reward request. This seam does not implement challenge flow, Gym entry or shield consumption.
@@ -352,6 +353,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 | `closed_by_game_end` | Excluded from the kept/broken ratio |
 
 - **Privacy:** whether an attack was possible is private information. The promise button does not depend on holding a hostile item, so it does not leak cards.
+- **Attack evidence (S06):** a public voluntary declaration appends one canonical `attack_attempt` (actor→target, source, declaration sequence and global turn) to engine history and its accepted-action events. Declines and ties retain it. Public observations and seat-visible event copies expose that evidence without items or private willingness data. Future `no_attack` consumers use these events; promise settlement is not implemented here.
 - **Memory UI:** shows evidence from real events, e.g. "Broke a promise on turn 5".
 
 ## 5. AI opponents with Jev (Harness)
@@ -409,6 +411,14 @@ Sources:
 - **Fan-out:** bundle every question of one decision point into a single request, including speculative ones such as the line after the action. The budget is at most 3 requests per AI turn.
 - **Chat effect:** chat intent shifts next turn's target and item weights by a bounded ±1 bucket, applied by code.
 - **Manipulation gate:** a message whose manipulation Noul exceeds its threshold **never enters `recent_chat`** for later decisions. The check gates the text rather than merely labelling it.
+
+**Temporary S06 capability exception (#55):** pending Stream B PvP question integration,
+`buildStrategyQuestion` excludes engine-legal `declare_pvp` actions before singleton handling
+and shortlisting. The existing item/skip questions and offline recordings stay unchanged.
+This deliberately defers the §3.1/§5.3 guarantee of keeping every legal action kind for PvP
+declarations only; engine legality and sim/property choices still include them. Pending PvP
+responses and rewards use the orchestrator's existing generic policy fallback. Stream B must
+remove this filter when it adds PvP Strategy questions.
 
 ### 5.4 Rules for writing state and questions
 
@@ -469,7 +479,7 @@ TypeScript plus a web app with API routes. The folders are `engine/`, `content/`
 1. **`engine/`** has no IO. The same engine runs in the web app, sim and eval, and human and AI commands pass the same validation.
 2. **`ai/`** is a server-side endpoint. It holds `TYPESAFE_API_KEY`, validates payload shape and size, builds questions from state, calls Jev and returns only action IDs and line IDs.
 3. **Action records:** fields, accepted-action sequencing and revision semantics are defined in [Engine contract v1](engine-contract.md#records-and-counters), including the approved clarification.
-4. **Turn counters:** `globalTurnNo` counts turns and `ownTurnNo` counts each player's turns, both separate from `seatIndex`.
+4. **Turn counters:** `globalTurnNo` counts turns and `ownTurnNo` counts each player's turns, both separate from `seatIndex`. The engine’s `pendingDecision(state)` returns the current deciding seat/actor, or null while an engine result is pending or the game is finished. During voluntary PvP this can be the defender or reward winner while `activeSeatIndex` stays with the challenger. Legality, execution, automatic stepping, resume, progress invariants, simulation and property drivers use this query for decisions.
 5. **Movement and Laps:** movement stores a signed `routeProgress`, a monotonic paid-lap count `creditedLap`, and a monotonic `highestRewardedMilestone`.
    - Position = `((routeProgress % 24) + 24) % 24`.
    - Start milestones are positive multiples of 24; setup Start at route progress 0 is not an income milestone. Start credit is granted only when the owner's forward movement crosses or lands on a milestone above the previous `highestRewardedMilestone`.
@@ -534,6 +544,8 @@ Each layer covers what the one below misses.
 - Abilities fire ≤1 per instance per Lap and ≤1 per player turn, and evolution does not reset cooldowns.
 - Rescue Starters cannot create a coin loop.
 - A Battle Reward gives coins or evolution, never both. Evolution is one stage at a time on the same UID.
+- PvP responses, dice and reward choices preserve the challenger’s active seat, global turn and every own-turn counter.
+- Every PvP declaration records exactly one directed attack attempt; accepting, declining, rolling and rewarding add none.
 - The game can finish after an AI failure with any number of AIs.
 
 **Simulation:**

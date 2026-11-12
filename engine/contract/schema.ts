@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { pvpSnapshotSchema } from './combat.ts';
 
 const id = z.string().min(1);
 const count = z.int().nonnegative();
@@ -156,7 +157,55 @@ const shopOfferSchema = z.discriminatedUnion('kind', [
   z.strictObject({ id, itemId: id, kind: z.literal('ball'), ballType, price: count }),
   z.strictObject({ id, itemId: id, kind: z.literal('utility'), price: count }),
 ]);
+/** Internal reward context supplied by the battle/Gym caller after a win. */
+export const rewardSourceSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('pvp'), loserId: id, coinLossBlocked: z.boolean() }),
+  z.strictObject({ kind: z.literal('gym') }),
+]);
+export const rewardRequestSchema = z.strictObject({
+  rewardId: id,
+  winnerId: id,
+  source: rewardSourceSchema,
+});
+export const rewardChoiceSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('coins') }),
+  z.strictObject({ kind: z.literal('evolve'), instanceId: id, nextFormId: id }),
+]);
+const pvpParticipants = { battleId: id, attackerSeatIndex: count, defenderSeatIndex: count };
+const pvpBattleSchema = z.discriminatedUnion('step', [
+  z.strictObject({ ...pvpParticipants, step: z.literal('response') }),
+  z.strictObject({
+    ...pvpParticipants,
+    step: z.literal('attacker_roll'),
+    snapshot: pvpSnapshotSchema,
+  }),
+  z.strictObject({
+    ...pvpParticipants,
+    step: z.literal('defender_roll'),
+    snapshot: pvpSnapshotSchema,
+    attackerFace: z.int().min(1).max(6),
+  }),
+  z.strictObject({
+    ...pvpParticipants,
+    step: z.literal('reward'),
+    snapshot: pvpSnapshotSchema,
+    attackerFace: z.int().min(1).max(6),
+    defenderFace: z.int().min(1).max(6),
+    request: rewardRequestSchema,
+  }),
+]);
+/** Canonical directed attack evidence. Voluntary declarations are public, including declines. */
+export const attackAttemptSchema = z.strictObject({
+  kind: z.literal('attack_attempt'),
+  attackId: id,
+  actorId: id,
+  targetId: id,
+  source: z.literal('pvp_declaration'),
+  actionSeq: z.int().positive(),
+  globalTurnNo: count,
+});
 export const phaseSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('pvp'), battle: pvpBattleSchema }),
   z.strictObject({ kind: z.literal('move'), awaitingResult: z.boolean().optional() }),
   z.strictObject({
     kind: z.literal('first_player_roll'),
@@ -201,20 +250,6 @@ export const phaseSchema = z.discriminatedUnion('kind', [
 const finalTableRoundSchema = z
   .strictObject({ triggerSeatIndex: count, targetOwnTurnNo: count })
   .nullable();
-/** Internal reward context supplied by the battle/Gym caller after a win. */
-export const rewardSourceSchema = z.discriminatedUnion('kind', [
-  z.strictObject({ kind: z.literal('pvp'), loserId: id, coinLossBlocked: z.boolean() }),
-  z.strictObject({ kind: z.literal('gym') }),
-]);
-export const rewardRequestSchema = z.strictObject({
-  rewardId: id,
-  winnerId: id,
-  source: rewardSourceSchema,
-});
-export const rewardChoiceSchema = z.discriminatedUnion('kind', [
-  z.strictObject({ kind: z.literal('coins') }),
-  z.strictObject({ kind: z.literal('evolve'), instanceId: id, nextFormId: id }),
-]);
 export const gameStateSchema = z.strictObject({
   config: gameConfigSchema,
   content: contentSchema,
@@ -235,10 +270,14 @@ export const gameStateSchema = z.strictObject({
   eventDeck: z.strictObject({ drawPile: z.array(id), discardPile: z.array(id) }),
   // Durable idempotency receipts; absent before the first resolved reward.
   resolvedRewardIds: z.array(id).optional(),
+  attackHistory: z.array(attackAttemptSchema).optional(),
 });
 
 // Player commands and engine-generated records share one sequence in the log.
 const actionBodySchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('declare_pvp'), payload: z.strictObject({ targetSeatIndex: count }) }),
+  z.object({ kind: z.literal('respond_pvp'), payload: z.strictObject({ accept: z.boolean() }) }),
+  z.object({ kind: z.literal('choose_reward'), payload: rewardChoiceSchema }),
   z.object({
     kind: z.enum([
       'roll',
@@ -315,6 +354,24 @@ const lineSelectedEventSchema = z.strictObject({
   lineId: id,
 });
 export const engineEventSchema = z.discriminatedUnion('kind', [
+  attackAttemptSchema,
+  z.strictObject({
+    kind: z.literal('pvp_response'),
+    battleId: id,
+    defenderId: id,
+    accepted: z.boolean(),
+  }),
+  z.strictObject({ kind: z.literal('pvp_confirmed'), battleId: id, snapshot: pvpSnapshotSchema }),
+  z.strictObject({
+    kind: z.literal('pvp_resolved'),
+    battleId: id,
+    attackerFace: z.int().min(1).max(6),
+    defenderFace: z.int().min(1).max(6),
+    attackerTotal: z.int(),
+    defenderTotal: z.int(),
+    outcome: z.enum(['win', 'tie', 'loss']),
+    rewardSeatIndex: count.nullable(),
+  }),
   z.strictObject({
     kind: z.literal('pokemon_evolved'),
     ownerId: id,
@@ -410,6 +467,7 @@ export const observationSchema = z.strictObject({
     globalTurnNo: count,
     stateRevision: count,
     activeSeatIndex: count,
+    attackHistory: z.array(attackAttemptSchema).optional(),
     phase: phaseSchema,
     lapTarget: z.int().positive(),
     finalTableRound: finalTableRoundSchema,
@@ -494,3 +552,5 @@ export type ApplyActionResult =
         | 'illegal_action'
         | 'invalid_sequence';
     };
+
+export type AttackAttempt = z.infer<typeof attackAttemptSchema>;

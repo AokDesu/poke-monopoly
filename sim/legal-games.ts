@@ -2,6 +2,7 @@ import fc from 'fast-check';
 import {
   createGameLog,
   GAME_PRESETS,
+  pendingDecision,
   type Action,
   type ApplyActionResult,
   type GameLog,
@@ -112,7 +113,8 @@ export function playGame(engine: SimEngine, plan: GamePlan, options: PlayOptions
       state = automatic.state;
       continue;
     }
-    const seatIndex = state.activeSeatIndex;
+    const seatIndex = pendingDecision(state)?.seatIndex;
+    if (seatIndex === undefined) throw new Error('No pending decision');
     const legal = engine.legalActions(state, seatIndex);
     if (legal.enabled.length === 0) fail(`seat ${seatIndex} has no enabled action`);
     const choice = legal.enabled[(plan.choices[decision++] ?? 0) % legal.enabled.length]!;
