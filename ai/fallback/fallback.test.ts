@@ -256,6 +256,23 @@ describe('Strategy', () => {
     expect(decide(greedy, potion.observation, potion.legal)).toBe('skip');
   });
 
+  test('temporary S06 limitation: an itemless seat skips rather than declaring PvP (#55)', () => {
+    const itemless: Observation = structuredClone(observation);
+    itemless.own.items = [];
+    const declare = (seat: number): LegalAction => ({
+      id: `declare-pvp:${seat}`,
+      kind: 'declare_pvp',
+      payload: { targetSeatIndex: seat },
+    });
+    const options: LegalActions = {
+      enabled: [{ id: 'skip', kind: 'skip', payload: {} }, declare(1), declare(2)],
+      disabled: [],
+    };
+    for (let seed = 0; seed < 50; seed++) {
+      expect(decide(greedy, itemless, options, {}, seed)).toBe('skip');
+    }
+  });
+
   test('identical input and seed give identical choices; exact ties use the seed', () => {
     const level: Observation = structuredClone(observation);
     level.public.players[1]!.coins = 30;
@@ -332,7 +349,7 @@ describe('sim registration (§1: games finish with Jev off)', () => {
     },
   );
 
-  test('each Sell Phase of a seed-1 two-seat Greedy game sells exactly the qualifying batch', async () => {
+  test('each Sell Phase across seeded two-seat Greedy games sells exactly the qualifying batch', async () => {
     const sales: { sold: string[]; qualifying: string[] }[] = [];
     const engine: SimEngine = {
       ...realEngine,
@@ -353,7 +370,7 @@ describe('sim registration (§1: games finish with Jev off)', () => {
         return realEngine.applyAction(state, action);
       },
     };
-    const options = { ...DEFAULT_OPTIONS, games: 1, seed: 1, seats: 2, policy: 'fallback' };
+    const options = { ...DEFAULT_OPTIONS, games: 4, seed: 1, seats: 2, policy: 'fallback' };
     const { summary } = await runSim(engine, options, POLICIES, checkInvariants);
     expect(summary).toMatchObject({ illegalAppliedActionCount: 0, invariantFailures: 0 });
     for (const { sold, qualifying } of sales) expect(sold).toEqual(qualifying);

@@ -4,6 +4,7 @@ import {
   actionSchema,
   INVARIANTS,
   stateHash,
+  pendingDecision,
   type Action,
   type ApplyActionResult,
   type GameLog,
@@ -69,7 +70,7 @@ function probeStaleAndForeign(engine: SimEngine, state: GameState, action: Actio
   }
   probe('an unknown actor', { ...action, actorId: 'intruder' });
   for (const seat of state.config.seats) {
-    if (seat.seatIndex === state.activeSeatIndex) continue;
+    if (seat.seatIndex === pendingDecision(state)?.seatIndex) continue;
     probe(`${seat.actorId} out of turn`, { ...action, actorId: seat.actorId });
     const own = engine.legalActions(state, seat.seatIndex);
     for (const choice of [...own.enabled, ...own.disabled]) {

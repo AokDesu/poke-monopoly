@@ -10,6 +10,7 @@ import {
   deserialize,
   fixtureSchema,
   legalActions,
+  pendingDecision,
   resume,
   verifyReplay,
   serialize,
@@ -43,10 +44,13 @@ function step(game: Game): Game {
     };
   }
   const { state } = game;
-  const choices = legalActions(state, state.activeSeatIndex).enabled;
+  const choices = legalActions(
+    state,
+    pendingDecision(state)?.seatIndex ?? state.activeSeatIndex,
+  ).enabled;
   const choice = choices[(state.stateRevision * 7 + 3) % choices.length]!;
   const result = applyAction(state, {
-    actorId: state.config.seats.find((seat) => seat.seatIndex === state.activeSeatIndex)!.actorId,
+    actorId: pendingDecision(state)!.actorId,
     actionSeq: state.stateRevision + 1,
     stateRevisionBefore: state.stateRevision,
     kind: choice.kind,

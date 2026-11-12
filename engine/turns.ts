@@ -1,3 +1,4 @@
+import { pendingPvpRollPurpose } from './pvp.ts';
 import type { GameState, EngineEvent, Player } from './contract/schema.ts';
 import { expireStatuses } from './status.ts';
 import { startTurnClassPassive } from './classes.ts';
@@ -27,6 +28,8 @@ export function firstPlayerRollPurpose(state: GameState): string {
 }
 
 export function pendingRollPurpose(state: GameState): string | undefined {
+  const pvp = pendingPvpRollPurpose(state);
+  if (pvp) return pvp;
   if (state.phase.kind === 'encounter' && state.phase.catchRoll) {
     return `catch:${state.activeSeatIndex}:${state.globalTurnNo}`;
   }

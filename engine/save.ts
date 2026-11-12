@@ -1,3 +1,4 @@
+import { pendingDecision } from './decisions.ts';
 import { z } from 'zod';
 import { legalActions } from './contract/stubs.ts';
 import {
@@ -131,7 +132,8 @@ function waitingFor(state: GameState): WaitingFor {
   if (state.phase.kind === 'finished') return { kind: 'finished' };
   const purpose = pendingRollPurpose(state);
   if (purpose) return { kind: 'engine_result', purpose };
-  const seat = state.config.seats.find((entry) => entry.seatIndex === state.activeSeatIndex)!;
+  const seat = pendingDecision(state);
+  if (!seat) throw new RangeError('No pending decision or engine result');
   return {
     kind: 'decision',
     seatIndex: seat.seatIndex,
