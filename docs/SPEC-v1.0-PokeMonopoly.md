@@ -907,13 +907,11 @@ The table covers every base Starter of the six core classes and every form it ca
 | Caterpie, Metapod, Butterfree | String Shot | S | moveDebuff · `minus` · 1 | one opponent, any distance | yes |
 | Porygon | Calculate | A | rollBonus · `reroll` | one own die | no |
 
-Four bindings outside the core lines are needed so that all eight primitives, and a real in-game Tired source, are exercised before C4. Other non-core Abilities, including Scavenge's coin gain, are mapped with C4 content and are not part of this contract.
+Two bindings outside the core lines are needed: Pidgey's fixed movement for AC-4 and Dratini's post-resolution consequence as a real in-game Tired source. Other non-core Abilities, including Machop's Challenge, Growlithe's Track and Scavenge's coin gain, are mapped with C4 content and are not part of this contract.
 
 | Species | Ability | Timing | Primitive · operation · parameters | Hostile |
 |---|---|---|---|---|
 | Pidgey | Quick Flight | S | fixedMove · `replaceRoll` · 3 | no |
-| Machop | Challenge | C | forcePvP · `forceChallenge`; also costs `tacticalAction` (§4.5) | yes |
-| Growlithe | Track | S | peek · `topEvent` | no |
 | Dratini | Dragon Rush | B | rollBonus · `add` · combat +2, this battle, `afterResolution: tiredSelf` | no |
 
 Hostile means the Ability targets an opponent with a harmful effect (`hostileAbility`, §4.5). It counts against a `no_attack` promise (§4.8), and an armed Price Shield blocks it (C.4).
@@ -1062,7 +1060,7 @@ These are acceptance cases for the slices named in each heading. Every probabili
 3. Attacker window: P1 activates Blaze. Charmander is not ready again until P1's next qualifying Start crossing. P1's allowance for turn 7 and `pokemonAbility` are spent.
 4. Defender window: P2 sees Blaze and activates Adaptability with combat scope. P2's allowance for turn 7 is spent; P2's own `pokemonAbility` is untouched because it is not P2's turn.
 5. Snapshot: P1 = d6 + 2 + 1 (Blaze); P2 = d6 + 2 + 1 (Rival defending) + 1 (Adaptability). Odds: P1 wins 10/36, tie 5/36, P2 wins 21/36.
-6. Dice: P1 rolls 6 (total 9) and P2 rolls 3 (total 8). Neither side holds Calculate, so there is no A window.
+6. Dice: P1 rolls 6 (total 9) and P2 rolls 3 (total 7). Neither side holds Calculate, so there is no A window.
 7. P1 wins and chooses between: 6 coins from P2 (P2 holds 9, has no shield and is not Nurse Joy), or evolving Charmander to Charmeleon (battle 4, Blaze inherited, still not ready because evolution does not reset cooldowns).
 8. Back in Strategy, P1's only choice is skip, since the turn 7 allowance is used.
 
