@@ -45,6 +45,28 @@ export function turnMessages({ before, record }: SeatFeedEntry): TurnMessage[] {
         }),
       });
   }
+  // An engine-authored movement die (issue #123): the record only knows the roll, so
+  // the strip announces it while the board spotlight already points at the destination
+  // square. Never claims a distance: the engine may slow steps.
+  if (
+    action.kind === 'dice_result' &&
+    before.activeSeatIndex !== 0 &&
+    before.phase.kind === 'move'
+  ) {
+    let roll: number | undefined;
+    for (const event of record.events) {
+      if (event.kind === 'random_result' && typeof event.result === 'number') {
+        roll = event.result;
+        break;
+      }
+    }
+    if (roll !== undefined) {
+      messages.push({
+        key: 'ai.action.move',
+        text: t('ai.action.move', { name: seatLabel(before.activeSeatIndex, 0), result: roll }),
+      });
+    }
+  }
   if (record.auto && record.action.actorId !== 'engine') {
     messages.push({
       key: 'turn.automatic',

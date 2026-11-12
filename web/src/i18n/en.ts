@@ -330,7 +330,8 @@ export const en = {
 
   'ai.backupBadge': 'Backup bot mode',
   'ai.thinking': 'Thinking… If Jev takes too long, the backup bot decides.',
-  'ai.playing': 'The rival is playing. Its choices appear in the field log.',
+  'ai.playing': 'The rival is playing. Its next move appears under the board.',
+  'ai.now': 'Now',
   'ai.statusUnavailable': 'AI status could not be checked. Each decision still reports its source.',
   'ai.speed': 'Turn speed',
   'ai.speed.normal': 'Normal',
@@ -354,6 +355,7 @@ export const en = {
   'ai.action.use_item': '{name} used an item.',
   'ai.action.sell': '{name} sold Pokémon at Start.',
   'ai.action.keep': '{name} kept the whole team.',
+  'ai.action.move': '{name} rolled {result} on the die.',
   'ai.result.caught': '{name} caught {pokemon}.',
   'ai.result.escaped': '{pokemon} escaped from {name}. Its Ball was spent.',
   'ai.result.released': '{name} released {pokemon}. No Ball was spent.',
