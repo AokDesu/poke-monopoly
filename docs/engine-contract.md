@@ -364,11 +364,5 @@ PvP UI and AI integration are outside this slice.
 
 ### Known limitation / follow-up for Stream B
 
-Pending PvP question integration, `buildStrategyQuestion` temporarily filters `declare_pvp`
-before singleton handling and shortlisting. This is a deliberate exception to keeping every
-legal action kind in §3.1/§5.3. Until then AI seats do not declare PvP at all: the fallback
-policy scores `declare_pvp` below `skip`, so auto-applied and fallback-only Strategy decisions
-never pick it. Engine legal actions and the random sim/property drivers still include PvP,
-while existing Jev item/skip questions and offline recordings remain unchanged. Pending PvP
-responses/rewards use the orchestrator's existing generic policy fallback. Stream B must
-remove this filter and the fallback penalty when it adds PvP Strategy questions.
+AI seats temporarily do not declare PvP; the Jev Strategy filter, fallback penalty and
+removal condition are specified in [spec §5.3](SPEC-v1.0-PokeMonopoly.md#53-decision-points--questions).
