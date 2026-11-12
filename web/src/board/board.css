@@ -405,11 +405,13 @@
   gap: 0.6rem;
 }
 .team-member {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-line);
+}
+.team-member-overview {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--color-line);
 }
 .team-member-detail {
   flex: 1;

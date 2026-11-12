@@ -213,6 +213,16 @@ export const en = {
   'firstPlayer.noGame':
     'No game is waiting for its first roll. Go back to Home to start a new one.',
 
+  'team.details': 'Inspect {name}',
+  'team.instance': 'Team ID: {id}',
+  'team.ability': 'Ability',
+  'team.noAbility': 'No Ability description.',
+  'team.nextForms': 'Next forms',
+  'team.finalForm': 'Final form — no further evolution.',
+  'team.readOnly': 'Inspection only. Evolution is chosen as a battle reward.',
+  'team.tiredReason': 'Cannot battle while Tired. Clears at the end of its owner’s next turn.',
+  'team.rescueRestriction': 'Cannot be traded or receive a sale bonus, even after evolution.',
+
   'play.heading': 'Game board',
   'results.heading': 'Results',
   'results.body':

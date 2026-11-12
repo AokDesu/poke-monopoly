@@ -16,7 +16,7 @@ Run with `npm run dev:web` (port 5173). Spec: §3, §3.1, §6.1. Skill: `skills/
 | `src/ErrorBoundary.tsx` | No blank screens: a render error shows what to do next and a retry button.                                                                      |
 | `src/ui/`               | Shared controls.                                                                                                                                |
 
-Fredoka (display) and Nunito (body) are self-hosted through `@fontsource`; the page loads nothing from another host. The Home board and class art use Three.js (`@react-three/fiber`, lazily loaded where WebGL exists); the 3D models and their licences are in `public/models/CREDITS.md`. Lint enforces the import rules: no `ai/`, and engine values only through the adapters `src/game/store.ts` and `src/game/save.ts` (type imports from the engine are allowed in `web/` except in those adapters, which may import only `engine/index.ts`; test files may import the engine directly).
+Fredoka (display) and Nunito (body) are self-hosted through `@fontsource`; the page loads nothing from another host. The Home board and class art use Three.js (`@react-three/fiber`, lazily loaded where WebGL exists); the 3D models and their licences are in `public/models/CREDITS.md`. Lint enforces the import rules: no `ai/`, and engine values only through the adapters `src/game/store.ts`, `src/game/save.ts` and `src/game/content.ts` (type imports from the engine are allowed elsewhere in `web/`; adapters use only `engine/index.ts`, and test files may import the engine directly).
 
 Component tests run in the Vitest `web` project (jsdom, Testing Library); `npm test` runs them with the rest.
 
@@ -42,6 +42,15 @@ actual batch price parts; unchecked rows explicitly show **If sold alone**, sinc
 bonus can move between Pokémon as the batch changes. Tired prices and the running total
 come from that engine quote, never browser arithmetic. A full-team sale previews the
 zero-value Rescue Starter; after confirmation the new team comes from the next Observation.
+
+Team cards and Sell rows resolve the current form with the engine's `effectiveForm`,
+including inherited stats, tags and Ability descriptions. **Inspect [name]** opens an inline,
+keyboard-operable disclosure with the public Team ID, Ability, authored next-form choices
+or a final-form message. It is read-only: no evolution, Ability activation or game action
+is submitted. Each UID retains its own Tired and Rescue markers. Tired members explain
+that they cannot battle; Rescue details explain trading and sale-bonus restrictions.
+Sale amounts remain the engine's selected-batch or solo quote. Opponent inspection uses
+only the human seat's public team projection, never an opponent's inventory or private results.
 
 **Shop** displays every engine offer and price, the engine's exact disabled reasons, and
 **Leave the Shop**. Buying one unit or skipping ends the visit. **Strategy** lists the
@@ -111,6 +120,11 @@ scenario running), with deterministic HTTP answers, visible disabled reasons, au
 steps, all encounter outcomes, replay verification, the Sell-before-destination event order
 and a failed-service retry. Adapter tests cover role-scoped opponent requests, invalid
 responses and late answers after a game is cleared.
+
+`TeamCards.test.tsx` covers base, fallback evolved, branching and authored next forms;
+zero battle; final forms; duplicate UID/status separation after reordering; Tired/Rescue
+sale quotes; expanded opponent privacy; and unchanged accepted actions, revision,
+cooldowns and statuses when board/Sell disclosures open and close.
 
 Run `npm run dev` for API plus Vite, or `npm run build` and `npm start` for the built app.
 Review at 1440×900 and 1024×768; the board is height-bounded at desktop sizes so the whole

@@ -1,10 +1,12 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { Observation, SaleQuote } from '../../../engine/index.ts';
-import { speciesType } from '../game/content.ts';
+import { currentForm, speciesType } from '../game/content.ts';
 import { t } from '../i18n/en.ts';
 import { speciesName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
 import { TypeOrb } from '../ui/TypeOrb.tsx';
+import { tagLabel } from './labels.ts';
+import { TeamDetails } from './TeamDetails.tsx';
 
 export function SellPanel({
   observation,
@@ -47,6 +49,7 @@ export function SellPanel({
       <ul className="sale-team" aria-label={t('board.yourTeam')}>
         {team.map((pokemon) => {
           const checked = selected.includes(pokemon.instanceId);
+          const form = currentForm(pokemon.speciesId);
           // Unselected cards show a solo quote, never a guessed share of the batch bonus.
           const row =
             quote.rows.find((entry) => entry.instanceId === pokemon.instanceId) ??
@@ -69,12 +72,22 @@ export function SellPanel({
                 <TypeOrb type={speciesType(pokemon.speciesId)} className="size-10 shrink-0" />
                 <span className="sale-detail">
                   <strong>{speciesName(pokemon.speciesId)}</strong>
+                  <span className="pokemon-tags">
+                    {form.tags.map((tag) => (
+                      <span key={tag}>{tagLabel(tag)}</span>
+                    ))}
+                  </span>
                   <span>{t(row.classBonus === 0 ? 'sell.price' : 'sell.priceBonus', row)}</span>
                   <small>{t(checked ? 'sell.selectedPrice' : 'sell.soloPrice')}</small>
                   {pokemon.tired && <small className="pokemon-status">{t('sell.tired')}</small>}
                   {pokemon.origin === 'rescue_starter' && <small>{t('board.rescue')}</small>}
                 </span>
+                <span className="battle-stat">
+                  <span>{t('board.battle')}</span>
+                  <strong aria-label={t('board.battle')}>{form.battle}</strong>
+                </span>
               </label>
+              <TeamDetails pokemon={pokemon} form={form} />
             </li>
           );
         })}

@@ -1,11 +1,10 @@
-import { content } from '../game/content.ts';
+import { content, currentForm } from '../game/content.ts';
 import { en, t, type MessageKey } from './en.ts';
 
 /** Names come from the content tables, which are in English (spec §3). */
 export const className = (id: string) =>
   content.classes.find((entry) => entry.id === id)?.name ?? id;
-export const speciesName = (id: string) =>
-  content.species.find((entry) => entry.id === id)?.name ?? id;
+export const speciesName = (id: string) => currentForm(id).name;
 export const itemName = (id: string) => content.items.find((entry) => entry.id === id)?.name ?? id;
 
 /**
