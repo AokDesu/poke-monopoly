@@ -366,7 +366,9 @@ PvP UI and AI integration are outside this slice.
 
 Pending PvP question integration, `buildStrategyQuestion` temporarily filters `declare_pvp`
 before singleton handling and shortlisting. This is a deliberate exception to keeping every
-legal action kind in §3.1/§5.3: engine legal actions and sim/property drivers still include
-PvP, while existing Jev item/skip questions and offline recordings remain unchanged. Pending
-PvP responses/rewards use the orchestrator's existing generic policy fallback. Stream B
-must remove this filter when it adds PvP Strategy questions.
+legal action kind in §3.1/§5.3. Until then AI seats do not declare PvP at all: the fallback
+policy scores `declare_pvp` below `skip`, so auto-applied and fallback-only Strategy decisions
+never pick it. Engine legal actions and the random sim/property drivers still include PvP,
+while existing Jev item/skip questions and offline recordings remain unchanged. Pending PvP
+responses/rewards use the orchestrator's existing generic policy fallback. Stream B must
+remove this filter and the fallback penalty when it adds PvP Strategy questions.

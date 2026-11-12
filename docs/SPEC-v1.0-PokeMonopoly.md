@@ -416,9 +416,12 @@ Sources:
 `buildStrategyQuestion` excludes engine-legal `declare_pvp` actions before singleton handling
 and shortlisting. The existing item/skip questions and offline recordings stay unchanged.
 This deliberately defers the §3.1/§5.3 guarantee of keeping every legal action kind for PvP
-declarations only; engine legality and sim/property choices still include them. Pending PvP
-responses and rewards use the orchestrator's existing generic policy fallback. Stream B must
-remove this filter when it adds PvP Strategy questions.
+declarations only. Until then AI seats do not declare PvP at all: the fallback policy's
+Strategy score ranks `declare_pvp` below `skip`, so auto-applied and fallback-only Strategy
+decisions never pick it. Engine legality and the random sim/property drivers still include
+declarations. Pending PvP responses and rewards use the orchestrator's existing generic policy
+fallback. Stream B must remove this filter and the fallback penalty when it adds PvP Strategy
+questions.
 
 ### 5.4 Rules for writing state and questions
 
