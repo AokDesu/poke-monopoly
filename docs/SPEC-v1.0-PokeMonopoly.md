@@ -214,6 +214,8 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
   - Nurse Joy clears Tired from every team UID at the start of her turn, after advancing `ownTurnNo` and resetting budgets, before Social. Battles do not automatically apply Tired; named effects and Events supply it.
   - Event e5 targets the highest printed battle, with instance ID as a stable tie-break.
 
+**Proposed timing contract (#55 S00):** the PvP and Gym decision order, shield and Nurse Joy protection, and the order of reward and after-battle effects are proposed in [Appendix C](#appendix-c--ability-and-battle-timing-contract), pending Stream A team approval. It does not change the rules above.
+
 ### 4.5 Pokémon: encounters, Abilities, evolution and Starters
 
 - **Encounter pool:** 15 species, excluding the 3 starters and Porygon. Rarity weights are 50/33/17, uniform within a rarity. Repeats are allowed and each gets a new instance ID. Rarity is the `rarity` field only.
@@ -225,6 +227,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
   - An Ability that targets an opponent with a harmful effect is a `hostileAbility`.
   - Evolution does not reset cooldowns.
   - The engine supports only these effect primitives: fixedMove, moveDebuff, rollBonus, forcePvP, shield, heal, gainBall, peek.
+  - **Proposed mapping (#55 S00):** [Appendix C](#appendix-c--ability-and-battle-timing-contract) maps every core Starter Ability to one operation of these primitives, with its timing window and costs, pending Stream A team approval.
 - **Evolution:**
   - If the next form has a definition, use that form's stats and Ability.
   - Otherwise use Battle +2, Base Sale `round(current×1.5)` and the existing Ability. Resolve this once per preceding stage, rounding at each stage; inherited tags, rarity and Catch DC remain unchanged.
@@ -267,6 +270,8 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 
 - Blocks one whole hostile action and is then consumed.
 - The declaration still counts against a promise.
+
+**Proposed (#55 S00):** Price Shield arming, whole-action versus coin-loss-only protection, slow kinds and fixed movement under a pending slow are proposed in [Appendix C](#appendix-c--ability-and-battle-timing-contract), pending Stream A team approval.
 
 **Events**
 
@@ -756,7 +761,7 @@ Timing:
 - A = `AFTER_OWN_ROLL`
 - R = `REACTION` when targeted and before the dice resolve
 
-Both sides choose reactions and bonuses before battle dice are revealed.
+Both sides choose reactions and bonuses before battle dice are revealed. When each window opens and closes, and the PvP and Gym decision order, are proposed in [Appendix C.3](#c3-timing-windows).
 
 **Evolution**
 
@@ -849,3 +854,254 @@ Before changing prices, compare the success-per-cost of all three Balls across D
 ```
 
 In this example `strategy.confidence = 0.48` is below the 0.6 starting floor for a 4-option question. On Normal, the fallback policy therefore chooses between the top two, a3 and a1, by the Greedy personality weights, and logs `fallbackReason = low_confidence`.
+
+## Appendix C — Ability and battle timing contract
+
+Issue #55 S00. Status: **proposed contract, not yet implemented.** It maps every core Starter Ability to one of the eight effect primitives (§4.5) and fixes the order of battle and Ability decisions, so the implementation slices (S05–S14) build against one agreed table. It changes no engine code. The worked cases in C.8 become acceptance cases for those slices.
+
+Each choice that §4 and Appendix A do not already settle is numbered D1–D13 and marked **Proposed — needs Stream A team approval**. Reviewers may accept or replace each decision separately. Code that depends on a decision does not merge until that decision is approved.
+
+These base rules stay as they are:
+
+- The engine has exactly eight effect primitives and no ninth engine system (§4.5).
+- Porygon's reroll is the only change allowed after dice are revealed (§4.4).
+- Declaring a challenge counts as an attack attempt, whatever happens next (§4.4).
+- When Nurse Joy's passive already blocks a coin loss, no shield is consumed (§4.4).
+- Every number is computed by the engine (§5.2).
+
+### C.1 Primitive operations
+
+**D1 — Proposed — needs Stream A team approval.** Each primitive is a family of named operations with fixed parameters. Content binds an Ability to one operation and its parameters; no rule is read from Ability prose. Bulbasaur's push is `fixedMove.displace`, Porygon's reroll is `rollBonus.reroll`, and Dratini's Tired is a consequence attached to `rollBonus.add`. The alternative is to change the §4.5 primitive list, its tests and the epic together.
+
+| Primitive | Operation | Parameters | Effect |
+|---|---|---|---|
+| fixedMove | `replaceRoll` | `steps` | The owner's next actual move this turn uses `steps` instead of a d6. No die is drawn. It is owner movement (§6.5): Start income, Ability reset and Sell apply exactly as for a rolled move. |
+| fixedMove | `displace` | `steps` (signed; negative is backwards) | Changes the target's `routeProgress` at once. It is forced movement: no Start income, no Lap credit, no Ability reset, no Sell, and the square reached is not resolved. It is not the target's actual move (C.5). |
+| moveDebuff | `minus` | `n` | Records a pending slow of kind `minus` on the target. |
+| moveDebuff | `cap` | `n` | Records a pending slow of kind `cap` on the target. |
+| rollBonus | `add` | `scope` (catch or combat), `n`, `duration` (this roll, or until the end of the current `globalTurnNo`) | Adds `n` to the owner's own snapshot in that scope. |
+| rollBonus | `opponentAdd` | `n` (negative) | Adds `n` to the PvP opponent's snapshot for this battle. It is a debuff in the §4.4 formula. |
+| rollBonus | `reroll` | none | Porygon's after-roll operation (C.3). |
+| rollBonus | consequence `afterResolution: tiredSelf` | none | Attached to an `add`. After the battle and its reward resolve, the source UID becomes Tired by the §4.4 rule (D13). |
+| forcePvP | `forceChallenge` | none | Declares PvP that the target cannot decline (§4.4). |
+| shield | `arm` | `scope` | Arms one shield on the owner (C.4). |
+| heal | `removeStatus` | none | Removes one chosen status from one own Pokémon. |
+| gainBall | `chanceBall` | `faces`, `ballType` | Rolls a logged d6. On a listed face, adds one Ball of that type to the owner's pouch. |
+| peek | `topEvent` | none | Shows the owner, privately, the top Event card without drawing or reordering it. |
+
+The Tired consequence reuses the existing Tired status seam (§4.4); it is a `rollBonus` parameter, not a new effect system. The items Repel (`minus 2`), Sticky Web (`cap 2`) and Price Shield (`arm`) and Rival's once-per-Lap force reuse these seams without becoming Abilities.
+
+### C.2 Core Starter Abilities
+
+The table covers every base Starter of the six core classes and every form it can reach. A form without its own species definition keeps the preceding stage's Ability (§4.5); Gyarados has its own definition.
+
+| Forms that carry the Ability | Ability | Timing | Primitive · operation · parameters | Target | Hostile |
+|---|---|---|---|---|---|
+| Bulbasaur, Ivysaur, Venusaur | Vine Pull | S | fixedMove · `displace` · −2 | one opponent, any distance | yes |
+| Charmander, Charmeleon, Charizard | Blaze | B | rollBonus · `add` · combat +1, this battle | self | no |
+| Squirtle, Wartortle, Blastoise | Shell Guard | R | shield · `arm` · battle coin loss | self | no |
+| Eevee, Vaporeon, Jolteon, Flareon | Adaptability | B | rollBonus · `add` · catch +1 or combat +1 (chosen on activation), until the end of the current `globalTurnNo` | self | no |
+| Magikarp | Lucky Splash | S | gainBall · `chanceBall` · faces 5–6, Great Ball | self | no |
+| Gyarados | Intimidate | B | rollBonus · `opponentAdd` · −1, this battle | PvP opponent | yes |
+| Chansey | Heal Pulse | R | heal · `removeStatus` | one own Pokémon with a status | no |
+| Caterpie, Metapod, Butterfree | String Shot | S | moveDebuff · `minus` · 1 | one opponent, any distance | yes |
+| Porygon | Calculate | A | rollBonus · `reroll` | one own die | no |
+
+Four bindings outside the core lines are needed so that all eight primitives, and a real in-game Tired source, are exercised before C4. Other non-core Abilities, including Scavenge's coin gain, are mapped with C4 content and are not part of this contract.
+
+| Species | Ability | Timing | Primitive · operation · parameters | Hostile |
+|---|---|---|---|---|
+| Pidgey | Quick Flight | S | fixedMove · `replaceRoll` · 3 | no |
+| Machop | Challenge | C | forcePvP · `forceChallenge`; also costs `tacticalAction` (§4.5) | yes |
+| Growlithe | Track | S | peek · `topEvent` | no |
+| Dratini | Dragon Rush | B | rollBonus · `add` · combat +2, this battle, `afterResolution: tiredSelf` | no |
+
+Hostile means the Ability targets an opponent with a harmful effect (`hostileAbility`, §4.5). It counts against a `no_attack` promise (§4.8), and an armed Price Shield blocks it (C.4).
+
+**D2 — Proposed — needs Stream A team approval.**
+
+- Adaptability's "until end of turn" lasts until the end of the current `globalTurnNo` and applies to every own snapshot of the chosen scope in that time, for example a PvP in Strategy and a Gym in Resolve.
+- An Ability bonus does not require its source to be the battling Pokémon; it is the side's `abilityBonus` term (§4.4).
+- Tired affects only battle readiness and sale price (§4.4), so a Tired Pokémon can still activate its Ability.
+- Intimidate is hostile under §4.5 even when a defender uses it. Reviewers may instead exempt defensive use from promises.
+
+### C.3 Timing windows
+
+These rules extend the Appendix A timing legend.
+
+**D3 — Proposed — needs Stream A team approval.**
+
+| Window | Opens for | When | Closes |
+|---|---|---|---|
+| S `OWN_STRATEGY` | the active player | Strategy, before Move | when the player skips Strategy |
+| C `CHALLENGE_DECLARE` | the active player | as part of a PvP declaration in Strategy | with the declaration |
+| B `BEFORE_OWN_ROLL` | each player about to roll their own catch or combat die: the catcher in Encounter before confirming a Ball; attacker and defender in PvP; the challenger at a Gym | before the snapshot | when the snapshot is confirmed |
+| R `REACTION` | the PvP defender, once the challenge is accepted or forced | before the snapshot | when the snapshot is confirmed |
+| A `AFTER_OWN_ROLL` | a player whose own move, catch, PvP or Gym die was just revealed | after the `dice_result`, before any outcome applies | on reroll or keep |
+
+- No B window opens before a movement roll, because no B Ability affects movement.
+- A PvP defender may use either a B or an R Ability in its window, within its one activation.
+- A hostile item or hostile Ability opens an R window for its target only if the target holds a ready reaction whose effect covers that action. No core Ability does, so in C3 a hostile item or Ability opens no window and third seats learn nothing new (§4.1, #37).
+- A window is offered only to a player with a ready, eligible Ability and an unused allowance for the current `globalTurnNo`. Otherwise the engine continues without asking (§3.1).
+- Items are used only in Strategy (Appendix A), never in a window. Item modifiers in a snapshot come only from effects already active.
+
+Activation limits restate §4.2 and §4.5. Each activation needs a ready source instance (once per Lap) and the player's unused allowance for the current `globalTurnNo`. For the active player it also spends `pokemonAbility`; a defender's reaction spends only the defender's allowance. Because a player has one activation per `globalTurnNo`, Porygon cannot reroll after another of its owner's Abilities in the same global turn, including Magikarp's chance die.
+
+Records (§6.1): every activation, accept or decline, window choice, reroll or keep, and reward choice is its own accepted action, owned by the seat that decides it. The defender owns its responses; the active seat does not answer for it. Every die is a logged engine `dice_result`. A reroll is a new logged result and never edits the old one.
+
+**PvP decision order (D4 — Proposed — needs Stream A team approval).**
+
+| Step | Who decides | Legal choices or engine work | Next |
+|---|---|---|---|
+| 1 Declare | challenger | in Strategy: voluntary PvP, Rival's force, Battle Ticket or a C Ability | 2 |
+| 2 Record | engine | records the directed attack attempt; spends `tacticalAction` and the source (Ticket UID, Rival's Lap use, or the C Ability's allowances) | 3 |
+| 3 Protection | engine | if the source is a hostile item or Ability and the target has an armed Price Shield, the whole action is blocked and the shield consumed (C.4) | blocked: challenger's Strategy; otherwise 4 |
+| 4 Response | defender | voluntary: accept or decline; forced: no choice | decline: challenger's Strategy, no coins move; otherwise 5 |
+| 5 Attacker window | challenger | one B Ability, or none | 6 |
+| 6 Defender window | defender, seeing step 5 | one B or R Ability, or none | 7 |
+| 7 Snapshot | engine | freezes battle, class, Ability, item and debuff terms; displayed odds come from this snapshot | 8 |
+| 8 Roll | engine | one d6 for each side, attacker first | 9 |
+| 9 Reroll | challenger, then defender, each seeing both dice | reroll own die or keep, only where eligible | 10 |
+| 10 Result | engine | higher total wins; a tie gives no reward | win: 11; tie: 12 |
+| 11 Reward | winner | up to 6 coins from the loser (subject to C.4), or evolve one eligible Pokémon by one stage | 12 |
+| 12 Consequences | engine | after-resolution effects, attacker's first, then defender's | challenger's Strategy |
+
+Steps 5 and 6 never reopen: the attacker cannot answer the defender's choice.
+
+**Gym decision order (D5 — Proposed — needs Stream A team approval).**
+
+| Step | Who decides | Legal choices or engine work | Next |
+|---|---|---|---|
+| 1 Entry | active player, in Resolve on a Gym | with a battle-ready Pokémon: challenge or skip. Without one, only skip, applied automatically; challenge is greyed out with "No battle-ready Pokémon" | challenge: 2; skip: End |
+| 2 Window | challenger | one B Ability, or none; `opponentAdd` has no target at a Gym | 3 |
+| 3 Snapshot and roll | engine | as PvP steps 7–8, against the Gym's DC | 4 |
+| 4 Reroll | challenger | reroll or keep, where eligible | 5 |
+| 5 Result | engine | total ≥ DC wins: +1 badge, then 6 coins from the bank or a one-stage evolution. A loss pays `min(3, coins)` to the bank unless a battle-scoped shield covers it (C.4) | 6 |
+| 6 Consequences | engine | after-resolution effects | End |
+
+Skipping a Gym costs nothing, and a challenge spends no `tacticalAction`. A Gym reached by forced displacement is not resolved. A Gym reached on a qualifying Start crossing opens only after Sell and any Rescue Starter (§4.7). The total-at-least-DC rule follows the catch convention (§4.3).
+
+**Catch order.** In Encounter, the catcher may first activate one B Ability (catch scope), then confirms a Ball or releases. The snapshot is frozen at Ball confirmation, the engine rolls, and an eligible A window follows before success is decided.
+
+**Move order.** If a `replaceRoll` Ability was activated in Strategy, Move draws no die and uses its steps. Otherwise the engine rolls a d6 and an eligible A window follows. Pending slows then apply to the final value (C.5), the player moves, and Start crossing and Resolve follow (§4.2, §4.7).
+
+### C.4 Protection: Price Shield, Shell Guard and Nurse Joy
+
+**D6 — Proposed — needs Stream A team approval.**
+
+- A player uses Price Shield in Strategy like any other utility item: it spends `tacticalAction`, and the item UID is destroyed as used. This **arms** a shield on that player.
+- An armed Price Shield blocks the next of these three and is then consumed:
+  1. a hostile item used on its owner (Repel, Sticky Web, Pickpocket, Battle Ticket);
+  2. a hostile Ability activated against its owner;
+  3. a PvP coin loss of its owner.
+- An armed shield has no expiry. A held, unarmed Price Shield never triggers by itself.
+- **Whole-action block** (cases 1 and 2): no part of the action takes effect. There is no slow, no transfer, no forced battle and no Ability effect. The action's costs stay spent (D10), and the declaration still counts as an attack attempt and against promises (§4.6, §4.8).
+- **Coin-loss-only protection** (case 3, Shell Guard and Nurse Joy): the battle happens. The protected loser pays 0 and the winner receives 0 (§4.4). A declined challenge, a tie, or a winner who chooses evolution is not a coin loss and consumes nothing.
+- Rival's once-per-Lap force and a voluntary challenge are neither hostile items nor hostile Abilities. A shield therefore protects only the coin loss in those battles.
+- **Visibility:** arming the public starting-kit Price Shield is public. Arming a secret one shows other seats only the item-count change, and its armed state is not shown to opponents until it blocks something (§4.1, Appendix B). A blocked hostile item or Ability is seen by its user and target (§4.1, #37). A blocked PvP coin loss is public with the battle result.
+
+**D7 — Proposed — needs Stream A team approval.**
+
+- Shell Guard, activated in a PvP defender's R window, arms a shield whose scope is battle coin loss: the owner's next coin loss from a PvP or Gym battle. It lasts until it prevents one.
+- A player may have at most one armed shield from any source. Arming a second is illegal and greyed out with "A shield is already armed". No priority rule between shields is needed.
+- Nurse Joy's passive comes first (§4.4): when it already prevents a PvP coin loss, no armed shield is consumed. The passive does not block whole actions, so a Battle Ticket against Nurse Joy with an armed Price Shield consumes the shield.
+
+### C.5 Slows and movement
+
+**D8 — Proposed — needs Stream A team approval.**
+
+- Slows have two kinds: `minus` (Repel −2, String Shot −1) and `cap` (Sticky Web 2). A target that already has a pending slow of one kind cannot receive another of that kind (§4.6).
+- The target's next actual move from value `v` takes `steps = max(1, min(v − minus, cap))`. `v` is the d6 after any Porygon reroll, or the `replaceRoll` steps. A missing `minus` counts as 0 and a missing `cap` sets no limit. This reproduces §4.6: Repel alone gives `max(1, d6 − 2)`, Sticky Web alone at most 2, and both `max(1, min(d6 − 2, 2))`.
+- A fixed move is an actual move. Pending slows reduce or cap its steps and then clear. No die is drawn.
+
+**D9 — Proposed — needs Stream A team approval.** Displacement is not the target's actual move, so pending slows stay pending. Pushing a player backwards across Start removes no credited Lap and pays nothing, and recrossing an old milestone pays nothing (§6.5).
+
+### C.6 Activation costs and Porygon's reroll
+
+**D10 — Proposed — needs Stream A team approval.**
+
+- An accepted activation spends its costs at once:
+  - the source instance's readiness for this Lap;
+  - the player's allowance for this `globalTurnNo`;
+  - `pokemonAbility`, for the active player;
+  - `tacticalAction`, when it starts PvP.
+- These stay spent when a chance roll misses, a shield blocks the effect, the battle is lost or tied, or the effect changes nothing (for example a fixed move slowed to 1).
+- An activation rejected as illegal or stale spends nothing and leaves state unchanged (§8).
+- Choosing none in a window, declining a challenge, or keeping a die spends nothing.
+- Legality preconditions:
+  - Heal Pulse needs an own Pokémon with a status.
+  - Vine Pull and String Shot need an opponent target at any distance.
+  - A slow cannot target a player with that kind pending.
+  - Intimidate needs a PvP opponent.
+  - `forceChallenge` needs battle-ready Pokémon on both sides.
+
+**D11 — Proposed — needs Stream A team approval.** Porygon's reroll (§4.4 exception):
+
+- Eligible dice are the owner's own move, catch, PvP or Gym die.
+- The new die replaces the old one even when it is worse. The same die cannot be rerolled twice.
+- The reroll changes no Ball, `catchAttempt` or Main Character first-catch use; those were spent at confirmation.
+- No outcome or reward applies before the reroll decision.
+- In PvP the challenger decides first and the defender second, as in D4.
+
+### C.7 Rescue Starter and post-resolution Tired
+
+**D12 — Proposed — needs Stream A team approval.** The Rescue Starter's "skips every class bonus" (§4.5) covers bonuses attached to that instance: sale bonuses, such as the Researcher's and Bug Catcher's. Trainer-level catch passives (Main Character, Fisherman, Bug Catcher) and combat passives (Rival) still apply to a player whose team includes or consists of a Rescue Starter. This adds no new suppression rule. A Rescue Starter keeps its own Ability, which is not a class bonus.
+
+**D13 — Proposed — needs Stream A team approval.** Dragon Rush's Tired applies after the result and any reward, whatever the result. If the reward evolved that UID, the new form becomes Tired, because status follows the UID (§4.5). Expiry follows §4.4.
+
+Not decided here: whether Rival's "+1 when attacking" applies at a Gym. S05 must raise it before applying the bonus to Gym snapshots.
+
+### C.8 Worked cases
+
+These are acceptance cases for the slices named in each heading. Every probability shown is what the engine's odds function must return.
+
+**AC-1 — Attacker and defender choices (S06, S10, S11).** P1 (Main Character) has Charmander, battle 2, with Blaze ready, and 20 coins. P2 (Rival) has Eevee, battle 2, with Adaptability ready, and 9 coins. It is P1's turn, `globalTurnNo` 7.
+
+1. In Strategy, P1 declares a voluntary PvP on P2. P1's `tacticalAction` drops to 0, and the attack attempt P1→P2 is recorded.
+2. P2 accepts.
+3. Attacker window: P1 activates Blaze. Charmander is not ready again until P1's next qualifying Start crossing. P1's allowance for turn 7 and `pokemonAbility` are spent.
+4. Defender window: P2 sees Blaze and activates Adaptability with combat scope. P2's allowance for turn 7 is spent; P2's own `pokemonAbility` is untouched because it is not P2's turn.
+5. Snapshot: P1 = d6 + 2 + 1 (Blaze); P2 = d6 + 2 + 1 (Rival defending) + 1 (Adaptability). Odds: P1 wins 10/36, tie 5/36, P2 wins 21/36.
+6. Dice: P1 rolls 6 (total 9) and P2 rolls 3 (total 8). Neither side holds Calculate, so there is no A window.
+7. P1 wins and chooses between: 6 coins from P2 (P2 holds 9, has no shield and is not Nurse Joy), or evolving Charmander to Charmeleon (battle 4, Blaze inherited, still not ready because evolution does not reset cooldowns).
+8. Back in Strategy, P1's only choice is skip, since the turn 7 allowance is used.
+
+If P2 declines at step 2: P1's `tacticalAction` stays spent and the attack still counts. No window opens, no allowance is spent, and no coins move.
+
+**AC-2 — Shielded Battle Ticket (S07, S08).** P3 (Nurse Joy) armed her public starting-kit Price Shield on an earlier turn. P1 has an accepted `no_attack` promise to P3. In P1's Strategy, P1 uses a Battle Ticket on P3. Both teams are battle-ready.
+
+1. P1's `tacticalAction` is spent and the Ticket UID is destroyed as used. `hostile_item_used` is seen by P1 and P3 only.
+2. The attack attempt P1→P3 is recorded, and the promise is broken (trust −2, §4.8: "including when a shield blocked it").
+3. P3's shield blocks the whole action and is consumed. No response, window, dice or coin transfer follows, and neither player spends an Ability allowance.
+
+Contrasts:
+
+- With the shield still armed, P1 instead challenges P3 voluntarily, P3 accepts and loses, and P1 chooses coins. Nurse Joy's passive prevents the loss: P3 pays 0, P1 receives 0, and the shield stays armed.
+- P2 (not Nurse Joy) has an armed secret Price Shield. A Rival forces P2 to battle. The battle happens, because the force is not a hostile item or Ability. If P2 loses and the Rival chooses coins, the shield is consumed and the Rival receives 0. If the Rival chooses evolution instead, the shield stays armed.
+
+**AC-3 — Porygon reroll (S11).** P4 (Researcher) meets a wild Machop (DC 3). P4 has Porygon ready, has activated no Ability this `globalTurnNo`, holds no bonus, and confirms a Poké Ball.
+
+1. The Ball and `catchAttempt` are spent. The snapshot needs a total of 3, and the die shows 2: fail so far.
+2. A window: P4 chooses reroll. Porygon is not ready again until the next qualifying Start crossing, and P4's allowance is spent.
+3. A new logged d6 shows 5, so the catch succeeds. No second Ball is spent.
+
+Had the new die shown 1, the catch would fail: the 2 cannot be restored, and no second reroll exists. Had P4 activated Lucky Splash earlier in the same turn, no A window would open.
+
+**AC-4 — Fixed movement with a pending slow (S12).** P2 holds Pidgey with Quick Flight ready. P2 is at `routeProgress` 46 (square 22) with `highestRewardedMilestone` 1. On an earlier turn this round, P1 used Repel on P2 (`minus 2`).
+
+1. In Strategy, P2 activates Quick Flight.
+2. Move: no die is drawn. `steps = max(1, min(3 − 2, no cap)) = 1`. P2 moves to 47 (square 23), and Repel clears.
+
+Variants:
+
+- With Sticky Web pending instead of Repel: `steps = max(1, min(3, 2)) = 2`. P2 reaches 48, Start milestone 2. Owner movement pays +5 from the bank, `creditedLap` +1, Abilities reset (Pidgey becomes ready again, but P2's allowance for this `globalTurnNo` is still spent), then Sell, then Resolve.
+- With both pending: `max(1, min(3 − 2, 2)) = 1`.
+- If P2 is instead pushed from 49 to 47 by Vine Pull: no income, no Resolve, and the Repel stays pending until P2's next actual move.
+
+**AC-5 — Dragon Rush at a Gym (S09, S11, S14).** P1 owns a caught Dratini (battle 3) with Dragon Rush ready, and lands on the Gym at square 12 (DC 7).
+
+1. P1 chooses challenge, then activates Dragon Rush in the B window.
+2. Snapshot: d6 + 3 + 2 ≥ 7 succeeds on 2–6 (5/6).
+3. The die shows 4, total 9: a win. P1 gains 1 badge and chooses to evolve Dratini to Dragonair (fallback: battle 5, Base Sale 39).
+4. Consequence: that UID, now Dragonair, becomes Tired with `tiredExpiresOwnTurnNo = ownTurnNo + 1`. Until it recovers, it is not battle-ready and sells at ×0.8.
+5. Recovery comes from expiry, Nurse Joy, Chansey's Heal Pulse as a PvP reaction, or a Potion.
