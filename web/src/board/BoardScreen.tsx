@@ -35,7 +35,9 @@ export function BoardScreen({
   const humanTurn = game.activeSeatIndex === view.seatIndex;
   const decisionOpen = humanTurn && ['shop', 'strategy', 'sell'].includes(game.phase.kind);
   const choose = (id: string) => {
-    if ('rejected' in store.choose(id)) setActionError(game.stateRevision);
+    if ('rejected' in store.choose(id)) {
+      setActionError(store.getView()?.observation.public.stateRevision ?? game.stateRevision);
+    }
   };
   const result = view.feed
     .filter(({ before }) => before.activeSeatIndex === view.seatIndex)
