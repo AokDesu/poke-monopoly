@@ -1,0 +1,13 @@
+{
+  "jobId": "cd3b49dd-eb10-43bc-8660-2279e872cc3e",
+  "action": "spawn-next",
+  "attempt": 1,
+  "runnerNonce": "d1f2add0-e27d-4218-b406-a57284b0e3ef",
+  "ownerNonce": "93c3a066-8ffa-4f6b-8478-8af12e2c60ad",
+  "runner": {
+    "pid": 1305157,
+    "processStartIdentity": "850464"
+  },
+  "deadlineAt": "2026-11-12T14:54:15.325Z",
+  "idempotencyKey": "90255b57398514cc86e6896b18d4dcae70bd9da07c7aa3c52e4f5ed391baf573"
+}
