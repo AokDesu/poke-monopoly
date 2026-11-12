@@ -40,3 +40,17 @@ export {
   type PokemonStatus,
 } from './status.ts';
 export { effectiveForm, evolvedForm, nextEvolutionForms, type EffectiveForm } from './forms.ts';
+export * from './contract/combat.ts';
+export {
+  combatSnapshot,
+  highestBattleMember,
+  pvpSnapshot,
+  gymSnapshot,
+  resolvePvp,
+  resolveGym,
+  type CombatModifiers,
+  type CombatOutcome,
+  type PvpResolution,
+  type GymResolution,
+} from './combat.ts';
+export { pvpOdds, gymOdds, type CombatOdds, type OutcomeOdds } from './odds.ts';

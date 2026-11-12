@@ -225,3 +225,51 @@ targets reject atomically. Later debuffs extend the typed status seam; none are 
 Statuses, expiry and events round-trip through saves, observations and command replay.
 The combined engine stamp advances to 0.14.0; older executable saves are refused rather than migrated.
 No battle, Event or Ability Tired source is introduced by this slice.
+
+## Shared combat arithmetic (issue #55 S05)
+
+Spec: §3 board odds, §4.3, §4.4, §4.6, §5.2, §6.1/6.8, §8, Appendix A Rival/Lucky Egg.
+
+`highestBattleMember(content, player, members?)` selects the highest effective battle among
+non-Tired members, breaking ties by UID in string order. `printedBattle` is the current
+effective form's stat (including fallback evolution), while `effectiveBattle` includes that
+member's pre-roll `battleBonus` and `debuffs`. An empty/all-Tired team has no selected member.
+`combatSnapshot(state, seatIndex, modifiers?)` adds the engine class hook, the active owner's
+Lucky Egg turn effect, and the pre-roll team `abilityBonus`/`debuffs` slots. These slots are
+inputs from future engine effect hooks, not a new Ability mapping or caller/AI arithmetic.
+Member adjustments must name unique owned UIDs; bonuses and debuffs are nonnegative integers.
+Selection precedes team-wide modifiers; values are not clamped at zero.
+
+`pvpSnapshot(state, attackerSeatIndex, defenderSeatIndex, { attacker?, defender? }?)` snapshots
+both parties together. `gymSnapshot(state, seatIndex, position, modifiers?)` assigns DC 5/7/9
+at 6/12/18. Both reject missing readiness or unknown seats; PvP rejects self-targeting, Gym
+rejects other squares. These are arithmetic prerequisites, not tactical/phase/declaration
+legality: S06/S09 own those checks and the pending confirmation flow.
+
+Snapshots contain detached scalar evidence and are recursively frozen, with readonly types
+and serializable schemas exported from `engine/contract/combat.ts`. Parsing a saved snapshot
+freezes it again. `resolvePvp(snapshot, attackerFace, defenderFace)` and
+`resolveGym(snapshot, face)` accept only the confirmed snapshot and d6 faces, never fresh
+modifiers or live state. PvP returns attacker-relative `win`/`tie`/`loss`, both totals and
+`rewardSeatIndex` (null on a tie). Gym returns `win` at or above DC, otherwise `loss`, the
+total/DC and a reward seat only for a win. No resolver transfers coins, grants badges, evolves,
+applies Tired, consumes effects, or advances RNG.
+
+`pvpOdds(snapshot)` enumerates all 36 die pairs through `resolvePvp`; `gymOdds(snapshot)`
+enumerates all six faces through `resolveGym`. Both return `totalOutcomes` and `win`, `tie`,
+`loss` records with `outcomes`, exact `probability`, and independently rounded whole-number
+`percent`. Gym's tie record is always zero. Displayed and resolved odds use the same snapshot.
+
+Content registers Rival's `combat_bonus` passive; the engine supplies +1 for attack, defence
+and Gym, without granting the later once-per-Lap forced challenge. Lucky Egg's existing
+Strategy use/cost/expiry stays in the item executor and turn driver; its turn effect now
+feeds combat as well as catching and never benefits a different seat. Rescue Starter teams
+retain trainer passives pending S00, matching S01's unresolved-interpretation boundary.
+S00 still decides the activation/confirmation sequence. This slice exposes no late modifier
+or reroll operation: S11's approved Porygon path must preserve the confirmed snapshot while
+replacing only the permitted own die. It adds no primitive names or Ability bindings.
+
+Engine/content stamps advance to 0.15.0/1.2.0 for the new combat contract and registered
+passive; prior executable saves/logs reject through the existing version checks. Historical
+illustrative fixtures, RNG version and command-log format are unchanged. PvP/Gym phases,
+rewards, Gym entry choice and UI/AI integration belong to later slices.
