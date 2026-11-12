@@ -273,3 +273,35 @@ Engine/content stamps advance to 0.15.0/1.2.0 for the new combat contract and re
 passive; prior executable saves/logs reject through the existing version checks. Historical
 illustrative fixtures, RNG version and command-log format are unchanged. PvP/Gym phases,
 rewards, Gym entry choice and UI/AI integration belong to later slices.
+## Evolution and exclusive reward helpers (issue #55 S04)
+
+Spec: §4.4 Battle Reward/Gym, §4.5, §4.7, §6.1/6.8, §8, Appendix A.
+`evolvePokemon(content, owner, instanceId, nextFormId)` validates a legal next form using
+S02's lookup, then changes only `speciesId` and `evolutionStage` on the existing instance.
+It returns one `pokemon_evolved` event and no UID creation/destruction. Defined forms replace
+stats/Ability; fallback forms use the current form's per-stage arithmetic. Status, expiry,
+origin, tradeability and cooldowns survive. Sell/final liquidation continue through the
+existing `saleBasis` path: evolved Original Starters use current Base Sale; Rescue stays zero.
+
+`rewardChoices(state, request)` lists `coins` plus explicit `{ kind: 'evolve', instanceId,
+nextFormId }` choices for the winner's eligible team, including Tired members. A request is
+`{ rewardId, winnerId, source }`, where source is `{ kind: 'gym' }` or
+`{ kind: 'pvp', loserId, coinLossBlocked }`. PvP pays only `min(6, loser.coins)` from the loser,
+or zero with confirmed protection; Gym pays 6 from the bank. There is no bank substitute for
+blocked/unfunded PvP coins. Evolution charges neither player. Zero payments emit no transfer.
+
+`resolveReward(next, request, choice)` is an internal mutation helper for the caller's detached
+snapshot. It validates the complete choice before writing, returns accepted events or a rejection,
+and leaves rejected snapshots unchanged. It records the reward ID in optional
+`resolvedRewardIds` and emits `battle_reward_resolved`; transfers carry the same `rewardId`.
+A repeated ID rejects with `already_resolved`, even if the retry selects the other outcome.
+Receipts persist in snapshots/saves; callers must use a stable ID for a single resolved fight.
+Both helpers leave RNG, phase, turn budgets and badges alone. Callers in S06/S09 must own the
+pending request, create it only on a win, check responder/revision, persist returned events in
+the accepted action record, and continue the turn. There is no public reward command yet;
+command-level reward replay/resume integration belongs to those callers. Protection timing,
+shield consumption and Ability primitive mapping are deferred; no S00 choice is needed here.
+
+The §8 one-stage/same-UID, evolution preservation and exclusive reward invariant checkers are
+active, with adversarial mutation coverage. The engine stamp advances to 0.15.0 for the new
+state/events; content/RNG versions and the command-log format remain unchanged.
