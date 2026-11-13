@@ -188,3 +188,32 @@ test('focus moves to each new heading, but not on first load; no 3D in jsdom', a
   await click(button(t('home.newGame')));
   expect(document.activeElement).toBe(heading());
 });
+
+test('no screen of the player flow links to or shows the developer gallery (issue #53)', async () => {
+  const { click } = setup({ seed: 1 });
+  const noGallery = () => {
+    expect(document.querySelector('[href*="gallery" i], [data-testid="ui-gallery"]')).toBeNull();
+    expect(screen.queryByText(t('gallery.title'))).toBeNull();
+    for (const control of screen.queryAllByRole('button')) {
+      expect(control.textContent!.toLowerCase(), control.outerHTML).not.toContain('gallery');
+    }
+  };
+  noGallery();
+  await click(button(t('home.newGame')));
+  noGallery();
+  await click(screen.getByRole('button', { name: new RegExp(t('mode.quick')) }));
+  noGallery();
+  await click(radio(/^Researcher/));
+  await click(button(t('nav.next')));
+  noGallery();
+  await click(button(t('opponents.next')));
+  noGallery();
+  await click(button(t('review.roll')));
+  noGallery();
+  await click(button(t('firstPlayer.toBoard')));
+  expect(screen.getByRole('region', { name: t('turn.actions') })).toBeTruthy();
+  noGallery();
+  await click(button(t('credits.link')));
+  expect(heading().textContent).toBe(t('credits.heading'));
+  noGallery();
+});

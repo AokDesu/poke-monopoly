@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { BoardScreen } from './board/BoardScreen.tsx';
-import { phaseLabel } from './board/labels.ts';
 import { CreditsScreen } from './CreditsScreen.tsx';
 import { classOptions, content as gameContent, engineContent } from './game/content.ts';
 import { rollForFirstPlayer } from './game/firstPlayer.ts';
@@ -34,7 +33,7 @@ import {
 } from './game/store.ts';
 import { t } from './i18n/en.ts';
 import { ResultsScreen } from './ResultsScreen.tsx';
-import { SavePrompt, type SavePromptProps } from './SavePrompt.tsx';
+import { pendingLine, SavePrompt, type SavePromptProps } from './SavePrompt.tsx';
 import type { Route } from './screens.ts';
 import { ClassScreen } from './setup/ClassScreen.tsx';
 import { FirstPlayerScreen } from './setup/FirstPlayerScreen.tsx';
@@ -97,16 +96,6 @@ function inspect(storage: SaveStorage | null): { offer: SaveOffer | null; unavai
     },
     unavailable: false,
   };
-}
-
-function pendingLine(summary: SaveSummary): string {
-  if (summary.waiting === 'finished') return t('save.pendingFinished');
-  if (summary.waiting === 'engine_result') return t('save.pendingRoll');
-  const name =
-    summary.seatIndex === summary.humanSeat
-      ? t('seat.you')
-      : t('board.rivalLabel', { seat: summary.seatIndex });
-  return t('save.pendingDecision', { name, phase: phaseLabel(summary.phase) });
 }
 
 export function App({

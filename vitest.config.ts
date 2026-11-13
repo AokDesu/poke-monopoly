@@ -14,6 +14,7 @@ export default defineConfig({
       { extends: true, test: { name: 'node', exclude: ['web/**'] } },
       {
         extends: true,
+        define: { __UI_GALLERY__: true },
         test: {
           name: 'web',
           include: ['web/**/*.test.{ts,tsx}'],

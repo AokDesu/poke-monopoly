@@ -5,6 +5,7 @@ import {
   createGame,
   createGameConfig,
   createGameLog,
+  createRng,
   eventsVisibleTo,
   engineEventSchema,
   fixtureSchema,
@@ -482,4 +483,25 @@ export function projectBoardFixture(input: unknown): {
     observation: observe(fixture.state, 0),
     events: fixture.log.flatMap((record) => eventsVisibleTo(fixture.state, record.events, 0)),
   };
+}
+
+/**
+ * Dev gallery adapter (issue #53): a store resting on a fixture snapshot, so a screen can be
+ * shown in a state that is hard to reach by playing. Config, content and RNG are normalised to
+ * the current engine; every command and quote still runs through `applyAction`. `edit` adjusts
+ * the snapshot's data (coins, items, seats) before it is sealed into the log.
+ */
+export function createFixtureStore(
+  input: unknown,
+  content: Content,
+  edit?: (state: GameState) => void,
+): GameStore {
+  const { state } = fixtureSchema.parse(input);
+  edit?.(state);
+  state.config = createGameConfig({ seats: state.config.seats, seed: 3, lapTarget: 3 });
+  state.content = structuredClone(content);
+  state.rng = createRng(3);
+  const store = createGameStore();
+  store.restore({ state, log: createGameLog(state) });
+  return store;
 }

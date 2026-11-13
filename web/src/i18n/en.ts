@@ -399,6 +399,58 @@ export const en = {
   'sell.rescueStarter':
     'No Pokémon left after the Sell Phase. You got a Rescue Starter, so you can keep playing.',
   'event.deckReshuffled': 'The Event deck ran out. The used cards were shuffled back in.',
+
+  // Dev gallery (issue #53). Row labels repeat the spec §3.1 "Situation" column word for word.
+  'gallery.title': 'Screen states gallery',
+  'gallery.intro':
+    'Developer page, not part of the game. Each example is the real screen, shown with fixed test data and labelled with its row in the spec. Nothing here changes a game.',
+  'gallery.specRow': 'Spec §3.1, row {row}',
+  'gallery.specAiTurns': 'Spec §3, AI turns',
+  'gallery.pendingHeading': 'Rows with no screen yet',
+  'gallery.pendingIntro':
+    'These rows have nothing a player can see in this build, so there is no example to show.',
+  'gallery.pending.engine':
+    'The engine or the AI settles this case; no screen is shown to the player.',
+  'gallery.pending.deals': 'Needs the Deal screen, which is not built yet.',
+  'gallery.pending.dealsBadge':
+    'Needs the Deal screen, which is not built yet. The Backup bot mode badge already shows timeouts and rate limits on AI turns.',
+  'gallery.pending.chat': 'Needs the chat panel, which is not built yet.',
+  'gallery.pending.eventDeck':
+    'The notice is in this catalog, but no screen shows it yet and the board has no Event deck.',
+  'gallery.row.onlyLegalAction': 'Only one legal action (e.g. must roll)',
+  'gallery.row.shortlistEmpty': 'Shortlist empty after personality filtering',
+  'gallery.row.noBall': 'Pokémon found but no Ball',
+  'gallery.row.shopNoCoins': 'Not enough coins for anything in the Shop',
+  'gallery.row.itemsFull': 'Holding 4 utility items in the Shop',
+  'gallery.row.jevTimeoutDeal': 'Jev times out, returns 429 or errors mid-deal',
+  'gallery.row.invalidAnswer':
+    "Jev's answer is not among the options, or the revision does not match",
+  'gallery.row.lowConfidence': 'Confidence below the floor',
+  'gallery.row.allBackup': 'Every AI is in backup mode',
+  'gallery.row.chatUnclassified': 'The player types something unclassifiable (emoji, slang)',
+  'gallery.row.chatManipulation':
+    'A message tries to make the AI break rules or reveal hidden information',
+  'gallery.row.browserClosed': 'The browser closes during an AI turn',
+  'gallery.row.teamEmpty': 'Team is empty after the Sell Phase',
+  'gallery.row.eventDeckOut': 'Event deck runs out',
+  'gallery.row.backupBadge':
+    'A "Backup bot mode" badge shows truthfully whenever an AI is using the fallback',
+  'gallery.example.beforeAuto': 'Before the game applies it',
+  'gallery.example.afterAuto': 'After the game applied it',
+  'gallery.example.noBall': 'Encounter with no Ball in the pouch',
+  'gallery.example.shopNoCoins': 'Shop with 0 coins',
+  'gallery.example.itemsFull': 'Shop with 4 utility items held and coins to spend',
+  'gallery.example.notAnOption': 'AI answered with something that was not an option',
+  'gallery.example.revisionMismatch': 'AI answered about an older game state',
+  'gallery.example.lowConfidence': 'AI was not confident enough',
+  'gallery.example.everyRivalBackup': 'Every rival decided with the backup bot',
+  'gallery.example.serverBackupOnly': 'The server reports backup only',
+  'gallery.example.continuePrompt': 'Home screen offering Continue',
+  'gallery.example.afterContinue': 'Board after Continue',
+  'gallery.example.sellWholeTeam': 'Selling the whole team: preview',
+  'gallery.example.afterWholeTeamSale': 'After the whole team was sold',
+  'gallery.example.badgeOneOfTwo': 'One of two rivals timed out',
+  'gallery.example.badgeRateLimited': 'One of two rivals was rate limited',
 } as const satisfies Record<string, string>;
 
 export type MessageKey = keyof typeof en | keyof typeof dialogue;
