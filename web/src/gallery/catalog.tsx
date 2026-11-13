@@ -154,7 +154,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
       id: 'invalid-answer',
       specRow: 7,
       label: 'gallery.row.invalidAnswer',
-      keys: ['ai.backupBadge', 'ai.backupInvalidAnswer', 'ai.backupRevisionMismatch'],
+      keys: ['ai.backupInvalidAnswer', 'ai.backupRevisionMismatch'],
       examples: [
         {
           id: 'not-an-option',
@@ -172,7 +172,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
       id: 'low-confidence',
       specRow: 8,
       label: 'gallery.row.lowConfidence',
-      keys: ['ai.backupBadge', 'ai.backupLowConfidence'],
+      keys: ['ai.backupLowConfidence'],
       examples: [
         {
           id: 'low-confidence',

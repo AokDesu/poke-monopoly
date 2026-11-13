@@ -41,9 +41,9 @@ const SHOWN = [
   {
     id: 'invalid-answer',
     specRow: '7',
-    keys: ['ai.backupBadge', 'ai.backupInvalidAnswer', 'ai.backupRevisionMismatch'],
+    keys: ['ai.backupInvalidAnswer', 'ai.backupRevisionMismatch'],
   },
-  { id: 'low-confidence', specRow: '8', keys: ['ai.backupBadge', 'ai.backupLowConfidence'] },
+  { id: 'low-confidence', specRow: '8', keys: ['ai.backupLowConfidence'] },
   { id: 'all-backup', specRow: '9', keys: ['ai.allBackupBanner', 'ai.backupBadge'] },
   {
     id: 'browser-closed',
@@ -153,4 +153,16 @@ test('the two dialogs open in the page flow, not as modals, so every example is 
   const dialogs = [...document.querySelectorAll('dialog')];
   expect(dialogs).toHaveLength(2);
   for (const dialog of dialogs) expect(dialog.open).toBe(true);
+});
+
+test('an invalid answer, revision mismatch or low confidence shows a per-turn note, never the badge or banner (§3)', () => {
+  render(<GalleryPage fixtures={fixtures} />);
+  for (const id of ['invalid-answer', 'low-confidence']) {
+    const text = examples(id).textContent!;
+    expect(text, id).not.toContain(t('ai.backupBadge'));
+    expect(text, id).not.toContain(t('ai.allBackupBanner'));
+  }
+  for (const id of ['backup-badge', 'all-backup']) {
+    expect(examples(id).textContent!, id).toContain(t('ai.backupBadge'));
+  }
 });
