@@ -173,10 +173,9 @@ function feedFrom(log: GameLog, seatIndex: number): SeatFeedEntry[] {
   const feed: SeatFeedEntry[] = [];
   for (const record of log.actions) {
     const { phase, activeSeatIndex, globalTurnNo } = observe(cursor, seatIndex).public;
-    feed.push({
-      before: { phase, activeSeatIndex, globalTurnNo },
-      record: actionVisibleTo(cursor, record, seatIndex),
-    });
+    // A chat between two other seats is absent from this seat's feed, not redacted (spec §4.8).
+    const visible = actionVisibleTo(cursor, record, seatIndex, feed.length);
+    if (visible) feed.push({ before: { phase, activeSeatIndex, globalTurnNo }, record: visible });
     const applied = applyAction(cursor, record.action);
     if (!('accepted' in applied)) throw new Error('Save log does not replay');
     cursor = applied.state;
@@ -227,10 +226,14 @@ export function createGameStore(): GameStore {
     if (seatIndex !== undefined && records.length > 0) {
       const { phase, activeSeatIndex, globalTurnNo, players } = observe(before, seatIndex).public;
       // Each step applies one record (engine contract: `advanceAutomatically` does not loop).
+      let shown = feed.length;
       feed = [
         ...feed,
-        ...records.map((record) => {
-          const visible = actionVisibleTo(before, record, seatIndex);
+        ...records.flatMap((record): SeatFeedEntry[] => {
+          const visible = actionVisibleTo(before, record, seatIndex, shown);
+          // A chat between two other seats is absent from this seat's feed (spec §4.8).
+          if (!visible) return [];
+          shown++;
           const sale = visible.events.find(
             (event) => event.kind === 'coin_transfer' && event.reason === 'pokemon_sale',
           );
@@ -243,21 +246,23 @@ export function createGameStore(): GameStore {
                   .find((player) => player.seatIndex === activeSeatIndex)
                   ?.team.find((entry) => entry.instanceId === sold.instanceId)
               : undefined;
-          return {
-            before: { phase, activeSeatIndex, globalTurnNo },
-            record: visible,
-            ...(decision && {
-              decision,
-              lineContext: {
-                ...(pokemon && { pokemonSpeciesId: pokemon.speciesId }),
-                ...(sale?.kind === 'coin_transfer' && { coins: sale.amount }),
-                ...(visible.action.kind === 'use_item' &&
-                  visible.action.payload.targetSeatIndex !== undefined && {
-                    targetSeatIndex: visible.action.payload.targetSeatIndex,
-                  }),
-              },
-            }),
-          };
+          return [
+            {
+              before: { phase, activeSeatIndex, globalTurnNo },
+              record: visible,
+              ...(decision && {
+                decision,
+                lineContext: {
+                  ...(pokemon && { pokemonSpeciesId: pokemon.speciesId }),
+                  ...(sale?.kind === 'coin_transfer' && { coins: sale.amount }),
+                  ...(visible.action.kind === 'use_item' &&
+                    visible.action.payload.targetSeatIndex !== undefined && {
+                      targetSeatIndex: visible.action.payload.targetSeatIndex,
+                    }),
+                },
+              }),
+            },
+          ];
         }),
       ];
     }
