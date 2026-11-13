@@ -68,7 +68,7 @@ export function confirmShop(next: GameState, action: Action): EngineEvent[] {
     if (offer.kind === 'ball') {
       player.balls[offer.ballType]++;
     } else {
-      // The accepted revision is unique, so this cannot collide with an existing UID.
+      // The revision without chats is unique to this (non-chat) record, so this cannot collide with an existing UID.
       const instanceId = `bought:${player.seatIndex}:${publicRevision(next)}`;
       const item = next.content.items.find((entry) => entry.id === offer.itemId)!;
       // Utility items gained after setup are secret (§4.1).
