@@ -859,7 +859,7 @@ In this example `strategy.confidence = 0.48` is below the 0.6 starting floor for
 
 Issue #55 S00. Status: **proposed contract, not yet implemented.** It maps every core Starter Ability to one of the eight effect primitives (§4.5) and fixes the order of battle and Ability decisions, so the implementation slices (S05–S14) build against one agreed table. It changes no engine code. The worked cases in C.8 become acceptance cases for those slices.
 
-Each choice that §4 and Appendix A do not already settle is numbered D1–D13 and marked **Proposed — needs Stream A team approval**. Reviewers may accept or replace each decision separately. Code that depends on a decision does not merge until that decision is approved.
+Each choice that §4 and Appendix A do not already settle is numbered D1–D14 and marked **Proposed — needs Stream A team approval**. Reviewers may accept or replace each decision separately. Code that depends on a decision does not merge until that decision is approved.
 
 These base rules stay as they are:
 
@@ -1047,7 +1047,7 @@ Skipping a Gym costs nothing, and a challenge spends no `tacticalAction`. A Gym 
 
 **D13 — Proposed — needs Stream A team approval.** Dragon Rush's Tired applies after the result and any reward, whatever the result. If the reward evolved that UID, the new form becomes Tired, because status follows the UID (§4.5). Expiry follows §4.4.
 
-Not decided here: whether Rival's "+1 when attacking" applies at a Gym. S05 must raise it before applying the bonus to Gym snapshots.
+**D14 — Proposed — needs Stream A team approval.** Rival's +1 combat bonus (Appendix A) applies only in PvP, to the Rival player when attacking and when defending. It does not apply at a Gym, because attacking and defending are the PvP roles. Gym snapshots therefore never include the Rival bonus.
 
 ### C.8 Worked cases
 
