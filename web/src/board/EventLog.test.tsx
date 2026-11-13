@@ -58,7 +58,7 @@ test('an empty event feed still explains the state', () => {
 
 // Spec §5.7: dialogue annotations are persisted separately; showing lines is deferred.
 test.each(['events', 'feed'] as const)(
-  '%s keeps dialogue annotations out of the event log while preserving game events',
+  '%s keeps dialogue and deferred reward records out of announcements while preserving game events',
   (source) => {
     const annotations: EngineEvent[] = [
       {
@@ -69,6 +69,22 @@ test.each(['events', 'feed'] as const)(
         lineId: 'INTERNAL-LINE-ID',
       },
       { kind: 'random_result', purpose: 'line:game_start', result: 2, drawCounter: 1 },
+      {
+        kind: 'pokemon_evolved',
+        ownerId: 'player-0',
+        instanceId: 'INTERNAL-UID',
+        fromFormId: 'caterpie',
+        toFormId: 'metapod',
+        evolutionStage: 1,
+      },
+      {
+        kind: 'battle_reward_resolved',
+        rewardId: 'INTERNAL-REWARD',
+        winnerId: 'player-0',
+        source: { kind: 'gym' },
+        choice: { kind: 'evolve', instanceId: 'INTERNAL-UID', nextFormId: 'metapod' },
+        coinAmount: 0,
+      },
     ];
     const props = (events: EngineEvent[]) => ({
       observation,
@@ -99,7 +115,7 @@ test.each(['events', 'feed'] as const)(
     expect(screen.getAllByRole('listitem').map((row) => row.textContent)).toEqual([
       'The die rolled 6.',
     ]);
-    expect(container.textContent).not.toContain('INTERNAL-LINE-ID');
+    expect(container.textContent).not.toContain('INTERNAL-');
     rerender(<EventLog {...props(annotations)} />);
     expect(screen.getByText(t('board.logEmpty'))).toBeTruthy();
     expect(screen.queryByRole('listitem')).toBeNull();

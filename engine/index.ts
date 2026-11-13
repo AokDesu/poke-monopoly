@@ -54,3 +54,5 @@ export {
   type GymResolution,
 } from './combat.ts';
 export { pvpOdds, gymOdds, type CombatOdds, type OutcomeOdds } from './odds.ts';
+export { evolvePokemon } from './evolution.ts';
+export { rewardChoices, resolveReward, type RewardResolution } from './rewards.ts';
