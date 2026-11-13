@@ -227,6 +227,39 @@ Statuses, expiry and events round-trip through saves, observations and command r
 The combined engine stamp advances to 0.14.0; older executable saves are refused rather than migrated.
 No battle, Event or Ability Tired source is introduced by this slice.
 
+## Evolution and exclusive reward helpers (issue #55 S04)
+
+Spec: §4.4 Battle Reward/Gym, §4.5, §4.7, §6.1/6.8, §8, Appendix A.
+`evolvePokemon(content, owner, instanceId, nextFormId)` validates a legal next form using
+S02's lookup, then changes only `speciesId` and `evolutionStage` on the existing instance.
+It returns one `pokemon_evolved` event and no UID creation/destruction. Defined forms replace
+stats/Ability; fallback forms use the current form's per-stage arithmetic. Status, expiry,
+origin, tradeability and cooldowns survive. Sell/final liquidation continue through the
+existing `saleBasis` path: evolved Original Starters use current Base Sale; Rescue stays zero.
+
+`rewardChoices(state, request)` lists `coins` plus explicit `{ kind: 'evolve', instanceId,
+nextFormId }` choices for the winner's eligible team, including Tired members. A request is
+`{ rewardId, winnerId, source }`, where source is `{ kind: 'gym' }` or
+`{ kind: 'pvp', loserId, coinLossBlocked }`. PvP pays only `min(6, loser.coins)` from the loser,
+or zero with confirmed protection; Gym pays 6 from the bank. There is no bank substitute for
+blocked/unfunded PvP coins. Evolution charges neither player. Zero payments emit no transfer.
+
+`resolveReward(next, request, choice)` is an internal mutation helper for the caller's detached
+snapshot. It validates the complete choice before writing, returns accepted events or a rejection,
+and leaves rejected snapshots unchanged. It records the reward ID in optional
+`resolvedRewardIds` and emits `battle_reward_resolved`; transfers carry the same `rewardId`.
+A repeated ID rejects with `already_resolved`, even if the retry selects the other outcome.
+Receipts persist in snapshots/saves; callers must use a stable ID for a single resolved fight.
+Both helpers leave RNG, phase, turn budgets and badges alone. Callers in S06/S09 must own the
+pending request, create it only on a win, check responder/revision, persist returned events in
+the accepted action record, and continue the turn. There is no public reward command yet;
+command-level reward replay/resume integration belongs to those callers. Protection timing,
+shield consumption and Ability primitive mapping are deferred; no S00 choice is needed here.
+
+The §8 one-stage/same-UID, evolution preservation and exclusive reward invariant checkers are
+active, with adversarial mutation coverage. The engine stamp advances to 0.15.0 for the new
+state/events; content/RNG versions and the command-log format remain unchanged.
+
 ## Social window and chat messages (issue #56 S01)
 
 Spec: §4.2, §4.8 Chat, §5.4, §9.
@@ -249,4 +282,4 @@ Spec: §4.2, §4.8 Chat, §5.4, §9.
 
 **Visibility.** The recipient of a chat is private (spec owner decision, #143). `observe(state, seat).own.chats` lists only the messages that seat sent or received (oldest first; present only when the flag is on). `chat_sent` reaches only its sender and recipient. For every other seat `actionVisibleTo` returns `null`: the record is absent from its feed, not redacted. Redaction would still show the speaker and that a chat happened, and in a three-seat game "a chat happened and it was not to me" names the recipient. The seat-facing feed also renumbers: `actionSeq` and `stateRevisionBefore` count the seat's own visible records, so skipping the chat leaves no gap, and a bystander's feed is identical whether the speaker chatted to someone else or skipped. For the same reason, while the window is on, another seat's Social-window record reaches a seat without its `auto` marker, since a sole-choice Skip would show that the chat budget was spent. The full record stays in the engine's replay log and saves, which are never sent to a seat. The observed revision is seat-relative too: `observe(state, seat).public.stateRevision` is the global `stateRevision` minus the records that seat may not see (`Player.unseenRecords`, raised for every seat outside an accepted chat; absent when zero), so it always equals the length of the seat's feed and a bystander's observation is identical whether the speaker chatted elsewhere or skipped. `applyAction` checks a seat's `stateRevisionBefore` and `actionSeq` against that seat's observed revision (`actorRevision` in [engine/visibility.ts](../engine/visibility.ts)): a hidden chat between other seats does not make its answer stale, while any record it can see still does. Engine-generated records, and every seat that has missed nothing, use the global revision, so flag-off games are numbered exactly as before. Instance IDs that embed a revision (`caught:`, `rescue:`, `bought:`) use the revision without chats (`publicRevision`), so a later catch, rescue or purchase does not reveal a chat either. Consumers submit exactly the revision they observed; the logged record keeps the numbers its actor submitted, and `GameState.stateRevision` still counts every accepted record, so replay, saves and determinism are unchanged. Nothing about chat reaches `ai/` until stream B's slices read `own.chats` through `observe`.
 
-**Versioning.** The stamp advances to 0.15.0 because the action union, events, state and observation gain fields; saves of 0.14.0 are refused rather than migrated. Chats round-trip through saves and command replay. Tests: [engine/social.test.ts](../engine/social.test.ts).
+**Versioning.** The stamp advances to 0.16.0 because the action union, events, state and observation gain fields; saves of 0.15.0 and earlier are refused rather than migrated. Chats round-trip through saves and command replay. Tests: [engine/social.test.ts](../engine/social.test.ts).

@@ -201,6 +201,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
   - Chat can change willingness but never legality.
 - **Forced PvP sources:** only Battle Ticket, Rival's passive (once per Lap), or an Ability with `forcePvP`. If the target has no battle-ready Pokémon, the action is illegal.
 - **Battle Reward:** the winner takes up to 6 coins from the loser, or evolves one eligible Pokémon by one stage (the loser then pays nothing). A tie gives no reward.
+  - **S04 implementation seam (#55):** the shared engine reward resolver accepts one explicit `coins` or `evolve` choice after a confirmed win. PvP coins come only from the loser (`min(6, loser.coins)`, or zero when coin loss is blocked); Gym's 6 coins come from the bank. The resolver records a durable reward ID so retrying either choice cannot grant another reward. PvP/Gym callers own pending choices, confirmed protection, actor/revision checks and continuation; ties do not create a reward request. This seam does not implement challenge flow, Gym entry or shield consumption.
 - **Attack counting:** declaring a challenge always counts as an attack attempt, even when declined or shielded.
 - **Shields and Nurse Joy:** they block coin loss but never create coins for the winner. If Nurse Joy's passive already blocks the loss, no shield is consumed.
 - **Gym:**
@@ -230,6 +231,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
   - Otherwise use Battle +2, Base Sale `round(current×1.5)` and the existing Ability. Resolve this once per preceding stage, rounding at each stage; inherited tags, rarity and Catch DC remain unchanged.
   - The current form ID is carried in the instance’s `speciesId`. Engine content retains evolution lines, form IDs/names and authored Ability descriptions. A pure effective-form lookup supplies current stats and Ability to combat, selling and final liquidation without adding fallback forms to the encounter pool. Branches must follow the authored next stage; an unknown form or invalid branch is rejected.
   - No new systems may be added during evolution. Status follows the UID to the new form.
+  - **S04 implementation seam (#55):** the evolution helper validates one authored next-form choice, then updates only `speciesId` and `evolutionStage` on the existing UID and logs `pokemon_evolved`. Origin (including Rescue), status expiry, tradeability and both instance/player cooldowns remain unchanged. Every Eevee branch is an explicit choice; final forms have none. Evolution eligibility does not require battle readiness.
 - **Original Starter:** sellable, with its price normalised to 5 coins for every class while it is still the base form.
 - **Rescue Starter:**
   - Created when the team is empty after the Sell Phase commits: the class's base Starter with a new UID.

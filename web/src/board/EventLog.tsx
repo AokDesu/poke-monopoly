@@ -15,8 +15,10 @@ function eventMessage(
   ];
   switch (event.kind) {
     // Spec §5.7: persisted dialogue annotations are not gameplay announcements.
-    // Status records remain available in the engine feed; dedicated UI is a later slice.
+    // Status/evolution/reward records remain in the feed; dedicated UI is a later slice.
     case 'status_changed':
+    case 'pokemon_evolved':
+    case 'battle_reward_resolved':
     case 'line_selected':
       return [];
     // Chat has its own screen (#57); the flag keeping the Social window closed is off until then.

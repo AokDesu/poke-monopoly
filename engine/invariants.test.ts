@@ -164,10 +164,10 @@ describe('registry (spec §8)', () => {
       'game-can-finish': 'active',
       'ability-once-per-instance-per-lap': 'pending',
       'ability-once-per-player-turn': 'pending',
-      'evolution-keeps-cooldowns': 'pending',
+      'evolution-keeps-cooldowns': 'active',
       'promise-closes-on-own-turn': 'pending',
       'deals-atomic': 'pending',
-      'battle-reward-coins-or-evolution': 'pending',
+      'battle-reward-coins-or-evolution': 'active',
     });
   });
 

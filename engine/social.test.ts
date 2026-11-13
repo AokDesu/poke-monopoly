@@ -626,6 +626,6 @@ test('chats replay and survive a save round-trip (§6.7, §6.8)', () => {
   expect(verifyReplay(loaded)).toMatchObject({ pass: true });
   expect(observe(loaded.state, 2).own.chats).toHaveLength(1);
   // An older engine's save is refused by name, as ENGINE_VERSION moved (spec §6.8).
-  expect(ENGINE_VERSION).not.toBe('0.14.0');
-  expect(() => deserialize(serialize(game).replace(ENGINE_VERSION, '0.14.0'))).toThrow(/0\.14\.0/);
+  expect(ENGINE_VERSION).not.toBe('0.15.0');
+  expect(() => deserialize(serialize(game).replace(ENGINE_VERSION, '0.15.0'))).toThrow(/0\.15\.0/);
 });

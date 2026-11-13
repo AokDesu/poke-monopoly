@@ -220,6 +220,20 @@ export const phaseSchema = z.discriminatedUnion('kind', [
 const finalTableRoundSchema = z
   .strictObject({ triggerSeatIndex: count, targetOwnTurnNo: count })
   .nullable();
+/** Internal reward context supplied by the battle/Gym caller after a win. */
+export const rewardSourceSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('pvp'), loserId: id, coinLossBlocked: z.boolean() }),
+  z.strictObject({ kind: z.literal('gym') }),
+]);
+export const rewardRequestSchema = z.strictObject({
+  rewardId: id,
+  winnerId: id,
+  source: rewardSourceSchema,
+});
+export const rewardChoiceSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('coins') }),
+  z.strictObject({ kind: z.literal('evolve'), instanceId: id, nextFormId: id }),
+]);
 export const gameStateSchema = z.strictObject({
   config: gameConfigSchema,
   content: contentSchema,
@@ -251,6 +265,8 @@ export const gameStateSchema = z.strictObject({
   turnEffects: z.strictObject({ itemBonus: z.int() }).optional(),
   rng: z.strictObject({ cursor: count, state: id }),
   eventDeck: z.strictObject({ drawPile: z.array(id), discardPile: z.array(id) }),
+  // Durable idempotency receipts; absent before the first resolved reward.
+  resolvedRewardIds: z.array(id).optional(),
 });
 
 // Player commands and engine-generated records share one sequence in the log.
@@ -332,6 +348,20 @@ const lineSelectedEventSchema = z.strictObject({
 });
 export const engineEventSchema = z.discriminatedUnion('kind', [
   z.strictObject({
+    kind: z.literal('pokemon_evolved'),
+    ownerId: id,
+    instanceId: id,
+    fromFormId: id,
+    toFormId: id,
+    evolutionStage: count,
+  }),
+  z.strictObject({
+    kind: z.literal('battle_reward_resolved'),
+    ...rewardRequestSchema.shape,
+    choice: rewardChoiceSchema,
+    coinAmount: count,
+  }),
+  z.strictObject({
     kind: z.literal('status_changed'),
     ownerId: id,
     instanceId: id,
@@ -356,6 +386,7 @@ export const engineEventSchema = z.discriminatedUnion('kind', [
     reason: id,
     // Current-version Pokémon sales show their parts, e.g. base 8 + class bonus 3.
     sale: z.strictObject({ basePrice: count, classBonus: count }).optional(),
+    rewardId: id.optional(),
   }),
   z.strictObject({
     kind: z.literal('uid_created'),
@@ -482,6 +513,8 @@ export type PokemonInstance = z.infer<typeof pokemonInstanceSchema>;
 export type ChatTopic = z.infer<typeof chatTopicSchema>;
 export type ChatPayload = z.infer<typeof chatPayloadSchema>;
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
+export type RewardRequest = z.infer<typeof rewardRequestSchema>;
+export type RewardChoice = z.infer<typeof rewardChoiceSchema>;
 export type ItemInstance = z.infer<typeof itemInstanceSchema>;
 export type BallPouch = z.infer<typeof ballPouchSchema>;
 export type Action = z.infer<typeof actionSchema>;
