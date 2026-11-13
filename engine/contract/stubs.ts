@@ -210,7 +210,7 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       return { rejected: true, reason: 'illegal_action', state };
     }
     const next = structuredClone(state);
-    next.stateRevision = action.actionSeq;
+    next.stateRevision = state.stateRevision + 1;
     next.rng = draw.rng;
     const events = [
       ...draw.events,
@@ -234,7 +234,7 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       return { rejected: true, reason: 'illegal_action', state };
     }
     const next = structuredClone(state);
-    next.stateRevision = action.actionSeq;
+    next.stateRevision = state.stateRevision + 1;
     next.rng = { ...draw.rng };
     next.eventDeck.drawPile = draw.value;
     return {
@@ -249,7 +249,7 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       return { rejected: true, reason: 'illegal_action', state };
     }
     const next = structuredClone(state);
-    next.stateRevision = action.actionSeq;
+    next.stateRevision = state.stateRevision + 1;
     next.eventDeck.drawPile.shift();
     next.eventDeck.discardPile.push(action.payload.eventId);
     return { accepted: true, state: next, events: [], record: { action, events: [] } };

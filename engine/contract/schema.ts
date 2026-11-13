@@ -244,6 +244,8 @@ export const gameStateSchema = z.strictObject({
       }),
     )
     .optional(),
+  // Accepted chats, so instance IDs can skip them (§4.8); absent until a first message.
+  chatsSent: count.optional(),
   finalTableRound: finalTableRoundSchema,
   // Active-turn item effects, cleared when the next turn starts; absent when none.
   turnEffects: z.strictObject({ itemBonus: z.int() }).optional(),

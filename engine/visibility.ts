@@ -62,6 +62,14 @@ export function actorRevision(state: GameState, actorId: string): number {
 }
 
 /**
+ * The accepted-record count without chats, for instance IDs every seat may see (§4.8): a chat
+ * must not shift them, or a seat outside it could tell that it happened.
+ */
+export function publicRevision(state: GameState): number {
+  return state.stateRevision - (state.chatsSent ?? 0);
+}
+
+/**
  * Whether the record is a chat this seat took no part in (§4.8). A seat outside a conversation must
  * not learn that it happened or whom it was with: in a three-seat game, "a chat happened and it was
  * not to me" names the recipient, so the record is absent from the seat's feed, not redacted.
@@ -103,5 +111,14 @@ export function actionVisibleTo(
   // Deck order and the drawn card are nobody's until an effect makes them public (§4.6).
   if (action.kind === 'shuffle') delete action.payload.order;
   if (action.kind === 'event_draw') delete action.payload.eventId;
-  return { ...structuredClone(record), action, events };
+  const copy: SeatActionRecord = { ...structuredClone(record), action, events };
+  // Whether another seat's Social step had alternatives would tell whether it spent its chat (§4.8).
+  if (
+    before.phase.kind === 'social' &&
+    before.config.socialWindow === true &&
+    actor?.seatIndex !== seatIndex
+  ) {
+    delete copy.auto;
+  }
+  return copy;
 }

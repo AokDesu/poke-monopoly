@@ -77,6 +77,7 @@ export function validChat(state: GameState, seatIndex: number, payload: ChatPayl
 export function recordChat(next: GameState, payload: ChatPayload): EngineEvent[] {
   const fromSeatIndex = next.activeSeatIndex;
   next.turnBudgets.socialInteraction = (next.turnBudgets.socialInteraction ?? 0) - 1;
+  next.chatsSent = (next.chatsSent ?? 0) + 1;
   const message: ChatMessage = {
     fromSeatIndex,
     toSeatIndex: payload.targetSeatIndex,

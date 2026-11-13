@@ -409,6 +409,50 @@ test('a bystander observes the same revision after a chat it is not part of, and
   }
 });
 
+/** Plays catch-first passive choices for `turns` turns, building `seat`'s feed as the boundary does. */
+function playWithFeed(initial: GameState, seat: number, turns: number) {
+  let state = initial;
+  const feed: SeatActionRecord[] = [];
+  for (let step = 0; step < 3000 && state.globalTurnNo < turns; step++) {
+    if (state.phase.kind === 'finished') break;
+    const auto = advanceAutomatically(state);
+    let next: GameState;
+    let record: ActionRecord;
+    if (auto.records.length) {
+      next = auto.state;
+      record = auto.records[0]!;
+    } else {
+      const enabled = legalActions(state, state.activeSeatIndex).enabled;
+      const choice =
+        enabled.find((entry) => entry.kind === 'catch') ??
+        enabled.find((entry) => ['skip', 'skip_shop', 'release', 'roll'].includes(entry.kind)) ??
+        enabled.find((entry) => entry.id === 'finish-sell') ??
+        enabled[0]!;
+      ({ state: next, record } = accepted(state, choice.kind, choice.payload));
+    }
+    const visible = actionVisibleTo(state, record, seat, feed.length);
+    if (visible) feed.push(visible);
+    state = next;
+  }
+  return { state, feed };
+}
+
+test('instance IDs created after a hidden chat do not tell a bystander it happened (§4.8)', () => {
+  let caught = 0;
+  for (let seed = 1; seed <= 20; seed++) {
+    const skipped = social({ seats: 3, seed });
+    const chatted = accepted(skipped, 'chat', { targetSeatIndex: 1, topic: 'truce' }).state;
+    const left = playWithFeed(skipped, 2, 9);
+    const right = playWithFeed(chatted, 2, 9);
+    expect(right.state.stateRevision).toBe(left.state.stateRevision + 1);
+    expect(observe(right.state, 2)).toEqual(observe(left.state, 2));
+    expect(right.feed).toEqual(left.feed);
+    caught += right.state.players[0]!.team.filter((pokemon) => pokemon.origin === 'caught').length;
+  }
+  // The comparison covers a human catch made after the chat, whose ID is public.
+  expect(caught).toBeGreaterThan(0);
+});
+
 test('a record a seat can see still makes its old revision stale (§4.8)', () => {
   const chatted = accepted(social({ seats: 3 }), 'chat', {
     targetSeatIndex: 1,
@@ -437,6 +481,7 @@ test('a chat changes nothing beyond its history and the social budget (§4.8 har
     const copy = structuredClone(state);
     delete copy.chats;
     delete copy.turnBudgets.socialInteraction;
+    delete copy.chatsSent;
     for (const player of copy.players) delete player.unseenRecords;
     copy.stateRevision = 0;
     return copy;
