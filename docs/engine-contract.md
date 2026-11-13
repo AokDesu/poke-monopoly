@@ -390,3 +390,57 @@ PvP UI and AI integration are outside this slice.
 
 AI seats temporarily do not declare PvP; the Jev Strategy filter, fallback penalty and
 removal condition are specified in [spec §5.3](SPEC-v1.0-PokeMonopoly.md#53-decision-points--questions).
+
+## Promise responses as pending decisions (issue #56 S03)
+
+Spec: §4.2, §4.8 Promise, §6, §8. This builds on #147's pending-decision ownership ("Voluntary PvP and decision ownership" above); there is no second mechanism. Stream A's PvP and Deal Cards (S05) add their own response kinds the same way.
+
+### How a promise response registers
+
+`GameState.pendingResponse` is optional and absent unless a seat owes an answer to a question another seat asked. It is a discriminated union on `kind`; today there is one, `promise_offer { initiatorSeatIndex, responderSeatIndex, direction }`. `initiatorSeatIndex` is the seat whose turn it is (it stays `activeSeatIndex` throughout); `responderSeatIndex` owes the next command.
+
+`pendingDecision(state)` ([engine/decisions.ts](../engine/decisions.ts)) is extended by one line: while `pendingResponse` exists it returns the responder instead of the active seat (it still returns `null` for a pending engine die or a finished game, and a promise question cannot coexist with a PvP phase, since it is asked only in Social). Everything #147 already routes through it follows, with no further change:
+
+| Place | Behaviour while a promise question is pending |
+| --- | --- |
+| `applyAction` | Only the responder's actor is accepted. Anyone else, the active seat included, is rejected as `wrong_actor` with the state untouched. The responder's command must be in its enabled set, else `illegal_action`. |
+| `legalActions(state, seat)` | The responder gets exactly `respond:accept` and `respond:reject` (command `respond`, payload `{ answer: 'accept' \| 'reject' }`). Every other seat has no enabled choice and the usual disabled `skip` (`NOT_YOUR_TURN`). |
+| `advanceAutomatically` | Asks `pendingDecision`. It never answers for a responder: a response has two choices, so it is a decision, not an automatic step. |
+| `resume(...).waitingFor` | `{ kind: 'decision', seatIndex, actorId, phase, legalActions }` of the responder; `phase` is still the turn's phase (`social`). A reload re-asks the same question from the saved state. |
+| Invariant `game-can-finish` | "An unfinished game always has a seat with an enabled choice" checks the pending decision's seat. |
+| Sim runner and `sim/legal-games.ts` | Decide, and probe foreign actors, for the pending decision's seat. |
+
+`respond` is accepted only when a question is pending; otherwise it is `illegal_action`. The answer clears the record in the same accepted action, so a state never holds a stale one, and replay applies the same records in the same order: it is deterministic and `verifyReplay` passes mid-question.
+
+### Adding a response kind
+
+1. Add a variant to `pendingResponseSchema` in [engine/contract/schema.ts](../engine/contract/schema.ts) with the initiator, the responder and what the answer needs; bump `ENGINE_VERSION`.
+2. Create the record in the initiating command (as `offerPromise` does) and give it a case in `responseChoices` ([engine/promises.ts](../engine/promises.ts)). Widen `respondPayloadSchema.answer` for a different answer set.
+3. Resolve it in the `respond` branch of `applyAction` by `pendingResponse.kind`, deleting the record in the same action. Spend the turn's budgets only in the initiating or answering action, never both.
+4. Extend visibility ([engine/visibility.ts](../engine/visibility.ts)) so only the parties see the events, and `observe` so only they see `own.pendingResponse`.
+5. Phases do not change: the question lives beside the phase.
+
+### The `no_attack` promise
+
+**Offer.** With `socialWindow` on, the active human in Social with the interaction unspent may send `offer_promise { targetSeatIndex, direction }` to any **AI** seat, in either direction (Q2a):
+
+- `offer`: "I won't attack you". The human is the promiser, the AI the recipient and the responder, who accepts or rejects.
+- `ask`: "promise not to attack me". The AI is the promiser, the human the recipient; the AI agrees (`accept`) or refuses (`reject`).
+
+Choice IDs are `offer-promise:seat-<n>:offer|ask`. The choices depend on seats, flags and promise history only, never on what any seat holds, so offering leaks no card (§4.8 Privacy). An AI seat is never offered one. The offer itself changes nothing but `pendingResponse` and the event; the turn's `socialInteraction` is spent by the **answer**, so either answer, `accept` or `reject`, uses up the interaction (a chat, too, spends it, so a chat and an offer are mutually exclusive in one turn) and neither spends `tacticalAction`. While the offer is pending nothing else can be sent (§4.2: the game pauses only inside this window).
+
+**Accept** appends `{ promiserSeatIndex, recipientSeatIndex, createdGlobalTurnNo, closesOwnTurnNo }` to `GameState.promises` with `closesOwnTurnNo = promiser.ownTurnNo + 1`: the promise runs until the end of the promiser's next turn. **Reject** creates nothing. Both clear `pendingResponse` and emit one event: `promise_offered` (at the offer), then `promise_accepted { promiserSeatIndex, recipientSeatIndex, closesOwnTurnNo }` or `promise_rejected { promiserSeatIndex, recipientSeatIndex }`. Nothing else changes: coins, teams, items, Balls, RNG, dice, phase and legality of every other command are as before (§4.8 hard line, tested).
+
+**Limits** (checked when the offer is listed, and so again by `applyAction`):
+
+- *One active promise per directed pair.* A promise is active from confirmation until the end of the promiser's turn `closesOwnTurnNo`: while the promiser's `ownTurnNo` is below it, or equals it and the promiser is the active seat. The other direction of the same two seats is a different pair.
+- *No renewal.* The promiser's closing turn still counts as active, so the same pair cannot be re-offered then. Once it has closed, a new promise is a fresh one, not a renewal; §4.8's "max +2 per pair per game" trust cap presumes more than one over a game. This is this slice's reading of "no renewal"; stream B's settlement slice (S07) may tighten it.
+- *Not past game end.* Once `finalTableRound` is announced, nobody plays an own turn above `targetOwnTurnNo`, so a promise whose `closesOwnTurnNo` exceeds it would outlive the game and is not offered. Before the round is announced the game end is unknown, so an offer is allowed; such a promise is later `closed_by_game_end` (S07).
+
+**Visibility.** `promise_offered` reaches only the initiator and responder, `promise_accepted` and `promise_rejected` only the promiser and recipient (the same two seats). `observe(state, seat).own.promises` lists only the promises that seat made or received (present with the flag on), and `own.pendingResponse` exists only for the initiator and the responder. For any other seat, `actionVisibleTo` strips the payloads of `offer_promise` and `respond`; as for `chat`, the record itself stays in the sequence, so a third seat can see that some seat sent an `offer_promise` and that another `respond`ed, not the target, the direction or the answer.
+
+**Not in this slice.** Settling promises at End, breaches, trust and memory (S07, which also activates the `promise-closes-on-own-turn` invariant), Deal Cards and the Deal response (S05), and the AI's Jev decisions for `respond` (the `ai/` layer). `GameState.promises` therefore keeps every promise, closed ones included, for S07.
+
+**Sim.** `npm run sim -- --games <n> --seed <n> --social` plays seat 0 as a `human` with the random policy and `socialWindow` on; the other seats keep `--policy`. The summary gains `social { promiseOffers, promisesAccepted, promisesRejected }` only with the flag, so a run without it is byte-for-byte unchanged.
+
+**Versioning.** The stamp advances to 0.17.0: the action union, events, state and observation gain fields. Saves of 0.16.0 are refused rather than migrated. Tests: [engine/promises.test.ts](../engine/promises.test.ts), the `--social` cases in [sim/sim.test.ts](../sim/sim.test.ts) and the social property in [sim/legal-games.property.test.ts](../sim/legal-games.property.test.ts).

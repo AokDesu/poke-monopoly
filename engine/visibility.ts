@@ -23,6 +23,13 @@ function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): bo
   if (event.kind === 'chat_sent') {
     return event.fromSeatIndex === seatIndex || event.toSeatIndex === seatIndex;
   }
+  // A promise question and its answer are the two parties' alone (§4.8 Privacy).
+  if (event.kind === 'promise_offered') {
+    return event.initiatorSeatIndex === seatIndex || event.responderSeatIndex === seatIndex;
+  }
+  if (event.kind === 'promise_accepted' || event.kind === 'promise_rejected') {
+    return event.promiserSeatIndex === seatIndex || event.recipientSeatIndex === seatIndex;
+  }
   // Items created during play are bought, hence secret (§4.1).
   if (event.kind === 'uid_created' && event.entity === 'item') {
     return (
@@ -78,6 +85,19 @@ export function actionVisibleTo(
     delete action.payload.topic;
     delete action.payload.leaderSeatIndex;
     delete action.payload.itemId;
+  }
+  // A third seat learns neither whom a promise question was for nor how it was answered.
+  if (
+    action.kind === 'offer_promise' &&
+    actor?.seatIndex !== seatIndex &&
+    action.payload.targetSeatIndex !== seatIndex
+  ) {
+    delete action.payload.targetSeatIndex;
+    delete action.payload.direction;
+  }
+  if (action.kind === 'respond') {
+    const asker = before.pendingResponse?.initiatorSeatIndex;
+    if (actor?.seatIndex !== seatIndex && asker !== seatIndex) delete action.payload.answer;
   }
   // Deck order and the drawn card are nobody's until an effect makes them public (§4.6).
   if (action.kind === 'shuffle') delete action.payload.order;

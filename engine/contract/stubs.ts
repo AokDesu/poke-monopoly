@@ -16,6 +16,13 @@ import { itemChoices, useItem } from '../items.ts';
 import { ENGINE_VERSION } from '../versions.ts';
 import { recordSale, validSale } from '../selling.ts';
 import { chatChoices, chatsOf, recordChat, validChat } from '../social.ts';
+import {
+  answerPromise,
+  offerPromise,
+  promiseOfferChoices,
+  promisesOf,
+  responseChoices,
+} from '../promises.ts';
 import type {
   GameState,
   Observation,
@@ -61,7 +68,16 @@ export function observe(state: GameState, seatIndex: number): Observation {
       balls: ownPlayer.balls,
       privateResults: ownPlayer.privateResults,
       // Only conversations this seat is part of; the key exists only when the Social window is on.
-      ...(state.config.socialWindow === true && { chats: chatsOf(state, seatIndex) }),
+      ...(state.config.socialWindow === true && {
+        chats: chatsOf(state, seatIndex),
+        promises: promisesOf(state, seatIndex),
+      }),
+      // A question is its two parties' alone (§4.8): a third seat never learns one was asked.
+      ...(state.pendingResponse &&
+        (state.pendingResponse.initiatorSeatIndex === seatIndex ||
+          state.pendingResponse.responderSeatIndex === seatIndex) && {
+          pendingResponse: state.pendingResponse,
+        }),
     },
   });
 }
@@ -83,6 +99,11 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
     return result;
   }
   if (!decision) return result;
+  // A pending promise question: its responder chooses between accepting and rejecting (§4.8).
+  if (state.pendingResponse) {
+    responseChoices(state.pendingResponse, result);
+    return result;
+  }
   if (state.phase.kind === 'first_player_roll' && !state.phase.awaitingResult) {
     result.enabled.push({ id: 'roll', kind: 'roll', payload: {} });
   }
@@ -111,7 +132,10 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   ) {
     result.enabled.push({ id: 'skip', kind: 'skip', payload: {} });
   }
-  if (state.phase.kind === 'social') chatChoices(state, seatIndex, result);
+  if (state.phase.kind === 'social') {
+    chatChoices(state, seatIndex, result);
+    promiseOfferChoices(state, seatIndex, result);
+  }
   if (state.phase.kind === 'encounter' && !state.phase.catchRoll) {
     for (const ballType of ['poke', 'great', 'ultra'] as const) {
       const action: LegalAction = { id: `catch:${ballType}`, kind: 'catch', payload: { ballType } };
@@ -312,19 +336,23 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
   const events =
     action.kind === 'chat'
       ? recordChat(next, action.payload)
-      : saleIds !== undefined
-        ? recordSale(next, saleIds)
-        : next.config.engineVersion !== ENGINE_VERSION
-          ? recordTurnCommand(next, action.kind)
-          : action.kind === 'declare_pvp' || next.phase.kind === 'pvp'
-            ? recordPvpCommand(next, action)
-            : next.phase.kind === 'encounter'
-              ? confirmCatch(next, action)
-              : next.phase.kind === 'shop'
-                ? confirmShop(next, action)
-                : action.kind === 'use_item'
-                  ? useItem(next, action)
-                  : recordTurnCommand(next, action.kind);
+      : action.kind === 'offer_promise'
+        ? offerPromise(next, action.payload)
+        : action.kind === 'respond'
+          ? answerPromise(next, action.payload.answer)
+          : saleIds !== undefined
+            ? recordSale(next, saleIds)
+            : next.config.engineVersion !== ENGINE_VERSION
+              ? recordTurnCommand(next, action.kind)
+              : action.kind === 'declare_pvp' || next.phase.kind === 'pvp'
+                ? recordPvpCommand(next, action)
+                : next.phase.kind === 'encounter'
+                  ? confirmCatch(next, action)
+                  : next.phase.kind === 'shop'
+                    ? confirmShop(next, action)
+                    : action.kind === 'use_item'
+                      ? useItem(next, action)
+                      : recordTurnCommand(next, action.kind);
   return {
     accepted: true,
     state: next,

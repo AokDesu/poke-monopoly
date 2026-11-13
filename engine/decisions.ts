@@ -7,7 +7,9 @@ import { pendingRollPurpose } from './turns.ts';
 export function pendingDecision(state: GameState): { seatIndex: number; actorId: string } | null {
   if (state.phase.kind === 'finished' || pendingRollPurpose(state)) return null;
   let seatIndex = state.activeSeatIndex;
-  if (state.phase.kind === 'pvp') {
+  // A promise question (§4.8) is answered by its responder while the active seat waits.
+  if (state.pendingResponse) seatIndex = state.pendingResponse.responderSeatIndex;
+  else if (state.phase.kind === 'pvp') {
     const battle = state.phase.battle;
     if (battle.step === 'response') seatIndex = battle.defenderSeatIndex;
     else if (battle.step === 'reward') {
