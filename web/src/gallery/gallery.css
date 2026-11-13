@@ -1,0 +1,64 @@
+/* Dev gallery (issue #53): a plain list on the board's sky, the real screens inside. */
+.gallery-row {
+  margin-top: 2.5rem;
+  padding-top: 1.75rem;
+  border-top: 2px solid var(--color-line);
+}
+.gallery-row-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+}
+.gallery-row-head h2 {
+  font-size: 1.5rem;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+.gallery-spec {
+  padding: 0.15rem 0.65rem;
+  border-radius: 999px;
+  background: var(--color-panel-tint);
+  box-shadow: inset 0 0 0 2px var(--color-line);
+  color: var(--color-ink-soft);
+  font-size: 0.8rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.gallery-examples {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr));
+  align-items: start;
+  gap: 1.5rem;
+  margin-top: 1.25rem;
+}
+.gallery-caption {
+  margin-bottom: 0.5rem;
+  color: var(--color-ink);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+/* Dialogs open in the page flow here, so every example stays on screen at once. */
+.gallery-example dialog {
+  position: static;
+  inset: auto;
+  margin: 0;
+  width: auto;
+  max-height: none;
+  overflow: visible;
+}
+.gallery-pending-intro {
+  margin-top: 0.75rem;
+  max-width: 62ch;
+}
+.gallery-pending {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  max-width: 62ch;
+}
+.gallery-pending li {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: start;
+}
