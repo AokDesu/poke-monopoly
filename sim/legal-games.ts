@@ -2,6 +2,7 @@ import fc from 'fast-check';
 import {
   createGameLog,
   GAME_PRESETS,
+  pendingDecision,
   type Action,
   type ApplyActionResult,
   type GameLog,
@@ -36,7 +37,10 @@ const lapTarget = fc.oneof(
 );
 
 /** 2 to 4 seats with any mix and order of distinct classes, any seed and any decision tape. */
-export function gamePlan(classIds: readonly string[]): fc.Arbitrary<GamePlan> {
+export function gamePlan(
+  classIds: readonly string[],
+  { social = false }: { social?: boolean } = {},
+): fc.Arbitrary<GamePlan> {
   return fc
     .record({
       seed: fc.nat(),
@@ -46,14 +50,14 @@ export function gamePlan(classIds: readonly string[]): fc.Arbitrary<GamePlan> {
     })
     .map(({ seed, classes, lapTarget, choices }) => {
       const seats = seatSetup(classes, classes.length, 0);
-      const plan: GamePlan = { seed, seats, lapTarget, choices };
+      const plan: GamePlan = { seed, seats, lapTarget, choices, ...(social && { social }) };
       return Object.defineProperty(plan, fc.toStringMethod, { value: () => describePlan(plan) });
     });
 }
 
-function describePlan({ seed, seats, lapTarget, choices }: GamePlan): string {
+function describePlan({ seed, seats, lapTarget, choices, social }: GamePlan): string {
   const classes = seats.map((seat) => seat.classId).join(',');
-  return `{ seed: ${seed}, classes: [${classes}], lapTarget: ${lapTarget}, choices: [${choices.join(',')}] }`;
+  return `{ seed: ${seed}, classes: [${classes}], lapTarget: ${lapTarget}, ${social ? 'social: true, ' : ''}choices: [${choices.join(',')}] }`;
 }
 
 /** One applied engine step, automatic or chosen. */
@@ -112,7 +116,8 @@ export function playGame(engine: SimEngine, plan: GamePlan, options: PlayOptions
       state = automatic.state;
       continue;
     }
-    const seatIndex = state.activeSeatIndex;
+    const seatIndex = pendingDecision(state)?.seatIndex;
+    if (seatIndex === undefined) throw new Error('No pending decision');
     const legal = engine.legalActions(state, seatIndex);
     if (legal.enabled.length === 0) fail(`seat ${seatIndex} has no enabled action`);
     const choice = legal.enabled[(plan.choices[decision++] ?? 0) % legal.enabled.length]!;

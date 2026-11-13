@@ -26,7 +26,7 @@ const classIds = parsed.classes.filter((entry) => !entry.stretch).map((entry) =>
  */
 export const realEngine: SimEngine = {
   classIds,
-  createGame({ seed, seats, lapTarget }) {
+  createGame({ seed, seats, lapTarget, social }) {
     const config = createGameConfig({
       seats: seats.map(({ seatIndex, actorId, classId }) => {
         const starters = parsed.classes.find((entry) => entry.id === classId)!.starterSpeciesIds;
@@ -35,11 +35,13 @@ export const realEngine: SimEngine = {
           actorId,
           classId,
           starterSpeciesId: starters[Math.floor(seed / classIds.length) % starters.length],
-          controller: 'ai' as const,
+          // `--social`: seat 0 is the human and the Social window is open (§4.2, §4.8).
+          controller: social && seatIndex === 0 ? ('human' as const) : ('ai' as const),
         };
       }),
       seed,
       lapTarget,
+      ...(social && { socialWindow: true }),
     });
     return createGame(config, content);
   },

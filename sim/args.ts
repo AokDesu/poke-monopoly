@@ -4,7 +4,7 @@ import { checkSeedSet, DEFAULT_OPTIONS, type SimOptions } from './runner.ts';
 
 /**
  * `--games <n> --seed <n> [--seats 2|3|4] [--max-steps n] [--lap-target n] [--policy name]
- * [--seed-set tune|eval] [--save file]`.
+ * [--seed-set tune|eval] [--social] [--save file]`.
  */
 export function parseSimArgs(args: string[]): SimOptions {
   const { values } = parseArgs({
@@ -19,6 +19,7 @@ export function parseSimArgs(args: string[]): SimOptions {
       'lap-target': { type: 'string', default: String(DEFAULT_OPTIONS.lapTarget) },
       policy: { type: 'string', default: DEFAULT_OPTIONS.policy },
       'seed-set': { type: 'string', default: DEFAULT_OPTIONS.seedSet },
+      social: { type: 'boolean', default: false },
       save: { type: 'string' },
     },
   });
@@ -41,6 +42,7 @@ export function parseSimArgs(args: string[]): SimOptions {
     lapTarget: integer('lap-target', values['lap-target'], 1),
     policy: values.policy,
     seedSet,
+    ...(values.social ? { social: true } : {}),
     ...(values.save === undefined ? {} : { save: nonEmpty('save', values.save) }),
   };
   checkSeedSet(options);

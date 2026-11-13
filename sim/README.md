@@ -3,7 +3,7 @@
 Simulation CLI: plays full games through the engine with bots. No network. Output goes to `sim/out/` (git-ignored).
 
 ```bash
-npm run sim -- --games <n> --seed <n> [--seats 2|3|4] [--max-steps 5000] [--lap-target 2] [--policy random|fallback|jev] [--seed-set tune|eval] [--save <file>]
+npm run sim -- --games <n> --seed <n> [--seats 2|3|4] [--max-steps 5000] [--lap-target 2] [--policy random|fallback|jev] [--seed-set tune|eval] [--social] [--save <file>]
 npm run sim -- --replay <save.json>
 ```
 
@@ -11,6 +11,7 @@ npm run sim -- --replay <save.json>
 - `--lap-target <n>` overrides the Quick 2 Laps default, e.g. `--lap-target 3` for the not-yet-open Standard preset.
 - `--policy` picks a policy registered in `policy.ts`: `random`; `fallback`, which plays every seat with the Greedy fallback policy from `ai/fallback/` (spec §5.2, §5.5); or `jev`, which makes every Greedy seat's decision on Normal through the Jev decision orchestrator (`ai/jev-policy.ts`, spec §5.6). Offline, in tests and in CI, `jev` uses a seeded fake Jev client that returns random, invalid, late and failing answers; it calls the real service only when a person runs it with the key in their environment, and `JEV_ENABLED=false` puts every decision on the fallback. A live run logs each request to `logs/jev-usage.jsonl` and stops calling Jev at the spend cap (see `ai/README.md`; `npm run usage` prints the totals). The summary then adds `policyCounts` and `jev` (`invalidOutputRate` and `fallbackRate` by cause), reported apart from `illegalAppliedActionCount`.
 - `--seed-set tune|eval` (default `tune`) keeps tuning seeds below 1,000,000 and evaluation seeds from 1,000,000; a run whose game seeds leave its set exits 2. See [docs/sim.md](../docs/sim.md).
+- `--social` plays seat 0 as a human with the `random` policy and `socialWindow` on, so games exercise promise offers and responses, and adds a `social` block to the summary; see [docs/engine-contract.md](../docs/engine-contract.md#the-no_attack-promise).
 - `--save <file>` writes each finished game as a save file (`serialize` from the engine: state and action log as siblings, spec §6.7). With `--games 1` the file is written as named; with more games each goes to `<file>-seed-<seed>.json`. Aborted games are not saved; a failed write fails the run.
 - `--replay <save.json>` takes no other flag. It replays the saved log with its recorded dice (`verifyReplay`) and prints `PASS` when the replayed `stateHash` equals the saved state's, or `FAIL` with the reason (tampered state or log, malformed file, other engine/content/RNG version) and exits 1. It never calls Jev or the network (spec §6.8).
 - Prints one JSON summary line on stdout, then a short readable table; the metrics (final coins, ties, catching by Ball, DC and Lap, Shop purchases, sales per Lap, class-in-seat counts) are described in [docs/sim.md](../docs/sim.md). Each failing game prints its reproduce command (`--games 1 --seed <seed> ...`) on stderr.

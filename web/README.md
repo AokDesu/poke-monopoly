@@ -16,7 +16,7 @@ Run with `npm run dev:web` (port 5173). Spec: §3, §3.1, §6.1. Skill: `skills/
 | `src/ErrorBoundary.tsx` | No blank screens: a render error shows what to do next and a retry button.                                                                      |
 | `src/ui/`               | Shared controls.                                                                                                                                |
 
-Fredoka (display) and Nunito (body) are self-hosted through `@fontsource`; the page loads nothing from another host. The Home board and class art use Three.js (`@react-three/fiber`, lazily loaded where WebGL exists); the 3D models and their licences are in `public/models/CREDITS.md`. Lint enforces the import rules: no `ai/`, and engine values only through the adapters `src/game/store.ts` and `src/game/save.ts` (type imports from the engine are allowed in `web/` except in those adapters, which may import only `engine/index.ts`; test files may import the engine directly).
+Fredoka (display) and Nunito (body) are self-hosted through `@fontsource`; the page loads nothing from another host. The Home board and class art use Three.js (`@react-three/fiber`, lazily loaded where WebGL exists); the 3D models and their licences are in `public/models/CREDITS.md`. Lint enforces the import rules: no `ai/`, and engine values only through the adapters `src/game/store.ts`, `src/game/save.ts` and `src/game/content.ts` (type imports from the engine are allowed elsewhere in `web/`; adapters use only `engine/index.ts`, and test files may import the engine directly).
 
 Component tests run in the Vitest `web` project (jsdom, Testing Library); `npm test` runs them with the rest.
 
@@ -43,13 +43,26 @@ bonus can move between Pokémon as the batch changes. Tired prices and the runni
 come from that engine quote, never browser arithmetic. A full-team sale previews the
 zero-value Rescue Starter; after confirmation the new team comes from the next Observation.
 
+Team cards and Sell rows resolve the current form with the engine's `effectiveForm`,
+including inherited stats, tags and Ability descriptions. **Inspect [name]** opens an inline,
+keyboard-operable disclosure with the public Team ID, Ability, authored next-form choices
+or a final-form message. It is read-only: no evolution, Ability activation or game action
+is submitted. Each UID retains its own Tired and Rescue markers. Tired members explain
+that they cannot battle; Rescue details explain trading and sale-bonus restrictions.
+Sale amounts remain the engine's selected-batch or solo quote. Opponent inspection uses
+only the human seat's public team projection, never an opponent's inventory or private results.
+
 **Shop** displays every engine offer and price, the engine's exact disabled reasons, and
 **Leave the Shop**. Buying one unit or skipping ends the visit. **Strategy** lists the
 engine's item choices, including disabled Potions; hostile targets come only from those
-choices, never the user's seat. Selecting an item/target shows its content `effect` text
-and observed target information before a separate confirmation. It does not predict a
-Pickpocket transfer or roll outcome in the browser. All commands cross the store adapter
-and `applyAction`; item selection and target selection alone do not spend anything.
+choices, never the user's seat. Potion lists the engine-offered own-team Pokémon by species
+and full instance identity, so even duplicate species can be selected independently. No
+Potion target is preselected: choose a member, inspect the healing preview, then confirm.
+Refreshing the legal-action list clears the selection; engine rejections show the current
+choices without spending a replacement item. Disabled items and targets retain the engine's
+visible reason. Other items keep their content `effect` preview and observed target information;
+the browser does not predict a Pickpocket transfer or roll outcome. All commands cross the
+store adapter and `applyAction`; item and target selection alone do not spend anything.
 
 These panels replace the earlier turn-flow placeholders without changing board rules or
 opponent behavior. Previous roll/result banners stay in the field log while a decision is
@@ -65,8 +78,15 @@ Opponent single-action steps use the same engine automation. At a multi-choice s
 engine catch odds to `/api/ai/decide`, then submits the returned choice or Sell batch through
 `applyAction`. No opponent projection is exposed by `getView()`. Abort, replaced-game and
 revision checks discard late responses; failed or invalid responses leave the decision
-unchanged and show a notice with Retry. This is interim plumbing, not AI turn presentation:
-the board says **Opponent turn**, with no dialogue, speed controls or backup-mode badge.
+unchanged and show a notice with Retry.
+
+Each accepted rival action is announced: the acting rival's square and pawn are
+spotlighted in its seat colour on the board, and a "Now" strip under the board loop spells
+out the current action in the same words as the field-log row (#123). Rival actions pause
+for the readable AI pace; the human's own automatic steps keep a short pause of their own.
+Speed (Normal, Fast, Instant) and Skip line only change presentation pauses; they never
+cancel or reissue a decision, and Instant reaches the same final state as Normal for the
+same seed.
 
 Tokens use the `position` already projected by `observe()` (including negative and multi-Lap
 progress). Lap counts are paid Laps completed, not a UI-computed current-Lap number. Square
@@ -100,6 +120,11 @@ scenario running), with deterministic HTTP answers, visible disabled reasons, au
 steps, all encounter outcomes, replay verification, the Sell-before-destination event order
 and a failed-service retry. Adapter tests cover role-scoped opponent requests, invalid
 responses and late answers after a game is cleared.
+
+`TeamCards.test.tsx` covers base, fallback evolved, branching and authored next forms;
+zero battle; final forms; duplicate UID/status separation after reordering; Tired/Rescue
+sale quotes; expanded opponent privacy; and unchanged accepted actions, revision,
+cooldowns and statuses when board/Sell disclosures open and close.
 
 Run `npm run dev` for API plus Vite, or `npm run build` and `npm start` for the built app.
 Review at 1440×900 and 1024×768; the board is height-bounded at desktop sizes so the whole

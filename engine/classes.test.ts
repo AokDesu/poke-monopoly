@@ -236,7 +236,11 @@ test('a Potion is a public Strategy item disabled with NO_VALID_TARGET while no 
   state.phase = { kind: 'strategy' };
   state.turnBudgets.tacticalAction = 1;
   state.players[1]!.team[0]!.tired = true;
-  expect(legalActions(state, 0)).toEqual({
+  expect({
+    ...legalActions(state, 0),
+    enabled: legalActions(state, 0).enabled.filter((choice) => choice.kind !== 'declare_pvp'),
+    disabled: legalActions(state, 0).disabled.filter((choice) => choice.kind !== 'declare_pvp'),
+  }).toEqual({
     enabled: [{ id: 'skip', kind: 'skip', payload: {} }],
     disabled: [
       {

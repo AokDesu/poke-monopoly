@@ -101,7 +101,7 @@ That skip instead auto-sells, in seat and team order, every remaining Pokémon e
 
 ## Class framework and the Researcher (issue #30)
 
-Spec: §4.1, §4.5, §4.7, Appendix A. A content class may name a `passive`; the engine's `classBonus` dispatcher ([engine/classes.ts](../engine/classes.ts)) owns each passive's amount and timing and serves both the catch snapshot and Sell hooks. Classes without a passive add 0. `lap_first_sale_bonus` is the Researcher's +3 in the Start Sell Phase; `lap_first_catch_bonus` is the Main Character's catch bonus (issue #35 below); `water_catch_bonus` and `bug_catch_sale_bonus` are the Fisherman's and Bug Catcher's (issue #55 S01 below).
+Spec: §4.1, §4.5, §4.7, Appendix A. A content class may name a `passive`; the engine's `classBonus` dispatcher ([engine/classes.ts](../engine/classes.ts)) owns each passive's amount and timing and serves the catch snapshot, Sell and combat hooks. Classes without a passive add 0. `lap_first_sale_bonus` is the Researcher's +3 in the Start Sell Phase; `lap_first_catch_bonus` is the Main Character's catch bonus (issue #35 below); `water_catch_bonus` and `bug_catch_sale_bonus` are the Fisherman's and Bug Catcher's (issue #55 S01 below); `combat_bonus` is the Rival's (issue #55 S05 below).
 
 Within one atomic sale, the bonus goes to exactly one sold Pokémon: the highest `saleBasis` (before the tired adjustment), ties broken by the lowest instance ID in string order, so listing order never matters ([spec §4.7 step 2](SPEC-v1.0-PokeMonopoly.md#47-selling-at-start-laps-and-game-end)). A Rescue Starter is never a candidate. An empty sale pays nothing and uses no bonus. Each Sell Phase follows exactly one credited Lap, so once per phase is once per Lap; the bonus is available again after the next qualifying Start crossing without extra state. The sale event's `sale` field shows the parts, for example `{ basePrice: 12, classBonus: 3 }` for amount 15.
 
@@ -171,11 +171,11 @@ The player accepts at most one `buy { offerId }` or `skip_shop` (`id: "skip-shop
 
 Spec: §4.1, §4.2, §4.3, §4.6, Appendix A, §8. Current-version Strategy lists, before its `skip`, one `use_item` choice per held usable item: Lucky Egg as `use-item:<instanceId>` with payload `{ itemInstanceId }`, and Repel/Pickpocket once per opponent as `use-item:<instanceId>:seat-<n>` with payload `{ itemInstanceId, targetSeatIndex }`. Hostile items never list the user and ignore board distance. A held Potion uses the targeted S03 choices below; Price Shield exposes no choice yet. Using an item spends the turn's `tacticalAction`, removes that instance and logs `uid_destroyed` (reason `used`) after any effect event; a Repel or Pickpocket also logs `hostile_item_used { userSeatIndex, targetSeatIndex, itemId }` just before it, seen only by the user and target (spec §4.1, §4.4); the phase stays in Strategy, so the remaining choice is `skip`. With the budget spent every item choice is disabled with `ALREADY_USED_THIS_TURN` / `Tactical action already used this turn`; otherwise a Pickpocket target with 0 coins and a Repel target with a Repel still pending are disabled with `NO_VALID_TARGET` / `Target has no coins` or `Target is already slowed`. Disabled, self-targeted and untargeted hostile uses are rejected as `illegal_action`.
 
-- **Lucky Egg** sets `GameState.turnEffects.itemBonus = 1`; the catch item hook snapshots it into `phase.catchRoll.itemBonus`. The next turn start clears `turnEffects`, and movement ignores it.
+- **Lucky Egg** sets `GameState.turnEffects.itemBonus = 1`; the catch item hook snapshots it into `phase.catchRoll.itemBonus`, and the [shared combat snapshot](#shared-combat-arithmetic-issue-55-s05) reads it for its owner. The next turn start clears `turnEffects`, and movement ignores it.
 - **Repel** appends `'repel'` to the target's `Player.pendingSlows`. The target's next move result adds `max(1, d6 − 2)` squares, and that actual move clears its pending slows. The die value and its logged random event are unchanged.
 - **Pickpocket** moves `min(5, target.coins)` from target to user with one player-to-player `coin_transfer` (reason `pickpocket`), so coins stay nonnegative and are conserved.
 
-Both new state fields are optional and absent when no effect is active. `observe` does not project them yet. The engine version advances as recorded in [engine/versions.ts](../engine/versions.ts) because Strategy commands now change state; command-log and RNG versions are unchanged. AI item selection, combat bonuses and the remaining items stay deferred.
+Both new state fields are optional and absent when no effect is active. `observe` does not project them yet. The engine version advances as recorded in [engine/versions.ts](../engine/versions.ts) because Strategy commands now change state; command-log and RNG versions are unchanged. AI item selection and the remaining items stay deferred.
 
 ## Invariant checker (issue #14)
 
@@ -196,7 +196,7 @@ and Base Sale rounded after each ×1.5 step. No fallback species rows are added.
 feeds Sell, final liquidation and Bug Catcher sale-tag checks; combat and Ability execution can consume it in later slices.
 `nextEvolutionForms` lists next-stage IDs and `evolvedForm` rejects a target outside that list.
 These reads neither change instances/cooldowns nor consume RNG; they do not execute evolution.
-Ability prose is retained as data, pending the separate primitive mapping decision.
+Ability prose is retained as data. The proposed primitive mapping is in [spec Appendix C](SPEC-v1.0-PokeMonopoly.md#appendix-c--ability-and-battle-timing-contract), pending approval.
 
 Historical illustrative fixtures may omit evolution metadata and Ability descriptions; direct
 species lookup still works for them. The engine stamp advances to 0.13.0 because effective sale
@@ -249,3 +249,198 @@ Spec: §4.2, §4.8 Chat, §5.4, §9.
 **Visibility.** `observe(state, seat).own.chats` lists only the messages that seat sent or received (oldest first; present only when the flag is on). `chat_sent` reaches only its sender and recipient. `actionVisibleTo` strips every `chat` payload field for any other seat, but the record itself still exists in the sequence, so a third seat can see that some seat took a `chat` action, not what or to whom. Nothing about chat reaches `ai/` until stream B's slices read `own.chats` through `observe`.
 
 **Versioning.** The stamp advances to 0.15.0 because the action union, events, state and observation gain fields; saves of 0.14.0 are refused rather than migrated. Chats round-trip through saves and command replay. Tests: [engine/social.test.ts](../engine/social.test.ts).
+
+## Shared combat arithmetic (issue #55 S05)
+
+Spec: §3 board odds, §4.3, §4.4, §4.6, §5.2, §6.1/6.8, §8, Appendix A Rival/Lucky Egg.
+
+`highestBattleMember(content, player, members?)` selects the highest effective battle among
+non-Tired members, breaking ties by UID in string order. `printedBattle` is the current
+effective form's stat (including fallback evolution), while `effectiveBattle` includes that
+member's pre-roll `battleBonus` and `debuffs`. An empty/all-Tired team has no selected member.
+`combatSnapshot(state, seatIndex, modifiers?)` adds the engine class hook, the active owner's
+Lucky Egg turn effect, and the pre-roll team `abilityBonus`/`debuffs` slots. These slots are
+inputs from future engine effect hooks, not a new Ability mapping or caller/AI arithmetic.
+Member adjustments must name unique owned UIDs; bonuses and debuffs are nonnegative integers.
+Selection precedes team-wide modifiers; values are not clamped at zero.
+
+`pvpSnapshot(state, attackerSeatIndex, defenderSeatIndex, { attacker?, defender? }?)` snapshots
+both parties together. `gymSnapshot(state, seatIndex, position, modifiers?)` assigns DC 5/7/9
+at 6/12/18. Both reject missing readiness or unknown seats; PvP rejects self-targeting, Gym
+rejects other squares. These are arithmetic prerequisites, not tactical/phase/declaration
+legality: S06/S09 own those checks and the pending confirmation flow.
+
+Snapshots contain detached scalar evidence and are recursively frozen, with readonly types
+and serializable schemas exported from `engine/contract/combat.ts`. Parsing a saved snapshot
+freezes it again. `resolvePvp(snapshot, attackerFace, defenderFace)` and
+`resolveGym(snapshot, face)` accept only the confirmed snapshot and d6 faces, never fresh
+modifiers or live state. PvP returns attacker-relative `win`/`tie`/`loss`, both totals and
+`rewardSeatIndex` (null on a tie). Gym returns `win` at or above DC, otherwise `loss`, the
+total/DC and a reward seat only for a win. No resolver transfers coins, grants badges, evolves,
+applies Tired, consumes effects, or advances RNG.
+
+`pvpOdds(snapshot)` enumerates all 36 die pairs through `resolvePvp`; `gymOdds(snapshot)`
+enumerates all six faces through `resolveGym`. Both return `totalOutcomes` and `win`, `tie`,
+`loss` records with `outcomes`, exact `probability`, and independently rounded whole-number
+`percent`. Gym's tie record is always zero. Displayed and resolved odds use the same snapshot.
+
+Content registers Rival's `combat_bonus` passive; the engine supplies +1 for attack, defence
+and Gym, without granting the later once-per-Lap forced challenge. Lucky Egg's existing
+Strategy use/cost/expiry stays in the item executor and turn driver; its turn effect now
+feeds combat as well as catching and never benefits a different seat. Rescue Starter teams
+retain trainer passives pending S00, matching S01's unresolved-interpretation boundary.
+S00 still decides the activation/confirmation sequence. This slice exposes no late modifier
+or reroll operation: S11's approved Porygon path must preserve the confirmed snapshot while
+replacing only the permitted own die. It adds no primitive names or Ability bindings.
+
+Engine/content stamps advance to 0.15.0/1.2.0 for the new combat contract and registered
+passive; prior executable saves/logs reject through the existing version checks. Historical
+illustrative fixtures, RNG version and command-log format are unchanged. PvP/Gym phases,
+rewards, Gym entry choice and UI/AI integration belong to later slices.
+## Evolution and exclusive reward helpers (issue #55 S04)
+
+Spec: §4.4 Battle Reward/Gym, §4.5, §4.7, §6.1/6.8, §8, Appendix A.
+`evolvePokemon(content, owner, instanceId, nextFormId)` validates a legal next form using
+S02's lookup, then changes only `speciesId` and `evolutionStage` on the existing instance.
+It returns one `pokemon_evolved` event and no UID creation/destruction. Defined forms replace
+stats/Ability; fallback forms use the current form's per-stage arithmetic. Status, expiry,
+origin, tradeability and cooldowns survive. Sell/final liquidation continue through the
+existing `saleBasis` path: evolved Original Starters use current Base Sale; Rescue stays zero.
+
+`rewardChoices(state, request)` lists `coins` plus explicit `{ kind: 'evolve', instanceId,
+nextFormId }` choices for the winner's eligible team, including Tired members. A request is
+`{ rewardId, winnerId, source }`, where source is `{ kind: 'gym' }` or
+`{ kind: 'pvp', loserId, coinLossBlocked }`. PvP pays only `min(6, loser.coins)` from the loser,
+or zero with confirmed protection; Gym pays 6 from the bank. There is no bank substitute for
+blocked/unfunded PvP coins. Evolution charges neither player. Zero payments emit no transfer.
+
+`resolveReward(next, request, choice)` is an internal mutation helper for the caller's detached
+snapshot. It validates the complete choice before writing, returns accepted events or a rejection,
+and leaves rejected snapshots unchanged. It records the reward ID in optional
+`resolvedRewardIds` and emits `battle_reward_resolved`; transfers carry the same `rewardId`.
+A repeated ID rejects with `already_resolved`, even if the retry selects the other outcome.
+Receipts persist in snapshots/saves; callers must use a stable ID for a single resolved fight.
+Both helpers leave RNG, phase, turn budgets and badges alone. Callers in S06/S09 must own the
+pending request, create it only on a win, check responder/revision, persist returned events in
+the accepted action record, and continue the turn. There is no public reward command yet;
+command-level reward replay/resume integration belongs to those callers. Protection timing,
+shield consumption and Ability primitive mapping are deferred; no S00 choice is needed here.
+
+The §8 one-stage/same-UID, evolution preservation and exclusive reward invariant checkers are
+active, with adversarial mutation coverage. The engine stamp advances to 0.15.0 for the new
+state/events; content/RNG versions and the command-log format remain unchanged.
+## Ability and battle timing contract (issue #55 S00)
+
+Spec: §4.2, §4.4–§4.6, §6.1, §8, Appendix A timing, Appendix C. [Spec Appendix C](SPEC-v1.0-PokeMonopoly.md#appendix-c--ability-and-battle-timing-contract) proposes the contract that the Ability, combat, Gym and protection slices (S05–S14) implement: the core Starter Ability to primitive-operation mapping, the timing windows, the PvP and Gym decision order, activation costs, shields, slows and the worked acceptance cases AC-1 to AC-5. Its decisions D1–D13 await Stream A team approval. The contract is not implemented: engine behaviour and the engine, content, RNG and command-log versions are unchanged.
+
+
+## Voluntary PvP and decision ownership (issue #55 S06)
+
+Spec: §4.2, §4.4, §4.8 (attack evidence), §6.1/6.3/6.4/6.8/6.9, §8;
+Appendix C.3 proposed D3/D4. S06 implements that proposed order for voluntary challenges;
+Ability activations, reactions, rerolls and protection remain later slices.
+
+In Strategy, `declare_pvp { targetSeatIndex }` is legal against any other seat at any
+board distance if both teams have a non-Tired member and the challenger has a tactical
+action. Declaration spends that action immediately, leaving other budgets untouched.
+It appends one public `attack_attempt` to `attackHistory` and the accepted action events:
+`{ attackId, actorId, targetId, source: 'pvp_declaration', actionSeq, globalTurnNo }`.
+The stable attack/battle/reward ID is `pvp:<declaration actionSeq>`. The canonical evidence
+survives declines and ties; later `no_attack` consumers need not infer attacks from dice,
+coin transfers or final outcomes. Observations and seat-visible event copies expose public
+declarations; no private item or willingness state is added. This slice adds no promises.
+
+`pendingDecision(state)` returns `{ seatIndex, actorId }`, distinct from active turn
+ownership. It returns the defender for `respond_pvp { accept }`, the winner for
+`choose_reward` (an explicit S04 `coins` or `evolve` choice), and null while either engine
+die is pending or the game is finished. All other decisions belong to the active seat.
+Wrong actors, stale revisions and unlisted choices reject without state or RNG changes.
+The automatic driver, resume, progress invariant, sim runner and property driver use this
+query, including when the deciding seat is an AI defender. Automatic singleton choices
+are still recorded as actions owned by their actual deciding seat.
+
+A decline costs no coins, rolls nothing and returns to the challenger's Strategy. On
+acceptance, `pvp_response` precedes `pvp_confirmed`. Appendix C only offers Ability windows
+when a ready eligible Ability exists; no such executable Ability exists in S06. Thus the
+attacker and defender windows close in that order without extra prompts, then S05's
+`pvpSnapshot` freezes all combat terms. S10 can insert its windows before that snapshot.
+The pending phase retains the confirmation and then the attacker's face. The engine draws
+one die per accepted `dice_result`, attacker first, with purposes
+`pvp:<declaration actionSeq>:attacker_roll` and `pvp:<declaration actionSeq>:defender_roll`.
+Dice with the wrong pending purpose or face reject; other generated actions cannot
+interleave into pending PvP. S05's `resolvePvp` supplies totals, outcome and reward seat in
+`pvp_resolved`. A tie returns directly to Strategy. On a win S04's resolver offers only
+the winner's reward and records its receipt; evolution never charges the loser.
+Protection is not added here: the pending request uses `coinLossBlocked: false` until S07.
+
+Every pending phase is serializable: declaration/response, confirmed attacker roll,
+defender roll, and winner reward. Save/resume re-asks the current owner from that exact
+revision; replay executes those accepted records without drawing or awarding twice.
+Throughout PvP the active seat, global turn and every own-turn counter stay fixed.
+Continuation returns to Strategy with the action spent, so neither a second item nor a
+second PvP is legal. End/next-seat advancement remains exclusively in the turn driver.
+
+The combined engine stamp is 0.16.0, one step beyond the dependency branches' 0.15.0.
+Historical illustrative fixtures and RNG/log/save format versions remain unchanged.
+The browser event formatter only recognizes the new event variants for type compatibility;
+PvP UI and AI integration are outside this slice.
+
+
+### Known limitation / follow-up for Stream B
+
+AI seats temporarily do not declare PvP; the Jev Strategy filter, fallback penalty and
+removal condition are specified in [spec §5.3](SPEC-v1.0-PokeMonopoly.md#53-decision-points--questions).
+
+## Promise responses as pending decisions (issue #56 S03)
+
+Spec: §4.2, §4.8 Promise, §6, §8. This builds on #147's pending-decision ownership ("Voluntary PvP and decision ownership" above); there is no second mechanism. Stream A's PvP and Deal Cards (S05) add their own response kinds the same way.
+
+### How a promise response registers
+
+`GameState.pendingResponse` is optional and absent unless a seat owes an answer to a question another seat asked. It is a discriminated union on `kind`; today there is one, `promise_offer { initiatorSeatIndex, responderSeatIndex, direction }`. `initiatorSeatIndex` is the seat whose turn it is (it stays `activeSeatIndex` throughout); `responderSeatIndex` owes the next command.
+
+`pendingDecision(state)` ([engine/decisions.ts](../engine/decisions.ts)) is extended by one line: while `pendingResponse` exists it returns the responder instead of the active seat (it still returns `null` for a pending engine die or a finished game, and a promise question cannot coexist with a PvP phase, since it is asked only in Social). Everything #147 already routes through it follows, with no further change:
+
+| Place | Behaviour while a promise question is pending |
+| --- | --- |
+| `applyAction` | Only the responder's actor is accepted. Anyone else, the active seat included, is rejected as `wrong_actor` with the state untouched. The responder's command must be in its enabled set, else `illegal_action`. |
+| `legalActions(state, seat)` | The responder gets exactly `respond:accept` and `respond:reject` (command `respond`, payload `{ answer: 'accept' \| 'reject' }`). Every other seat has no enabled choice and the usual disabled `skip` (`NOT_YOUR_TURN`). |
+| `advanceAutomatically` | Asks `pendingDecision`. It never answers for a responder: a response has two choices, so it is a decision, not an automatic step. |
+| `resume(...).waitingFor` | `{ kind: 'decision', seatIndex, actorId, phase, legalActions }` of the responder; `phase` is still the turn's phase (`social`). A reload re-asks the same question from the saved state. |
+| Invariant `game-can-finish` | "An unfinished game always has a seat with an enabled choice" checks the pending decision's seat. |
+| Sim runner and `sim/legal-games.ts` | Decide, and probe foreign actors, for the pending decision's seat. |
+
+`respond` is accepted only when a question is pending; otherwise it is `illegal_action`. The answer clears the record in the same accepted action, so a state never holds a stale one, and replay applies the same records in the same order: it is deterministic and `verifyReplay` passes mid-question.
+
+### Adding a response kind
+
+1. Add a variant to `pendingResponseSchema` in [engine/contract/schema.ts](../engine/contract/schema.ts) with the initiator, the responder and what the answer needs; bump `ENGINE_VERSION`.
+2. Create the record in the initiating command (as `offerPromise` does) and give it a case in `responseChoices` ([engine/promises.ts](../engine/promises.ts)). Widen `respondPayloadSchema.answer` for a different answer set.
+3. Resolve it in the `respond` branch of `applyAction` by `pendingResponse.kind`, deleting the record in the same action. Spend the turn's budgets only in the initiating or answering action, never both.
+4. Extend visibility ([engine/visibility.ts](../engine/visibility.ts)) so only the parties see the events, and `observe` so only they see `own.pendingResponse`.
+5. Phases do not change: the question lives beside the phase.
+
+### The `no_attack` promise
+
+**Offer.** With `socialWindow` on, the active human in Social with the interaction unspent may send `offer_promise { targetSeatIndex, direction }` to any **AI** seat, in either direction (Q2a):
+
+- `offer`: "I won't attack you". The human is the promiser, the AI the recipient and the responder, who accepts or rejects.
+- `ask`: "promise not to attack me". The AI is the promiser, the human the recipient; the AI agrees (`accept`) or refuses (`reject`).
+
+Choice IDs are `offer-promise:seat-<n>:offer|ask`. The choices depend on seats, flags and promise history only, never on what any seat holds, so offering leaks no card (§4.8 Privacy). An AI seat is never offered one. The offer itself changes nothing but `pendingResponse` and the event; the turn's `socialInteraction` is spent by the **answer**, so either answer, `accept` or `reject`, uses up the interaction (a chat, too, spends it, so a chat and an offer are mutually exclusive in one turn) and neither spends `tacticalAction`. While the offer is pending nothing else can be sent (§4.2: the game pauses only inside this window).
+
+**Accept** appends `{ promiserSeatIndex, recipientSeatIndex, createdGlobalTurnNo, closesOwnTurnNo }` to `GameState.promises` with `closesOwnTurnNo = promiser.ownTurnNo + 1`: the promise runs until the end of the promiser's next turn. **Reject** creates nothing. Both clear `pendingResponse` and emit one event: `promise_offered` (at the offer), then `promise_accepted { promiserSeatIndex, recipientSeatIndex, closesOwnTurnNo }` or `promise_rejected { promiserSeatIndex, recipientSeatIndex }`. Nothing else changes: coins, teams, items, Balls, RNG, dice, phase and legality of every other command are as before (§4.8 hard line, tested).
+
+**Limits** (checked when the offer is listed, and so again by `applyAction`):
+
+- *One active promise per directed pair.* A promise is active from confirmation until the end of the promiser's turn `closesOwnTurnNo`: while the promiser's `ownTurnNo` is below it, or equals it and the promiser is the active seat. The other direction of the same two seats is a different pair.
+- *No renewal.* The promiser's closing turn still counts as active, so the same pair cannot be re-offered then. Once it has closed, a new promise is a fresh one, not a renewal; §4.8's "max +2 per pair per game" trust cap presumes more than one over a game. This is this slice's reading of "no renewal"; stream B's settlement slice (S07) may tighten it.
+- *Not past game end.* Once `finalTableRound` is announced, nobody plays an own turn above `targetOwnTurnNo`, so a promise whose `closesOwnTurnNo` exceeds it would outlive the game and is not offered. Before the round is announced the game end is unknown, so an offer is allowed; such a promise is later `closed_by_game_end` (S07).
+
+**Visibility.** `promise_offered` reaches only the initiator and responder, `promise_accepted` and `promise_rejected` only the promiser and recipient (the same two seats). `observe(state, seat).own.promises` lists only the promises that seat made or received (present with the flag on), and `own.pendingResponse` exists only for the initiator and the responder. For any other seat, `actionVisibleTo` strips the payloads of `offer_promise` and `respond`; as for `chat`, the record itself stays in the sequence, so a third seat can see that some seat sent an `offer_promise` and that another `respond`ed, not the target, the direction or the answer.
+
+**Not in this slice.** Settling promises at End, breaches, trust and memory (S07, which also activates the `promise-closes-on-own-turn` invariant), Deal Cards and the Deal response (S05), and the AI's Jev decisions for `respond` (the `ai/` layer). `GameState.promises` therefore keeps every promise, closed ones included, for S07.
+
+**Sim.** `npm run sim -- --games <n> --seed <n> --social` plays seat 0 as a `human` with the random policy and `socialWindow` on; the other seats keep `--policy`. The summary gains `social { promiseOffers, promisesAccepted, promisesRejected }` only with the flag, so a run without it is byte-for-byte unchanged.
+
+**Versioning.** The stamp advances to 0.17.0: the action union, events, state and observation gain fields. Saves of 0.16.0 are refused rather than migrated. Tests: [engine/promises.test.ts](../engine/promises.test.ts), the `--social` cases in [sim/sim.test.ts](../sim/sim.test.ts) and the social property in [sim/legal-games.property.test.ts](../sim/legal-games.property.test.ts).
