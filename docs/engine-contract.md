@@ -196,7 +196,7 @@ and Base Sale rounded after each ×1.5 step. No fallback species rows are added.
 feeds Sell, final liquidation and Bug Catcher sale-tag checks; combat and Ability execution can consume it in later slices.
 `nextEvolutionForms` lists next-stage IDs and `evolvedForm` rejects a target outside that list.
 These reads neither change instances/cooldowns nor consume RNG; they do not execute evolution.
-Ability prose is retained as data, pending the separate primitive mapping decision.
+Ability prose is retained as data. The proposed primitive mapping is in [spec Appendix C](SPEC-v1.0-PokeMonopoly.md#appendix-c--ability-and-battle-timing-contract), pending approval.
 
 Historical illustrative fixtures may omit evolution metadata and Ability descriptions; direct
 species lookup still works for them. The engine stamp advances to 0.13.0 because effective sale
@@ -273,6 +273,10 @@ Engine/content stamps advance to 0.16.0/1.2.0 for the new combat contract and re
 passive; prior executable saves/logs reject through the existing version checks. Historical
 illustrative fixtures, RNG version and command-log format are unchanged. PvP/Gym phases,
 rewards, Gym entry choice and UI/AI integration belong to later slices.
+
+## Ability and battle timing contract (issue #55 S00)
+
+Spec: §4.2, §4.4–§4.6, §6.1, §8, Appendix A timing, Appendix C. [Spec Appendix C](SPEC-v1.0-PokeMonopoly.md#appendix-c--ability-and-battle-timing-contract) proposes the contract that the Ability, combat, Gym and protection slices (S05–S14) implement: the core Starter Ability to primitive-operation mapping, the timing windows, the PvP and Gym decision order, activation costs, shields, slows and the worked acceptance cases AC-1 to AC-5. Its decisions D1–D14 await Stream A team approval. The contract is not implemented: engine behaviour and the engine, content, RNG and command-log versions are unchanged.
 
 ## Evolution and exclusive reward helpers (issue #55 S04)
 
