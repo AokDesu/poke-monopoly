@@ -100,3 +100,34 @@ export async function requestOpponent(
     signal.removeEventListener('abort', abort);
   }
 }
+
+/** The decision an outcome report names: the request's own identifiers. */
+export interface DecisionIds {
+  gameId: string;
+  seatIndex: number;
+  turnKey: string;
+  stateRevision: number;
+  decisionPoint: string;
+}
+
+/**
+ * Tells the local server which answer this browser applied: the server's, or its own fallback at
+ * the deadline (spec §6.8). The server logs a decision only from this, so a late answer it
+ * produced after the deadline never appears as applied. IDs only; best effort, never awaited, and
+ * a failure changes nothing. The Shop has no Jev question, so it is not reported.
+ */
+export function reportOutcome(ids: DecisionIds, answer: OpponentAnswer): void {
+  if (ids.decisionPoint === 'shop') return;
+  const { source, fallbackReason } = answer;
+  void fetch('/api/ai/outcome', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    keepalive: true,
+    body: JSON.stringify({
+      ...ids,
+      ...('choice' in answer ? { choice: answer.choice } : { sellUids: answer.sellUids }),
+      source,
+      ...(source === 'fallback' && fallbackReason && { fallbackReason }),
+    }),
+  }).catch(() => {});
+}

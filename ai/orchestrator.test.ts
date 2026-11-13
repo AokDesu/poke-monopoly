@@ -32,11 +32,14 @@ import {
   type JevResult,
 } from './jev/client.ts';
 import { createChaosJevClient, createFakeJevClient } from './jev/fake.ts';
+import { usageReport } from './jev/usage-report.ts';
 import { openUsageLedger, SPEND_CONFIG, SpendLedger, type UsageLine } from './jev/spend.ts';
 import {
   confidenceFloor,
   decisionRates,
   DecisionStats,
+  GameQuota,
+  MAX_TRACKED_TURNS,
   Orchestrator,
   ORCHESTRATOR_CONFIG,
   type DecideRequest,
@@ -442,6 +445,65 @@ describe('request budget per AI turn (§5.3, §9)', () => {
     // A new AI turn starts a new count.
     const next = await orchestrator.decide(encounterRequest({ turnKey: 't2' }));
     expect(next).toMatchObject({ source: 'jev', requests: 1 });
+  });
+
+  test('returning to an earlier turn keeps its count (A,A,A,B,A)', async () => {
+    const client = createFakeJevClient(confidentRelease);
+    const orchestrator = new Orchestrator({ client });
+    for (const turnKey of ['A', 'A', 'A', 'B']) {
+      await orchestrator.decide(encounterRequest({ turnKey }));
+    }
+    const back = await orchestrator.decide(encounterRequest({ turnKey: 'A' }));
+    expect(back).toMatchObject({ fallbackReason: 'request_limit', requests: 0 });
+    expect(client.requests).toHaveLength(4);
+  });
+
+  test('a shared GameQuota carries the limits to a new orchestrator for the same game', async () => {
+    const quota = new GameQuota();
+    const client = createFakeJevClient((request) =>
+      answered(request, () => ({ poke_ball: 0.05, great_ball: 0.05, release: 0.9 }), {
+        inputTokens: 400_000,
+      }),
+    );
+    for (let i = 0; i < 2; i++) {
+      await new Orchestrator({ client, quota }).decide(encounterRequest({ turnKey: `t${i}` }));
+    }
+    const fresh = new Orchestrator({ client, quota });
+    expect(fresh.usage.totals().inputTokens).toBe(800_000);
+    expect(await fresh.decide(encounterRequest({ turnKey: 't9' }))).toMatchObject({
+      fallbackReason: 'token_budget',
+    });
+    // Without the shared quota, the same game would start over.
+    expect(
+      await new Orchestrator({ client }).decide(encounterRequest({ turnKey: 't9' })),
+    ).toMatchObject({
+      source: 'jev',
+    });
+  });
+
+  test('decision numbers continue across orchestrators of one game: no duplicate rows, every duration kept', async () => {
+    const lines: UsageLine[] = [];
+    const usage = new SpendLedger({ append: (line) => lines.push(line) });
+    const quota = new GameQuota();
+    const client = createFakeJevClient(confidentRelease);
+    // The same turn, decided by an orchestrator that was dropped and made again in between.
+    await new Orchestrator({ client, usage, quota, gameId: 'g' }).decide(encounterRequest());
+    await new Orchestrator({ client, usage, quota, gameId: 'g' }).decide(encounterRequest());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(lines.map((line) => line.decision)).toEqual([0, 1]);
+    expect(usageReport(lines).turnMs?.p50).toBe(lines[0]!.decisionMs + lines[1]!.decisionMs);
+    // Without one quota the second orchestrator would number from zero again, and the report
+    // would keep one duration for the two decisions.
+    expect(quota.nextDecision()).toBe(2);
+  });
+
+  test('a quota refuses a turn beyond the turns it tracks instead of counting it afresh', () => {
+    const quota = new GameQuota();
+    for (let turn = 0; turn < MAX_TRACKED_TURNS; turn++) quota.reserve(`t${turn}`);
+    expect(quota.requests('t0')).toBe(1);
+    expect(quota.requests('new-turn')).toBe(Infinity);
+    quota.reserve('new-turn');
+    expect(quota.requests('new-turn')).toBe(Infinity);
   });
 
   test('a decision with one legal action asks nothing and uses no request', async () => {
