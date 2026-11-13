@@ -40,3 +40,5 @@ export {
   type PokemonStatus,
 } from './status.ts';
 export { effectiveForm, evolvedForm, nextEvolutionForms, type EffectiveForm } from './forms.ts';
+export { evolvePokemon } from './evolution.ts';
+export { rewardChoices, resolveReward, type RewardResolution } from './rewards.ts';

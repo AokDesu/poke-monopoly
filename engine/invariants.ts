@@ -9,6 +9,7 @@ import {
 } from './contract/schema.ts';
 import { canonicalJson, stateHash } from './state-hash.ts';
 import { pendingRollPurpose } from './turns.ts';
+import { nextEvolutionForms } from './forms.ts';
 
 /** Spec §8 engine invariants, plus the §6.5 Lap credit rules that issue #14 names. */
 export type InvariantId =
@@ -62,6 +63,162 @@ interface InvariantBase {
 export type InvariantDefinition =
   | (InvariantBase & { status: 'active'; check: (step: Step) => string[] })
   | (InvariantBase & { status: 'pending' });
+
+function checkEvolution({ before, result }: Step): string[] {
+  if (!('accepted' in result)) return [];
+  const errors: string[] = [];
+  const events = eventsOf(result.events, 'pokemon_evolved');
+  for (const event of events) {
+    const previous = before.players
+      .find((owner) => owner.actorId === event.ownerId)
+      ?.team.find((pokemon) => pokemon.instanceId === event.instanceId);
+    const current = result.state.players
+      .find((owner) => owner.actorId === event.ownerId)
+      ?.team.find((pokemon) => pokemon.instanceId === event.instanceId);
+    if (!previous || !current) errors.push('Evolution did not retain the owned UID');
+    else if (
+      event.fromFormId !== previous.speciesId ||
+      event.toFormId !== current.speciesId ||
+      event.evolutionStage !== current.evolutionStage ||
+      current.evolutionStage !== previous.evolutionStage + 1 ||
+      !nextEvolutionForms(before.content, previous.speciesId).includes(current.speciesId)
+    )
+      errors.push('Evolution did not follow exactly one authored stage');
+    if (
+      result.events.some(
+        (entry) =>
+          (entry.kind === 'uid_created' || entry.kind === 'uid_destroyed') &&
+          entry.instanceId === event.instanceId,
+      )
+    )
+      errors.push('Evolution created or destroyed its UID');
+  }
+  for (const owner of before.players) {
+    for (const previous of owner.team) {
+      const current = result.state.players
+        .find((player) => player.actorId === owner.actorId)
+        ?.team.find((pokemon) => pokemon.instanceId === previous.instanceId);
+      const count = events.filter((event) => event.instanceId === previous.instanceId).length;
+      const changed =
+        current &&
+        (current.speciesId !== previous.speciesId ||
+          current.evolutionStage !== previous.evolutionStage);
+      if (count !== (changed ? 1 : 0)) errors.push('Evolution lacks exactly one matching UID log');
+    }
+  }
+  return errors;
+}
+
+function checkEvolutionFields({ before, result }: Step): string[] {
+  if (!('accepted' in result)) return [];
+  const errors: string[] = [];
+  for (const owner of before.players) {
+    const currentOwner = result.state.players.find((player) => player.actorId === owner.actorId);
+    for (const previous of owner.team) {
+      const current = currentOwner?.team.find(
+        (pokemon) => pokemon.instanceId === previous.instanceId,
+      );
+      if (
+        !current ||
+        (current.speciesId === previous.speciesId &&
+          current.evolutionStage === previous.evolutionStage)
+      )
+        continue;
+      // Preserve all UID-bound fields, including future status/cooldown metadata.
+      const retained = (pokemon: typeof previous) => {
+        const fields: Partial<typeof previous> = { ...pokemon };
+        delete fields.speciesId;
+        delete fields.evolutionStage;
+        return fields;
+      };
+      if (
+        canonicalJson(retained(previous)) !== canonicalJson(retained(current)) ||
+        owner.abilityUsedGlobalTurnNo !== currentOwner?.abilityUsedGlobalTurnNo
+      ) {
+        errors.push('Evolution changed origin, status, tradeability or cooldowns');
+      }
+    }
+  }
+  return errors;
+}
+
+function checkRewards({ before, result }: Step): string[] {
+  if (!('accepted' in result)) return [];
+  const errors: string[] = [];
+  const events = eventsOf(result.events, 'battle_reward_resolved');
+  const prior = before.resolvedRewardIds ?? [];
+  const receipts = result.state.resolvedRewardIds ?? [];
+  const added = receipts.filter((id) => !prior.includes(id));
+  if (
+    new Set(receipts).size !== receipts.length ||
+    prior.some((id) => !receipts.includes(id)) ||
+    canonicalJson(added.slice().sort()) !==
+      canonicalJson(events.map((event) => event.rewardId).sort())
+  ) {
+    errors.push('Reward receipts do not match the new resolution logs');
+  }
+  const transfers = eventsOf(result.events, 'coin_transfer').filter(
+    (event) => event.rewardId !== undefined || ['pvp_reward', 'gym_reward'].includes(event.reason),
+  );
+  if (transfers.some((transfer) => !events.some((event) => event.rewardId === transfer.rewardId))) {
+    errors.push('Reward transfer lacks a resolution');
+  }
+  for (const event of events) {
+    if (prior.includes(event.rewardId)) errors.push('Reward resolved more than once');
+    const winner = before.players.find((player) => player.actorId === event.winnerId);
+    const source = event.source;
+    const loser =
+      source.kind === 'pvp'
+        ? before.players.find((player) => player.actorId === source.loserId)
+        : undefined;
+    if (!winner || (source.kind === 'pvp' && (!loser || loser === winner))) {
+      errors.push('Reward has invalid participants');
+      continue;
+    }
+    const amount =
+      event.choice.kind === 'evolve'
+        ? 0
+        : source.kind === 'gym'
+          ? 6
+          : source.coinLossBlocked
+            ? 0
+            : Math.min(6, loser!.coins);
+    const payments = transfers.filter((transfer) => transfer.rewardId === event.rewardId);
+    if (
+      event.coinAmount !== amount ||
+      payments.length !== (amount > 0 ? 1 : 0) ||
+      payments.some(
+        (transfer) =>
+          transfer.amount !== amount ||
+          canonicalJson(transfer.source) !==
+            canonicalJson(loser ? { kind: 'player', actorId: loser.actorId } : { kind: 'bank' }) ||
+          canonicalJson(transfer.destination) !==
+            canonicalJson({ kind: 'player', actorId: winner.actorId }) ||
+          transfer.reason !== (loser ? 'pvp_reward' : 'gym_reward'),
+      )
+    )
+      errors.push('Reward payment has the wrong amount or source');
+    const evolutions = eventsOf(result.events, 'pokemon_evolved');
+    const choice = event.choice;
+    if (
+      choice.kind === 'coins'
+        ? evolutions.length !== 0
+        : evolutions.length !== 1 ||
+          evolutions[0]?.ownerId !== winner.actorId ||
+          evolutions[0]?.instanceId !== choice.instanceId ||
+          evolutions[0]?.toFormId !== choice.nextFormId
+    ) {
+      errors.push('Reward must grant exactly its selected outcome');
+    }
+    for (const player of before.players) {
+      const current = result.state.players.find((entry) => entry.actorId === player.actorId);
+      const delta = player === winner ? amount : player === loser ? -amount : 0;
+      if (!current || current.coins !== player.coins + delta)
+        errors.push('Reward changed an unexpected coin balance');
+    }
+  }
+  return errors;
+}
 
 function checkStatuses({ before, result }: Step): string[] {
   if (!('accepted' in result)) return [];
@@ -488,7 +645,13 @@ export const INVARIANTS: readonly InvariantDefinition[] = [
     specLine: S8_ABILITIES,
   },
   { id: 'ability-once-per-player-turn', status: 'pending', section: '§8', specLine: S8_ABILITIES },
-  { id: 'evolution-keeps-cooldowns', status: 'pending', section: '§8', specLine: S8_ABILITIES },
+  {
+    id: 'evolution-keeps-cooldowns',
+    status: 'active',
+    check: checkEvolutionFields,
+    section: '§8',
+    specLine: S8_ABILITIES,
+  },
   {
     id: 'rescue-starter-no-coin-loop',
     status: 'pending',
@@ -497,11 +660,18 @@ export const INVARIANTS: readonly InvariantDefinition[] = [
   },
   {
     id: 'battle-reward-coins-or-evolution',
-    status: 'pending',
+    status: 'active',
+    check: checkRewards,
     section: '§8',
     specLine: S8_BATTLE,
   },
-  { id: 'evolution-one-stage-same-uid', status: 'pending', section: '§8', specLine: S8_BATTLE },
+  {
+    id: 'evolution-one-stage-same-uid',
+    status: 'active',
+    check: checkEvolution,
+    section: '§8',
+    specLine: S8_BATTLE,
+  },
 ];
 
 /**

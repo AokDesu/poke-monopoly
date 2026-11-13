@@ -141,7 +141,7 @@ Spec: §4.3, §4.5 Rescue Starter, §4.7, §6.1, §8, Appendix A Classes. Conten
 
 Spec: §3.1, §6.7, §6.8, §6.9, §8. A save is the text `serialize({ state, log })` returns: a strict object with `saveVersion: "save-v1"`, the `engineVersion`, `contentVersion` and `rngVersion` stamps, the current `state` and the command `log` as sibling keys. The log carries the initial config, seed, stamps, revision-zero state and every accepted record with its `random_result` events, so the dice are never re-rolled. No log is nested inside `state`, and the schema admits no other field, so no key or token can be saved. The schema also requires the top-level stamps to equal the log header, `state.config` to equal `initialConfig`, and `state.stateRevision` to equal the number of logged actions. The engine only builds and reads the text; storage belongs to the caller (the browser for stream C, files for the sim).
 
-`deserialize(text)` refuses another `saveVersion`, `engineVersion`, `contentVersion` or `rngVersion` before the full schema check, with a message naming both versions (for example "This save was made with engine version 0.11.0; this game runs engine version 0.14.0. Old saves cannot be loaded yet."); migrating old saves is a later issue. Any other schema failure throws `Invalid save: <path>: <message>; ...`.
+`deserialize(text)` refuses another `saveVersion`, `engineVersion`, `contentVersion` or `rngVersion` before the full schema check, with a message naming both versions (for example "This save was made with engine version 0.11.0; this game runs engine version 0.15.0. Old saves cannot be loaded yet."); migrating old saves is a later issue. Any other schema failure throws `Invalid save: <path>: <message>; ...`.
 
 `resume(game)` returns `{ state, lastAction, waitingFor }` from the saved snapshot without applying anything: `lastAction` is the last committed record (so a dice result taken before the save is shown again), and `waitingFor` is `{ kind: "decision", seatIndex, actorId, phase, legalActions }`, `{ kind: "engine_result", purpose }` for a die still to be generated, or `{ kind: "finished" }`. A request pending when the browser closed is not in the save; the caller asks again for `waitingFor` from the same state and never starts a new turn. A sole enabled choice is still reported as a decision; the caller applies it with `advanceAutomatically` as during play.
 
@@ -229,3 +229,36 @@ No battle, Event or Ability Tired source is introduced by this slice.
 ## Ability and battle timing contract (issue #55 S00)
 
 Spec: §4.2, §4.4–§4.6, §6.1, §8, Appendix A timing, Appendix C. [Spec Appendix C](SPEC-v1.0-PokeMonopoly.md#appendix-c--ability-and-battle-timing-contract) proposes the contract that the Ability, combat, Gym and protection slices (S05–S14) implement: the core Starter Ability to primitive-operation mapping, the timing windows, the PvP and Gym decision order, activation costs, shields, slows and the worked acceptance cases AC-1 to AC-5. Its decisions D1–D14 await Stream A team approval. The contract is not implemented: engine behaviour and the engine, content, RNG and command-log versions are unchanged.
+
+## Evolution and exclusive reward helpers (issue #55 S04)
+
+Spec: §4.4 Battle Reward/Gym, §4.5, §4.7, §6.1/6.8, §8, Appendix A.
+`evolvePokemon(content, owner, instanceId, nextFormId)` validates a legal next form using
+S02's lookup, then changes only `speciesId` and `evolutionStage` on the existing instance.
+It returns one `pokemon_evolved` event and no UID creation/destruction. Defined forms replace
+stats/Ability; fallback forms use the current form's per-stage arithmetic. Status, expiry,
+origin, tradeability and cooldowns survive. Sell/final liquidation continue through the
+existing `saleBasis` path: evolved Original Starters use current Base Sale; Rescue stays zero.
+
+`rewardChoices(state, request)` lists `coins` plus explicit `{ kind: 'evolve', instanceId,
+nextFormId }` choices for the winner's eligible team, including Tired members. A request is
+`{ rewardId, winnerId, source }`, where source is `{ kind: 'gym' }` or
+`{ kind: 'pvp', loserId, coinLossBlocked }`. PvP pays only `min(6, loser.coins)` from the loser,
+or zero with confirmed protection; Gym pays 6 from the bank. There is no bank substitute for
+blocked/unfunded PvP coins. Evolution charges neither player. Zero payments emit no transfer.
+
+`resolveReward(next, request, choice)` is an internal mutation helper for the caller's detached
+snapshot. It validates the complete choice before writing, returns accepted events or a rejection,
+and leaves rejected snapshots unchanged. It records the reward ID in optional
+`resolvedRewardIds` and emits `battle_reward_resolved`; transfers carry the same `rewardId`.
+A repeated ID rejects with `already_resolved`, even if the retry selects the other outcome.
+Receipts persist in snapshots/saves; callers must use a stable ID for a single resolved fight.
+Both helpers leave RNG, phase, turn budgets and badges alone. Callers in S06/S09 must own the
+pending request, create it only on a win, check responder/revision, persist returned events in
+the accepted action record, and continue the turn. There is no public reward command yet;
+command-level reward replay/resume integration belongs to those callers. Protection timing,
+shield consumption and Ability primitive mapping are deferred; no S00 choice is needed here.
+
+The §8 one-stage/same-UID, evolution preservation and exclusive reward invariant checkers are
+active, with adversarial mutation coverage. The engine stamp advances to 0.15.0 for the new
+state/events; content/RNG versions and the command-log format remain unchanged.
