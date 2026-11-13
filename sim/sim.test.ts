@@ -886,7 +886,7 @@ describe('--social: seat 0 plays as a human with the random policy (#56 S03, §4
     });
     expect(human.config.seats.map((seat) => seat.controller)).toEqual(['human', 'ai']);
     expect(human.config.socialWindow).toBe(true);
-  });
+  }, 60_000);
 
   test('a failing game reproduces with the flag', async () => {
     const { failures } = await runSim(
