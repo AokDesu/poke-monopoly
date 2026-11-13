@@ -26,3 +26,4 @@ The rules live in `docs/SPEC-v1.0-PokeMonopoly.md`, not here. Find the topic, re
 | Budgets, kill switch, safety                                | §9           |
 | Board layout, classes, species, Abilities, items, evolution | Appendix A   |
 | Example Jev request and response                            | Appendix B   |
+| Ability primitive mapping, battle and Ability timing        | Appendix C   |
