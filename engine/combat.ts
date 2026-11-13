@@ -78,6 +78,7 @@ export function combatSnapshot(
   state: GameState,
   seatIndex: number,
   modifiers: CombatModifiers = {},
+  battle: 'pvp' | 'gym' = 'pvp',
 ): CombatantSnapshot {
   const player = state.players.find((entry) => entry.seatIndex === seatIndex);
   if (!player) throw new RangeError('Unknown combat seat');
@@ -86,7 +87,7 @@ export function combatSnapshot(
   return combatantSnapshotSchema.parse({
     seatIndex,
     member,
-    classBonus: classBonus(state.content, player.classId, { kind: 'combat' }),
+    classBonus: classBonus(state.content, player.classId, { kind: 'combat', battle }),
     abilityBonus: modifier(modifiers.abilityBonus),
     itemBonus: seatIndex === state.activeSeatIndex ? (state.turnEffects?.itemBonus ?? 0) : 0,
     debuffs: modifier(modifiers.debuffs),
@@ -120,7 +121,7 @@ export function gymSnapshot(
   }
   return gymSnapshotSchema.parse({
     kind: 'gym',
-    challenger: combatSnapshot(state, seatIndex, modifiers),
+    challenger: combatSnapshot(state, seatIndex, modifiers, 'gym'),
     position,
     dc: GYM_DCS[position],
   });

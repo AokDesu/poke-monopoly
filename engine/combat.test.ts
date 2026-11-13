@@ -122,7 +122,7 @@ test.each([{ team: [] }, { team: [member('tired', 'gyarados', true)] }])(
   },
 );
 
-test('Rival combat hook works attacking, defending and at the Gym (Appendix A)', () => {
+test('Rival combat hook works attacking and defending in PvP, not at the Gym (Appendix A, D14)', () => {
   const state = game();
   state.players[0]!.classId = 'rival';
   expect(state.content.classes.find((entry) => entry.id === 'rival')!.passive).toBe('combat_bonus');
@@ -134,7 +134,9 @@ test('Rival combat hook works attacking, defending and at the Gym (Appendix A)',
   expect(defence.defender.classBonus).toBe(1);
   expect(resolvePvp(defence, 3, 3)).toMatchObject({ outcome: 'loss', rewardSeatIndex: 0 });
   expect(pvpOdds(defence).loss.outcomes).toBe(21);
-  expect(gymOdds(gymSnapshot(state, 0, 12)).win.outcomes).toBe(3);
+  const gym = gymSnapshot(state, 0, 12);
+  expect(gym.challenger.classBonus).toBe(0);
+  expect(gymOdds(gym).win.outcomes).toBe(2);
   state.players[0]!.classId = 'fisherman';
   expect(gymOdds(gymSnapshot(state, 0, 12)).win.outcomes).toBe(2);
   expect(

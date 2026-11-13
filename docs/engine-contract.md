@@ -260,8 +260,8 @@ enumerates all six faces through `resolveGym`. Both return `totalOutcomes` and `
 `loss` records with `outcomes`, exact `probability`, and independently rounded whole-number
 `percent`. Gym's tie record is always zero. Displayed and resolved odds use the same snapshot.
 
-Content registers Rival's `combat_bonus` passive; the engine supplies +1 for attack, defence
-and Gym, without granting the later once-per-Lap forced challenge. Lucky Egg's existing
+Content registers Rival's `combat_bonus` passive; the engine supplies +1 for PvP attack and
+defence only, never at a Gym (spec Appendix C D14), without granting the later once-per-Lap forced challenge. Lucky Egg's existing
 Strategy use/cost/expiry stays in the item executor and turn driver; its turn effect now
 feeds combat as well as catching and never benefits a different seat. Rescue Starter teams
 retain trainer passives pending S00, matching S01's unresolved-interpretation boundary.
