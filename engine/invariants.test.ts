@@ -133,7 +133,7 @@ describe('registry (spec §8)', () => {
     .map((line) => line.slice(2));
 
   test('lists every spec §8 invariant sentence and quotes the spec verbatim', () => {
-    expect(bullets).toHaveLength(11);
+    expect(bullets).toHaveLength(13);
     for (const sentence of bullets.flatMap((bullet) => bullet.split(/(?<=\.) /))) {
       expect(
         INVARIANTS.some((invariant) => invariant.specLine.includes(sentence)),
@@ -164,10 +164,10 @@ describe('registry (spec §8)', () => {
       'game-can-finish': 'active',
       'ability-once-per-instance-per-lap': 'pending',
       'ability-once-per-player-turn': 'pending',
-      'evolution-keeps-cooldowns': 'pending',
+      'evolution-keeps-cooldowns': 'active',
       'promise-closes-on-own-turn': 'pending',
       'deals-atomic': 'pending',
-      'battle-reward-coins-or-evolution': 'pending',
+      'battle-reward-coins-or-evolution': 'active',
     });
   });
 

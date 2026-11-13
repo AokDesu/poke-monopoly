@@ -1,10 +1,11 @@
 import type { Observation } from '../../../engine/index.ts';
-import { content, speciesType } from '../game/content.ts';
+import { currentForm, speciesType } from '../game/content.ts';
 import { t } from '../i18n/en.ts';
-import { className, itemName, speciesName } from '../i18n/names.ts';
+import { className, itemName } from '../i18n/names.ts';
 import { BallIcon } from '../ui/icons.tsx';
 import { TypeOrb } from '../ui/TypeOrb.tsx';
 import { seatLabel, tagLabel } from './labels.ts';
+import { TeamDetails } from './TeamDetails.tsx';
 
 interface PlayerPanelProps {
   player: Observation['public']['players'][number];
@@ -69,26 +70,29 @@ export function PlayerPanel({ player, observation }: PlayerPanelProps) {
       ) : (
         <ul className="team-list" aria-label={t('board.team')}>
           {player.team.map((pokemon) => {
-            const species = content.species.find((entry) => entry.id === pokemon.speciesId);
+            const form = currentForm(pokemon.speciesId);
             return (
               <li className="team-member" key={pokemon.instanceId} data-testid={pokemon.instanceId}>
-                <TypeOrb type={speciesType(pokemon.speciesId)} className="size-10 shrink-0" />
-                <div className="team-member-detail">
-                  <strong>{speciesName(pokemon.speciesId)}</strong>
-                  <div className="pokemon-tags">
-                    {species?.tags.map((tag) => (
-                      <span key={tag}>{tagLabel(tag)}</span>
-                    ))}
+                <div className="team-member-overview">
+                  <TypeOrb type={speciesType(pokemon.speciesId)} className="size-10 shrink-0" />
+                  <div className="team-member-detail">
+                    <strong>{form.name}</strong>
+                    <div className="pokemon-tags">
+                      {form.tags.map((tag) => (
+                        <span key={tag}>{tagLabel(tag)}</span>
+                      ))}
+                    </div>
+                    {pokemon.tired && <span className="pokemon-status">{t('board.tired')}</span>}
+                    {pokemon.origin === 'rescue_starter' && (
+                      <span className="pokemon-status">{t('board.rescue')}</span>
+                    )}
                   </div>
-                  {pokemon.tired && <span className="pokemon-status">{t('board.tired')}</span>}
-                  {pokemon.origin === 'rescue_starter' && (
-                    <span className="pokemon-status">{t('board.rescue')}</span>
-                  )}
+                  <div className="battle-stat">
+                    <span>{t('board.battle')}</span>
+                    <strong aria-label={t('board.battle')}>{form.battle}</strong>
+                  </div>
                 </div>
-                <div className="battle-stat">
-                  <span>{t('board.battle')}</span>
-                  <strong aria-label={t('board.battle')}>{species?.battle}</strong>
-                </div>
+                <TeamDetails pokemon={pokemon} form={form} />
               </li>
             );
           })}

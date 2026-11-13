@@ -199,6 +199,12 @@ test('Shop, Strategy previews and atomic Sell decisions have catalog coverage', 
     'strategy.cost',
     'strategy.confirm',
     'strategy.skip',
+    'strategy.potion.targets',
+    'strategy.potion.member',
+    'strategy.potion.target',
+    'strategy.potion.effect',
+    'strategy.potion.chooseTarget',
+    'strategy.potion.staleSelection',
     'sell.coins',
     'sell.price',
     'sell.priceBonus',
@@ -220,6 +226,7 @@ test('AI playback controls, status reasons and line bank notices go through the 
   const keys: MessageKey[] = [
     'ai.thinking',
     'ai.playing',
+    'ai.now',
     'ai.statusUnavailable',
     'ai.speed',
     'ai.speed.normal',
@@ -243,6 +250,7 @@ test('AI playback controls, status reasons and line bank notices go through the 
     'ai.action.use_item',
     'ai.action.sell',
     'ai.action.keep',
+    'ai.action.move',
     'ai.result.caught',
     'ai.result.escaped',
     'ai.result.released',
@@ -254,4 +262,19 @@ test('AI playback controls, status reasons and line bank notices go through the 
   expect(t('ai.line.fallback-notice-greedy-neutral-2', { turn: 7 })).toBe(
     'From turn 7, a backup bot is making my moves.',
   );
+});
+
+test('read-only team inspection covers form paths, instance identity and status explanations', () => {
+  const keys: MessageKey[] = [
+    'team.details',
+    'team.instance',
+    'team.ability',
+    'team.noAbility',
+    'team.nextForms',
+    'team.finalForm',
+    'team.readOnly',
+    'team.tiredReason',
+    'team.rescueRestriction',
+  ];
+  for (const key of keys) expect(t(key).trim(), key).not.toBe('');
 });

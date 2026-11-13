@@ -195,6 +195,49 @@
 .ai-speech .btn {
   min-height: 44px;
 }
+/* Issue #123: the current rival action, spelled out under the board loop with the
+   rival's seat disc, so the text and the board spotlight name the same move. */
+.now-strip {
+  --seat-color: #c92d20;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-top: 0.9rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--color-panel) 0%, var(--color-panel-tint) 100%);
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.9),
+    0 3px 0 color-mix(in srgb, var(--seat-color), #15264a 45%),
+    0 8px 14px -8px rgb(16 38 84 / 0.4);
+}
+.now-strip[data-seat='1'] {
+  --seat-color: #205db8;
+}
+.now-strip[data-seat='2'] {
+  --seat-color: #68439f;
+}
+.now-strip[data-seat='3'] {
+  --seat-color: #246b36;
+}
+.now-strip .seat-disc {
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.7rem;
+}
+.now-strip p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.now-strip strong {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.now-between {
+  white-space: pre;
+}
 @media (max-width: 1023px) {
   .turn-panel {
     grid-column: 1 / -1;

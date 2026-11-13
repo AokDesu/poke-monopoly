@@ -1,0 +1,58 @@
+.team-details {
+  min-width: 0;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.team-details > summary {
+  min-height: 44px;
+  align-content: center;
+  padding: 0.55rem 0.4rem;
+  border-radius: 8px;
+  color: var(--color-action);
+  font-weight: 800;
+  cursor: pointer;
+  transition: background-color 140ms ease-out;
+}
+.team-details > summary:hover {
+  background: #e1ecff;
+}
+.team-details > summary:focus-visible {
+  outline: 3px solid var(--color-action);
+  outline-offset: 2px;
+}
+.team-details-body {
+  padding: 0.2rem 0.4rem 0.7rem;
+}
+.team-instance,
+.team-read-only {
+  color: var(--color-ink-soft);
+  font-size: 0.75rem;
+}
+.team-status-note {
+  margin-top: 0.6rem;
+  color: #854916;
+  font-weight: 800;
+}
+.team-details dt {
+  margin-top: 0.75rem;
+  margin-bottom: 0.2rem;
+  font-weight: 900;
+}
+.team-details dd p {
+  margin-top: 0.15rem;
+}
+.team-details dd ul {
+  list-style: disc;
+  padding-left: 1.2rem;
+}
+.team-read-only {
+  margin-top: 0.75rem;
+}
+.sale-team .team-details {
+  margin: 0 0.7rem 0.5rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .team-details > summary {
+    transition: none;
+  }
+}

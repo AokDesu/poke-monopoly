@@ -1,3 +1,4 @@
+import { effectiveForm, nextEvolutionForms } from '../../../engine/index.ts';
 import board from '../../../content/board.json';
 import classes from '../../../content/classes.json';
 import config from '../../../content/config.json';
@@ -13,6 +14,11 @@ export const content = parseContent({ board, classes, config, events, evolutions
 
 /** The strict `Content` the engine's `createGame` takes. */
 export const engineContent = toEngineContent(content);
+
+/** Engine-owned current stats, inherited Abilities and authored evolution choices (§4.5). */
+export const currentForm = (formId: string) => effectiveForm(engineContent, formId);
+export const nextForms = (formId: string) =>
+  nextEvolutionForms(engineContent, formId).map(currentForm);
 
 /**
  * Core classes in content order; stretch classes stay out until after G2 (spec §1).
@@ -33,8 +39,8 @@ export const classOptions: readonly ClassOption[] = content.classes
 const TYPES = ['grass', 'fire', 'water', 'bug', 'normal'] as const;
 export type PokemonType = (typeof TYPES)[number];
 
-/** A species' type from its content tags, for its orb colour; untyped species show as normal. */
+/** Current form's type from engine-resolved tags; untyped forms show as normal. */
 export function speciesType(speciesId: string): PokemonType {
-  const tags = content.species.find((entry) => entry.id === speciesId)?.tags ?? [];
+  const tags = currentForm(speciesId).tags;
   return TYPES.find((type) => tags.includes(type)) ?? 'normal';
 }

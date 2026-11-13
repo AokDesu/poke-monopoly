@@ -213,6 +213,16 @@ export const en = {
   'firstPlayer.noGame':
     'No game is waiting for its first roll. Go back to Home to start a new one.',
 
+  'team.details': 'Inspect {name}',
+  'team.instance': 'Team ID: {id}',
+  'team.ability': 'Ability',
+  'team.noAbility': 'No Ability description.',
+  'team.nextForms': 'Next forms',
+  'team.finalForm': 'Final form — no further evolution.',
+  'team.readOnly': 'Inspection only. Evolution is chosen as a battle reward.',
+  'team.tiredReason': 'Cannot battle while Tired. Clears at the end of its owner’s next turn.',
+  'team.rescueRestriction': 'Cannot be traded or receive a sale bonus, even after evolution.',
+
   'play.heading': 'Game board',
   'results.heading': 'Results',
   'results.body':
@@ -315,6 +325,13 @@ export const en = {
   'strategy.cost': 'Consumes this item and your tactical action.',
   'strategy.confirm': 'Confirm {item}',
   'strategy.skip': 'Skip item use',
+  'strategy.potion.targets': 'Choose a Pokémon to heal',
+  'strategy.potion.member': '{pokemon} · {instanceId}',
+  'strategy.potion.target': 'Heal: {pokemon} · {instanceId}',
+  'strategy.potion.effect': 'Clears Tired from this Pokémon.',
+  'strategy.potion.chooseTarget': 'Choose a Pokémon to preview its healing. Nothing is spent yet.',
+  'strategy.potion.staleSelection':
+    'The available actions changed. Choose your Potion and Pokémon again before confirming.',
 
   'sell.coins': '{amount} coins',
   'sell.price': '{basePrice} coins',
@@ -330,7 +347,8 @@ export const en = {
 
   'ai.backupBadge': 'Backup bot mode',
   'ai.thinking': 'Thinking… If Jev takes too long, the backup bot decides.',
-  'ai.playing': 'The rival is playing. Its choices appear in the field log.',
+  'ai.playing': 'The rival is playing. Its next move appears under the board.',
+  'ai.now': 'Now',
   'ai.statusUnavailable': 'AI status could not be checked. Each decision still reports its source.',
   'ai.speed': 'Turn speed',
   'ai.speed.normal': 'Normal',
@@ -354,6 +372,7 @@ export const en = {
   'ai.action.use_item': '{name} used an item.',
   'ai.action.sell': '{name} sold Pokémon at Start.',
   'ai.action.keep': '{name} kept the whole team.',
+  'ai.action.move': '{name} rolled {result} on the die.',
   'ai.result.caught': '{name} caught {pokemon}.',
   'ai.result.escaped': '{pokemon} escaped from {name}. Its Ball was spent.',
   'ai.result.released': '{name} released {pokemon}. No Ball was spent.',
