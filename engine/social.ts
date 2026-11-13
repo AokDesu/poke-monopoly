@@ -96,6 +96,11 @@ export function recordChat(next: GameState, payload: ChatPayload): EngineEvent[]
     chats.push(pair);
   }
   pair.messages = [...pair.messages, message].slice(-CHAT_HISTORY_PER_PAIR);
+  for (const player of next.players) {
+    if (player.seatIndex === fromSeatIndex || player.seatIndex === payload.targetSeatIndex)
+      continue;
+    player.unseenRecords = (player.unseenRecords ?? 0) + 1;
+  }
   return [
     {
       kind: 'chat_sent',

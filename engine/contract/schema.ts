@@ -168,6 +168,8 @@ export const playerSchema = z.strictObject({
   // `creditedLap` whose first-catch class bonus a real catch roll has used; absent until then.
   catchBonusUsedLap: count.optional(),
   privateResults: z.array(privateResultSchema),
+  // Accepted records this seat may not see (chats between two other seats, §4.8); absent when none.
+  unseenRecords: count.optional(),
 });
 const shopOfferSchema = z.discriminatedUnion('kind', [
   z.strictObject({ id, itemId: id, kind: z.literal('ball'), ballType, price: count }),

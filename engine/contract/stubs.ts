@@ -14,6 +14,7 @@ import { itemChoices, useItem } from '../items.ts';
 import { ENGINE_VERSION } from '../versions.ts';
 import { recordSale, validSale } from '../selling.ts';
 import { chatChoices, chatsOf, recordChat, validChat } from '../social.ts';
+import { actorRevision } from '../visibility.ts';
 import type {
   GameState,
   Observation,
@@ -46,7 +47,7 @@ export function observe(state: GameState, seatIndex: number): Observation {
         abilityReady: player.abilityUsedGlobalTurnNo !== state.globalTurnNo,
       })),
       globalTurnNo: state.globalTurnNo,
-      stateRevision: state.stateRevision,
+      stateRevision: actorRevision(state, ownPlayer.actorId),
       activeSeatIndex: state.activeSeatIndex,
       phase: state.phase,
       lapTarget: state.config.lapTarget,
@@ -173,10 +174,11 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
   const parsed = actionSchema.safeParse(input);
   if (!parsed.success) return { rejected: true, reason: 'malformed_action', state };
   const action = parsed.data;
-  if (action.stateRevisionBefore !== state.stateRevision) {
+  const revision = actorRevision(state, action.actorId);
+  if (action.stateRevisionBefore !== revision) {
     return { rejected: true, reason: 'stale_revision', state };
   }
-  if (action.actionSeq !== state.stateRevision + 1) {
+  if (action.actionSeq !== revision + 1) {
     return { rejected: true, reason: 'invalid_sequence', state };
   }
   // A finished game accepts nothing more, including engine-generated records.
@@ -280,7 +282,7 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
     return { rejected: true, reason: 'illegal_action', state };
   }
   const next = structuredClone(state);
-  next.stateRevision = action.actionSeq;
+  next.stateRevision = state.stateRevision + 1;
   if (next.phase.kind === 'first_player_roll' && action.kind === 'roll') {
     next.phase.awaitingResult = true;
   }

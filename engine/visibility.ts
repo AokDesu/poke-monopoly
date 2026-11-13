@@ -52,6 +52,16 @@ export function eventsVisibleTo(
 }
 
 /**
+ * The revision an actor sees and must submit as `stateRevisionBefore` (§4.8): accepted records
+ * minus those it may not see, so it equals the length of that seat's feed. The engine's own
+ * records, and any seat that missed nothing, use the global revision.
+ */
+export function actorRevision(state: GameState, actorId: string): number {
+  const player = state.players.find((candidate) => candidate.actorId === actorId);
+  return state.stateRevision - (player?.unseenRecords ?? 0);
+}
+
+/**
  * Whether the record is a chat this seat took no part in (§4.8). A seat outside a conversation must
  * not learn that it happened or whom it was with: in a three-seat game, "a chat happened and it was
  * not to me" names the recipient, so the record is absent from the seat's feed, not redacted.

@@ -66,11 +66,13 @@ function social(options: { flag?: boolean | undefined; seats?: 2 | 3 | 4; seed?:
   return state;
 }
 
+/** The active seat's command, numbered with the revision that seat observes. */
 function command(state: GameState, kind: string, payload: object = {}) {
+  const revision = observe(state, state.activeSeatIndex).public.stateRevision;
   return applyAction(state, {
     actorId: state.players[state.activeSeatIndex]!.actorId,
-    actionSeq: state.stateRevision + 1,
-    stateRevisionBefore: state.stateRevision,
+    actionSeq: revision + 1,
+    stateRevisionBefore: revision,
     kind,
     payload,
   });
@@ -353,11 +355,89 @@ test.each([3, 4] as const)(
   },
 );
 
+/** Plays the active seats' passive choices until `seat` has a decision of its own. */
+function playUntilDecision(initial: GameState, seat: number): GameState {
+  let state = initial;
+  for (let step = 0; step < 500; step++) {
+    const auto = advanceAutomatically(state);
+    if (auto.records.length) {
+      state = auto.state;
+      continue;
+    }
+    if (state.activeSeatIndex === seat) return state;
+    const enabled = legalActions(state, state.activeSeatIndex).enabled;
+    const choice =
+      enabled.find((entry) => ['skip', 'skip_shop', 'release', 'roll'].includes(entry.kind)) ??
+      enabled.find((entry) => entry.id === 'finish-sell') ??
+      enabled[0]!;
+    state = accepted(state, choice.kind, choice.payload).state;
+  }
+  throw new Error(`seat ${seat} never had a decision`);
+}
+
+test('a bystander observes the same revision after a chat it is not part of, and acts on it (§4.8)', () => {
+  const skipped = social({ seats: 3 });
+  const chatted = accepted(skipped, 'chat', { targetSeatIndex: 1, topic: 'truce' }).state;
+  // The bystander's observation is unchanged by the chat; the global revision still counts it.
+  expect(chatted.stateRevision).toBe(skipped.stateRevision + 1);
+  expect(observe(chatted, 2)).toEqual(observe(skipped, 2));
+  // The parties see the chat as a visible record, so their observed revision moves.
+  for (const seat of [0, 1]) {
+    expect(observe(chatted, seat).public.stateRevision).toBe(skipped.stateRevision + 1);
+  }
+  const left = playUntilDecision(skipped, 2);
+  const right = playUntilDecision(chatted, 2);
+  // When the bystander's turn comes, its observation equals the one of a game without the chat.
+  expect(observe(right, 2)).toEqual(observe(left, 2));
+  expect(right.stateRevision).toBe(left.stateRevision + 1);
+  // Its next action, built from what it observed, is accepted.
+  const choice = legalActions(right, 2).enabled[0]!;
+  const observed = observe(right, 2).public.stateRevision;
+  const action = {
+    actorId: right.players[2]!.actorId,
+    actionSeq: observed + 1,
+    stateRevisionBefore: observed,
+    kind: choice.kind,
+    payload: choice.payload,
+  };
+  const result = applyAction(right, action);
+  expect(result).toMatchObject({ accepted: true });
+  expect(checkInvariants(right, action, result)).toEqual([]);
+  if ('accepted' in result) {
+    expect(result.state.stateRevision).toBe(right.stateRevision + 1);
+    expect(observe(result.state, 2).public.stateRevision).toBe(observed + 1);
+  }
+});
+
+test('a record a seat can see still makes its old revision stale (§4.8)', () => {
+  const chatted = accepted(social({ seats: 3 }), 'chat', {
+    targetSeatIndex: 1,
+    topic: 'truce',
+  }).state;
+  const old = observe(chatted, 2).public.stateRevision;
+  const state = playUntilDecision(chatted, 2);
+  const choice = legalActions(state, 2).enabled[0]!;
+  const submit = (revision: number) =>
+    applyAction(state, {
+      actorId: state.players[2]!.actorId,
+      actionSeq: revision + 1,
+      stateRevisionBefore: revision,
+      kind: choice.kind,
+      payload: choice.payload,
+    });
+  expect(submit(old)).toMatchObject({ rejected: true, reason: 'stale_revision' });
+  // The global revision is not the seat's either: it counts the chat the seat never saw.
+  expect(state.stateRevision).not.toBe(observe(state, 2).public.stateRevision);
+  expect(submit(state.stateRevision)).toMatchObject({ rejected: true, reason: 'stale_revision' });
+  expect(submit(observe(state, 2).public.stateRevision)).toMatchObject({ accepted: true });
+});
+
 test('a chat changes nothing beyond its history and the social budget (§4.8 hard line)', () => {
   const strip = (state: GameState) => {
     const copy = structuredClone(state);
     delete copy.chats;
     delete copy.turnBudgets.socialInteraction;
+    for (const player of copy.players) delete player.unseenRecords;
     copy.stateRevision = 0;
     return copy;
   };

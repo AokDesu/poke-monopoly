@@ -278,10 +278,15 @@ export function createGameStore(): GameStore {
     dialogueEvents: EngineEvent[] = [],
   ): ApplyActionResult => {
     const { state, log } = current();
+    // A seat submits the revision it observed; it skips chats it was not part of (spec §4.8).
+    const seat = state.players.find((player) => player.actorId === command.actorId);
+    const revision = seat
+      ? observe(state, seat.seatIndex).public.stateRevision
+      : state.stateRevision;
     const result = applyAction(state, {
       ...command,
-      actionSeq: state.stateRevision + 1,
-      stateRevisionBefore: state.stateRevision,
+      actionSeq: revision + 1,
+      stateRevisionBefore: revision,
     });
     if ('accepted' in result) {
       commit(
@@ -373,13 +378,14 @@ export function createGameStore(): GameStore {
         throw new Error('Unsupported opponent decision point');
       }
       const settings = opponents.find((opponent) => opponent.seatIndex === seatIndex);
+      const observation = observe(state, seatIndex);
       const answer = await requestOpponent(
         JSON.stringify({
           gameId: gameToken,
           seatIndex,
           decisionPoint,
-          stateRevision: state.stateRevision,
-          observation: observe(state, seatIndex),
+          stateRevision: observation.public.stateRevision,
+          observation,
           enabledActions,
           facts:
             decisionPoint === 'encounter' ? { catchOdds: oddsForAllBalls(state, seatIndex) } : {},
