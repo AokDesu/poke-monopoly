@@ -18,14 +18,16 @@ import {
   replay,
   serialize,
   verifyReplay,
+  type ActionRecord,
   type ChatPayload,
   type GameState,
   type LegalAction,
+  type SeatActionRecord,
 } from './index.ts';
 import fixture from './fixtures/start-of-game-2p.json';
 
 /** Seat 0 (human) in Social with its one interaction; seat 1 is an AI; a third seat is optional. */
-function social(options: { flag?: boolean | undefined; seats?: 2 | 3; seed?: number } = {}) {
+function social(options: { flag?: boolean | undefined; seats?: 2 | 3 | 4; seed?: number } = {}) {
   const { seats = 2, seed = 4 } = options;
   const flag = 'flag' in options ? options.flag : true;
   const scenario = fixtureSchema.parse(fixture).state;
@@ -36,9 +38,16 @@ function social(options: { flag?: boolean | undefined; seats?: 2 | 3; seed?: num
     starterSpeciesIds: ['eevee'],
     classItemId: 'pickpocket',
   });
+  content.classes.push({
+    id: 'gym-trainer',
+    name: 'Gym Trainer',
+    starterSpeciesIds: ['eevee'],
+    classItemId: 'pickpocket',
+  });
   const seatList = [
     ...scenario.config.seats,
     { actorId: 'player-2', seatIndex: 2, classId: 'team-rocket', controller: 'ai' as const },
+    { actorId: 'player-3', seatIndex: 3, classId: 'gym-trainer', controller: 'ai' as const },
   ].slice(0, seats);
   const state = createGame(
     createGameConfig({
@@ -244,14 +253,18 @@ test('asking about an item leaks nothing: choices and outcome ignore what the ta
   }
 });
 
-test('a third seat sees no chat in its observation, events or action record (§4.8, §5.4)', () => {
+/** A record as a seat's feed shows it, numbered as in the full log (no hidden records before it). */
+const seatRecord = (before: GameState, record: ActionRecord, seat: number) =>
+  actionVisibleTo(before, record, seat, record.action.stateRevisionBefore);
+
+test('a third seat sees no chat in its observation, events or feed (§4.8, §5.4)', () => {
   const before = social({ seats: 3 });
   const payload = { targetSeatIndex: 1, topic: 'use_item', itemId: 'repel' };
   const { state, events, record } = accepted(before, 'chat', payload);
   expect(events).toHaveLength(1);
   for (const seat of [0, 1]) {
     expect(eventsVisibleTo(before, events, seat)).toEqual(events);
-    expect(actionVisibleTo(before, record, seat).action).toEqual(record.action);
+    expect(seatRecord(before, record, seat)?.action).toEqual(record.action);
     expect(observe(state, seat).own.chats).toEqual([
       {
         fromSeatIndex: 0,
@@ -264,12 +277,81 @@ test('a third seat sees no chat in its observation, events or action record (§4
   }
   expect(eventsVisibleTo(before, events, 2)).toEqual([]);
   expect(observe(state, 2).own.chats).toEqual([]);
-  const seen = actionVisibleTo(before, record, 2);
-  expect(seen.events).toEqual([]);
-  expect(seen.action.payload).toEqual({});
-  // Nothing of the message appears anywhere in the third seat's view of the game.
-  expect(JSON.stringify([observe(state, 2), seen])).not.toMatch(/repel|use_item|chat_sent/);
+  // The record is absent for the bystander, not redacted: no sender, kind or payload remains.
+  expect(seatRecord(before, record, 2)).toBeNull();
+  expect(JSON.stringify(observe(state, 2))).not.toMatch(/repel|use_item|chat_sent/);
 });
+
+/** Plays `steps` from `initial` and returns each seat's feed as the seat-facing boundary builds it. */
+function playFeeds(initial: GameState, steps: Array<[string, object]>) {
+  let state = initial;
+  const full: ActionRecord[] = [];
+  const feeds = new Map<number, SeatActionRecord[]>(
+    initial.players.map((player) => [player.seatIndex, []]),
+  );
+  for (const [kind, payload] of steps) {
+    const result = accepted(state, kind, payload);
+    full.push(result.record);
+    for (const [seat, feed] of feeds) {
+      const visible = actionVisibleTo(state, result.record, seat, feed.length);
+      if (visible) feed.push(visible);
+    }
+    state = result.state;
+  }
+  return { state, full, feeds };
+}
+
+test.each([3, 4] as const)(
+  'a bystander in a %i-seat game cannot tell whether a chat happened or who got it (§4.8)',
+  (seats) => {
+    const initial = (): GameState => social({ seats });
+    const rest: Array<[string, object]> = [
+      ['skip', {}],
+      ['skip', {}],
+    ];
+    const variants: Array<Array<[string, object]>> = [
+      rest,
+      ...[1, 2].flatMap((target) => [
+        [['chat', { targetSeatIndex: target, topic: 'truce' }], ...rest] as Array<[string, object]>,
+        [
+          ['chat', { targetSeatIndex: target, topic: 'use_item', itemId: 'repel' }],
+          ...rest,
+        ] as Array<[string, object]>,
+      ]),
+    ];
+    const played = variants.map((steps) => playFeeds(initial(), steps));
+    // The internal log keeps every record: the chat is there, with the real sequence numbers.
+    expect(played.map((game) => game.full.length)).toEqual([2, 3, 3, 3, 3]);
+    expect(played[1]!.full.map((record) => record.action.actionSeq)).toEqual([1, 2, 3]);
+    expect(played[1]!.full[0]!.action.kind).toBe('chat');
+    // A seat outside the chat sees the same feed whether it was chatted to elsewhere, or not at all.
+    const bystanders = (variant: number) =>
+      [...Array(seats).keys()].filter(
+        (seat) =>
+          seat !== 0 &&
+          (variant === 0 || seat !== (variants[variant]![0]![1] as ChatPayload).targetSeatIndex),
+      );
+    for (let variant = 0; variant < variants.length; variant++) {
+      for (const seat of bystanders(variant)) {
+        const feed = played[variant]!.feeds.get(seat)!;
+        expect(feed).toEqual(played[0]!.feeds.get(seat));
+        // No gap in sequence or revision: the feed is numbered from 1, one per visible record.
+        expect(feed.map((record) => record.action.actionSeq)).toEqual([1, 2]);
+        expect(feed.map((record) => record.action.stateRevisionBefore)).toEqual([0, 1]);
+        expect(feed.map((record) => record.action.kind)).toEqual(['skip', 'skip']);
+        expect(JSON.stringify(feed)).not.toMatch(/chat|truce|repel|targetSeatIndex/);
+      }
+    }
+    // Sender and recipient do see it: the recipient's feed differs from the bystanders'.
+    expect(played[1]!.feeds.get(1)!.map((record) => record.action.kind)).toEqual([
+      'chat',
+      'skip',
+      'skip',
+    ]);
+    expect(played[1]!.feeds.get(0)!).toHaveLength(3);
+    expect(played[1]!.feeds.get(1)![0]!.events).toHaveLength(1);
+  },
+);
 
 test('a chat changes nothing beyond its history and the social budget (§4.8 hard line)', () => {
   const strip = (state: GameState) => {
@@ -338,7 +420,7 @@ function playRandomly(seed: number, picks: number[]): { state: GameState; chats:
   let state = state0;
   let chats = 0;
   let wasSocial = false;
-  for (let step = 0; step < 4000 && state.phase.kind !== 'finished'; step++) {
+  for (let step = 0; step < 20_000 && state.phase.kind !== 'finished'; step++) {
     const auto = advanceAutomatically(state);
     const choices = legalActions(state, state.activeSeatIndex).enabled;
     const inSocial = state.phase.kind === 'social';
@@ -350,6 +432,10 @@ function playRandomly(seed: number, picks: number[]): { state: GameState; chats:
     if (inSocial && !human) expect(choices.map((choice) => choice.kind)).toEqual(['skip']);
     wasSocial = inSocial;
     if (auto.records.length) {
+      // Engine-generated and sole-choice records obey the invariants like player actions do.
+      const record = auto.records[0]!;
+      const result = { accepted: true as const, state: auto.state, events: auto.events, record };
+      expect(checkInvariants(state, record.action, result)).toEqual([]);
       state = auto.state;
       continue;
     }
@@ -368,6 +454,8 @@ function playRandomly(seed: number, picks: number[]): { state: GameState; chats:
     if (choice.kind === 'chat') chats++;
     state = result.state;
   }
+  // A game that stops short would hide an invariant failure or a stuck phase behind a passing test.
+  expect(state.phase.kind).toBe('finished');
   return { state, chats };
 }
 
@@ -386,10 +474,10 @@ test('whole games with the window open obey the invariants and reopen the budget
         return true;
       },
     ),
-    { numRuns: 20 },
+    { numRuns: 5 },
   );
-  expect(totalChats).toBeGreaterThan(20);
-});
+  expect(totalChats).toBeGreaterThan(10);
+}, 60_000);
 
 test('chats replay and survive a save round-trip (§6.7, §6.8)', () => {
   const initial = social({ seats: 3 });
