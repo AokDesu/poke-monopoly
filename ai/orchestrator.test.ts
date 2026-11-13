@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { parsePersonality, type Personality } from '../content/personality-schema.ts';
 import { toEngineContent } from '../content/schema.ts';
 import {
+  applyAction,
   createGame,
   createGameConfig,
   fixtureSchema,
@@ -16,6 +17,7 @@ import {
   type Observation,
 } from '../engine/index.ts';
 import encounterFixture from '../engine/fixtures/encounter-with-balls.json';
+import startFixture from '../engine/fixtures/start-of-game-2p.json';
 import sellFixture from '../engine/fixtures/sell-phase-three-pokemon.json';
 import strategyFixture from '../engine/fixtures/strategy-with-items.json';
 import { realEngine } from '../sim/engine.ts';
@@ -119,6 +121,54 @@ function answered(
 const confidentRelease = (request: JevRequest) =>
   answered(request, () => ({ poke_ball: 0.05, great_ball: 0.05, release: 0.9 }));
 
+/** Seat 0 (human) in its Social window with the window open; seats 1 and 2 are AIs. */
+function socialGame(seats: 2 | 3): GameState {
+  const scenario = fixtureSchema.parse(startFixture).state;
+  const content = structuredClone(scenario.content);
+  content.classes.push({
+    id: 'team-rocket',
+    name: 'Team Rocket',
+    starterSpeciesIds: ['eevee'],
+    classItemId: 'pickpocket',
+  });
+  const state = createGame(
+    createGameConfig({
+      seats: [
+        ...scenario.config.seats,
+        { actorId: 'player-2', seatIndex: 2, classId: 'team-rocket', controller: 'ai' as const },
+      ].slice(0, seats),
+      seed: 4,
+      lapTarget: 3,
+      socialWindow: true,
+    }),
+    content,
+  );
+  state.phase = { kind: 'social' };
+  state.globalTurnNo = 1;
+  state.players[0]!.ownTurnNo = 1;
+  state.turnBudgets = {
+    tacticalAction: 1,
+    catchAttempt: 1,
+    pokemonAbility: 1,
+    socialInteraction: 1,
+  };
+  return state;
+}
+
+/** The active seat's command, numbered with the revision that seat observes. */
+function act(state: GameState, kind: string, payload: object = {}): GameState {
+  const revision = observe(state, state.activeSeatIndex).public.stateRevision;
+  const result = applyAction(state, {
+    actorId: state.players[state.activeSeatIndex]!.actorId,
+    actionSeq: revision + 1,
+    stateRevisionBefore: revision,
+    kind,
+    payload,
+  });
+  if ('rejected' in result) throw new Error(result.reason);
+  return result.state;
+}
+
 const fallbackChoice = (request: DecideRequest) =>
   new FallbackPolicy(request.personality).decide(
     request.observation,
@@ -184,6 +234,35 @@ describe('unusable answers fall back with their reason (§3.1, §5.6, §9)', () 
     expect(decision).toMatchObject({ source: 'fallback', fallbackReason: 'revision_mismatch' });
     expect(decision.choice).toBe(fallbackChoice(request));
   });
+
+  test.each([2, 3] as const)(
+    '%i seats: an answer for the observed revision outlives a hidden chat, not a visible record (§4.8)',
+    async (seats) => {
+      const seat = seats - 1;
+      const before = socialGame(seats);
+      const observed = observe(before, seat).public.stateRevision;
+      const request = (live: GameState) =>
+        encounterRequest({
+          observation: {
+            ...encounter.observation,
+            public: { ...encounter.observation.public, stateRevision: observed },
+          },
+          currentRevision: () => observe(live, seat).public.stateRevision,
+        });
+      const decide = (live: GameState) =>
+        new Orchestrator({ client: createFakeJevClient(confidentRelease) }).decide(request(live));
+      // The human chats seat 1: hidden from seat 2 in a 3-seat game, seen by seat 1 in a 2-seat one.
+      const chatted = act(before, 'chat', { targetSeatIndex: 1, topic: 'truce' });
+      const afterChat = await decide(chatted);
+      if (seats === 3) expect(afterChat).toMatchObject({ source: 'jev', fallbackReason: null });
+      else expect(afterChat).toMatchObject({ fallbackReason: 'revision_mismatch' });
+      // A record every seat sees always makes the old answer stale.
+      expect(await decide(act(chatted, 'skip'))).toMatchObject({
+        source: 'fallback',
+        fallbackReason: 'revision_mismatch',
+      });
+    },
+  );
 
   test('JEV_ENABLED=false sends no request', async () => {
     vi.stubEnv('JEV_ENABLED', 'false');

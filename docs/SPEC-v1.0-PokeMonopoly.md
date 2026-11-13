@@ -461,7 +461,7 @@ TypeScript plus a web app with API routes. The folders are `engine/`, `content/`
 
 1. **`engine/`** has no IO. The same engine runs in the web app, sim and eval, and human and AI commands pass the same validation.
 2. **`ai/`** is a server-side endpoint. It holds `TYPESAFE_API_KEY`, validates payload shape and size, builds questions from state, calls Jev and returns only action IDs and line IDs.
-3. **Action records:** fields, accepted-action sequencing and revision semantics are defined in [Engine contract v1](engine-contract.md#records-and-counters), including the approved clarification.
+3. **Action records:** fields, accepted-action sequencing and revision semantics are defined in [Engine contract v1](engine-contract.md#records-and-counters), including the approved clarification. A seat observes and submits its own revision, which counts only the records it can see. A chat between two other seats never makes its action stale (§4.8, #143). The global revision stays in the engine's log, saves and replay.
 4. **Turn counters:** `globalTurnNo` counts turns and `ownTurnNo` counts each player's turns, both separate from `seatIndex`.
 5. **Movement and Laps:** movement stores a signed `routeProgress`, a monotonic paid-lap count `creditedLap`, and a monotonic `highestRewardedMilestone`.
    - Position = `((routeProgress % 24) + 24) % 24`.

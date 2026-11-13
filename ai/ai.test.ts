@@ -2,7 +2,17 @@ import { join } from 'node:path';
 import { ESLint } from 'eslint';
 import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { decisionResponseSchema, type DecisionRequest } from '../engine/contract/decision.ts';
-import { fixtureSchema, oddsForAllBalls } from '../engine/index.ts';
+import {
+  applyAction,
+  createGame,
+  createGameConfig,
+  fixtureSchema,
+  legalActions,
+  observe,
+  oddsForAllBalls,
+  type GameState,
+} from '../engine/index.ts';
+import startFixture from '../engine/fixtures/start-of-game-2p.json';
 import encounterFixture from '../engine/fixtures/encounter-with-balls.json';
 import sellFixture from '../engine/fixtures/sell-phase-three-pokemon.json';
 import strategyFixture from '../engine/fixtures/strategy-with-items.json';
@@ -59,6 +69,54 @@ const requestFor = (json: unknown): DecisionRequest => {
     turnKey: `${seat}:${observation.public.globalTurnNo}`,
   };
 };
+
+/** Seat 0 (human) in its Social window with the window open; seats 1 and 2 are AIs. */
+function socialGame(seats: 2 | 3): GameState {
+  const scenario = fixtureSchema.parse(startFixture).state;
+  const content = structuredClone(scenario.content);
+  content.classes.push({
+    id: 'team-rocket',
+    name: 'Team Rocket',
+    starterSpeciesIds: ['eevee'],
+    classItemId: 'pickpocket',
+  });
+  const state = createGame(
+    createGameConfig({
+      seats: [
+        ...scenario.config.seats,
+        { actorId: 'player-2', seatIndex: 2, classId: 'team-rocket', controller: 'ai' as const },
+      ].slice(0, seats),
+      seed: 4,
+      lapTarget: 3,
+      socialWindow: true,
+    }),
+    content,
+  );
+  state.phase = { kind: 'social' };
+  state.globalTurnNo = 1;
+  state.players[0]!.ownTurnNo = 1;
+  state.turnBudgets = {
+    tacticalAction: 1,
+    catchAttempt: 1,
+    pokemonAbility: 1,
+    socialInteraction: 1,
+  };
+  return state;
+}
+
+/** The active seat's command, numbered with the revision that seat observes. */
+function act(state: GameState, kind: string, payload: object = {}): GameState {
+  const revision = observe(state, state.activeSeatIndex).public.stateRevision;
+  const result = applyAction(state, {
+    actorId: state.players[state.activeSeatIndex]!.actorId,
+    actionSeq: revision + 1,
+    stateRevisionBefore: revision,
+    kind,
+    payload,
+  });
+  if ('rejected' in result) throw new Error(result.reason);
+  return result.state;
+}
 
 const strategy = requestFor(strategyFixture);
 const encounter = requestFor(encounterFixture);
@@ -221,6 +279,42 @@ describe('POST /api/ai/decide', () => {
     const response = await decide({ ...strategy, observation });
     expect(response.status).toBe(400);
   });
+
+  test.each([2, 3] as const)(
+    '%i seats: a request carries the revision the seat observed after a chat (§4.8, #143)',
+    async (seats) => {
+      const seat = seats - 1;
+      // The human chats seat 1; with 3 seats, seat 2 is outside the chat.
+      const state = act(socialGame(seats), 'chat', { targetSeatIndex: 1, topic: 'truce' });
+      state.activeSeatIndex = seat;
+      state.phase = { kind: 'strategy' };
+      const observation = observe(state, seat);
+      expect(observation.public.stateRevision).toBe(state.stateRevision - (seats === 3 ? 1 : 0));
+      const request: DecisionRequest = {
+        gameId: 'game-test-1',
+        seatIndex: seat,
+        decisionPoint: 'strategy',
+        stateRevision: observation.public.stateRevision,
+        observation,
+        enabledActions: legalActions(state, seat).enabled,
+        facts: {},
+        difficulty: 'normal',
+        personalityId: 'cautious',
+        turnKey: `${seat}:1`,
+      };
+      const response = await decide(request);
+      expect(response.status).toBe(200);
+      expect(decisionResponseSchema.parse(await response.json())).toMatchObject({
+        choice: request.enabledActions[0]!.id,
+      });
+      // A revision other than the observed one (the global count, for a bystander) is refused.
+      const other = await decide({
+        ...request,
+        stateRevision: observation.public.stateRevision + 1,
+      });
+      expect(other.status).toBe(400);
+    },
+  );
 
   test('an answer that is not among the options falls back (spec §3.1)', async () => {
     const app = createApp({
