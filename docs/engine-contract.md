@@ -101,7 +101,7 @@ That skip instead auto-sells, in seat and team order, every remaining Pokémon e
 
 ## Class framework and the Researcher (issue #30)
 
-Spec: §4.1, §4.5, §4.7, Appendix A. A content class may name a `passive`; the engine's `classBonus` dispatcher ([engine/classes.ts](../engine/classes.ts)) owns each passive's amount and timing and serves both the catch snapshot and Sell hooks. Classes without a passive add 0. `lap_first_sale_bonus` is the Researcher's +3 in the Start Sell Phase; `lap_first_catch_bonus` is the Main Character's catch bonus (issue #35 below); `water_catch_bonus` and `bug_catch_sale_bonus` are the Fisherman's and Bug Catcher's (issue #55 S01 below).
+Spec: §4.1, §4.5, §4.7, Appendix A. A content class may name a `passive`; the engine's `classBonus` dispatcher ([engine/classes.ts](../engine/classes.ts)) owns each passive's amount and timing and serves the catch snapshot, Sell and combat hooks. Classes without a passive add 0. `lap_first_sale_bonus` is the Researcher's +3 in the Start Sell Phase; `lap_first_catch_bonus` is the Main Character's catch bonus (issue #35 below); `water_catch_bonus` and `bug_catch_sale_bonus` are the Fisherman's and Bug Catcher's (issue #55 S01 below); `combat_bonus` is the Rival's (issue #55 S05 below).
 
 Within one atomic sale, the bonus goes to exactly one sold Pokémon: the highest `saleBasis` (before the tired adjustment), ties broken by the lowest instance ID in string order, so listing order never matters ([spec §4.7 step 2](SPEC-v1.0-PokeMonopoly.md#47-selling-at-start-laps-and-game-end)). A Rescue Starter is never a candidate. An empty sale pays nothing and uses no bonus. Each Sell Phase follows exactly one credited Lap, so once per phase is once per Lap; the bonus is available again after the next qualifying Start crossing without extra state. The sale event's `sale` field shows the parts, for example `{ basePrice: 12, classBonus: 3 }` for amount 15.
 
@@ -141,7 +141,7 @@ Spec: §4.3, §4.5 Rescue Starter, §4.7, §6.1, §8, Appendix A Classes. Conten
 
 Spec: §3.1, §6.7, §6.8, §6.9, §8. A save is the text `serialize({ state, log })` returns: a strict object with `saveVersion: "save-v1"`, the `engineVersion`, `contentVersion` and `rngVersion` stamps, the current `state` and the command `log` as sibling keys. The log carries the initial config, seed, stamps, revision-zero state and every accepted record with its `random_result` events, so the dice are never re-rolled. No log is nested inside `state`, and the schema admits no other field, so no key or token can be saved. The schema also requires the top-level stamps to equal the log header, `state.config` to equal `initialConfig`, and `state.stateRevision` to equal the number of logged actions. The engine only builds and reads the text; storage belongs to the caller (the browser for stream C, files for the sim).
 
-`deserialize(text)` refuses another `saveVersion`, `engineVersion`, `contentVersion` or `rngVersion` before the full schema check, with a message naming both versions (for example "This save was made with engine version 0.11.0; this game runs engine version 0.15.0. Old saves cannot be loaded yet."); migrating old saves is a later issue. Any other schema failure throws `Invalid save: <path>: <message>; ...`.
+`deserialize(text)` refuses another `saveVersion`, `engineVersion`, `contentVersion` or `rngVersion` before the full schema check, with a message naming both versions (for example "This save was made with engine version 0.11.0; this game runs engine version 0.16.0. Old saves cannot be loaded yet."); migrating old saves is a later issue. Any other schema failure throws `Invalid save: <path>: <message>; ...`.
 
 `resume(game)` returns `{ state, lastAction, waitingFor }` from the saved snapshot without applying anything: `lastAction` is the last committed record (so a dice result taken before the save is shown again), and `waitingFor` is `{ kind: "decision", seatIndex, actorId, phase, legalActions }`, `{ kind: "engine_result", purpose }` for a die still to be generated, or `{ kind: "finished" }`. A request pending when the browser closed is not in the save; the caller asks again for `waitingFor` from the same state and never starts a new turn. A sole enabled choice is still reported as a decision; the caller applies it with `advanceAutomatically` as during play.
 
@@ -171,11 +171,11 @@ The player accepts at most one `buy { offerId }` or `skip_shop` (`id: "skip-shop
 
 Spec: §4.1, §4.2, §4.3, §4.6, Appendix A, §8. Current-version Strategy lists, before its `skip`, one `use_item` choice per held usable item: Lucky Egg as `use-item:<instanceId>` with payload `{ itemInstanceId }`, and Repel/Pickpocket once per opponent as `use-item:<instanceId>:seat-<n>` with payload `{ itemInstanceId, targetSeatIndex }`. Hostile items never list the user and ignore board distance. A held Potion uses the targeted S03 choices below; Price Shield exposes no choice yet. Using an item spends the turn's `tacticalAction`, removes that instance and logs `uid_destroyed` (reason `used`) after any effect event; a Repel or Pickpocket also logs `hostile_item_used { userSeatIndex, targetSeatIndex, itemId }` just before it, seen only by the user and target (spec §4.1, §4.4); the phase stays in Strategy, so the remaining choice is `skip`. With the budget spent every item choice is disabled with `ALREADY_USED_THIS_TURN` / `Tactical action already used this turn`; otherwise a Pickpocket target with 0 coins and a Repel target with a Repel still pending are disabled with `NO_VALID_TARGET` / `Target has no coins` or `Target is already slowed`. Disabled, self-targeted and untargeted hostile uses are rejected as `illegal_action`.
 
-- **Lucky Egg** sets `GameState.turnEffects.itemBonus = 1`; the catch item hook snapshots it into `phase.catchRoll.itemBonus`. The next turn start clears `turnEffects`, and movement ignores it.
+- **Lucky Egg** sets `GameState.turnEffects.itemBonus = 1`; the catch item hook snapshots it into `phase.catchRoll.itemBonus`, and the [shared combat snapshot](#shared-combat-arithmetic-issue-55-s05) reads it for its owner. The next turn start clears `turnEffects`, and movement ignores it.
 - **Repel** appends `'repel'` to the target's `Player.pendingSlows`. The target's next move result adds `max(1, d6 − 2)` squares, and that actual move clears its pending slows. The die value and its logged random event are unchanged.
 - **Pickpocket** moves `min(5, target.coins)` from target to user with one player-to-player `coin_transfer` (reason `pickpocket`), so coins stay nonnegative and are conserved.
 
-Both new state fields are optional and absent when no effect is active. `observe` does not project them yet. The engine version advances as recorded in [engine/versions.ts](../engine/versions.ts) because Strategy commands now change state; command-log and RNG versions are unchanged. AI item selection, combat bonuses and the remaining items stay deferred.
+Both new state fields are optional and absent when no effect is active. `observe` does not project them yet. The engine version advances as recorded in [engine/versions.ts](../engine/versions.ts) because Strategy commands now change state; command-log and RNG versions are unchanged. AI item selection and the remaining items stay deferred.
 
 ## Invariant checker (issue #14)
 
@@ -225,6 +225,54 @@ targets reject atomically. Later debuffs extend the typed status seam; none are 
 Statuses, expiry and events round-trip through saves, observations and command replay.
 The combined engine stamp advances to 0.14.0; older executable saves are refused rather than migrated.
 No battle, Event or Ability Tired source is introduced by this slice.
+
+## Shared combat arithmetic (issue #55 S05)
+
+Spec: §3 board odds, §4.3, §4.4, §4.6, §5.2, §6.1/6.8, §8, Appendix A Rival/Lucky Egg.
+
+`highestBattleMember(content, player, members?)` selects the highest effective battle among
+non-Tired members, breaking ties by UID in string order. `printedBattle` is the current
+effective form's stat (including fallback evolution), while `effectiveBattle` includes that
+member's pre-roll `battleBonus` and `debuffs`. An empty/all-Tired team has no selected member.
+`combatSnapshot(state, seatIndex, modifiers?)` adds the engine class hook, the active owner's
+Lucky Egg turn effect, and the pre-roll team `abilityBonus`/`debuffs` slots. These slots are
+inputs from future engine effect hooks, not a new Ability mapping or caller/AI arithmetic.
+Member adjustments must name unique owned UIDs; bonuses and debuffs are nonnegative integers.
+Selection precedes team-wide modifiers; values are not clamped at zero.
+
+`pvpSnapshot(state, attackerSeatIndex, defenderSeatIndex, { attacker?, defender? }?)` snapshots
+both parties together. `gymSnapshot(state, seatIndex, position, modifiers?)` assigns DC 5/7/9
+at 6/12/18. Both reject missing readiness or unknown seats; PvP rejects self-targeting, Gym
+rejects other squares. These are arithmetic prerequisites, not tactical/phase/declaration
+legality: S06/S09 own those checks and the pending confirmation flow.
+
+Snapshots contain detached scalar evidence and are recursively frozen, with readonly types
+and serializable schemas exported from `engine/contract/combat.ts`. Parsing a saved snapshot
+freezes it again. `resolvePvp(snapshot, attackerFace, defenderFace)` and
+`resolveGym(snapshot, face)` accept only the confirmed snapshot and d6 faces, never fresh
+modifiers or live state. PvP returns attacker-relative `win`/`tie`/`loss`, both totals and
+`rewardSeatIndex` (null on a tie). Gym returns `win` at or above DC, otherwise `loss`, the
+total/DC and a reward seat only for a win. No resolver transfers coins, grants badges, evolves,
+applies Tired, consumes effects, or advances RNG.
+
+`pvpOdds(snapshot)` enumerates all 36 die pairs through `resolvePvp`; `gymOdds(snapshot)`
+enumerates all six faces through `resolveGym`. Both return `totalOutcomes` and `win`, `tie`,
+`loss` records with `outcomes`, exact `probability`, and independently rounded whole-number
+`percent`. Gym's tie record is always zero. Displayed and resolved odds use the same snapshot.
+
+Content registers Rival's `combat_bonus` passive; the engine supplies +1 for PvP attack and
+defence only, never at a Gym (spec Appendix C D14), without granting the later once-per-Lap forced challenge. Lucky Egg's existing
+Strategy use/cost/expiry stays in the item executor and turn driver; its turn effect now
+feeds combat as well as catching and never benefits a different seat. Rescue Starter teams
+retain trainer passives pending S00, matching S01's unresolved-interpretation boundary.
+S00 still decides the activation/confirmation sequence. This slice exposes no late modifier
+or reroll operation: S11's approved Porygon path must preserve the confirmed snapshot while
+replacing only the permitted own die. It adds no primitive names or Ability bindings.
+
+Engine/content stamps advance to 0.16.0/1.2.0 for the new combat contract and registered
+passive; prior executable saves/logs reject through the existing version checks. Historical
+illustrative fixtures, RNG version and command-log format are unchanged. PvP/Gym phases,
+rewards, Gym entry choice and UI/AI integration belong to later slices.
 
 ## Ability and battle timing contract (issue #55 S00)
 
