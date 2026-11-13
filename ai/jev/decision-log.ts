@@ -26,6 +26,19 @@ export interface DecisionRecord {
   fallbackReason: string | null;
 }
 
+/** What a §6.8 event carries, apart from the decision it belongs to. */
+export type DecisionEvent = Pick<
+  DecisionRecord,
+  | 'requestId'
+  | 'model'
+  | 'questionId'
+  | 'choice'
+  | 'probabilities'
+  | 'confidence'
+  | 'sampled'
+  | 'fallbackReason'
+>;
+
 export type DecisionLog = (record: DecisionRecord) => void;
 
 /**

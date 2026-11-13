@@ -18,6 +18,7 @@ import { PINNED_JEV_MODEL } from './jev/client.ts';
 import { fileDecisionLog, type DecisionRecord } from './jev/decision-log.ts';
 import { createFakeJevClient } from './jev/fake.ts';
 import { SpendLedger, type UsageLine, type UsageRecorder } from './jev/spend.ts';
+import { usageReport } from './jev/usage-report.ts';
 
 // Offline only: a placeholder key, Hono's in-memory `app.request()` and no network.
 const KEY_ENV = 'TYPESAFE_API_KEY';
@@ -54,6 +55,32 @@ const decide = async (body: unknown, app: App = testApp()) =>
       body: typeof body === 'string' ? body : JSON.stringify(body),
     }),
   );
+
+/** The outcome a browser reports when it applies `body`, a decide response, as it came. */
+const outcomeFor = (request: DecisionRequest, body: Record<string, unknown>) => ({
+  gameId: request.gameId,
+  seatIndex: request.seatIndex,
+  turnKey: request.turnKey,
+  stateRevision: request.stateRevision,
+  decisionPoint: request.decisionPoint,
+  ...('choice' in body ? { choice: body.choice } : { sellUids: body.sellUids }),
+  source: body.source,
+  ...('fallbackReason' in body && { fallbackReason: body.fallbackReason }),
+});
+
+const report = (outcome: unknown, app: App) =>
+  app.request('/api/ai/outcome', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(outcome),
+  });
+
+/** Decides, then reports the outcome as the browser does when it applies the answer it got. */
+const decideApplied = async (request: DecisionRequest, app: App) => {
+  const response = await decide(request, app);
+  await report(outcomeFor(request, await response.clone().json()), app);
+  return response;
+};
 
 /** A request for the fixture's active seat, built only from its role-scoped observation. */
 const requestFor = (json: unknown): DecisionRequest => {
@@ -508,6 +535,55 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
     });
   });
 
+  test('an exhausted game stays exhausted after 10,000 other game IDs', async () => {
+    let tokens = 100;
+    const client = createFakeJevClient((request) => {
+      const result = pickSkip(request);
+      if (result.ok) result.usage.inputTokens = tokens;
+      return result;
+    });
+    const decider = createOrchestratorDecider({ client: () => client, usage: noSpend });
+    const ready = { jevEnabled: true, backupOnly: false, reason: null };
+    const game = (gameId: string, turnKey: string) => ({ ...strategy, gameId, turnKey });
+    // `requests`: three Jev requests on one turn. `tokens`: 800,000 input tokens, over the 600,000.
+    for (let call = 0; call < 3; call++) await decider(game('requests', 't1'), { status: ready });
+    tokens = 400_000;
+    await decider(game('tokens', 't1'), { status: ready });
+    await decider(game('tokens', 't2'), { status: ready });
+    tokens = 100;
+    for (let other = 0; other < 10_000; other++) {
+      await decider(game(`other-${other}`, 't1'), { status: ready });
+    }
+    expect(await decider(game('requests', 't1'), { status: ready })).toMatchObject({
+      source: 'fallback',
+      fallbackReason: 'request_limit',
+    });
+    expect(await decider(game('tokens', 't3'), { status: ready })).toMatchObject({
+      source: 'fallback',
+      fallbackReason: 'token_budget',
+    });
+  }, 30_000);
+
+  test('decision numbers and usage durations survive the orchestrator being evicted', async () => {
+    const lines: UsageLine[] = [];
+    const usage = () => new SpendLedger({ append: (line) => lines.push(line) });
+    const decider = createOrchestratorDecider({
+      client: () => createFakeJevClient(pickSkip),
+      usage,
+      maxGames: 1,
+    });
+    const ready = { jevEnabled: true, backupOnly: false, reason: null };
+    const game = (gameId: string) => ({ ...strategy, gameId });
+    await decider(game('a'), { status: ready });
+    await decider(game('b'), { status: ready }); // evicts a's orchestrator
+    await decider(game('a'), { status: ready });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const of = (gameId: string) => lines.filter((line) => line.gameId === gameId);
+    expect(of('a').map((line) => line.decision)).toEqual([0, 1]);
+    expect(of('b').map((line) => line.decision)).toEqual([0]);
+    expect(usageReport(of('a')).turnMs?.p50).toBe(of('a')[0]!.decisionMs + of('a')[1]!.decisionMs);
+  });
+
   test('the per-turnKey cap holds when turns interleave (A,A,A,A,B,A)', async () => {
     const fake = createFakeJevClient(pickSkip);
     const app = testApp({ jevClient: () => fake });
@@ -565,7 +641,7 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
       const records: DecisionRecord[] = [];
       const fake = createFakeJevClient(pickSkip);
       const app = testApp({ jevClient: () => fake, decisionLog: (line) => records.push(line) });
-      await decide(strategy, app);
+      await decideApplied(strategy, app);
       expect(records).toHaveLength(1);
       expect(Object.keys(records[0]!).sort()).toEqual(FIELDS);
       expect(records[0]).toMatchObject({
@@ -590,7 +666,7 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
         jevClient: () => createFakeJevClient(pickSkip),
         decisionLog: (line) => records.push(line),
       });
-      await decide({ ...strategy, difficulty: 'easy' }, app);
+      await decideApplied({ ...strategy, difficulty: 'easy' }, app);
       expect(records[0]!.sampled).toEqual(expect.any(Number));
       expect(records[0]!.sampled).toBeLessThan(2 ** 32);
     });
@@ -598,7 +674,7 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
     test('a fallback decision logs its reason, with and without the orchestrator', async () => {
       const records: DecisionRecord[] = [];
       const log = (line: DecisionRecord) => records.push(line);
-      await decide(
+      await decideApplied(
         strategy,
         testApp({
           jevClient: () => createFakeJevClient(pickSkip),
@@ -607,7 +683,7 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
         }),
       );
       vi.stubEnv('JEV_ENABLED', 'false');
-      await decide(encounter, testApp({ decisionLog: log }));
+      await decideApplied(encounter, testApp({ decisionLog: log }));
       expect(records.map((line) => [line.choice, line.fallbackReason, line.probabilities])).toEqual(
         [
           [policyChoice(strategy), 'budget_exceeded', null],
@@ -618,7 +694,7 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
 
     test('a Sell decision logs one event per question asked', async () => {
       const records: DecisionRecord[] = [];
-      await decide(sell, testApp({ decisionLog: (line) => records.push(line) }));
+      await decideApplied(sell, testApp({ decisionLog: (line) => records.push(line) }));
       expect(records).toHaveLength(1);
       expect(records[0]).toMatchObject({ questionId: 'sell', fallbackReason: 'missing_facts' });
     });
@@ -630,8 +706,8 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
         jevClient: () => createFakeJevClient(pickSkip),
         decisionLog: fileDecisionLog(path),
       });
-      await decide(strategy, app);
-      await decide({ ...strategy, turnKey: 'next' }, app);
+      await decideApplied(strategy, app);
+      await decideApplied({ ...strategy, turnKey: 'next' }, app);
       const lines = await vi.waitFor(() => {
         const written = readFileSync(path, 'utf8').trimEnd().split('\n');
         expect(written).toHaveLength(2);
@@ -651,10 +727,10 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
           jevClient: () => createFakeJevClient(pickSkip),
           decisionLog: fileDecisionLog(path),
         });
-        await decide(strategy, app);
+        await decideApplied(strategy, app);
         await vi.waitFor(() => expect(readFileSync(path, 'utf8')).not.toBe(''));
         rmSync(folder, { recursive: true });
-        await decide({ ...strategy, turnKey: 'next' }, app);
+        await decideApplied({ ...strategy, turnKey: 'next' }, app);
         const lines = await vi.waitFor(() => {
           const written = readFileSync(path, 'utf8').trimEnd().split('\n');
           expect(written).toHaveLength(1);
@@ -679,7 +755,7 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
         });
         const without = testApp({ jevClient: () => createFakeJevClient(pickSkip) });
         const body = async (app: App, request: DecisionRequest) => {
-          const response = await decide(request, app);
+          const response = await decideApplied(request, app);
           expect(response.status).toBe(200);
           const { choice, source, fallbackReason } = await response.json();
           return { choice, source, fallbackReason };
@@ -705,8 +781,10 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
             throw new Error(`disk full ${PLACEHOLDER_KEY}`);
           },
         });
-        expect(await (await decide(strategy, app)).json()).toMatchObject({ source: 'jev' });
-        expect(await (await decide({ ...strategy, turnKey: 'next' }, app)).json()).toMatchObject({
+        expect(await (await decideApplied(strategy, app)).json()).toMatchObject({ source: 'jev' });
+        expect(
+          await (await decideApplied({ ...strategy, turnKey: 'next' }, app)).json(),
+        ).toMatchObject({
           source: 'jev',
         });
         expect(warn).toHaveBeenCalledTimes(1);
@@ -714,6 +792,111 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
       } finally {
         warn.mockRestore();
       }
+    });
+  });
+
+  describe('the applied outcome (spec §6.8)', () => {
+    const pickFirst = (request: JevRequest) => confident(request);
+    const timedOut = (request: DecisionRequest) => ({
+      ...outcomeFor(request, { choice: policyChoice(request) }),
+      source: 'fallback',
+      fallbackReason: 'timeout',
+    });
+
+    test('a delayed response: the browser used its fallback with timeout, so the log shows that', async () => {
+      const records: DecisionRecord[] = [];
+      const slow = createFakeJevClient(async (request) => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        return pickFirst(request);
+      });
+      const app = testApp({ jevClient: () => slow, decisionLog: (line) => records.push(line) });
+      // The browser's deadline passes while Jev is still answering: it applies its fallback.
+      const pending = decide(strategy, app);
+      expect((await report(timedOut(strategy), app)).status).toBe(204);
+      const late = await (await pending).json();
+      expect(late).toMatchObject({ choice: 'use-item:item-0', source: 'jev' });
+      expect(records).toHaveLength(1);
+      expect(records[0]).toMatchObject({
+        choice: 'skip',
+        fallbackReason: 'timeout',
+        requestId: null,
+        model: null,
+        probabilities: null,
+        questionId: 'strategy',
+      });
+      expect(records.map((line) => line.choice)).not.toContain('use-item:item-0');
+    });
+
+    test('the same when the browser reports after the late answer was produced', async () => {
+      const records: DecisionRecord[] = [];
+      const app = testApp({
+        jevClient: () => createFakeJevClient(pickFirst),
+        decisionLog: (line) => records.push(line),
+      });
+      await decide(strategy, app);
+      expect(records).toHaveLength(0); // proposed, not yet applied
+      await report(timedOut(strategy), app);
+      expect(records.map((line) => [line.choice, line.fallbackReason])).toEqual([
+        ['skip', 'timeout'],
+      ]);
+    });
+
+    test('a speculative fallback is not a decision, and a decision never reported logs nothing', async () => {
+      const records: DecisionRecord[] = [];
+      const app = testApp({
+        jevClient: () => createFakeJevClient(pickFirst),
+        decisionLog: (line) => records.push(line),
+      });
+      const response = await app.request('/api/ai/fallback', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(strategy),
+      });
+      expect(response.status).toBe(200);
+      await decide({ ...strategy, turnKey: 'unreported' }, app);
+      expect(records).toHaveLength(0);
+    });
+
+    test('the answer applied as proposed keeps the server’s events, and one report logs once', async () => {
+      const records: DecisionRecord[] = [];
+      const app = testApp({
+        jevClient: () => createFakeJevClient(pickFirst),
+        decisionLog: (line) => records.push(line),
+      });
+      const response = await decide(strategy, app);
+      const outcome = outcomeFor(strategy, await response.json());
+      await report(outcome, app);
+      await report(outcome, app);
+      expect(records).toHaveLength(1);
+      expect(records[0]).toMatchObject({
+        choice: 'use-item:item-0',
+        requestId: 'req_fake_1',
+        confidence: 1,
+        fallbackReason: null,
+      });
+    });
+
+    test('a report that is not an outcome is a 400, and carries only IDs', async () => {
+      const app = testApp({ decisionLog: () => {} });
+      const good = timedOut(strategy);
+      for (const bad of [
+        { ...good, extra: 'state' },
+        { ...good, fallbackReason: undefined },
+        { ...good, source: 'jev' },
+        { ...good, choice: undefined },
+        { ...good, decisionPoint: 'shop' },
+      ]) {
+        expect((await report(bad, app)).status).toBe(400);
+      }
+      expect(
+        (
+          await app.request('/api/ai/outcome', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: '{',
+          })
+        ).status,
+      ).toBe(400);
     });
   });
 

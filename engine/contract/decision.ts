@@ -114,6 +114,29 @@ export const decisionResponseSchema = z
     },
   );
 
+/**
+ * `POST /api/ai/outcome` (spec §6.8): what the browser actually applied for one decision, which is
+ * the server's answer only when that arrived in time. IDs only; it names the decision by the
+ * request's own identifiers and carries the answer and the reason the browser used.
+ */
+const outcomeBase = {
+  gameId: id,
+  seatIndex: count,
+  turnKey: id,
+  stateRevision: count,
+  decisionPoint: decisionPointSchema,
+  source: z.enum(['jev', 'fallback']),
+  fallbackReason: decisionFallbackReasonSchema.optional(),
+};
+export const decisionOutcomeSchema = z
+  .union([
+    z.strictObject({ choice: id, ...outcomeBase }),
+    z.strictObject({ sellUids: z.array(id), ...outcomeBase }),
+  ])
+  .refine((outcome) => (outcome.source === 'fallback') === (outcome.fallbackReason !== undefined), {
+    message: 'A fallback names its reason; a Jev answer has none',
+  });
+
 /** `GET /api/ai/status`, for the "Backup bot mode" badge (spec §9 kill switch and spend cap). */
 export const aiStatusSchema = z.strictObject({
   jevEnabled: z.boolean(),
@@ -127,4 +150,5 @@ export type DecisionFacts = z.infer<typeof decisionFactsSchema>;
 export type DecisionRequest = z.infer<typeof decisionRequestSchema>;
 export type DecisionFallbackReason = z.infer<typeof decisionFallbackReasonSchema>;
 export type DecisionResponse = z.infer<typeof decisionResponseSchema>;
+export type DecisionOutcome = z.infer<typeof decisionOutcomeSchema>;
 export type AiStatus = z.infer<typeof aiStatusSchema>;

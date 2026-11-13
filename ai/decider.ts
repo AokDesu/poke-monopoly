@@ -6,7 +6,7 @@ import type {
 import { createPolicyRng, type PolicyChoice, type PolicyFacts } from '../sim/policy.ts';
 import { FallbackPolicy, PERSONALITIES } from './fallback/index.ts';
 import { createSdkJevClient, jevEnabled, type JevClient } from './jev/client.ts';
-import type { DecisionLog, DecisionRecord } from './jev/decision-log.ts';
+import type { DecisionEvent } from './jev/decision-log.ts';
 import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
 import {
   GameQuota,
@@ -18,9 +18,11 @@ import {
 /** What a decider picks: an action ID, or the Pokémon to sell at the Sell Phase. */
 export type DeciderPick = { choice: string } | { sellUids: string[] };
 
-export type DeciderAnswer = DeciderPick & { lineId?: string } & (
-    { source: 'jev' } | { source: 'fallback'; fallbackReason: DecisionFallbackReason }
-  );
+export type DeciderAnswer = DeciderPick & {
+  lineId?: string;
+  /** The §6.8 events of this answer, for the app to journal; they never leave the server. */
+  events?: readonly DecisionEvent[];
+} & ({ source: 'jev' } | { source: 'fallback'; fallbackReason: DecisionFallbackReason });
 
 export interface DeciderContext {
   status: AiStatus;
@@ -82,12 +84,6 @@ export const isOption = (request: DecisionRequest, pick: DeciderPick): boolean =
 /** How many games keep an orchestrator at once; an idle one is dropped and made again on demand. */
 export const MAX_CACHED_GAMES = 64;
 
-/**
- * How many games keep their quota (token budget and requests per turn). Much larger than the
- * orchestrator cache and separate from it: dropping an orchestrator never resets a game's limits.
- */
-export const MAX_TRACKED_GAMES = 10_000;
-
 export interface OrchestratorDeciderOptions {
   /** The Jev client, made on first use and only when Jev is enabled with a key; defaults to the SDK. */
   client?: () => JevClient;
@@ -96,9 +92,6 @@ export interface OrchestratorDeciderOptions {
   /** The decision deadline; defaults to 1,500 ms (spec §5.6). */
   decisionMs?: number;
   maxGames?: number;
-  maxTrackedGames?: number;
-  /** Receives each decision's §6.8 events; none by default. A failing log never fails a decision. */
-  log?: DecisionLog;
 }
 
 /** The engine numbers the wire carries: catch odds for the Encounter question and the policy. */
@@ -166,21 +159,8 @@ const fromDecision = (request: DecisionRequest, decision: OrchestratorDecision):
         fallbackReason: decision.fallbackReason ?? 'auto',
       });
 
-/** What a §6.8 event carries, apart from the decision it belongs to; `JevDecisionEvent` fits it. */
-type EventFields = Pick<
-  DecisionRecord,
-  | 'requestId'
-  | 'model'
-  | 'questionId'
-  | 'choice'
-  | 'probabilities'
-  | 'confidence'
-  | 'sampled'
-  | 'fallbackReason'
->;
-
 /** An event for a decision the fallback policy made without the orchestrator (spec §6.8). */
-const policyEvent = (request: DecisionRequest, answer: DeciderAnswer): EventFields => ({
+const policyEvent = (request: DecisionRequest, answer: DeciderAnswer): DecisionEvent => ({
   requestId: null,
   model: null,
   questionId: request.decisionPoint,
@@ -205,28 +185,26 @@ const touch = <V>(cache: Map<string, V>, key: string, make: () => V, max: number
 };
 
 /**
- * Spec §5.2, §5.6, §9: one `Orchestrator` per game, from a bounded cache, over a game's quota that
- * outlives it, so the per-turn request limit and the per-game token budget hold across requests
- * and across evictions. The real client is made only when Jev is enabled with a key and the spend
+ * Spec §5.2, §5.6, §9: one `Orchestrator` per game, from a bounded cache, over a game's `GameQuota`
+ * that is never evicted (a few counters per game, kept while the server runs), so the per-turn
+ * request limit, the per-game token budget and the decision numbers hold across requests and
+ * across evictions. The real client is made only when Jev is enabled with a key and the spend
  * guard is not tripped; otherwise, and when the client cannot be made, the fallback policy decides.
- * Each decision's events go to `log` (spec §6.8).
+ * Each answer carries its §6.8 `events` for the app's `DecisionJournal`.
  */
 export const createOrchestratorDecider = ({
   client = createSdkJevClient,
   usage = defaultUsageLedger,
   decisionMs,
   maxGames = MAX_CACHED_GAMES,
-  maxTrackedGames = MAX_TRACKED_GAMES,
-  log,
 }: OrchestratorDeciderOptions = {}): Decider => {
   const games = new Map<string, Orchestrator>();
   const quotas = new Map<string, GameQuota>();
   let jev: JevClient | undefined;
-  let logWarned = false;
 
   const orchestratorFor = (gameId: string): Orchestrator => {
-    // The quota first, so it is kept even when this game's orchestrator is dropped later.
-    const quota = touch(quotas, gameId, () => new GameQuota(), maxTrackedGames);
+    let quota = quotas.get(gameId);
+    if (!quota) quotas.set(gameId, (quota = new GameQuota()));
     return touch(
       games,
       gameId,
@@ -245,41 +223,9 @@ export const createOrchestratorDecider = ({
     );
   };
 
-  const record = (request: DecisionRequest, events: readonly EventFields[]) => {
-    if (!log) return;
-    const time = new Date().toISOString();
-    for (const event of events) {
-      // An explicit list, so nothing else an event or request carries can reach the log.
-      const line: DecisionRecord = {
-        time,
-        gameId: request.gameId,
-        seatIndex: request.seatIndex,
-        turnKey: request.turnKey,
-        stateRevision: request.stateRevision,
-        decisionPoint: request.decisionPoint,
-        requestId: event.requestId,
-        model: event.model,
-        questionId: event.questionId,
-        choice: event.choice,
-        probabilities: event.probabilities,
-        confidence: event.confidence,
-        sampled: event.sampled,
-        fallbackReason: event.fallbackReason,
-      };
-      try {
-        log(line);
-      } catch {
-        // Never the error itself: it could carry a path or request material.
-        if (!logWarned) console.warn('Could not write the Jev decision log.');
-        logWarned = true;
-      }
-    }
-  };
-
   const policy = (request: DecisionRequest, reason: DecisionFallbackReason): DeciderAnswer => {
     const answer = policyAnswer(request, reason);
-    record(request, [policyEvent(request, answer)]);
-    return answer;
+    return { ...answer, events: [policyEvent(request, answer)] };
   };
 
   return async (request, { status }) => {
@@ -301,7 +247,6 @@ export const createOrchestratorDecider = ({
       personality: personalityFor(request.personalityId),
       rng: rngFor(request),
     });
-    record(request, decision.events);
-    return fromDecision(request, decision);
+    return { ...fromDecision(request, decision), events: decision.events };
   };
 };
