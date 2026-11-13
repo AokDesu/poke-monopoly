@@ -6,6 +6,7 @@ import { engineContent } from '../game/content.ts';
 import { configForSetup, createGameStore } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { BoardScreen } from './BoardScreen.tsx';
+import { STEP_MS } from './useTurnPlayback.ts';
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () {
@@ -64,7 +65,7 @@ function start(seed = 1) {
 }
 const tick = () =>
   act(async () => {
-    await vi.advanceTimersByTimeAsync(1600);
+    await vi.advanceTimersByTimeAsync(STEP_MS.normal);
   });
 function clickDecision() {
   const area =
@@ -163,12 +164,15 @@ test('Start opens Sell before the destination resolves, then continues through t
     kind: 'sell',
     payload: { pokemonInstanceIds: [] },
   });
+  const soldAt = store.getSession()!.log.actions.length;
   await tick();
+  // The human's own steps run on a short pause (not the AI pace), so the resolve and
+  // end-handoff may both commit within one tick; the destination still resolves.
   expect(
     store
       .getSession()!
-      .log.actions.at(-1)!
-      .events.some((event) => event.kind === 'space_resolved'),
+      .log.actions.slice(soldAt)
+      .some((record) => record.events.some((event) => event.kind === 'space_resolved')),
   ).toBe(true);
 }, 30000);
 

@@ -229,6 +229,61 @@
   left: 5px;
   box-shadow: inset 0 2px 0 #ffffff66;
 }
+/* Issue #123: during an opponent turn the acting rival's square and pawn carry the
+   spotlight, in the rival's seat colour, so the board names the same action as the
+   strip underneath it. Steady ring + one soft pulse, off for reduced motion. */
+.loop-square[data-focus='ai'] {
+  --seat-color: #c92d20;
+  outline: 3px solid var(--seat-color);
+  outline-offset: 2px;
+}
+.loop-square[data-focus='ai'][data-focus-seat='1'] {
+  --seat-color: #205db8;
+}
+.loop-square[data-focus='ai'][data-focus-seat='2'] {
+  --seat-color: #68439f;
+}
+.loop-square[data-focus='ai'][data-focus-seat='3'] {
+  --seat-color: #246b36;
+}
+.loop-square[data-focus='ai']::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 14px;
+  border: 3px solid color-mix(in srgb, var(--seat-color), transparent 30%);
+  animation: ai-square-pulse 1.6s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes ai-square-pulse {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.96);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+}
+.trainer-pawn[data-focus='ai'] {
+  animation: ai-pawn-bob 1.6s ease-in-out infinite;
+}
+@keyframes ai-pawn-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loop-square[data-focus='ai']::after,
+  .trainer-pawn[data-focus='ai'] {
+    animation: none;
+  }
+}
 .board-infield {
   position: absolute;
   inset: 16% 16% 15.5%;
@@ -350,11 +405,13 @@
   gap: 0.6rem;
 }
 .team-member {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-line);
+}
+.team-member-overview {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--color-line);
 }
 .team-member-detail {
   flex: 1;

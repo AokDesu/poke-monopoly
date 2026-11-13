@@ -17,6 +17,7 @@ import { t } from '../i18n/en.ts';
 import { engineContent } from './content.ts';
 import { META_KEY, SAVE_KEY, saveText, type SaveStorage } from './save.ts';
 import { configForSetup, createGameStore, type Command, type GameStore } from './store.ts';
+import { STEP_MS } from '../board/useTurnPlayback.ts';
 
 afterEach(() => {
   cleanup();
@@ -200,7 +201,7 @@ test('Continue restores five saved points, including an AI decision, without a n
         return new Promise(() => {});
       });
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(1600);
+        await vi.advanceTimersByTimeAsync(STEP_MS.normal);
       });
       expect(body.decisionPoint).toBe('encounter');
       expect(body.stateRevision).toBe(saved.state.stateRevision);

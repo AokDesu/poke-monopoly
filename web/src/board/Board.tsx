@@ -20,6 +20,8 @@ export interface BoardProps {
   feed?: readonly SeatFeedEntry[];
   /** Live turn controls; omitted by the read-only fixture Board. */
   controls?: ReactNode;
+  /** Current opponent action strip, rendered under the board loop (issue #123). */
+  focus?: ReactNode;
 }
 
 // Presentation coordinates only. Game positions are already positionOf(routeProgress) in observe().
@@ -33,10 +35,18 @@ function squareLayout(position: number) {
   return { row: position - 17, column: 7, direction: 'down' };
 }
 
-export function Board({ observation, events = [], feed, controls }: BoardProps) {
+export function Board({ observation, events = [], feed, controls, focus }: BoardProps) {
   const { public: game, own } = observation;
   const you = game.players.find((player) => player.seatIndex === own.seatIndex)!;
   const activeName = seatLabel(game.activeSeatIndex, own.seatIndex);
+  // During an opponent's turn the board spotlight follows the acting rival, so the
+  // square and the action text under it always name the same move (issue #123).
+  const opponentTurn = game.phase.kind !== 'finished' && game.activeSeatIndex !== own.seatIndex;
+  const focusSeat = opponentTurn ? game.activeSeatIndex : undefined;
+  const focusPosition =
+    focusSeat === undefined
+      ? undefined
+      : game.players.find((player) => player.seatIndex === focusSeat)?.position;
   return (
     <div className="game-board-screen">
       <Screen heading={t('play.heading')}>
@@ -74,11 +84,14 @@ export function Board({ observation, events = [], feed, controls }: BoardProps) 
               <ol className="board-loop" aria-label={t('board.loop')}>
                 {game.board.map((space) => {
                   const layout = squareLayout(space.position);
+                  const focused = focusPosition === space.position;
                   return (
                     <li
                       className={`loop-square square-${space.kind}`}
                       key={space.position}
                       data-position={space.position}
+                      data-focus={focused ? 'ai' : undefined}
+                      data-focus-seat={focused && focusSeat !== undefined ? focusSeat : undefined}
                       aria-label={t('board.squareLabel', {
                         position: space.position,
                         kind: t(`board.kind.${space.kind}`),
@@ -98,6 +111,9 @@ export function Board({ observation, events = [], feed, controls }: BoardProps) 
                             <span
                               className="trainer-pawn"
                               data-seat={player.seatIndex}
+                              data-focus={
+                                opponentTurn && player.seatIndex === focusSeat ? 'ai' : undefined
+                              }
                               key={player.seatIndex}
                               data-testid={`token-${player.seatIndex}`}
                               aria-label={t('board.tokenLabel', {
@@ -142,6 +158,7 @@ export function Board({ observation, events = [], feed, controls }: BoardProps) 
                 </div>
               </div>
             </div>
+            {focus}
             <EventLog events={events} feed={feed} observation={observation} />
           </div>
           <aside className="trainer-panels" aria-label={t('board.team')}>

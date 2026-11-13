@@ -60,6 +60,9 @@
   gap: 0.6rem;
   margin-top: 0.9rem;
 }
+.item-targets .btn {
+  overflow-wrap: anywhere;
+}
 .item-targets h3,
 .item-preview h3 {
   font-size: 1rem;
@@ -110,6 +113,8 @@
 }
 .sale-detail {
   display: grid;
+  flex: 1;
+  min-width: 0;
   gap: 0.1rem;
   font-size: 0.9rem;
 }
