@@ -16,10 +16,9 @@ export const CHAT_HISTORY_PER_PAIR = 3;
  * Whether the active human may start a conversation now (§4.2): the flag is on, it is the Social
  * window, and this turn's one social interaction is unspent. AI seats never start conversations.
  */
-export function socialOpen(state: GameState, seatIndex: number): boolean {
+function socialOpen(state: GameState, seatIndex: number): boolean {
   if (state.config.socialWindow !== true) return false;
   if (state.config.engineVersion !== ENGINE_VERSION) return false;
-  if (state.pendingResponse) return false;
   if (state.phase.kind !== 'social' || state.activeSeatIndex !== seatIndex) return false;
   if ((state.turnBudgets.socialInteraction ?? 0) <= 0) return false;
   return state.config.seats.find((seat) => seat.seatIndex === seatIndex)?.controller === 'human';

@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest';
 import { fc } from '@fast-check/vitest';
 import {
-  actingSeatIndex,
   actionVisibleTo,
   advanceAutomatically,
   applyAction,
@@ -305,14 +304,12 @@ test('a chat changes nothing beyond its history and the social budget (§4.8 har
         // Coins, teams, items, Balls, RNG, phase and every other field: identical.
         expect(strip(after)).toEqual(strip(before));
         expect(after.rng).toEqual(before.rng);
-        // The legal set shrinks only by the social budget: the social choices go, nothing else moves.
+        // The legal set shrinks only by the social budget: chat choices go, nothing else moves.
         for (const seat of before.players.map((player) => player.seatIndex)) {
           const without = (state: GameState) => {
             const set = legalActions(state, seat);
             return {
-              enabled: set.enabled.filter(
-                (choice) => choice.kind !== 'chat' && choice.kind !== 'offer_promise',
-              ),
+              enabled: set.enabled.filter((choice) => choice.kind !== 'chat'),
               disabled: set.disabled,
             };
           };
@@ -343,9 +340,7 @@ function playRandomly(seed: number, picks: number[]): { state: GameState; chats:
   let wasSocial = false;
   for (let step = 0; step < 4000 && state.phase.kind !== 'finished'; step++) {
     const auto = advanceAutomatically(state);
-    // The responder acts while a promise question is pending (§4.2, responding-seat seam).
-    const acting = actingSeatIndex(state);
-    const choices = legalActions(state, acting).enabled;
+    const choices = legalActions(state, state.activeSeatIndex).enabled;
     const inSocial = state.phase.kind === 'social';
     const human = state.config.seats[state.activeSeatIndex]!.controller === 'human';
     // Entering a human's Social window always reopens the one interaction (reset at Start).
@@ -361,7 +356,7 @@ function playRandomly(seed: number, picks: number[]): { state: GameState; chats:
     const choice = choices[picks[step % picks.length]! % choices.length]!;
     const before = state;
     const action = {
-      actorId: state.players[acting]!.actorId,
+      actorId: state.players[state.activeSeatIndex]!.actorId,
       actionSeq: state.stateRevision + 1,
       stateRevisionBefore: state.stateRevision,
       kind: choice.kind,

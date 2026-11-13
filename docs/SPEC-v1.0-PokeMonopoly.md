@@ -345,7 +345,6 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 | `closed_by_game_end` | Excluded from the kept/broken ratio |
 
 - **Privacy:** whether an attack was possible is private information. The promise button does not depend on holding a hostile item, so it does not leak cards.
-- **Engine interaction (#56 S03):** with `socialWindow` on, the active human may offer a promise to one AI in Social, in either direction: "I won't attack you" (the AI accepts or rejects) or "promise not to attack me" (the AI agrees or refuses). While the question is pending only the responding seat may act (the engine's responding-seat seam). Either answer spends the turn's one social interaction and never the tactical action. Accepting records the promise with `closesOwnTurnNo = promiser.ownTurnNo + 1`; rejecting records nothing. One promise per directed pair is active at a time, including on its closing turn (no renewal), and none is offered if it would close after the Final Table Round. Only the two parties can see the promise or the question. Settlement, trust and memory follow in a later slice.
 - **Memory UI:** shows evidence from real events, e.g. "Broke a promise on turn 5".
 
 ## 5. AI opponents with Jev (Harness)

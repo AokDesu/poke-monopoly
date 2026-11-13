@@ -14,8 +14,6 @@ import { itemChoices, useItem } from '../items.ts';
 import { ENGINE_VERSION } from '../versions.ts';
 import { recordSale, validSale } from '../selling.ts';
 import { chatChoices, chatsOf, recordChat, validChat } from '../social.ts';
-import { answerPromise, offerPromise, promiseOfferChoices, promisesOf } from '../promises.ts';
-import { actingSeatIndex, responseChoices } from '../responses.ts';
 import type {
   GameState,
   Observation,
@@ -60,16 +58,7 @@ export function observe(state: GameState, seatIndex: number): Observation {
       balls: ownPlayer.balls,
       privateResults: ownPlayer.privateResults,
       // Only conversations this seat is part of; the key exists only when the Social window is on.
-      ...(state.config.socialWindow === true && {
-        chats: chatsOf(state, seatIndex),
-        promises: promisesOf(state, seatIndex),
-      }),
-      // A question is its two parties' alone (§4.8): a third seat never learns one was asked.
-      ...(state.pendingResponse &&
-        (state.pendingResponse.initiatorSeatIndex === seatIndex ||
-          state.pendingResponse.responderSeatIndex === seatIndex) && {
-          pendingResponse: state.pendingResponse,
-        }),
+      ...(state.config.socialWindow === true && { chats: chatsOf(state, seatIndex) }),
     },
   });
 }
@@ -79,8 +68,7 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   const player = state.players.find((candidate) => candidate.seatIndex === seatIndex);
   if (!player) throw new RangeError('Unknown seat index');
   const result: LegalActions = { enabled: [], disabled: [] };
-  // While a response is pending its responder acts and the active seat waits (responding-seat seam).
-  if (seatIndex !== actingSeatIndex(state)) {
+  if (seatIndex !== state.activeSeatIndex) {
     result.disabled.push({
       id: 'skip',
       kind: 'skip',
@@ -88,10 +76,6 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
       reasonCode: 'NOT_YOUR_TURN',
       reasonText: 'Not your turn',
     });
-    return result;
-  }
-  if (state.pendingResponse) {
-    responseChoices(state.pendingResponse, seatIndex, result);
     return result;
   }
   if (state.phase.kind === 'first_player_roll' && !state.phase.awaitingResult) {
@@ -118,10 +102,7 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   ) {
     result.enabled.push({ id: 'skip', kind: 'skip', payload: {} });
   }
-  if (state.phase.kind === 'social') {
-    chatChoices(state, seatIndex, result);
-    promiseOfferChoices(state, seatIndex, result);
-  }
+  if (state.phase.kind === 'social') chatChoices(state, seatIndex, result);
   if (state.phase.kind === 'encounter' && !state.phase.catchRoll) {
     for (const ballType of ['poke', 'great', 'ultra'] as const) {
       const action: LegalAction = { id: `catch:${ballType}`, kind: 'catch', payload: { ballType } };
@@ -271,8 +252,7 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
     next.eventDeck.discardPile.push(action.payload.eventId);
     return { accepted: true, state: next, events: [], record: { action, events: [] } };
   }
-  const acting = actingSeatIndex(state);
-  const actor = state.config.seats.find((seat) => seat.seatIndex === acting);
+  const actor = state.config.seats.find((seat) => seat.seatIndex === state.activeSeatIndex);
   if (!actor || action.actorId !== actor.actorId) {
     return { rejected: true, reason: 'wrong_actor', state };
   }
@@ -288,10 +268,10 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       : undefined;
   if (
     !(action.kind === 'chat'
-      ? validChat(state, acting, action.payload)
+      ? validChat(state, state.activeSeatIndex, action.payload)
       : saleIds !== undefined
         ? validSale(state, saleIds)
-        : legalActions(state, acting).enabled.some(
+        : legalActions(state, state.activeSeatIndex).enabled.some(
             (choice) =>
               choice.kind === action.kind &&
               JSON.stringify(choice.payload) === JSON.stringify(action.payload),
@@ -307,21 +287,17 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
   const events =
     action.kind === 'chat'
       ? recordChat(next, action.payload)
-      : action.kind === 'offer_promise'
-        ? offerPromise(next, action.payload)
-        : action.kind === 'respond'
-          ? answerPromise(next, action.payload.answer)
-          : saleIds !== undefined
-            ? recordSale(next, saleIds)
-            : next.config.engineVersion !== ENGINE_VERSION
-              ? recordTurnCommand(next, action.kind)
-              : next.phase.kind === 'encounter'
-                ? confirmCatch(next, action)
-                : next.phase.kind === 'shop'
-                  ? confirmShop(next, action)
-                  : action.kind === 'use_item'
-                    ? useItem(next, action)
-                    : recordTurnCommand(next, action.kind);
+      : saleIds !== undefined
+        ? recordSale(next, saleIds)
+        : next.config.engineVersion !== ENGINE_VERSION
+          ? recordTurnCommand(next, action.kind)
+          : next.phase.kind === 'encounter'
+            ? confirmCatch(next, action)
+            : next.phase.kind === 'shop'
+              ? confirmShop(next, action)
+              : action.kind === 'use_item'
+                ? useItem(next, action)
+                : recordTurnCommand(next, action.kind);
   return {
     accepted: true,
     state: next,

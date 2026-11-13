@@ -1,7 +1,6 @@
 import fc from 'fast-check';
 import { expect, test } from 'vitest';
 import {
-  actingSeatIndex,
   actionSchema,
   INVARIANTS,
   stateHash,
@@ -69,10 +68,8 @@ function probeStaleAndForeign(engine: SimEngine, state: GameState, action: Actio
     probe('the last accepted command sent again', log.actions.at(-1)!.action);
   }
   probe('an unknown actor', { ...action, actorId: 'intruder' });
-  // While a question is pending only its responder may act; the active seat is then foreign too.
-  const acting = actingSeatIndex(state);
   for (const seat of state.config.seats) {
-    if (seat.seatIndex === acting) continue;
+    if (seat.seatIndex === state.activeSeatIndex) continue;
     probe(`${seat.actorId} out of turn`, { ...action, actorId: seat.actorId });
     const own = engine.legalActions(state, seat.seatIndex);
     for (const choice of [...own.enabled, ...own.disabled]) {
@@ -93,8 +90,8 @@ function probeStaleAndForeign(engine: SimEngine, state: GameState, action: Actio
  * an invariant, stale or foreign commands never change the state, and the game finishes within
  * the sim step limit. `playGame` asserts every generated action is an enabled legal action.
  */
-function legalGamesHold(engine: SimEngine, options: { social?: boolean } = {}) {
-  return fc.property(gamePlan(engine.classIds, options), (plan) => {
+function legalGamesHold(engine: SimEngine) {
+  return fc.property(gamePlan(engine.classIds), (plan) => {
     playGame(engine, plan, {
       beforeDecision: (state, action, log) => probeStaleAndForeign(engine, state, action, log),
       afterStep: (step) => checkInvariants(engine, step),
@@ -108,12 +105,6 @@ function legalGamesHold(engine: SimEngine, options: { social?: boolean } = {}) {
 test(
   '200 random legal games break no invariant, ignore stale or foreign commands and finish (§6.3, §8)',
   () => fc.assert(legalGamesHold(realEngine), PROPERTY_RUNS),
-  PROPERTY_TIMEOUT_MS,
-);
-
-test(
-  'the same holds with the Social window open: promises and the responding seat break nothing (§4.8)',
-  () => fc.assert(legalGamesHold(realEngine, { social: true }), PROPERTY_RUNS),
   PROPERTY_TIMEOUT_MS,
 );
 

@@ -21,9 +21,6 @@ function eventMessage(
       return [];
     // Chat has its own screen (#57); the flag keeping the Social window closed is off until then.
     case 'chat_sent':
-    case 'promise_offered':
-    case 'promise_accepted':
-    case 'promise_rejected':
       return [];
     case 'random_result':
       if (event.purpose.startsWith('line:')) return [];

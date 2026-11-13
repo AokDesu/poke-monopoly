@@ -9,7 +9,6 @@ import {
 } from './contract/schema.ts';
 import { canonicalJson, stateHash } from './state-hash.ts';
 import { pendingRollPurpose } from './turns.ts';
-import { actingSeatIndex } from './responses.ts';
 
 /** Spec §8 engine invariants, plus the §6.5 Lap credit rules that issue #14 names. */
 export type InvariantId =
@@ -352,15 +351,13 @@ function checkReplay({ before, parsed, result, apply }: Step): string[] {
 function checkGameCanFinish({ result }: Step): string[] {
   const { state } = result;
   if (state.phase.kind === 'finished') return [];
-  // The acting seat is the active seat, or the responder while a question is pending.
-  const acting = actingSeatIndex(state);
   const seated =
-    state.config.seats.some((seat) => seat.seatIndex === acting) &&
-    state.players.some((player) => player.seatIndex === acting);
-  if (!seated) return [`acting seat ${acting} is not a configured player`];
+    state.config.seats.some((seat) => seat.seatIndex === state.activeSeatIndex) &&
+    state.players.some((player) => player.seatIndex === state.activeSeatIndex);
+  if (!seated) return [`active seat ${state.activeSeatIndex} is not a configured player`];
   if (pendingRollPurpose(state)) return [];
-  if (legalActions(state, acting).enabled.length === 0) {
-    return [`seat ${acting} has no enabled choice in phase ${state.phase.kind}`];
+  if (legalActions(state, state.activeSeatIndex).enabled.length === 0) {
+    return [`seat ${state.activeSeatIndex} has no enabled choice in phase ${state.phase.kind}`];
   }
   return [];
 }
