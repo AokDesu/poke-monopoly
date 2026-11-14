@@ -9,7 +9,9 @@ export function pendingDecision(state: GameState): { seatIndex: number; actorId:
   let seatIndex = state.activeSeatIndex;
   if (state.phase.kind === 'pvp') {
     const battle = state.phase.battle;
-    if (battle.step === 'response') seatIndex = battle.defenderSeatIndex;
+    if (battle.step === 'response' || battle.step === 'defender_window') {
+      seatIndex = battle.defenderSeatIndex;
+    } else if (battle.step === 'attacker_window') seatIndex = battle.attackerSeatIndex;
     else if (battle.step === 'reward') {
       const winner = state.players.find((player) => player.actorId === battle.request.winnerId);
       if (!winner) return null;

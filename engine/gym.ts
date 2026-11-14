@@ -1,6 +1,8 @@
 import type { Action, EngineEvent, GameState, LegalActions } from './contract/schema.ts';
 import { gymSnapshotSchema } from './contract/combat.ts';
 import { gymSnapshot, resolveGym } from './combat.ts';
+import { abilityChoices } from './abilities.ts';
+import { sideModifiers } from './pvp.ts';
 import { applyCoinLossProtection } from './protection.ts';
 import { pendingRewardChoices, resolveReward } from './rewards.ts';
 import { battleReadyMembers } from './status.ts';
@@ -33,9 +35,31 @@ export function pendingGymChoices(state: GameState, result: LegalActions): void 
       });
     }
     result.enabled.push({ id: 'skip', kind: 'skip', payload: {} });
+  } else if (battle.step === 'window') {
+    result.enabled.push({ id: 'pass-window', kind: 'skip', payload: {} });
   } else if (battle.step === 'reward') {
     pendingRewardChoices(state, battle.request, result);
   }
+}
+
+/** D5 step 3: freeze the snapshot after the window closes. */
+export function confirmGym(next: GameState): EngineEvent[] {
+  if (next.phase.kind !== 'gym') return [];
+  const battle = next.phase.battle;
+  if (battle.step !== 'entry' && battle.step !== 'window') return [];
+  const snapshot = gymSnapshot(
+    next,
+    next.activeSeatIndex,
+    battle.position,
+    sideModifiers(next, next.activeSeatIndex, battle.modifiers),
+  );
+  next.phase.battle = { ...battle, step: 'roll', snapshot };
+  return [{ kind: 'gym_confirmed', battleId: battle.battleId, snapshot }];
+}
+
+/** Close the Gym window after the challenger activated an Ability. */
+export function closeGymWindow(next: GameState): EngineEvent[] {
+  return next.phase.kind === 'gym' && next.phase.battle.step === 'window' ? confirmGym(next) : [];
 }
 
 function leaveGym(next: GameState): EngineEvent {
@@ -51,10 +75,14 @@ export function recordGymCommand(next: GameState, action: Action): EngineEvent[]
     // Skipping costs nothing; a challenge spends no tactical action (D5).
     if (action.kind === 'skip') return [leaveGym(next)];
     if (action.kind !== 'challenge_gym') return [];
-    const snapshot = gymSnapshot(next, next.activeSeatIndex, battle.position);
-    next.phase.battle = { ...battle, step: 'roll', snapshot };
-    return [{ kind: 'gym_confirmed', battleId: battle.battleId, snapshot }];
+    // D5 step 2: the challenger's B window opens only with an eligible ready Ability.
+    if (abilityChoices(next, next.activeSeatIndex, 'gym').length) {
+      next.phase.battle = { ...battle, step: 'window' };
+      return [];
+    }
+    return confirmGym(next);
   }
+  if (battle.step === 'window' && action.kind === 'skip') return confirmGym(next);
   if (battle.step === 'reward' && action.kind === 'choose_reward') {
     const reward = resolveReward(next, battle.request, action.payload);
     if ('rejected' in reward) throw new Error('Validated Gym reward rejected');

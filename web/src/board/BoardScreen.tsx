@@ -9,6 +9,7 @@ import { useTurnPlayback } from './useTurnPlayback.ts';
 import { EncounterDialog } from './EncounterDialog.tsx';
 import { phaseLabel } from './labels.ts';
 import { ShopPanel } from './ShopPanel.tsx';
+import { ChoicePanel } from './ChoicePanel.tsx';
 import { StrategyPanel } from './StrategyPanel.tsx';
 import { SellPanel } from './SellPanel.tsx';
 import { turnMessages } from './turnMessages.ts';
@@ -33,7 +34,14 @@ export function BoardScreen({
   if (!view) return <Screen heading={t('play.heading')} body={t('board.noGame')} />;
   const { public: game } = view.observation;
   const humanTurn = game.activeSeatIndex === view.seatIndex;
-  const decisionOpen = humanTurn && ['shop', 'strategy', 'sell'].includes(game.phase.kind);
+  // Gym entry, Ability windows, rerolls and rewards have no dedicated panel yet (#55): list the
+  // engine's enabled choices whenever this seat owns a real decision outside the panels below.
+  const choiceOpen =
+    view.legalActions.enabled.length > 1 &&
+    !['shop', 'strategy', 'sell'].includes(game.phase.kind) &&
+    !(game.phase.kind === 'encounter' && !game.phase.catchRoll);
+  const decisionOpen =
+    (humanTurn && ['shop', 'strategy', 'sell'].includes(game.phase.kind)) || choiceOpen;
   const choose = (id: string) => {
     if ('rejected' in store.choose(id)) {
       setActionError(store.getView()?.observation.public.stateRevision ?? game.stateRevision);
@@ -105,6 +113,7 @@ export function BoardScreen({
   if (humanTurn && game.phase.kind === 'encounter' && view.legalActions.enabled.length > 1) {
     body = t('turn.encounterBody');
   }
+  if (choiceOpen) body = t('turn.choiceBody');
   if (opponentFailed) body = t('turn.opponentError');
   const controls = (
     <section className="turn-panel panel" aria-label={t('turn.actions')}>
@@ -161,6 +170,14 @@ export function BoardScreen({
       )}
       {humanTurn && game.phase.kind === 'strategy' && (
         <StrategyPanel
+          key={game.stateRevision}
+          observation={view.observation}
+          legalActions={view.legalActions}
+          onChoose={choose}
+        />
+      )}
+      {choiceOpen && (
+        <ChoicePanel
           key={game.stateRevision}
           observation={view.observation}
           legalActions={view.legalActions}

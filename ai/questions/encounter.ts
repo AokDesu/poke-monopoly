@@ -72,10 +72,12 @@ export type EncounterState = ReturnType<
  */
 export function buildEncounterQuestion(
   observation: Observation,
-  enabledActions: readonly LegalAction[],
+  offered: readonly LegalAction[],
   facts: EncounterFacts,
   personality: Personality,
 ): Decision<EncounterState> {
+  // Temporary #55 capability boundary (S11): Stream B owns Ability window questions.
+  const enabledActions = offered.filter((action) => action.kind !== 'activate_ability');
   const early = withoutQuestion(enabledActions);
   if (early) return early;
   const { phase } = observation.public;

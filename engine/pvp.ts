@@ -7,7 +7,8 @@ import type {
   Player,
 } from './contract/schema.ts';
 import { pvpSnapshotSchema } from './contract/combat.ts';
-import { pvpSnapshot, resolvePvp } from './combat.ts';
+import { pvpSnapshot, resolvePvp, type CombatModifiers } from './combat.ts';
+import { abilityChoices } from './abilities.ts';
 import { battleReadyMembers } from './status.ts';
 import { pendingRewardChoices, resolveReward } from './rewards.ts';
 import {
@@ -76,6 +77,9 @@ export function pendingPvpChoices(state: GameState, result: LegalActions): void 
       { id: 'accept-pvp', kind: 'respond_pvp', payload: { accept: true } },
       { id: 'decline-pvp', kind: 'respond_pvp', payload: { accept: false } },
     );
+  } else if (battle.step === 'attacker_window' || battle.step === 'defender_window') {
+    // Choosing none spends nothing (D10); activations come from abilityChoices.
+    result.enabled.push({ id: 'pass-window', kind: 'skip', payload: {} });
   } else if (battle.step === 'reward') {
     pendingRewardChoices(state, battle.request, result);
   }
@@ -106,14 +110,57 @@ export function beginPvp(
     },
   };
   const opened: EngineEvent = { kind: 'phase_changed', from, to: 'pvp' };
-  return forced ? [opened, ...confirmPvp(next)] : [opened];
+  return forced ? [opened, ...openPvpWindows(next)] : [opened];
 }
 
-/** D4 steps 5–7: Ability windows then the frozen snapshot shared by odds and dice. */
+/**
+ * D4 steps 5–6: the attacker's window, then the defender's (who sees step 5). A window opens only
+ * for a seat with an eligible ready Ability (C.3); otherwise the engine continues without asking.
+ * Steps never reopen.
+ */
+function openPvpWindows(next: GameState, after?: 'attacker_window'): EngineEvent[] {
+  if (next.phase.kind !== 'pvp') return [];
+  const battle = next.phase.battle;
+  if (!after && abilityChoices(next, battle.attackerSeatIndex, 'attacker').length) {
+    next.phase.battle = { ...battle, step: 'attacker_window' };
+    return [];
+  }
+  if (abilityChoices(next, battle.defenderSeatIndex, 'defender').length) {
+    next.phase.battle = { ...battle, step: 'defender_window' };
+    return [];
+  }
+  return confirmPvp(next);
+}
+
+/** Close the current window after its owner activated or passed. */
+export function closePvpWindow(next: GameState): EngineEvent[] {
+  if (next.phase.kind !== 'pvp') return [];
+  const step = next.phase.battle.step;
+  if (step === 'attacker_window') return openPvpWindows(next, step);
+  return step === 'defender_window' ? confirmPvp(next) : [];
+}
+
+/** One side's frozen Ability terms: this battle's window choices plus turn-long roll effects. */
+export function sideModifiers(
+  next: GameState,
+  seatIndex: number,
+  mods: { abilityBonus: number; debuffs: number } | undefined,
+): CombatModifiers {
+  const player = next.players.find((entry) => entry.seatIndex === seatIndex)!;
+  const turnLong = (player.rollEffects ?? [])
+    .filter((effect) => effect.scope === 'combat' && effect.globalTurnNo === next.globalTurnNo)
+    .reduce((sum, effect) => sum + effect.n, 0);
+  return { abilityBonus: (mods?.abilityBonus ?? 0) + turnLong, debuffs: mods?.debuffs ?? 0 };
+}
+
+/** D4 step 7: the frozen snapshot shared by odds and dice. */
 function confirmPvp(next: GameState): EngineEvent[] {
   if (next.phase.kind !== 'pvp') return [];
   const battle = next.phase.battle;
-  const snapshot = pvpSnapshot(next, battle.attackerSeatIndex, battle.defenderSeatIndex);
+  const snapshot = pvpSnapshot(next, battle.attackerSeatIndex, battle.defenderSeatIndex, {
+    attacker: sideModifiers(next, battle.attackerSeatIndex, battle.modifiers?.attacker),
+    defender: sideModifiers(next, battle.defenderSeatIndex, battle.modifiers?.defender),
+  });
   next.phase.battle = { ...battle, step: 'attacker_roll', snapshot };
   return [{ kind: 'pvp_confirmed', battleId: battle.battleId, snapshot }];
 }
@@ -162,8 +209,9 @@ export function recordPvpCommand(next: GameState, action: Action): EngineEvent[]
       next.phase = { kind: 'strategy' };
       return [response, { kind: 'phase_changed', from: 'pvp', to: 'strategy' }];
     }
-    return [response, ...confirmPvp(next)];
+    return [response, ...openPvpWindows(next)];
   }
+  if (action.kind === 'skip') return closePvpWindow(next);
   if (action.kind === 'choose_reward' && battle.step === 'reward') {
     const request = structuredClone(battle.request);
     const protection: EngineEvent[] = [];

@@ -1,5 +1,6 @@
 import { openGym, pendingGymRollPurpose } from './gym.ts';
 import { pendingPvpRollPurpose } from './pvp.ts';
+import { resetAbilities } from './abilities.ts';
 import type { GameState, EngineEvent, Player } from './contract/schema.ts';
 import { expireStatuses } from './status.ts';
 import { startTurnClassPassive } from './classes.ts';
@@ -64,6 +65,8 @@ export function recordMoveRoll(next: GameState, value: number): EngineEvent[] {
         amount: 5,
         reason: 'start_income',
       },
+      // §4.7 step 1: +5, creditedLap +1, reset Abilities, then Sell.
+      ...resetAbilities(player),
       ...announceFinalTableRound(next, player),
       { kind: 'phase_changed', from: 'move', to: 'sell' },
     ];

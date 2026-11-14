@@ -29,10 +29,28 @@ const boardSpaceSchema = z.strictObject({
   name: id,
 });
 const boardSchema = z.array(boardSpaceSchema).length(24);
-/** Authored descriptions only; executable Ability primitives are a later slice. */
+/** Engine-owned Ability effects (Appendix C.1/C.2); their operations live in engine/abilities.ts. */
+export const abilityEffectIdSchema = z.enum([
+  'vine_pull',
+  'blaze',
+  'shell_guard',
+  'adaptability',
+  'lucky_splash',
+  'intimidate',
+  'heal_pulse',
+  'string_shot',
+  'calculate',
+  'quick_flight',
+  'dragon_rush',
+  'challenge',
+  'track',
+]);
+/** Authored description plus, when the engine implements it, the effect it names. */
 export const abilityDefinitionSchema = z.strictObject({
   name: id,
   text: id,
+  // Names an engine-owned effect; prose is never parsed into a rule (D1).
+  effect: abilityEffectIdSchema.optional(),
   timing: z.enum([
     'OWN_STRATEGY',
     'CHALLENGE_DECLARE',
@@ -162,6 +180,10 @@ export const playerSchema = z.strictObject({
   catchBonusUsedLap: count.optional(),
   // `creditedLap` whose Rival force (once per Lap) is used; absent until then (§4.4).
   forcePvpUsedLap: count.optional(),
+  // Ability roll bonuses lasting until the end of a globalTurnNo (Adaptability, D2).
+  rollEffects: z
+    .array(z.strictObject({ scope: z.enum(['catch', 'combat']), n: z.int(), globalTurnNo: count }))
+    .optional(),
   privateResults: z.array(privateResultSchema),
 });
 const shopOfferSchema = z.discriminatedUnion('kind', [
@@ -182,15 +204,24 @@ export const rewardChoiceSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('coins') }),
   z.strictObject({ kind: z.literal('evolve'), instanceId: id, nextFormId: id }),
 ]);
+/** One side's Ability terms for the current battle (§4.4 abilityBonus and debuffs). */
+const battleModsSchema = z.strictObject({ abilityBonus: count, debuffs: count });
+/** A post-resolution consequence: the source UID becomes Tired (C.1, D13). */
+const afterResolutionSchema = z.strictObject({ seatIndex: count, instanceId: id });
 const pvpParticipants = {
   battleId: id,
   attackerSeatIndex: count,
   defenderSeatIndex: count,
   // A forced challenge (Rival, Battle Ticket or forcePvP) has no decline; the source stays private.
   forced: z.literal(true).optional(),
+  // Confirmed window choices, frozen into the snapshot (D4 steps 5–7).
+  modifiers: z.strictObject({ attacker: battleModsSchema, defender: battleModsSchema }).optional(),
+  afterResolution: z.array(afterResolutionSchema).optional(),
 };
 const pvpBattleSchema = z.discriminatedUnion('step', [
   z.strictObject({ ...pvpParticipants, step: z.literal('response') }),
+  z.strictObject({ ...pvpParticipants, step: z.literal('attacker_window') }),
+  z.strictObject({ ...pvpParticipants, step: z.literal('defender_window') }),
   z.strictObject({
     ...pvpParticipants,
     step: z.literal('attacker_roll'),
@@ -214,9 +245,12 @@ const pvpBattleSchema = z.discriminatedUnion('step', [
 const gymEntry = {
   battleId: id,
   position: z.union([z.literal(6), z.literal(12), z.literal(18)]),
+  modifiers: battleModsSchema.optional(),
+  afterResolution: z.array(afterResolutionSchema).optional(),
 };
 const gymBattleSchema = z.discriminatedUnion('step', [
   z.strictObject({ ...gymEntry, step: z.literal('entry') }),
+  z.strictObject({ ...gymEntry, step: z.literal('window') }),
   z.strictObject({ ...gymEntry, step: z.literal('roll'), snapshot: gymSnapshotSchema }),
   z.strictObject({
     ...gymEntry,
@@ -310,6 +344,15 @@ export const gameStateSchema = z.strictObject({
 const actionBodySchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('challenge_gym'), payload: z.strictObject({}) }),
   z.object({
+    kind: z.literal('activate_ability'),
+    payload: z.strictObject({
+      instanceId: id,
+      targetSeatIndex: count.optional(),
+      targetPokemonInstanceId: id.optional(),
+      scope: z.enum(['catch', 'combat']).optional(),
+    }),
+  }),
+  z.object({
     kind: z.literal('declare_pvp'),
     payload: z.strictObject({ targetSeatIndex: count, force: z.literal('rival').optional() }),
   }),
@@ -392,6 +435,15 @@ const lineSelectedEventSchema = z.strictObject({
 });
 export const engineEventSchema = z.discriminatedUnion('kind', [
   attackAttemptSchema,
+  z.strictObject({
+    kind: z.literal('ability_activated'),
+    ownerId: id,
+    instanceId: id,
+    effect: abilityEffectIdSchema,
+    targetId: id.optional(),
+  }),
+  // Qualifying owner Start credit makes every team instance ready again (§4.5, §4.7).
+  z.strictObject({ kind: z.literal('abilities_reset'), ownerId: id, instanceIds: z.array(id) }),
   z.strictObject({ kind: z.literal('shield_armed'), ownerId: id, ...armedShieldSchema.shape }),
   z.strictObject({
     kind: z.literal('protection_applied'),
@@ -614,3 +666,4 @@ export type ApplyActionResult =
     };
 
 export type AttackAttempt = z.infer<typeof attackAttemptSchema>;
+export type AbilityEffectId = z.infer<typeof abilityEffectIdSchema>;

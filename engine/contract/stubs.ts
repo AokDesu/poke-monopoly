@@ -1,7 +1,15 @@
 import { pendingGymChoices, recordGymCommand, recordGymRoll } from '../gym.ts';
 import { pendingDecision } from '../decisions.ts';
+import { abilityChoices, activateAbility } from '../abilities.ts';
+import { closeGymWindow } from '../gym.ts';
 import { attackVisibleTo } from '../visibility.ts';
-import { pvpChoices, pendingPvpChoices, recordPvpCommand, recordPvpRoll } from '../pvp.ts';
+import {
+  closePvpWindow,
+  pvpChoices,
+  pendingPvpChoices,
+  recordPvpCommand,
+  recordPvpRoll,
+} from '../pvp.ts';
 import { positionOf } from './position.ts';
 import { actionSchema } from './schema.ts';
 import { d6, shuffle, RNG_VERSION } from '../rng.ts';
@@ -18,6 +26,7 @@ import { itemChoices, useItem } from '../items.ts';
 import { ENGINE_VERSION } from '../versions.ts';
 import { recordSale, validSale } from '../selling.ts';
 import type {
+  Action,
   GameState,
   Observation,
   LegalActions,
@@ -92,6 +101,9 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   if (!decision) return result;
   if (state.phase.kind === 'first_player_roll' && !state.phase.awaitingResult) {
     result.enabled.push({ id: 'roll', kind: 'roll', payload: {} });
+  }
+  if (state.config.engineVersion === ENGINE_VERSION) {
+    result.enabled.push(...abilityChoices(state, seatIndex));
   }
   if (state.config.engineVersion === ENGINE_VERSION && state.phase.kind === 'pvp') {
     pendingPvpChoices(state, result);
@@ -184,6 +196,15 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
     );
   }
   return result;
+}
+
+/** An activation inside a battle window closes that window (D4 steps 5–6, D5 step 2). */
+function recordActivation(next: GameState, action: Action) {
+  const inWindow =
+    (next.phase.kind === 'pvp' && next.phase.battle.step.endsWith('_window')) ||
+    (next.phase.kind === 'gym' && next.phase.battle.step === 'window');
+  const events = activateAbility(next, action);
+  return inWindow ? [...events, ...closePvpWindow(next), ...closeGymWindow(next)] : events;
 }
 
 /** Immutable command executor; implemented gameplay scope is documented in docs/engine-contract.md. */
@@ -323,17 +344,19 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       ? recordSale(next, saleIds)
       : next.config.engineVersion !== ENGINE_VERSION
         ? recordTurnCommand(next, action.kind)
-        : next.phase.kind === 'gym'
-          ? recordGymCommand(next, action)
-          : action.kind === 'declare_pvp' || next.phase.kind === 'pvp'
-            ? recordPvpCommand(next, action)
-            : next.phase.kind === 'encounter'
-              ? confirmCatch(next, action)
-              : next.phase.kind === 'shop'
-                ? confirmShop(next, action)
-                : action.kind === 'use_item'
-                  ? useItem(next, action)
-                  : recordTurnCommand(next, action.kind);
+        : action.kind === 'activate_ability'
+          ? recordActivation(next, action)
+          : next.phase.kind === 'gym'
+            ? recordGymCommand(next, action)
+            : action.kind === 'declare_pvp' || next.phase.kind === 'pvp'
+              ? recordPvpCommand(next, action)
+              : next.phase.kind === 'encounter'
+                ? confirmCatch(next, action)
+                : next.phase.kind === 'shop'
+                  ? confirmShop(next, action)
+                  : action.kind === 'use_item'
+                    ? useItem(next, action)
+                    : recordTurnCommand(next, action.kind);
   return {
     accepted: true,
     state: next,

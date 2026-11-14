@@ -542,6 +542,14 @@ function checkPvpOwnership({ before, parsed, result }: Step): string[] {
   const expected = {
     ...before.turnBudgets,
     tacticalAction: before.turnBudgets.tacticalAction - (parsed?.kind === 'declare_pvp' ? 1 : 0),
+    // The active challenger's own window activation spends its pokemonAbility (C.3).
+    pokemonAbility:
+      before.turnBudgets.pokemonAbility -
+      (parsed?.kind === 'activate_ability' &&
+      before.players.find((player) => player.actorId === parsed.actorId)?.seatIndex ===
+        before.activeSeatIndex
+        ? 1
+        : 0),
   };
   if (canonicalJson(after.turnBudgets) !== canonicalJson(expected))
     errors.push('PvP changed unexpected turn budgets');
@@ -595,6 +603,58 @@ function expectedAttempt(before: GameState, parsed: Step['parsed']) {
     actionSeq: parsed.actionSeq,
     globalTurnNo: before.globalTurnNo,
   };
+}
+
+/** §4.5: an instance fires once per Lap; only a qualifying owner Start credit makes it ready. */
+function checkAbilityPerInstanceLap({ before, result }: Step): string[] {
+  if (!('accepted' in result)) return [];
+  const errors: string[] = [];
+  const activations = eventsOf(result.events, 'ability_activated');
+  const resets = eventsOf(result.events, 'abilities_reset');
+  const paid = new Set(
+    startIncome(result.events).map((event) =>
+      event.destination.kind === 'player' ? event.destination.actorId : '',
+    ),
+  );
+  for (const owner of before.players) {
+    const after = result.state.players.find((player) => player.actorId === owner.actorId);
+    for (const previous of owner.team) {
+      const current = after?.team.find((pokemon) => pokemon.instanceId === previous.instanceId);
+      const fired = activations.filter((event) => event.instanceId === previous.instanceId);
+      if (fired.length > 1) errors.push('An instance activated twice in one action');
+      if (fired.length && !previous.abilityReady)
+        errors.push('An instance activated while not ready');
+      if (!current) continue;
+      const reset = resets.some(
+        (event) =>
+          event.ownerId === owner.actorId && event.instanceIds.includes(previous.instanceId),
+      );
+      if (!previous.abilityReady && current.abilityReady && (!reset || !paid.has(owner.actorId)))
+        errors.push('An instance became ready without a qualifying Start credit');
+      if (fired.length && current.abilityReady && !reset)
+        errors.push('An activation did not spend its instance readiness');
+    }
+  }
+  return errors;
+}
+
+/** §4.5: each player activates at most one Ability per globalTurnNo, reactions included. */
+function checkAbilityPerPlayerTurn({ before, result }: Step): string[] {
+  if (!('accepted' in result)) return [];
+  const errors: string[] = [];
+  const activations = eventsOf(result.events, 'ability_activated');
+  for (const owner of before.players) {
+    const after = result.state.players.find((player) => player.actorId === owner.actorId);
+    const fired = activations.filter((event) => event.ownerId === owner.actorId);
+    if (fired.length > 1) errors.push('A player activated twice in one action');
+    if (fired.length && owner.abilityUsedGlobalTurnNo === before.globalTurnNo)
+      errors.push('A player activated twice in one globalTurnNo');
+    if (fired.length && after?.abilityUsedGlobalTurnNo !== before.globalTurnNo)
+      errors.push('An activation did not spend the player allowance');
+    if (!fired.length && after && after.abilityUsedGlobalTurnNo !== owner.abilityUsedGlobalTurnNo)
+      errors.push('A player allowance changed without an activation');
+  }
+  return errors;
 }
 
 const S8_COINS = 'Coins never go negative, and every transfer has a source.';
@@ -734,11 +794,18 @@ export const INVARIANTS: readonly InvariantDefinition[] = [
   { id: 'resume-creates-nothing', status: 'pending', section: '§8', specLine: S8_REPLAY },
   {
     id: 'ability-once-per-instance-per-lap',
-    status: 'pending',
+    status: 'active',
+    check: checkAbilityPerInstanceLap,
     section: '§8',
     specLine: S8_ABILITIES,
   },
-  { id: 'ability-once-per-player-turn', status: 'pending', section: '§8', specLine: S8_ABILITIES },
+  {
+    id: 'ability-once-per-player-turn',
+    status: 'active',
+    check: checkAbilityPerPlayerTurn,
+    section: '§8',
+    specLine: S8_ABILITIES,
+  },
   {
     id: 'evolution-keeps-cooldowns',
     status: 'active',

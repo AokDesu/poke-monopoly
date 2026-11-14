@@ -435,3 +435,32 @@ placeholders. Steps:
 Every step serializes; the phase then returns to End. Reward choice IDs are shared with PvP via
 `pendingRewardChoices`. A Gym reached after a Start-crossing Sell resolves only after that Sell and
 any Rescue Starter, so it uses the resulting team.
+
+## Ability lifecycle and windows (issue #55 S10)
+
+Spec: §4.2, §4.4 snapshots, §4.5, §4.7 step 1, §6.1/6.4/6.8/6.9, §8; Appendix C.1, C.3 D3/D4/D5,
+C.6 D10.
+
+Content binds a species' Ability to an engine effect with `ability.effect` (an
+`abilityEffectIdSchema` value); fallback evolved forms inherit it through `effectiveForm`.
+`ABILITY_EFFECTS` in `engine/abilities.ts` owns each effect's primitive, operation, timing and
+hostility. Content 1.3.0 binds Chansey `heal_pulse` and Squirtle `shell_guard`; later slices bind
+the rest.
+
+Windows (`currentWindow`): Strategy (S and C timings, active seat), Encounter before a Ball is
+confirmed (B, active seat), PvP `attacker_window` (B) then `defender_window` (B or R), and the Gym
+`window` (B). A battle window is entered only when its owner has an eligible activation; otherwise
+the engine continues to the snapshot. `pendingDecision` names the window owner, and its choices are
+the `activate_ability` options plus `pass-window` (`skip`), which spends nothing. One activation or
+a pass closes that window; windows never reopen.
+
+`activate_ability { instanceId, targetSeatIndex?, targetPokemonInstanceId?, scope? }` is legal only
+when listed. It sets the instance's `abilityReady = false`, sets `abilityUsedGlobalTurnNo`, spends
+`pokemonAbility` only when the owner is the active seat, and emits `ability_activated`. Costs stay
+spent whatever the effect does. `heal_pulse` clears the chosen own UID's Tired; `shell_guard` arms a
+public `battle_coin_loss` shield (illegal while any shield is armed).
+
+A qualifying owner Start credit emits `abilities_reset` after the income transfer and before the
+Sell phase change; the player's per-`globalTurnNo` allowance is untouched. The
+`ability-once-per-instance-per-lap` and `ability-once-per-player-turn` invariant checkers are
+active; `evolution-keeps-cooldowns` still guards evolution.

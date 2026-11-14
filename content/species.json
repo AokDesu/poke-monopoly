@@ -149,7 +149,8 @@
     "ability": {
       "name": "Heal Pulse",
       "text": "remove one status from own Pokémon",
-      "timing": "REACTION"
+      "timing": "REACTION",
+      "effect": "heal_pulse"
     }
   },
   {
@@ -231,7 +232,8 @@
     "ability": {
       "name": "Shell Guard",
       "text": "prevent the next coin loss from battle",
-      "timing": "REACTION"
+      "timing": "REACTION",
+      "effect": "shell_guard"
     }
   },
   {
