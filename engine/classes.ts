@@ -10,6 +10,7 @@ import type {
 
 export type ClassBonusHook =
   | { kind: 'catch'; player: Player; speciesTags: readonly string[] }
+  | { kind: 'combat'; battle: 'pvp' | 'gym' }
   | {
       kind: 'sale';
       pokemon: PokemonInstance;
@@ -36,7 +37,13 @@ export function classBonus(content: Content, classId: string, hook: ClassBonusHo
       return hook.kind === 'catch' && hook.speciesTags.includes('water') ? 2 : 0;
     case 'bug_catch_sale_bonus':
       if (hook.kind === 'catch') return hook.speciesTags.includes('bug') ? 1 : 0;
-      return effectiveForm(content, hook.pokemon.speciesId).tags.includes('bug') ? 2 : 0;
+      return hook.kind === 'sale' &&
+        effectiveForm(content, hook.pokemon.speciesId).tags.includes('bug')
+        ? 2
+        : 0;
+    case 'combat_bonus':
+      // D14: the Rival's +1 applies to both PvP roles, never at a Gym.
+      return hook.kind === 'combat' && hook.battle === 'pvp' ? 1 : 0;
     case 'turn_start_team_heal':
     case undefined:
       return 0;

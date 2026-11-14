@@ -12,6 +12,7 @@
     "name": "Rival",
     "starterSpeciesIds": ["eevee"],
     "classItemId": "lucky-egg",
+    "passive": "combat_bonus",
     "passiveText": "+1 combat when attacking and defending; may force PvP once per Lap"
   },
   {

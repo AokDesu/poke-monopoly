@@ -109,7 +109,7 @@ export function useItem(next: GameState, action: Action): EngineEvent[] {
     ];
   }
   if (itemId === 'lucky-egg') {
-    // +1 to this turn's own catch roll only; no movement bonus (Appendix A).
+    // +1 to this turn's own catch/combat; no movement bonus (Appendix A).
     next.turnEffects = { itemBonus: 1 };
     return [destroyed];
   }

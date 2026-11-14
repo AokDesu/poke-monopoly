@@ -81,6 +81,7 @@ export const contentSchema = z.strictObject({
           'water_catch_bonus',
           'bug_catch_sale_bonus',
           'turn_start_team_heal',
+          'combat_bonus',
         ])
         .optional(),
     }),

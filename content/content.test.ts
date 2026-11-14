@@ -412,6 +412,7 @@ describe('the parsed content is the engine’s Content', () => {
       ),
     ).toEqual({
       'main-character': 'lap_first_catch_bonus',
+      rival: 'combat_bonus',
       researcher: 'lap_first_sale_bonus',
       'nurse-joy': 'turn_start_team_heal',
       fisherman: 'water_catch_bonus',
