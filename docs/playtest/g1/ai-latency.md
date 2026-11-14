@@ -34,6 +34,6 @@ The logs are not committed. They hold game state identifiers and stay on the mac
 
 ## Scope of the figures
 
-The p50, p95, tokens and cost cover **Strategy and Encounter questions only**: the 9 requests are 2 Strategy and 7 Encounter. No Sell Phase question reached Jev in this game. Both Sell Phases fell back with `missing_facts` because the web client sends no sale facts. The figures therefore exclude Sell questions (up to 3 per AI turn, §9) and should be re-measured once that is fixed (issue #150).
+The p50, p95, tokens and cost cover **Strategy and Encounter questions only**: the 9 requests are 2 Strategy and 7 Encounter. No Sell Phase question reached Jev in this game. Both Sell Phases fell back with `missing_facts` because the web client sends no sale facts. The figures therefore exclude the Sell Phase request (one bundled request per Start pass, §5.3; the §9 budget is ≤3 requests per AI turn) and should be re-measured once that is fixed (issue #150).
 
 The 4 Shop decisions have no decision-log row (same issue). That is why the exported game log shows 15 AI decisions against 11 rows in the decision log.
