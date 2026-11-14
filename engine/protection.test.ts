@@ -51,7 +51,12 @@ function game(targetClass = 'researcher', seed = 1): GameState {
   return state;
 }
 
-function give(state: GameState, seat: number, itemId: string, visibility = 'secret' as const) {
+function give(
+  state: GameState,
+  seat: number,
+  itemId: string,
+  visibility: 'public' | 'secret' = 'secret',
+) {
   const name = content.items.find((item) => item.id === itemId)!.name;
   const instanceId = `${itemId}:${seat}:${state.players[seat]!.items.length}`;
   state.players[seat]!.items.push({ instanceId, itemId, name, visibility });

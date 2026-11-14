@@ -1,5 +1,6 @@
 import { healStatus } from './status.ts';
 import { armShield, declareHostileAction } from './protection.ts';
+import { beginPvp, pvpDisabledReason } from './pvp.ts';
 import type {
   Action,
   EngineEvent,
@@ -10,7 +11,7 @@ import type {
 } from './contract/schema.ts';
 
 // Hostile items cannot target the user and ignore board distance (§4.6).
-const HOSTILE = ['repel', 'pickpocket'];
+const HOSTILE = ['repel', 'pickpocket', 'battle-ticket'];
 
 /** Strategy choices for each held usable item, one per opponent for hostile items. */
 export function itemChoices(state: GameState, seatIndex: number, result: LegalActions): void {
@@ -83,6 +84,11 @@ function disabledReason(state: GameState, itemId: string, target: Player | undef
   if (itemId === 'price-shield' && user.armedShield) {
     return { reasonCode: 'NO_VALID_TARGET' as const, reasonText: 'A shield is already armed' };
   }
+  // Battle Ticket bypasses neither readiness nor target legality (§4.6, S08).
+  if (itemId === 'battle-ticket' && target) {
+    const reason = pvpDisabledReason(state, user, target);
+    if (reason) return reason;
+  }
   if (itemId === 'pickpocket' && target?.coins === 0) {
     return { reasonCode: 'NO_VALID_TARGET' as const, reasonText: 'Target has no coins' };
   }
@@ -132,6 +138,10 @@ export function useItem(next: GameState, action: Action): EngineEvent[] {
   // The declaration counts as an attack even when a shield blocks the whole action (§4.6, D6).
   const declared = declareHostileAction(next, player, target, 'hostile_item');
   if (declared.blocked) return [used, ...declared.events, destroyed];
+  if (itemId === 'battle-ticket') {
+    // The target cannot decline; the item use already spent the tactical action.
+    return [used, ...declared.events, destroyed, ...beginPvp(next, player, target, true, false)];
+  }
   if (itemId === 'repel') {
     target.pendingSlows = [...(target.pendingSlows ?? []), 'repel'];
     return [used, ...declared.events, destroyed];

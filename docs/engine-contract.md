@@ -392,3 +392,23 @@ Visibility: hostile item attempts and their `protection_applied` are filtered to
 `eventsVisibleTo` and in `observe().public.attackHistory`; PvP declarations and coin-loss blocks
 stay public. A secret shield's `shield_armed` is the owner's alone and `observe` shows another
 seat's `armedShield` only when public; `own.armedShield` always shows the seat's own shield.
+
+## Forced PvP (issue #55 S08)
+
+Spec: §4.2, §4.4 (forced PvP, attack counting), §4.6 (Battle Ticket), §8; Appendix A Rival/Battle
+Ticket; Appendix C.1 `forceChallenge`, C.3 D4, C.4 D6.
+
+`pvpDisabledReason` is the one legality check for every PvP source: an unspent tactical action
+and a battle-ready member on both teams. A forced battle has `battle.forced: true` and starts at
+confirmation, skipping `respond_pvp`; the phase never names its source, so a secret Battle
+Ticket stays secret from third seats.
+
+- **Rival:** `declare_pvp { targetSeatIndex, force: 'rival' }` (choice ID
+  `declare-pvp:<seat>:rival`) is offered while `forcePvpUsedLap !== creditedLap`, records a public
+  `pvp_declaration` attempt and sets `forcePvpUsedLap`. A shield protects only the coin loss.
+- **Battle Ticket:** `use_item` with a target seat; it emits `hostile_item_used` and one private
+  `hostile_item` attempt. An armed Price Shield blocks it whole; otherwise the ticket UID is
+  destroyed and the forced battle begins.
+- **forcePvP Ability:** `forceChallenge(next, attacker, defender)` in `engine/pvp.ts` is the
+  adapter an Ability activation calls (S10/S14). It records a `hostile_ability` attempt, spends the
+  tactical action, and begins the forced battle unless a Price Shield blocks it.

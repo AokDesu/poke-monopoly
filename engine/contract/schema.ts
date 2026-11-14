@@ -160,6 +160,8 @@ export const playerSchema = z.strictObject({
   abilityUsedGlobalTurnNo: count.nullable(),
   // `creditedLap` whose first-catch class bonus a real catch roll has used; absent until then.
   catchBonusUsedLap: count.optional(),
+  // `creditedLap` whose Rival force (once per Lap) is used; absent until then (§4.4).
+  forcePvpUsedLap: count.optional(),
   privateResults: z.array(privateResultSchema),
 });
 const shopOfferSchema = z.discriminatedUnion('kind', [
@@ -180,7 +182,13 @@ export const rewardChoiceSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('coins') }),
   z.strictObject({ kind: z.literal('evolve'), instanceId: id, nextFormId: id }),
 ]);
-const pvpParticipants = { battleId: id, attackerSeatIndex: count, defenderSeatIndex: count };
+const pvpParticipants = {
+  battleId: id,
+  attackerSeatIndex: count,
+  defenderSeatIndex: count,
+  // A forced challenge (Rival, Battle Ticket or forcePvP) has no decline; the source stays private.
+  forced: z.literal(true).optional(),
+};
 const pvpBattleSchema = z.discriminatedUnion('step', [
   z.strictObject({ ...pvpParticipants, step: z.literal('response') }),
   z.strictObject({
@@ -285,7 +293,10 @@ export const gameStateSchema = z.strictObject({
 
 // Player commands and engine-generated records share one sequence in the log.
 const actionBodySchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('declare_pvp'), payload: z.strictObject({ targetSeatIndex: count }) }),
+  z.object({
+    kind: z.literal('declare_pvp'),
+    payload: z.strictObject({ targetSeatIndex: count, force: z.literal('rival').optional() }),
+  }),
   z.object({ kind: z.literal('respond_pvp'), payload: z.strictObject({ accept: z.boolean() }) }),
   z.object({ kind: z.literal('choose_reward'), payload: rewardChoiceSchema }),
   z.object({
