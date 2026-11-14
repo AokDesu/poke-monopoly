@@ -528,3 +528,21 @@ visible only to the user and target, and another seat's copy of the `activate_ab
 `targetSeatIndex`, as for hostile items. The `move-debuff-until-next-move` checker is active: a
 pending slow may disappear only on its owner's actual move, and that move clears all of them.
 `forced-movement-no-start-income` counts a fixed-move `roll` as the owner's own move.
+
+## gainBall, peek and the Event deck (issue #55 S13)
+
+Spec: §4.5 primitives, §4.6 deck, §5.4 privacy, §6.1/6.8, §8; Appendix C.1 `gainBall`/`peek`.
+
+- **Lucky Splash** (`lucky_splash`, S window; content binds Magikarp) enters phase
+  `{ kind: 'chance_roll', rollId: 'ability:<revision>', seatIndex }`. The engine owes one
+  `dice_result` with purpose `<rollId>:chance`; faces 5–6 add one Great Ball and emit
+  `ball_gained` (visible only to the owner), 1–4 change nothing. Either way the phase returns to
+  Strategy and the activation costs stay spent. With the allowance spent, Porygon cannot reroll it.
+- **Event deck:** `content.events` (IDs only; `toEngineContent` drops the text) is optional for
+  historical fixtures. `createGame` still leaves the deck empty and draws no RNG. `track` (the
+  `peek` adapter) is offered when the draw pile, discard pile or content has cards. With an empty
+  draw pile it first shuffles the discard pile (or every content Event when there is none) through
+  the logged `shuffle:events` RNG seam, whose results no seat sees. It then appends
+  `{ kind: 'peek', eventId }` to the owner's `privateResults` without drawing or reordering.
+  Other seats' observations, legal actions, event copies and action records never carry the card
+  or the order. Event squares remain C4 placeholders; C4 owns draws and effects on this deck.

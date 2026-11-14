@@ -32,6 +32,7 @@ function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): bo
   if (event.kind === 'ability_activated' && ABILITY_EFFECTS[event.effect].hostile) {
     return event.ownerId === observerId || event.targetId === observerId;
   }
+  if (event.kind === 'ball_gained') return event.ownerId === observerId;
   // A secret shield's arming shows others only the item-count change (D6).
   if (event.kind === 'shield_armed') {
     return event.visibility === 'public' || event.ownerId === observerId;

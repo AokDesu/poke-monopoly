@@ -1,6 +1,6 @@
 import { pendingGymChoices, recordGymCommand, recordGymRoll } from '../gym.ts';
 import { pendingDecision } from '../decisions.ts';
-import { abilityChoices, activateAbility } from '../abilities.ts';
+import { abilityChoices, activateAbility, recordChanceRoll } from '../abilities.ts';
 import { closeGymWindow } from '../gym.ts';
 import { attackVisibleTo } from '../visibility.ts';
 import {
@@ -247,7 +247,8 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
         action.payload.purpose.startsWith('move:') ||
         action.payload.purpose.startsWith('catch:') ||
         action.payload.purpose.startsWith('pvp:') ||
-        action.payload.purpose.startsWith('gym:')) &&
+        action.payload.purpose.startsWith('gym:') ||
+        action.payload.purpose.startsWith('ability:')) &&
       action.payload.purpose !== pendingPurpose
     ) {
       return { rejected: true, reason: 'illegal_action', state };
@@ -272,6 +273,7 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       ...recordCatchRoll(next, draw.value),
       ...recordPvpRoll(next, draw.value),
       ...recordGymRoll(next, draw.value),
+      ...recordChanceRoll(next, draw.value),
     ];
     return {
       accepted: true,

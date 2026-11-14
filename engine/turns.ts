@@ -1,6 +1,6 @@
 import { openGym, pendingGymRollPurpose } from './gym.ts';
 import { pendingPvpRollPurpose } from './pvp.ts';
-import { canReroll, resetAbilities } from './abilities.ts';
+import { canReroll, pendingChanceRollPurpose, resetAbilities } from './abilities.ts';
 import type { GameState, EngineEvent, Player } from './contract/schema.ts';
 import { expireStatuses } from './status.ts';
 import { startTurnClassPassive } from './classes.ts';
@@ -30,6 +30,8 @@ export function firstPlayerRollPurpose(state: GameState): string {
 }
 
 export function pendingRollPurpose(state: GameState): string | undefined {
+  const chance = pendingChanceRollPurpose(state);
+  if (chance) return chance;
   const gym = pendingGymRollPurpose(state);
   if (gym) return gym;
   const pvp = pendingPvpRollPurpose(state);

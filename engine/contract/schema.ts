@@ -74,6 +74,8 @@ export const contentSchema = z.strictObject({
   board: boardSchema,
   // Optional for historical contract fixtures; real authored content always supplies this.
   evolutions: evolutionsSchema.optional(),
+  // Event card IDs for the deck (§4.6); their effects arrive with C4. Optional for old fixtures.
+  events: z.array(z.strictObject({ id })).optional(),
   species: z.array(
     z.strictObject({
       id,
@@ -337,6 +339,8 @@ export const phaseSchema = z.discriminatedUnion('kind', [
     face: z.int().min(1).max(6).optional(),
     rerolling: z.literal(true).optional(),
   }),
+  // gainBall `chanceBall`: the engine owes one logged d6 for this activation (C.1).
+  z.strictObject({ kind: z.literal('chance_roll'), rollId: id, seatIndex: count }),
   z.strictObject({ kind: z.literal('sell'), destinationPosition: z.int().min(0).max(23) }),
   z.strictObject({ kind: z.literal('shop'), offers: z.array(shopOfferSchema) }),
 ]);
@@ -474,6 +478,8 @@ export const engineEventSchema = z.discriminatedUnion('kind', [
     effect: abilityEffectIdSchema,
     targetId: id.optional(),
   }),
+  // Told only to the owner: opponents never see a Ball pouch (§4.1, #37).
+  z.strictObject({ kind: z.literal('ball_gained'), ownerId: id, ballType }),
   // Forced displacement (C.1 `displace`): no income, Lap credit, Ability reset, Sell or Resolve.
   z.strictObject({ kind: z.literal('player_displaced'), targetId: id, from: z.int(), to: z.int() }),
   // Qualifying owner Start credit makes every team instance ready again (§4.5, §4.7).

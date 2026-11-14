@@ -43,7 +43,8 @@
     "ability": {
       "name": "Lucky Splash",
       "text": "d6 5–6 gains a Great Ball",
-      "timing": "OWN_STRATEGY"
+      "timing": "OWN_STRATEGY",
+      "effect": "lucky_splash"
     }
   },
   {

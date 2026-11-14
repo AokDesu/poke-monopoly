@@ -222,6 +222,8 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 
 - **S11 roll modifiers scope (#55):** `rollBonus` effects run in the approved Appendix C windows. Blaze (+1) and Dragon Rush (+2) add to the activating side's `abilityBonus` for the current PvP or Gym battle; Adaptability adds +1 to the chosen scope (catch or combat) for every own snapshot until the end of the current `globalTurnNo`; Gyarados' Intimidate is a hostile Ability that adds a debuff of 1 to the PvP opponent's snapshot (blocked whole by an armed Price Shield, still an attack). Displayed odds use the same frozen terms. Porygon's Calculate opens an A window after its owner's own move, catch, PvP or Gym die: reroll (a new logged die that replaces the old one, even when worse) or keep; in PvP the challenger decides first, then the defender, each seeing both dice, and nothing resolves before. Dragon Rush's source becomes Tired after the result and any reward (D13). See the [roll modifier contract](engine-contract.md#roll-modifiers-and-porygons-reroll-issue-55-s11).
 
+- **S13 resource scope (#55):** Magikarp's Lucky Splash (`gainBall` `chanceBall`) rolls one logged d6 in Strategy: on 5–6 the owner gains one Great Ball (told only to the owner, since Ball pouches are private, §4.1); on 1–4 nothing changes, and the costs stay spent. The `peek` primitive (`topEvent`) privately shows its owner the top Event card without drawing or reordering it; only the owner's observation carries it. No core Starter binds `peek` or `forcePvP`; the engine ships their operations and C4 content decides which species carry them.
+
 **Proposed timing contract (#55 S00):** the PvP and Gym decision order, shield and Nurse Joy protection, and the order of reward and after-battle effects are proposed in [Appendix C](#appendix-c--ability-and-battle-timing-contract), pending Stream A team approval. It does not change the rules above.
 
 ### 4.5 Pokémon: encounters, Abilities, evolution and Starters
@@ -297,6 +299,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 **Deck and randomness**
 
 - The deck is shuffled at setup. All randomness lives in the engine and is logged.
+- **S13 deck scope (#55):** engine content carries the Event IDs. Setup still draws no randomness (revision 0 keeps RNG cursor 0, §6.8), so the first thing that needs the deck — today only a `peek` — fills an empty draw pile with one logged engine shuffle: of the discard pile if it has cards, otherwise of every Event (the §3.1 reshuffle rule). Event squares stay placeholders until C4 ([deck contract](engine-contract.md#gainball-peek-and-the-event-deck-issue-55-s13)).
 - The seeded engine generator is versioned. Draw events, seed mapping and helper contracts are defined in [Engine contract v1](engine-contract.md#public-seam-and-visibility).
 
 ### 4.7 Selling at Start, Laps and game end

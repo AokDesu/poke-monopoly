@@ -3,6 +3,7 @@ import { armShield } from './protection.ts';
 import { declareHostileAction } from './protection.ts';
 import { applyStatus, healStatus } from './status.ts';
 import { addSlow, hasSlowKind } from './slows.ts';
+import { shuffle } from './rng.ts';
 import type {
   AbilityEffectId,
   Action,
@@ -113,6 +114,7 @@ const DRAGON_RUSH_BONUS = 2;
 const INTIMIDATE_DEBUFF = 1;
 const QUICK_FLIGHT_STEPS = 3;
 const VINE_PULL_STEPS = -2;
+const LUCKY_SPLASH = { faces: [5, 6], ballType: 'great' } as const;
 
 /** The effect the instance's current form carries; evolved fallback forms inherit it (§4.5). */
 export function abilityEffectOf(
@@ -210,7 +212,16 @@ function effectPayloads(
     case 'calculate':
       return window === 'reroll' ? [{ instanceId }] : [];
     case 'quick_flight':
+    case 'lucky_splash':
       return window === 'strategy' ? [{ instanceId }] : [];
+    case 'track':
+      // peek needs a deck to look at: a fresh deck, or a discard pile to reshuffle (§4.6).
+      return window === 'strategy' &&
+        (state.eventDeck.drawPile.length ||
+          state.eventDeck.discardPile.length ||
+          state.content.events?.length)
+        ? [{ instanceId }]
+        : [];
     case 'vine_pull':
     case 'string_shot':
       // D10: any opponent at any distance; a slow never targets a pending slow of its kind.
@@ -309,6 +320,16 @@ export function activateAbility(next: GameState, action: Action): EngineEvent[] 
     case 'calculate':
       startReroll(next);
       return [activated];
+    case 'lucky_splash':
+      // chanceBall: the engine owes one logged d6 before Strategy continues (C.1).
+      next.phase = {
+        kind: 'chance_roll',
+        rollId: `ability:${next.stateRevision}`,
+        seatIndex: player.seatIndex,
+      };
+      return [activated, { kind: 'phase_changed', from: 'strategy', to: 'chance_roll' }];
+    case 'track':
+      return [activated, ...peekTopEvent(next, player)];
     case 'quick_flight':
       // replaceRoll: this turn's move uses fixed steps with no die (C.1, C.5).
       next.turnEffects = { ...next.turnEffects, fixedMove: QUICK_FLIGHT_STEPS };
@@ -380,6 +401,46 @@ function startReroll(next: GameState): void {
   } else if ((phase.kind === 'pvp' || phase.kind === 'gym') && phase.battle.step === 'reroll') {
     phase.battle.rerolling = true;
   }
+}
+
+export function pendingChanceRollPurpose(state: GameState): string | undefined {
+  return state.phase.kind === 'chance_roll' ? `${state.phase.rollId}:chance` : undefined;
+}
+
+/** Lucky Splash's die: a listed face adds one Ball to the owner's pouch; a miss changes nothing. */
+export function recordChanceRoll(next: GameState, value: number): EngineEvent[] {
+  if (next.phase.kind !== 'chance_roll') return [];
+  const { seatIndex } = next.phase;
+  const owner = next.players.find((entry) => entry.seatIndex === seatIndex);
+  next.phase = { kind: 'strategy' };
+  const events: EngineEvent[] = [];
+  if (owner && (LUCKY_SPLASH.faces as readonly number[]).includes(value)) {
+    owner.balls[LUCKY_SPLASH.ballType]++;
+    events.push({ kind: 'ball_gained', ownerId: owner.actorId, ballType: LUCKY_SPLASH.ballType });
+  }
+  return [...events, { kind: 'phase_changed', from: 'chance_roll', to: 'strategy' }];
+}
+
+/**
+ * peek `topEvent`: the owner privately learns the top card without drawing or reordering it. An
+ * empty draw pile is first filled by a logged shuffle: the discard pile, or every content Event
+ * when the deck was never used. Setup draws no RNG, so revision 0 keeps cursor 0 (§4.6, §6.8).
+ */
+function peekTopEvent(next: GameState, owner: Player): EngineEvent[] {
+  const events: EngineEvent[] = [];
+  const deck = next.eventDeck;
+  if (!deck.drawPile.length) {
+    const cards = deck.discardPile.length
+      ? deck.discardPile
+      : (next.content.events ?? []).map((event) => event.id);
+    const draw = shuffle(next.rng, cards, 'shuffle:events');
+    next.rng = draw.rng;
+    deck.drawPile = draw.value;
+    deck.discardPile = [];
+    events.push(...draw.events);
+  }
+  owner.privateResults.push({ kind: 'peek', eventId: deck.drawPile[0]! });
+  return events;
 }
 
 /**
