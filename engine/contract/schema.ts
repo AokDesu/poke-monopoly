@@ -168,7 +168,7 @@ export const playerSchema = z.strictObject({
   highestRewardedMilestone: count.optional(),
   ownTurnNo: count,
   // Slowing effects waiting for this player's next actual move (§4.6); absent when none.
-  pendingSlows: z.array(z.enum(['repel'])).optional(),
+  pendingSlows: z.array(z.enum(['repel', 'string_shot', 'sticky_web'])).optional(),
   // At most one armed shield from any source (D7); absent when none.
   armedShield: armedShieldSchema.optional(),
   team: z.array(pokemonInstanceSchema),
@@ -358,7 +358,13 @@ export const gameStateSchema = z.strictObject({
   }),
   finalTableRound: finalTableRoundSchema,
   // Active-turn item effects, cleared when the next turn starts; absent when none.
-  turnEffects: z.strictObject({ itemBonus: z.int() }).optional(),
+  turnEffects: z
+    .strictObject({
+      itemBonus: z.int().optional(),
+      // Quick Flight's replacement steps for this turn's move (C.1 `replaceRoll`).
+      fixedMove: z.int().positive().optional(),
+    })
+    .optional(),
   rng: z.strictObject({ cursor: count, state: id }),
   eventDeck: z.strictObject({ drawPile: z.array(id), discardPile: z.array(id) }),
   // Durable idempotency receipts; absent before the first resolved reward.
@@ -468,6 +474,8 @@ export const engineEventSchema = z.discriminatedUnion('kind', [
     effect: abilityEffectIdSchema,
     targetId: id.optional(),
   }),
+  // Forced displacement (C.1 `displace`): no income, Lap credit, Ability reset, Sell or Resolve.
+  z.strictObject({ kind: z.literal('player_displaced'), targetId: id, from: z.int(), to: z.int() }),
   // Qualifying owner Start credit makes every team instance ready again (§4.5, §4.7).
   z.strictObject({ kind: z.literal('abilities_reset'), ownerId: id, instanceIds: z.array(id) }),
   z.strictObject({ kind: z.literal('shield_armed'), ownerId: id, ...armedShieldSchema.shape }),

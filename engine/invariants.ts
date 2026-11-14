@@ -629,6 +629,27 @@ function expectedAttempt(before: GameState, parsed: Step['parsed']) {
   };
 }
 
+/** §8: a pending slow lasts until its owner's next actual move, never clearing at Start (D8). */
+function checkMoveDebuffs({ before, parsed, result }: Step): string[] {
+  if (!('accepted' in result)) return [];
+  const errors: string[] = [];
+  const ownMove =
+    before.phase.kind === 'move' &&
+    (parsed?.kind === 'dice_result' || parsed?.kind === 'roll' || parsed?.kind === 'skip');
+  for (const player of before.players) {
+    const after = result.state.players.find((entry) => entry.actorId === player.actorId);
+    const was = player.pendingSlows ?? [];
+    const now = after?.pendingSlows ?? [];
+    const cleared = was.filter((slow) => !now.includes(slow));
+    const moved = after && after.routeProgress !== player.routeProgress;
+    if (cleared.length && !(ownMove && player.seatIndex === before.activeSeatIndex && moved))
+      errors.push(`${player.actorId}'s pending slow cleared without its actual move`);
+    if (ownMove && player.seatIndex === before.activeSeatIndex && moved && now.length)
+      errors.push(`${player.actorId}'s actual move did not clear its pending slows`);
+  }
+  return errors;
+}
+
 /** §4.5: an instance fires once per Lap; only a qualifying owner Start credit makes it ready. */
 function checkAbilityPerInstanceLap({ before, result }: Step): string[] {
   if (!('accepted' in result)) return [];
@@ -798,7 +819,8 @@ export const INVARIANTS: readonly InvariantDefinition[] = [
   { id: 'deals-atomic', status: 'pending', section: '§8', specLine: S8_REJECTED },
   {
     id: 'move-debuff-until-next-move',
-    status: 'pending',
+    status: 'active',
+    check: checkMoveDebuffs,
     section: '§8',
     specLine: 'Move debuffs last until the next move.',
   },

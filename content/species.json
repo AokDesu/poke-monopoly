@@ -8,7 +8,12 @@
     "base": 4,
     "tags": ["bug", "cute"],
     "inEncounterPool": true,
-    "ability": { "name": "String Shot", "text": "target's next move −1", "timing": "OWN_STRATEGY" }
+    "ability": {
+      "name": "String Shot",
+      "text": "target's next move −1",
+      "timing": "OWN_STRATEGY",
+      "effect": "string_shot"
+    }
   },
   {
     "id": "pidgey",
@@ -22,7 +27,8 @@
     "ability": {
       "name": "Quick Flight",
       "text": "move exactly 3 spaces instead of rolling",
-      "timing": "OWN_STRATEGY"
+      "timing": "OWN_STRATEGY",
+      "effect": "quick_flight"
     }
   },
   {
@@ -213,7 +219,8 @@
     "ability": {
       "name": "Vine Pull",
       "text": "push target back 2 spaces without resolving them",
-      "timing": "OWN_STRATEGY"
+      "timing": "OWN_STRATEGY",
+      "effect": "vine_pull"
     }
   },
   {

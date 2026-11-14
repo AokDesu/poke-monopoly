@@ -1,6 +1,9 @@
 import { healStatus } from './status.ts';
 import { armShield, declareHostileAction } from './protection.ts';
 import { beginPvp, pvpDisabledReason } from './pvp.ts';
+import { addSlow, hasSlowKind, SLOWS, type SlowId } from './slows.ts';
+
+const SLOW_ITEMS: Readonly<Record<string, SlowId>> = { repel: 'repel', 'sticky-web': 'sticky_web' };
 import type {
   Action,
   EngineEvent,
@@ -11,7 +14,7 @@ import type {
 } from './contract/schema.ts';
 
 // Hostile items cannot target the user and ignore board distance (§4.6).
-const HOSTILE = ['repel', 'pickpocket', 'battle-ticket'];
+const HOSTILE = ['repel', 'sticky-web', 'pickpocket', 'battle-ticket'];
 
 /** Strategy choices for each held usable item, one per opponent for hostile items. */
 export function itemChoices(state: GameState, seatIndex: number, result: LegalActions): void {
@@ -92,8 +95,9 @@ function disabledReason(state: GameState, itemId: string, target: Player | undef
   if (itemId === 'pickpocket' && target?.coins === 0) {
     return { reasonCode: 'NO_VALID_TARGET' as const, reasonText: 'Target has no coins' };
   }
-  // The same slowing kind never stacks on a target that still has it pending.
-  if (itemId === 'repel' && target?.pendingSlows?.includes('repel')) {
+  // The same slowing kind never stacks on a target that still has it pending (§4.6, D8).
+  const slow = SLOW_ITEMS[itemId];
+  if (slow && target && hasSlowKind(target, SLOWS[slow].kind)) {
     return { reasonCode: 'NO_VALID_TARGET' as const, reasonText: 'Target is already slowed' };
   }
 }
@@ -125,7 +129,7 @@ export function useItem(next: GameState, action: Action): EngineEvent[] {
   }
   if (itemId === 'lucky-egg') {
     // +1 to this turn's own catch/combat; no movement bonus (Appendix A).
-    next.turnEffects = { itemBonus: 1 };
+    next.turnEffects = { ...next.turnEffects, itemBonus: 1 };
     return [destroyed];
   }
   const target = next.players.find((entry) => entry.seatIndex === action.payload.targetSeatIndex)!;
@@ -142,8 +146,9 @@ export function useItem(next: GameState, action: Action): EngineEvent[] {
     // The target cannot decline; the item use already spent the tactical action.
     return [used, ...declared.events, destroyed, ...beginPvp(next, player, target, true, false)];
   }
-  if (itemId === 'repel') {
-    target.pendingSlows = [...(target.pendingSlows ?? []), 'repel'];
+  const slow = SLOW_ITEMS[itemId];
+  if (slow) {
+    addSlow(target, slow);
     return [used, ...declared.events, destroyed];
   }
   const amount = Math.min(5, target.coins);
@@ -161,11 +166,4 @@ export function useItem(next: GameState, action: Action): EngineEvent[] {
     ...declared.events,
     destroyed,
   ];
-}
-
-/** Squares for an actual d6 move after pending slows, which that move clears (§4.6). */
-export function slowedSteps(player: Player, value: number): number {
-  const steps = player.pendingSlows?.includes('repel') ? Math.max(1, value - 2) : value;
-  delete player.pendingSlows;
-  return steps;
 }

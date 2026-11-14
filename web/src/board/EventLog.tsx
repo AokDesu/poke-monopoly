@@ -21,6 +21,7 @@ function eventMessage(
     case 'protection_applied':
     case 'ability_activated':
     case 'abilities_reset':
+    case 'player_displaced':
     case 'gym_confirmed':
     case 'gym_resolved':
     case 'badge_awarded':

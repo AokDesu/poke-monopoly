@@ -1,3 +1,4 @@
+import { ABILITY_EFFECTS, abilityEffectOf } from './abilities.ts';
 import type {
   Action,
   ActionRecord,
@@ -27,6 +28,10 @@ function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): bo
   }
   const observerId = before.players.find((player) => player.seatIndex === seatIndex)?.actorId;
   if (event.kind === 'attack_attempt') return attackVisibleTo(event, observerId);
+  // A hostile Ability's use is its user's and target's, like a hostile item (D6, #37).
+  if (event.kind === 'ability_activated' && ABILITY_EFFECTS[event.effect].hostile) {
+    return event.ownerId === observerId || event.targetId === observerId;
+  }
   // A secret shield's arming shows others only the item-count change (D6).
   if (event.kind === 'shield_armed') {
     return event.visibility === 'public' || event.ownerId === observerId;
@@ -91,6 +96,16 @@ export function actionVisibleTo(
     if (item?.visibility !== 'public') delete action.payload.itemInstanceId;
     // A hostile item use is its user's and target's alone (§4.1, §4.4).
     if (action.payload.targetSeatIndex !== seatIndex) delete action.payload.targetSeatIndex;
+  }
+  if (
+    action.kind === 'activate_ability' &&
+    actor?.seatIndex !== seatIndex &&
+    action.payload.targetSeatIndex !== undefined &&
+    action.payload.targetSeatIndex !== seatIndex
+  ) {
+    const pokemon = actor?.team.find((entry) => entry.instanceId === action.payload.instanceId);
+    const effect = pokemon && abilityEffectOf(before, pokemon);
+    if (effect && ABILITY_EFFECTS[effect].hostile) delete action.payload.targetSeatIndex;
   }
   // Deck order and the drawn card are nobody's until an effect makes them public (§4.6).
   if (action.kind === 'shuffle') delete action.payload.order;

@@ -8,7 +8,7 @@ import { ENGINE_VERSION } from './versions.ts';
 import { drawEncounter } from './catching.ts';
 import { finishGame } from './game-end.ts';
 import { openShop } from './shop.ts';
-import { slowedSteps } from './items.ts';
+import { slowedSteps } from './slows.ts';
 import { positionOf } from './contract/position.ts';
 
 /** Internal transitions operate only on the executor's detached next snapshot. */
@@ -99,6 +99,9 @@ export function recordTurnCommand(next: GameState, kind: string): EngineEvent[] 
   // Historical contract fixtures retain their illustrative choices and no gameplay effects.
   if (next.config.engineVersion !== ENGINE_VERSION) return [];
   if (kind === 'roll' && next.phase.kind === 'move') {
+    // A replaceRoll Ability draws no die; pending slows still apply to its steps (D8).
+    const fixed = next.turnEffects?.fixedMove;
+    if (fixed !== undefined) return applyMove(next, fixed);
     next.phase.awaitingResult = true;
     return [];
   }

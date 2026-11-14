@@ -499,3 +499,32 @@ spent again. In PvP the attacker's window comes before the defender's, both afte
 outcome, reward, slow or movement applies before the decision. Start income may therefore be paid
 by the keep-die command too; `forced-movement-no-start-income` treats any accepted Move-phase
 command of the active seat as its own move.
+
+## Fixed movement, slows and displacement (issue #55 S12)
+
+Spec: §4.2 movement, §4.5, §4.6 slows, §4.7, §6.1/6.5, §8; Appendix C.1 `fixedMove`/`moveDebuff`,
+C.5 D8/D9.
+
+`engine/slows.ts` owns the slow table: `repel` (`minus` 2), `string_shot` (`minus` 1) and
+`sticky_web` (`cap` 2). `player.pendingSlows` holds their IDs; `hasSlowKind` forbids a second slow
+of a pending kind (items are greyed out with "Target is already slowed"; String Shot is not offered
+against such a target). `slowedSteps(player, v)` returns `max(1, min(v − minus, cap))` and clears
+every pending slow; only the owner's own Move calls it.
+
+- **Sticky Web** is a hostile item like Repel: a private `hostile_item` attempt, blocked whole by an
+  armed Price Shield.
+- **Quick Flight** (`quick_flight`, S window) sets `turnEffects.fixedMove = 3`. Move's `roll` then
+  draws no die and moves by the slowed fixed steps through the same owner-movement path, so a
+  qualifying Start credit pays once, resets Abilities and opens Sell before the destination. The
+  allowance for the `globalTurnNo` stays spent even when the reset makes the instance ready again.
+- **Vine Pull** (`vine_pull`) and **String Shot** (`string_shot`) are hostile Abilities against any
+  opponent: `declareHostileAction` records the attempt and a Price Shield blocks the effect. Vine
+  Pull changes the target's `routeProgress` by −2 at once and emits public `player_displaced`
+  `{ targetId, from, to }`; no income, Lap credit, Ability reset, Sell or Resolve follows, and pending
+  slows stay. Progress may go below 0; recrossing an old milestone pays nothing (§6.5).
+
+Hostile Ability uses (`ability_activated` with a hostile effect, its attempt and any block) are
+visible only to the user and target, and another seat's copy of the `activate_ability` record drops
+`targetSeatIndex`, as for hostile items. The `move-debuff-until-next-move` checker is active: a
+pending slow may disappear only on its owner's actual move, and that move clears all of them.
+`forced-movement-no-start-income` counts a fixed-move `roll` as the owner's own move.

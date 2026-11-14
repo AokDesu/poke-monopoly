@@ -281,6 +281,8 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 - Blocks one whole hostile action and is then consumed.
 - The declaration still counts against a promise.
 
+**S12 movement scope (#55):** implements Appendix C.5 D8/D9. Pending slows are `repel` (minus 2), `string_shot` (minus 1, Caterpie's String Shot) and `sticky_web` (cap 2, the Sticky Web item); a target with a pending slow of one kind cannot receive another of that kind. The next actual move from value `v` takes `max(1, min(v − minus, cap))` steps and then clears every pending slow. Pidgey's Quick Flight (`replaceRoll` 3) makes this turn's move use 3 steps with no die; it is owner movement, so Start income, Lap credit, Ability reset and Sell apply. Bulbasaur's Vine Pull (`displace` −2) is a hostile Ability that moves the target back at once: no income, no Lap change, no Resolve, and pending slows stay. See the [movement effects contract](engine-contract.md#fixed-movement-slows-and-displacement-issue-55-s12).
+
 **Proposed (#55 S00):** Price Shield arming, whole-action versus coin-loss-only protection, slow kinds and fixed movement under a pending slow are proposed in [Appendix C](#appendix-c--ability-and-battle-timing-contract), pending Stream A team approval.
 
 **Events**

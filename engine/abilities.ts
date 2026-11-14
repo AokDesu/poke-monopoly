@@ -2,6 +2,7 @@ import { effectiveForm } from './forms.ts';
 import { armShield } from './protection.ts';
 import { declareHostileAction } from './protection.ts';
 import { applyStatus, healStatus } from './status.ts';
+import { addSlow, hasSlowKind } from './slows.ts';
 import type {
   AbilityEffectId,
   Action,
@@ -110,6 +111,8 @@ const BLAZE_BONUS = 1;
 const ADAPTABILITY_BONUS = 1;
 const DRAGON_RUSH_BONUS = 2;
 const INTIMIDATE_DEBUFF = 1;
+const QUICK_FLIGHT_STEPS = 3;
+const VINE_PULL_STEPS = -2;
 
 /** The effect the instance's current form carries; evolved fallback forms inherit it (§4.5). */
 export function abilityEffectOf(
@@ -206,6 +209,20 @@ function effectPayloads(
     }
     case 'calculate':
       return window === 'reroll' ? [{ instanceId }] : [];
+    case 'quick_flight':
+      return window === 'strategy' ? [{ instanceId }] : [];
+    case 'vine_pull':
+    case 'string_shot':
+      // D10: any opponent at any distance; a slow never targets a pending slow of its kind.
+      return window !== 'strategy'
+        ? []
+        : state.players
+            .filter(
+              (target) =>
+                target.seatIndex !== player.seatIndex &&
+                (effect === 'vine_pull' || !hasSlowKind(target, 'minus')),
+            )
+            .map((target) => ({ instanceId, targetSeatIndex: target.seatIndex }));
     case 'heal_pulse':
       // D10: Heal Pulse needs an own Pokémon with a status.
       return player.team
@@ -292,6 +309,31 @@ export function activateAbility(next: GameState, action: Action): EngineEvent[] 
     case 'calculate':
       startReroll(next);
       return [activated];
+    case 'quick_flight':
+      // replaceRoll: this turn's move uses fixed steps with no die (C.1, C.5).
+      next.turnEffects = { ...next.turnEffects, fixedMove: QUICK_FLIGHT_STEPS };
+      return [activated];
+    case 'vine_pull':
+    case 'string_shot': {
+      const target = next.players.find(
+        (entry) => entry.seatIndex === action.payload.targetSeatIndex,
+      )!;
+      activated.targetId = target.actorId;
+      const declared = declareHostileAction(next, player, target, 'hostile_ability');
+      if (declared.blocked) return [activated, ...declared.events];
+      if (effect === 'string_shot') {
+        addSlow(target, 'string_shot');
+        return [activated, ...declared.events];
+      }
+      // displace: forced movement, never the target's actual move (D9).
+      const from = target.routeProgress;
+      target.routeProgress += VINE_PULL_STEPS;
+      return [
+        activated,
+        ...declared.events,
+        { kind: 'player_displaced', targetId: target.actorId, from, to: target.routeProgress },
+      ];
+    }
     default:
       throw new RangeError(`Ability effect ${effect} is not executable`);
   }
