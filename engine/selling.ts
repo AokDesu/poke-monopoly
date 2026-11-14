@@ -1,5 +1,6 @@
 import { effectiveForm } from './forms.ts';
 import { classBonus } from './classes.ts';
+import { publicRevision } from './visibility.ts';
 import type {
   Content,
   EngineEvent,
@@ -112,7 +113,7 @@ export function recordSale(next: GameState, ids: string[]): EngineEvent[] {
   if (player.team.length === 0) {
     const seat = next.config.seats.find((entry) => entry.seatIndex === player.seatIndex)!;
     const definition = next.content.classes.find((entry) => entry.id === player.classId)!;
-    const prefix = `rescue:${player.seatIndex}:${next.stateRevision}`;
+    const prefix = `rescue:${player.seatIndex}:${publicRevision(next)}`;
     let instanceId = prefix;
     for (let suffix = 1; occupied.has(instanceId); suffix++) instanceId = `${prefix}:${suffix}`;
     player.team.push({

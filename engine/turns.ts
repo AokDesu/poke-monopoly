@@ -14,6 +14,8 @@ function startTurn(next: GameState, seatIndex: number): EngineEvent[] {
   next.globalTurnNo++;
   next.players.find((player) => player.seatIndex === seatIndex)!.ownTurnNo++;
   next.turnBudgets = { tacticalAction: 1, catchAttempt: 1, pokemonAbility: 1 };
+  // One social interaction per human turn (§4.2); absent when the Social window is off.
+  if (next.config.socialWindow === true) next.turnBudgets.socialInteraction = 1;
   delete next.turnEffects;
   next.phase = { kind: 'start' };
   return startTurnClassPassive(

@@ -11,6 +11,7 @@ import { createLogHeader, ENGINE_VERSION } from './versions.ts';
 import { createRng, d6, RNG_VERSION } from './rng.ts';
 import { pendingRollPurpose } from './turns.ts';
 import { canonicalJson } from './state-hash.ts';
+import { actorRevision } from './visibility.ts';
 
 /** A single step: later gameplay transitions may expose another decision. */
 export function advanceAutomatically(state: GameState): {
@@ -39,10 +40,11 @@ export function advanceAutomatically(state: GameState): {
   const actor = state.config.seats.find((seat) => seat.seatIndex === state.activeSeatIndex);
   if (!actor) return { state, records: [], events: [] };
   const choice = choices[0]!;
+  const revision = actorRevision(state, actor.actorId);
   const result = applyAction(state, {
     actorId: actor.actorId,
-    actionSeq: state.stateRevision + 1,
-    stateRevisionBefore: state.stateRevision,
+    actionSeq: revision + 1,
+    stateRevisionBefore: revision,
     kind: choice.kind,
     payload: choice.payload,
   });
