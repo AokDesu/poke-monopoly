@@ -29,7 +29,7 @@ import {
   type Observation,
   type SeatActionRecord,
 } from '../../../engine/index.ts';
-import { requestOpponent, type AiDecision } from './ai.ts';
+import { reportOutcome, requestOpponent, type AiDecision } from './ai.ts';
 import type { DifficultyId, GameSetup, PersonalityId } from './setup.ts';
 
 /**
@@ -379,19 +379,22 @@ export function createGameStore(): GameStore {
       }
       const settings = opponents.find((opponent) => opponent.seatIndex === seatIndex);
       const observation = observe(state, seatIndex);
+      const ids = {
+        gameId: gameToken,
+        seatIndex,
+        decisionPoint,
+        stateRevision: observation.public.stateRevision,
+        turnKey: `${state.globalTurnNo}:${seatIndex}`,
+      };
       const answer = await requestOpponent(
         JSON.stringify({
-          gameId: gameToken,
-          seatIndex,
-          decisionPoint,
-          stateRevision: observation.public.stateRevision,
+          ...ids,
           observation,
           enabledActions,
           facts:
             decisionPoint === 'encounter' ? { catchOdds: oddsForAllBalls(state, seatIndex) } : {},
           difficulty: settings?.difficulty ?? 'normal',
           personalityId: settings?.personality ?? 'greedy',
-          turnKey: `${state.globalTurnNo}:${seatIndex}`,
         }),
         signal,
         (pick) => {
@@ -408,6 +411,7 @@ export function createGameStore(): GameStore {
         throw error;
       });
       if (!answer || signal.aborted || token !== gameToken || session !== snapshot) return false;
+      reportOutcome(ids, answer);
       const decision: AiDecision = {
         source: answer.source,
         fallbackReason: answer.fallbackReason,

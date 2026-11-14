@@ -62,13 +62,17 @@ function seekOpponent(store: GameStore) {
   }
   throw new Error('No opponent decision');
 }
-function answer(request: { enabledActions: { id: string; kind: string }[] }, fallback = true) {
+function answer(
+  request: { enabledActions: { id: string; kind: string }[] },
+  fallback = true,
+  fallbackReason = 'rate_limited',
+) {
   const choice = fallback ? request.enabledActions[0]! : request.enabledActions.at(-1)!;
   return new Response(
     JSON.stringify({
       choice: choice.id,
       source: fallback ? 'fallback' : 'jev',
-      ...(fallback && { fallbackReason: 'stub' }),
+      ...(fallback && { fallbackReason }),
       requestId: 'test-decision',
       latencyMs: 0,
     }),
@@ -97,10 +101,17 @@ function transport({
   delay = 0,
   broken = false,
   decisionFallback = false,
+  fallbackReason = 'rate_limited',
 } = {}) {
-  const requests: string[] = [];
+  const requests: string[] & { outcomes?: Record<string, unknown>[] } = [];
+  const outcomes: Record<string, unknown>[] = [];
+  requests.outcomes = outcomes;
   vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
     requests.push(url);
+    if (url === '/api/ai/outcome') {
+      outcomes.push(JSON.parse(String(init?.body)));
+      return new Response(null, { status: 204 });
+    }
     if (broken) return new Response('', { status: 503 });
     if (url === '/api/ai/status')
       return new Response(
@@ -116,7 +127,11 @@ function transport({
       setTimeout(resolve, delay);
       await promise;
     }
-    return answer(request, url === '/api/ai/fallback' || backupOnly || decisionFallback);
+    return answer(
+      request,
+      url === '/api/ai/fallback' || backupOnly || decisionFallback,
+      fallbackReason,
+    );
   });
   return requests;
 }
@@ -128,7 +143,7 @@ afterEach(() => {
 
 test('the server fallback commits at the decision deadline, and a 2s late answer never changes it', async () => {
   vi.useFakeTimers();
-  transport({ backupOnly: false, delay: 2000 });
+  const requests = transport({ backupOnly: false, delay: 2000 });
   const store = game();
   seekOpponent(store);
   const before = store.getSession()!;
@@ -143,6 +158,28 @@ test('the server fallback commits at the decision deadline, and a 2s late answer
   await vi.advanceTimersByTimeAsync(1000);
   expect(store.getSession()).toBe(decided);
   expect(stateHash(replay(decided.log))).toBe(stateHash(decided.state));
+  // The browser tells the server what it applied (spec §6.8): its fallback with timeout, once, and
+  // never the answer that was still on its way.
+  expect(requests.outcomes).toHaveLength(1);
+  const [outcome] = requests.outcomes!;
+  expect(outcome).toMatchObject({
+    source: 'fallback',
+    fallbackReason: 'timeout',
+    stateRevision: before.state.stateRevision,
+    choice: expect.any(String),
+  });
+  expect(Object.keys(outcome!).sort()).toEqual(
+    [
+      'choice',
+      'decisionPoint',
+      'fallbackReason',
+      'gameId',
+      'seatIndex',
+      'source',
+      'stateRevision',
+      'turnKey',
+    ].sort(),
+  );
 });
 
 test('backup-only status marks an AI turn before a decision, with one catalog banner and a skippable bank line', async () => {
@@ -364,7 +401,7 @@ test('a decision-specific fallback belongs only to that AI and a later Jev decis
   });
   expect(document.querySelector('[data-ai-seat="1"]')?.textContent).toContain(t('ai.backupBadge'));
   expect(document.querySelector('[data-ai-seat="0"]')).toBeNull();
-  expect(screen.getByText(t('ai.reason.stub'))).toBeTruthy();
+  expect(screen.getByText(t('ai.reason.rate_limited'))).toBeTruthy();
   transport({ backupOnly: false });
   act(() => {
     seekOpponent(store);
@@ -375,6 +412,34 @@ test('a decision-specific fallback belongs only to that AI and a later Jev decis
   expect(screen.queryByText(t('ai.backupBadge'))).toBeNull();
   expect(screen.queryByText(t('ai.allBackupBanner'))).toBeNull();
 });
+
+test.each([
+  ['not_an_option', 'ai.backupInvalidAnswer'],
+  ['invalid_choice', 'ai.backupInvalidAnswer'],
+  ['revision_mismatch', 'ai.backupRevisionMismatch'],
+  ['low_confidence', 'ai.backupLowConfidence'],
+  ['auto', null],
+] as const)(
+  'a %s fallback is normal play: its §3.1 note only, no Backup bot badge or banner (spec §3)',
+  async (fallbackReason, note) => {
+    vi.useFakeTimers();
+    transport({ backupOnly: false, decisionFallback: true, fallbackReason });
+    const store = game();
+    seekOpponent(store);
+    render(<BoardScreen store={store} />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(STEP_MS.normal);
+    });
+    expect(
+      store.getView()!.feed.some((entry) => entry.decision?.fallbackReason === fallbackReason),
+    ).toBe(true);
+    expect(screen.queryByText(t('ai.backupBadge'))).toBeNull();
+    expect(screen.queryByText(t('ai.allBackupBanner'))).toBeNull();
+    const shown = document.querySelector('.ai-turn-note');
+    if (note) expect(shown?.textContent).toBe(t(note));
+    else expect(shown).toBeNull();
+  },
+);
 
 test('dialogue annotations survive save/load without changing command replay', async () => {
   transport();
