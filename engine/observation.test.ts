@@ -11,6 +11,7 @@ import {
   fixtureSchema,
   int,
   legalActions,
+  pendingDecision,
   observe,
   RNG_VERSION,
   shuffle,
@@ -40,7 +41,7 @@ function strategy(itemId: string): GameState {
 
 function accepted(state: GameState, kind: string, payload = {}) {
   const result = applyAction(state, {
-    actorId: state.players[state.activeSeatIndex]!.actorId,
+    actorId: pendingDecision(state)?.actorId ?? state.players[state.activeSeatIndex]!.actorId,
     actionSeq: state.stateRevision + 1,
     stateRevisionBefore: state.stateRevision,
     kind,
@@ -192,10 +193,13 @@ function othersSecrets(states: GameState[], seat: number): string[] {
 function step(state: GameState, pick: (n: number) => number) {
   const automatic = advanceAutomatically(state);
   if (automatic.records.length === 1) return automatic;
-  const enabled = legalActions(state, state.activeSeatIndex).enabled;
+  const enabled = legalActions(
+    state,
+    pendingDecision(state)?.seatIndex ?? state.activeSeatIndex,
+  ).enabled;
   const choice = enabled[pick(enabled.length)]!;
   const result = applyAction(state, {
-    actorId: state.players.find((player) => player.seatIndex === state.activeSeatIndex)!.actorId,
+    actorId: pendingDecision(state)!.actorId,
     actionSeq: state.stateRevision + 1,
     stateRevisionBefore: state.stateRevision,
     kind: choice.kind,
@@ -265,7 +269,19 @@ test('500 random mid-game states never show a seat another seat’s secrets, RNG
   expect(itemEvents).toEqual(new Set(['uid_created', 'uid_destroyed', 'hostile_item_used']));
   // Random play reached these record kinds; shuffle and event_draw are checked above.
   expect(actionKinds).toEqual(
-    new Set(['roll', 'dice_result', 'skip', 'catch', 'release', 'buy', 'skip_shop', 'use_item']),
+    new Set([
+      'roll',
+      'dice_result',
+      'skip',
+      'catch',
+      'release',
+      'buy',
+      'skip_shop',
+      'use_item',
+      'declare_pvp',
+      'respond_pvp',
+      'choose_reward',
+    ]),
   );
 });
 

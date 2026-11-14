@@ -1,3 +1,4 @@
+import { pendingDecision } from './decisions.ts';
 import { applyAction, legalActions } from './contract/stubs.ts';
 import {
   gameLogSchema,
@@ -34,10 +35,10 @@ export function advanceAutomatically(state: GameState): {
       events: result.events,
     };
   }
-  const choices = legalActions(state, state.activeSeatIndex).enabled;
-  if (choices.length !== 1) return { state, records: [], events: [] };
-  const actor = state.config.seats.find((seat) => seat.seatIndex === state.activeSeatIndex);
+  const actor = pendingDecision(state);
   if (!actor) return { state, records: [], events: [] };
+  const choices = legalActions(state, actor.seatIndex).enabled;
+  if (choices.length !== 1) return { state, records: [], events: [] };
   const choice = choices[0]!;
   const result = applyAction(state, {
     actorId: actor.actorId,

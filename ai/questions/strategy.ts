@@ -59,12 +59,15 @@ export function buildStrategyQuestion(
   enabledActions: readonly LegalAction[],
   personality: Personality,
 ): Decision<StrategyState> {
-  const early = withoutQuestion(enabledActions);
+  // Temporary S06 capability boundary: Stream B owns PvP question integration.
+  // Keep the existing item/skip questions and recordings stable in the meantime.
+  const supportedActions = enabledActions.filter((action) => action.kind !== 'declare_pvp');
+  const early = withoutQuestion(supportedActions);
   if (early) return early;
-  if (!enabledActions.some((action) => action.kind === 'skip')) {
+  if (!supportedActions.some((action) => action.kind === 'skip')) {
     throw new RangeError('Strategy actions must include skip');
   }
-  const shortlist = shortlistActions(enabledActions, personality, observation);
+  const shortlist = shortlistActions(supportedActions, personality, observation);
   if (shortlist.length === 1) return { kind: 'autoApply', actionId: shortlist[0]!.id };
   const options: Record<string, string> = {};
   const criteria: Record<string, string> = {};

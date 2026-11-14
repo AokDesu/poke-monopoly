@@ -133,7 +133,7 @@ describe('registry (spec §8)', () => {
     .map((line) => line.slice(2));
 
   test('lists every spec §8 invariant sentence and quotes the spec verbatim', () => {
-    expect(bullets).toHaveLength(11);
+    expect(bullets).toHaveLength(13);
     for (const sentence of bullets.flatMap((bullet) => bullet.split(/(?<=\.) /))) {
       expect(
         INVARIANTS.some((invariant) => invariant.specLine.includes(sentence)),

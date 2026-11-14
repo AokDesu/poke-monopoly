@@ -141,7 +141,7 @@ Spec: §4.3, §4.5 Rescue Starter, §4.7, §6.1, §8, Appendix A Classes. Conten
 
 Spec: §3.1, §6.7, §6.8, §6.9, §8. A save is the text `serialize({ state, log })` returns: a strict object with `saveVersion: "save-v1"`, the `engineVersion`, `contentVersion` and `rngVersion` stamps, the current `state` and the command `log` as sibling keys. The log carries the initial config, seed, stamps, revision-zero state and every accepted record with its `random_result` events, so the dice are never re-rolled. No log is nested inside `state`, and the schema admits no other field, so no key or token can be saved. The schema also requires the top-level stamps to equal the log header, `state.config` to equal `initialConfig`, and `state.stateRevision` to equal the number of logged actions. The engine only builds and reads the text; storage belongs to the caller (the browser for stream C, files for the sim).
 
-`deserialize(text)` refuses another `saveVersion`, `engineVersion`, `contentVersion` or `rngVersion` before the full schema check, with a message naming both versions (for example "This save was made with engine version 0.11.0; this game runs engine version 0.16.0. Old saves cannot be loaded yet."); migrating old saves is a later issue. Any other schema failure throws `Invalid save: <path>: <message>; ...`.
+`deserialize(text)` refuses another `saveVersion`, `engineVersion`, `contentVersion` or `rngVersion` before the full schema check, with a message naming both versions (for example "This save was made with engine version 0.11.0; this game runs engine version 0.17.0. Old saves cannot be loaded yet."); migrating old saves is a later issue. Any other schema failure throws `Invalid save: <path>: <message>; ...`.
 
 `resume(game)` returns `{ state, lastAction, waitingFor }` from the saved snapshot without applying anything: `lastAction` is the last committed record (so a dice result taken before the save is shown again), and `waitingFor` is `{ kind: "decision", seatIndex, actorId, phase, legalActions }`, `{ kind: "engine_result", purpose }` for a die still to be generated, or `{ kind: "finished" }`. A request pending when the browser closed is not in the save; the caller asks again for `waitingFor` from the same state and never starts a new turn. A sole enabled choice is still reported as a decision; the caller applies it with `advanceAutomatically` as during play.
 
@@ -310,3 +310,60 @@ shield consumption and Ability primitive mapping are deferred; no S00 choice is 
 The §8 one-stage/same-UID, evolution preservation and exclusive reward invariant checkers are
 active, with adversarial mutation coverage. The engine stamp advances to 0.15.0 for the new
 state/events; content/RNG versions and the command-log format remain unchanged.
+
+## Voluntary PvP and decision ownership (issue #55 S06)
+
+Spec: §4.2, §4.4, §4.8 (attack evidence), §6.1/6.3/6.4/6.8/6.9, §8;
+Appendix C.3 proposed D3/D4. S06 implements that proposed order for voluntary challenges;
+Ability activations, reactions, rerolls and protection remain later slices.
+
+In Strategy, `declare_pvp { targetSeatIndex }` is legal against any other seat at any
+board distance if both teams have a non-Tired member and the challenger has a tactical
+action. Declaration spends that action immediately, leaving other budgets untouched.
+It appends one public `attack_attempt` to `attackHistory` and the accepted action events:
+`{ attackId, actorId, targetId, source: 'pvp_declaration', actionSeq, globalTurnNo }`.
+The stable attack/battle/reward ID is `pvp:<declaration actionSeq>`. The canonical evidence
+survives declines and ties; later `no_attack` consumers need not infer attacks from dice,
+coin transfers or final outcomes. Observations and seat-visible event copies expose public
+declarations; no private item or willingness state is added. This slice adds no promises.
+
+`pendingDecision(state)` returns `{ seatIndex, actorId }`, distinct from active turn
+ownership. It returns the defender for `respond_pvp { accept }`, the winner for
+`choose_reward` (an explicit S04 `coins` or `evolve` choice), and null while either engine
+die is pending or the game is finished. All other decisions belong to the active seat.
+Wrong actors, stale revisions and unlisted choices reject without state or RNG changes.
+The automatic driver, resume, progress invariant, sim runner and property driver use this
+query, including when the deciding seat is an AI defender. Automatic singleton choices
+are still recorded as actions owned by their actual deciding seat.
+
+A decline costs no coins, rolls nothing and returns to the challenger's Strategy. On
+acceptance, `pvp_response` precedes `pvp_confirmed`. Appendix C only offers Ability windows
+when a ready eligible Ability exists; no such executable Ability exists in S06. Thus the
+attacker and defender windows close in that order without extra prompts, then S05's
+`pvpSnapshot` freezes all combat terms. S10 can insert its windows before that snapshot.
+The pending phase retains the confirmation and then the attacker's face. The engine draws
+one die per accepted `dice_result`, attacker first, with purposes
+`pvp:<declaration actionSeq>:attacker_roll` and `pvp:<declaration actionSeq>:defender_roll`.
+Dice with the wrong pending purpose or face reject; other generated actions cannot
+interleave into pending PvP. S05's `resolvePvp` supplies totals, outcome and reward seat in
+`pvp_resolved`. A tie returns directly to Strategy. On a win S04's resolver offers only
+the winner's reward and records its receipt; evolution never charges the loser.
+Protection is not added here: the pending request uses `coinLossBlocked: false` until S07.
+
+Every pending phase is serializable: declaration/response, confirmed attacker roll,
+defender roll, and winner reward. Save/resume re-asks the current owner from that exact
+revision; replay executes those accepted records without drawing or awarding twice.
+Throughout PvP the active seat, global turn and every own-turn counter stay fixed.
+Continuation returns to Strategy with the action spent, so neither a second item nor a
+second PvP is legal. End/next-seat advancement remains exclusively in the turn driver.
+
+The engine stamp advances to 0.17.0, one step beyond S05's 0.16.0.
+Historical illustrative fixtures and RNG/log/save format versions remain unchanged.
+The browser event formatter only recognizes the new event variants for type compatibility;
+PvP UI and AI integration are outside this slice.
+
+
+### Known limitation / follow-up for Stream B
+
+AI seats temporarily do not declare PvP; the Jev Strategy filter, fallback penalty and
+removal condition are specified in [spec §5.3](SPEC-v1.0-PokeMonopoly.md#53-decision-points--questions).

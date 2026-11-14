@@ -1,3 +1,4 @@
+import { pendingDecision } from './decisions.ts';
 import { applyAction, legalActions } from './contract/stubs.ts';
 import {
   actionSchema,
@@ -26,6 +27,8 @@ export type InvariantId =
   | 'credited-lap-pays-once'
   | 'replay-reproduces-state'
   | 'game-can-finish'
+  | 'pvp-turn-ownership'
+  | 'attack-attempt-logged'
   | 'deals-atomic'
   | 'move-debuff-until-next-move'
   | 'tired-and-nurse-joy-useful'
@@ -513,10 +516,63 @@ function checkGameCanFinish({ result }: Step): string[] {
     state.players.some((player) => player.seatIndex === state.activeSeatIndex);
   if (!seated) return [`active seat ${state.activeSeatIndex} is not a configured player`];
   if (pendingRollPurpose(state)) return [];
-  if (legalActions(state, state.activeSeatIndex).enabled.length === 0) {
-    return [`seat ${state.activeSeatIndex} has no enabled choice in phase ${state.phase.kind}`];
+  const decision = pendingDecision(state);
+  if (!decision || legalActions(state, decision.seatIndex).enabled.length === 0) {
+    return [`no pending seat has an enabled choice in phase ${state.phase.kind}`];
   }
   return [];
+}
+
+function checkPvpOwnership({ before, parsed, result }: Step): string[] {
+  if (!('accepted' in result) || (before.phase.kind !== 'pvp' && parsed?.kind !== 'declare_pvp'))
+    return [];
+  const after = result.state;
+  const errors: string[] = [];
+  if (
+    after.activeSeatIndex !== before.activeSeatIndex ||
+    after.globalTurnNo !== before.globalTurnNo ||
+    before.players.some(
+      (player) =>
+        after.players.find((entry) => entry.actorId === player.actorId)?.ownTurnNo !==
+        player.ownTurnNo,
+    )
+  ) {
+    errors.push('PvP advanced or transferred the challenger’s turn');
+  }
+  const expected = {
+    ...before.turnBudgets,
+    tacticalAction: before.turnBudgets.tacticalAction - (parsed?.kind === 'declare_pvp' ? 1 : 0),
+  };
+  if (canonicalJson(after.turnBudgets) !== canonicalJson(expected))
+    errors.push('PvP changed unexpected turn budgets');
+  return errors;
+}
+
+function checkAttackEvidence({ before, parsed, result }: Step): string[] {
+  if (!('accepted' in result)) return [];
+  const history = result.state.attackHistory ?? [];
+  const prior = before.attackHistory ?? [];
+  const attempts = eventsOf(result.events, 'attack_attempt');
+  const errors: string[] = [];
+  if (canonicalJson(history) !== canonicalJson([...prior, ...attempts]))
+    errors.push('Attack history does not match the accepted attempt events');
+  if (parsed?.kind === 'declare_pvp') {
+    const target = before.players.find(
+      (player) => player.seatIndex === parsed.payload.targetSeatIndex,
+    );
+    const expected = {
+      kind: 'attack_attempt',
+      attackId: `pvp:${parsed.actionSeq}`,
+      actorId: parsed.actorId,
+      targetId: target?.actorId,
+      source: 'pvp_declaration',
+      actionSeq: parsed.actionSeq,
+      globalTurnNo: before.globalTurnNo,
+    };
+    if (attempts.length !== 1 || canonicalJson(attempts[0]) !== canonicalJson(expected))
+      errors.push('Declaration lacks exactly one directed attack attempt');
+  } else if (attempts.length) errors.push('Attack attempt recorded without a declaration');
+  return errors;
 }
 
 const S8_COINS = 'Coins never go negative, and every transfer has a source.';
@@ -532,6 +588,22 @@ const S8_BATTLE =
 
 /** Every spec §8 invariant; pending ones switch on when their rules land. */
 export const INVARIANTS: readonly InvariantDefinition[] = [
+  {
+    id: 'pvp-turn-ownership',
+    status: 'active',
+    section: '§8',
+    specLine:
+      'PvP responses, dice and reward choices preserve the challenger’s active seat, global turn and every own-turn counter.',
+    check: checkPvpOwnership,
+  },
+  {
+    id: 'attack-attempt-logged',
+    status: 'active',
+    section: '§8',
+    specLine:
+      'Every PvP declaration records exactly one directed attack attempt; accepting, declining, rolling and rewarding add none.',
+    check: checkAttackEvidence,
+  },
   {
     id: 'coins-non-negative',
     status: 'active',
