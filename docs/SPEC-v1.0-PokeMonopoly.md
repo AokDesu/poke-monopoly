@@ -182,6 +182,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 
 - The human starts conversations; the AI replies or counters.
 - There is no AI↔AI conversation, but attack history is kept for every pair.
+- **S15 handoff scope (#55):** the engine exposes `socialTargets(state)` (opponents only during a human seat's own Social phase, never for an AI seat) and `decisionPoint(state)` (the pending decision's kind, including the new `pvp_response`, `ability_window`, `reroll`, `reward` and `gym_entry` points) for Streams B and C. Complete 2–4-seat games with one scripted human finish when AI answers at those points time out, error, are invalid or stale: the game is unchanged and the legal-action fallback answers from the engine's own options. Jev questions, browser screens and the decision wire schema for these points remain Stream B/C work; until then the browser takes the engine's first listed choice for an AI seat there ([handoff contract](engine-contract.md#mixed-seat-completion-and-streams-bc-handoff-issue-55-s15)).
 
 ### 4.3 Catching
 

@@ -57,4 +57,9 @@ export { pvpOdds, gymOdds, type CombatOdds, type OutcomeOdds } from './odds.ts';
 export { evolvePokemon } from './evolution.ts';
 export { rewardChoices, resolveReward, type RewardResolution } from './rewards.ts';
 
-export { pendingDecision } from './decisions.ts';
+export {
+  decisionPoint,
+  pendingDecision,
+  socialTargets,
+  type EngineDecisionPoint,
+} from './decisions.ts';

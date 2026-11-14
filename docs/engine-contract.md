@@ -565,3 +565,29 @@ spends the tactical action) and `track` (peek) are executable but unbound; C4 co
 exactly the eight §4.5 primitives with every one exercised, authored timings equal the engine's,
 and an actually caught Dratini becomes Tired after Dragon Rush (not battle-ready, ×0.8 sale) and
 recovers by expiry or Potion (Nurse Joy and Chansey recovery are covered in the S03/S10 tests).
+
+## Mixed-seat completion and Streams B/C handoff (issue #55 S15)
+
+Spec: §4.2 social window, §4.4 attack counting, §4.8 evidence only, §5.2/5.3/5.6,
+§6.1/6.4/6.9, §8.
+
+- `decisionPoint(state)` names the pending decision: `first_player_roll`, `turn_step`, `strategy`,
+  `move`, `encounter`, `sell`, `shop`, `pvp_response`, `ability_window`, `reroll`, `reward` or
+  `gym_entry`; `null` while the engine owes a die or the game is over. It complements
+  `pendingDecision`, which names the deciding seat.
+- `socialTargets(state)` lists the opponents a human seat may talk to in its own Social phase and
+  is empty for AI seats, so there is no AI↔AI conversation. Leaving Social spends no budget.
+- `sim/mixed-seats.test.ts` plays one scripted human with 1, 2 and 3 AI seats to the end. At every
+  new decision point an AI answer is first injected as a timeout, error, invalid or stale command
+  (each leaves the state hash unchanged), then `FallbackPolicy` answers from the engine's options.
+  Games end with equal own turns, the coin/badge winner rule and an exact replay. A four-seat test
+  records a declined PvP and a hostile item for all 12 ordered pairs: declarations are public,
+  hostile item attempts reach only user and target.
+
+Not yet integrated (Streams B/C): the decision wire schema (`engine/contract/decision.ts`) still
+accepts only `strategy`, `encounter` and `sell`; Jev Strategy and Encounter questions filter out
+`declare_pvp` and `activate_ability`; the fallback policy scores both −1 in Strategy and scores
+other new points evenly. The browser lists the human's choices at the new points in a generic
+panel, and for an AI seat takes the engine's first listed choice, logged as a fallback with reason
+`unsupported_decision_point`. The Shop still offers only Lucky Egg, Repel and Pickpocket (§4.6 C2
+scope), so Battle Ticket and bought Price Shields or Sticky Webs are not yet reachable in play.
