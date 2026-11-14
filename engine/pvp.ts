@@ -10,7 +10,7 @@ import { pvpSnapshotSchema, type PvpSnapshot } from './contract/combat.ts';
 import { pvpSnapshot, resolvePvp, type CombatModifiers } from './combat.ts';
 import { abilityChoices, applyAfterResolution, canReroll } from './abilities.ts';
 import { battleReadyMembers } from './status.ts';
-import { pendingRewardChoices, resolveReward } from './rewards.ts';
+import { pendingRewardChoices, pvpCoinLoss, resolveReward } from './rewards.ts';
 import {
   applyCoinLossProtection,
   declareHostileAction,
@@ -227,7 +227,7 @@ export function recordPvpCommand(next: GameState, action: Action): EngineEvent[]
         actorId: request.winnerId,
         actionId: request.rewardId,
         source: 'pvp_coin_loss',
-        amount: Math.min(6, loser.coins),
+        amount: pvpCoinLoss(loser),
       });
       source.coinLossBlocked = applied.blocked;
       protection.push(...applied.events);

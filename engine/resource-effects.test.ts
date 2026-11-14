@@ -100,6 +100,29 @@ test.each([
     );
     expect(ownKinds.includes('ball_gained')).toBe(gained === 1);
     expect(otherKinds).not.toContain('ball_gained');
+    const ownDie = eventsVisibleTo(activated.state, rolled.events, 0).find(
+      (event) => event.kind === 'random_result' && event.purpose.endsWith(':chance'),
+    );
+    expect(ownDie).toMatchObject({ kind: 'random_result', result: face });
+    expect(
+      eventsVisibleTo(activated.state, rolled.events, 1).some(
+        (event) => event.kind === 'random_result' && event.purpose.endsWith(':chance'),
+      ),
+    ).toBe(false);
+    const dieRecord = rolled.records.find((record) => record.action.kind === 'dice_result')!;
+    expect(dieRecord.action.payload).toEqual({
+      purpose: expect.stringMatching(/:chance$/),
+      value: face,
+    });
+    expect(actionVisibleTo(activated.state, dieRecord, 0).action.payload).toEqual(
+      dieRecord.action.payload,
+    );
+    expect(actionVisibleTo(activated.state, dieRecord, 1).action.payload).not.toHaveProperty(
+      'value',
+    );
+    expect(
+      actionVisibleTo(activated.state, activated.record, 1).events.map((event) => event.kind),
+    ).toContain('ability_activated');
     // The same Lap and globalTurnNo offer no second activation.
     expect(legalActions(after, 0).enabled.map((choice) => choice.id)).not.toContain(
       'ability:starter:0',

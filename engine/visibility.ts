@@ -1,4 +1,4 @@
-import { ABILITY_EFFECTS, abilityEffectOf } from './abilities.ts';
+import { ABILITY_EFFECTS, abilityEffectOf, pendingChanceRollPurpose } from './abilities.ts';
 import type {
   Action,
   ActionRecord,
@@ -19,10 +19,13 @@ export type SeatActionRecord = Omit<ActionRecord, 'action'> & { action: SeatActi
 /**
  * Whether `seatIndex` may see an event produced by applying an action to `before` (§4.1, §5.4).
  * A secret item's UID events are its owner's alone; a hostile item use is its user's and target's;
- * shuffle draws, which reveal deck order, are nobody's.
+ * shuffle draws, which reveal deck order, are nobody's; a chance roll's die is its roller's.
  */
 function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): boolean {
   if (event.kind === 'random_result' && event.purpose.startsWith('shuffle:')) return false;
+  if (event.kind === 'random_result' && isHiddenChanceRoll(before, event.purpose, seatIndex)) {
+    return false;
+  }
   if (event.kind === 'hostile_item_used') {
     return event.userSeatIndex === seatIndex || event.targetSeatIndex === seatIndex;
   }
@@ -58,6 +61,15 @@ function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): bo
     return item?.visibility === 'public' || owner?.seatIndex === seatIndex;
   }
   return true;
+}
+
+/** Lucky Splash's die reveals a private Ball gain, so only the rolling seat sees its face (§4.1). */
+function isHiddenChanceRoll(before: GameState, purpose: string, seatIndex: number): boolean {
+  return (
+    before.phase.kind === 'chance_roll' &&
+    purpose === pendingChanceRollPurpose(before) &&
+    before.phase.seatIndex !== seatIndex
+  );
 }
 
 /** PvP declarations are public; hostile item/Ability attempts are the actor's and target's (#37). */
@@ -111,5 +123,12 @@ export function actionVisibleTo(
   // Deck order and the drawn card are nobody's until an effect makes them public (§4.6).
   if (action.kind === 'shuffle') delete action.payload.order;
   if (action.kind === 'event_draw') delete action.payload.eventId;
+  if (
+    action.kind === 'dice_result' &&
+    action.payload.purpose !== undefined &&
+    isHiddenChanceRoll(before, action.payload.purpose, seatIndex)
+  ) {
+    delete action.payload.value;
+  }
   return { ...structuredClone(record), action, events };
 }

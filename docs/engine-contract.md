@@ -536,7 +536,10 @@ Spec: §4.5 primitives, §4.6 deck, §5.4 privacy, §6.1/6.8, §8; Appendix C.1 
 - **Lucky Splash** (`lucky_splash`, S window; content binds Magikarp) enters phase
   `{ kind: 'chance_roll', rollId: 'ability:<revision>', seatIndex }`. The engine owes one
   `dice_result` with purpose `<rollId>:chance`; faces 5–6 add one Great Ball and emit
-  `ball_gained` (visible only to the owner), 1–4 change nothing. Either way the phase returns to
+  `ball_gained` (visible only to the owner), 1–4 change nothing. The die reveals the gain, so
+  `eventsVisibleTo` hides its `random_result` and `actionVisibleTo` drops its `dice_result.value`
+  for every seat but the owner; other seats still see the public `ability_activated`. The log
+  and replay keep the full record. Either way the phase returns to
   Strategy and the activation costs stay spent. With the allowance spent, Porygon cannot reroll it.
 - **Event deck:** `content.events` (IDs only; `toEngineContent` drops the text) is optional for
   historical fixtures. `createGame` still leaves the deck empty and draws no RNG. `track` (the

@@ -10,6 +10,11 @@ import {
 import { nextEvolutionForms } from './forms.ts';
 import { evolvePokemon } from './evolution.ts';
 
+/** The coins a PvP loser would pay the winner before any protection (§4.4). */
+export function pvpCoinLoss(loser: { coins: number }): number {
+  return Math.min(6, loser.coins);
+}
+
 /** The caller supplies confirmed protection; this module neither arms nor consumes shields. */
 function rewardContext(state: GameState, request: RewardRequest) {
   const winner = state.players.find((player) => player.actorId === request.winnerId);
@@ -23,11 +28,7 @@ function rewardContext(state: GameState, request: RewardRequest) {
     throw new RangeError('Invalid reward loser');
   }
   const amount =
-    request.source.kind === 'gym'
-      ? 6
-      : request.source.coinLossBlocked
-        ? 0
-        : Math.min(6, loser!.coins);
+    request.source.kind === 'gym' ? 6 : request.source.coinLossBlocked ? 0 : pvpCoinLoss(loser!);
   return { winner, loser, amount };
 }
 
