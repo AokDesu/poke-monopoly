@@ -1,4 +1,5 @@
 import { healStatus } from './status.ts';
+import { armShield, declareHostileAction } from './protection.ts';
 import type {
   Action,
   EngineEvent,
@@ -48,11 +49,10 @@ export function itemChoices(state: GameState, seatIndex: number, result: LegalAc
       }
       continue;
     }
-    if (item.itemId !== 'lucky-egg' && !HOSTILE.includes(item.itemId)) continue;
-    const targets =
-      item.itemId === 'lucky-egg'
-        ? [undefined]
-        : state.players.filter((target) => target.seatIndex !== seatIndex);
+    if (!['lucky-egg', 'price-shield', ...HOSTILE].includes(item.itemId)) continue;
+    const targets = !HOSTILE.includes(item.itemId)
+      ? [undefined]
+      : state.players.filter((target) => target.seatIndex !== seatIndex);
     for (const target of targets) {
       const action: LegalAction = target
         ? {
@@ -79,6 +79,10 @@ function disabledReason(state: GameState, itemId: string, target: Player | undef
       reasonText: 'Tactical action already used this turn',
     };
   }
+  const user = state.players.find((entry) => entry.seatIndex === state.activeSeatIndex)!;
+  if (itemId === 'price-shield' && user.armedShield) {
+    return { reasonCode: 'NO_VALID_TARGET' as const, reasonText: 'A shield is already armed' };
+  }
   if (itemId === 'pickpocket' && target?.coins === 0) {
     return { reasonCode: 'NO_VALID_TARGET' as const, reasonText: 'Target has no coins' };
   }
@@ -93,7 +97,8 @@ export function useItem(next: GameState, action: Action): EngineEvent[] {
   if (next.phase.kind !== 'strategy' || action.kind !== 'use_item') return [];
   const player = next.players.find((entry) => entry.seatIndex === next.activeSeatIndex)!;
   const itemInstanceId = action.payload.itemInstanceId;
-  const itemId = player.items.find((item) => item.instanceId === itemInstanceId)!.itemId;
+  const item = player.items.find((entry) => entry.instanceId === itemInstanceId)!;
+  const itemId = item.itemId;
   player.items = player.items.filter((item) => item.instanceId !== itemInstanceId);
   next.turnBudgets.tacticalAction--;
   const destroyed: EngineEvent = {
@@ -102,6 +107,10 @@ export function useItem(next: GameState, action: Action): EngineEvent[] {
     entity: 'item',
     reason: 'used',
   };
+  if (itemId === 'price-shield') {
+    // D6: using Price Shield arms it; a secret one stays secret until it blocks something.
+    return [...armShield(player, { scope: 'price', visibility: item.visibility }), destroyed];
+  }
   if (itemId === 'potion') {
     return [
       ...healStatus(player, action.payload.targetPokemonInstanceId!, 'tired', 'potion'),
@@ -120,9 +129,12 @@ export function useItem(next: GameState, action: Action): EngineEvent[] {
     targetSeatIndex: target.seatIndex,
     itemId,
   };
+  // The declaration counts as an attack even when a shield blocks the whole action (§4.6, D6).
+  const declared = declareHostileAction(next, player, target, 'hostile_item');
+  if (declared.blocked) return [used, ...declared.events, destroyed];
   if (itemId === 'repel') {
     target.pendingSlows = [...(target.pendingSlows ?? []), 'repel'];
-    return [used, destroyed];
+    return [used, ...declared.events, destroyed];
   }
   const amount = Math.min(5, target.coins);
   target.coins -= amount;
@@ -136,6 +148,7 @@ export function useItem(next: GameState, action: Action): EngineEvent[] {
       reason: 'pickpocket',
     },
     used,
+    ...declared.events,
     destroyed,
   ];
 }

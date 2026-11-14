@@ -367,3 +367,28 @@ PvP UI and AI integration are outside this slice.
 
 AI seats temporarily do not declare PvP; the Jev Strategy filter, fallback penalty and
 removal condition are specified in [spec §5.3](SPEC-v1.0-PokeMonopoly.md#53-decision-points--questions).
+
+## Price Shield and Nurse Joy protection (issue #55 S07)
+
+Spec: §4.4, §4.6, §4.8 (attack evidence only), §6.1, §8; Appendix A Nurse Joy/Price Shield;
+Appendix C.4 D6/D7 and D10 (approved in the S00 review).
+
+`player.armedShield` holds at most one `{ scope, visibility }`: `price` (Price Shield) or
+`battle_coin_loss` (Shell Guard, S14). Using Price Shield in Strategy spends the tactical
+action, destroys the item UID and emits `shield_armed`; it is disabled with "A shield is already
+armed" while any shield is armed. `engine/protection.ts` owns the shared hooks:
+
+- `declareHostileAction` records one `attack_attempt` (`source: 'hostile_item' | 'hostile_ability'`,
+  `attackId` `hostile:<actionSeq>` or `ability:<actionSeq>`), then, against an armed `price`
+  shield, consumes it, emits `protection_applied` and reports the whole action blocked. The
+  caller keeps every cost spent and applies no effect.
+- `applyCoinLossProtection` handles a coin loss of `pvp_coin_loss` or `gym_coin_loss`. Nurse
+  Joy's class passive (`turn_start_team_heal`) covers PvP losses first and consumes nothing; then
+  `battle_coin_loss` covers PvP and Gym, and `price` covers PvP only. A zero-coin loss consumes
+  nothing. PvP's `choose_reward { kind: 'coins' }` applies it before S04's resolver and sets the
+  request's `coinLossBlocked`, so a protected loser pays 0 and the winner receives 0.
+
+Visibility: hostile item attempts and their `protection_applied` are filtered to user and target in
+`eventsVisibleTo` and in `observe().public.attackHistory`; PvP declarations and coin-loss blocks
+stay public. A secret shield's `shield_armed` is the owner's alone and `observe` shows another
+seat's `armedShield` only when public; `own.armedShield` always shows the seat's own shield.

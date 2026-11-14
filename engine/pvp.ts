@@ -3,6 +3,7 @@ import { pvpSnapshotSchema } from './contract/combat.ts';
 import { pvpSnapshot, resolvePvp } from './combat.ts';
 import { battleReadyMembers } from './status.ts';
 import { rewardChoices, resolveReward } from './rewards.ts';
+import { applyCoinLossProtection, recordAttackAttempt } from './protection.ts';
 
 /** Strategy legality is independent of distance and willingness (§4.4). */
 export function pvpChoices(state: GameState, result: LegalActions): void {
@@ -60,16 +61,13 @@ export function recordPvpCommand(next: GameState, action: Action): EngineEvent[]
       (player) => player.seatIndex === action.payload.targetSeatIndex,
     )!;
     const battleId = `pvp:${next.stateRevision}`;
-    const attempt = {
-      kind: 'attack_attempt' as const,
-      attackId: battleId,
-      actorId: attacker.actorId,
-      targetId: defender.actorId,
-      source: 'pvp_declaration' as const,
-      actionSeq: next.stateRevision,
-      globalTurnNo: next.globalTurnNo,
-    };
-    (next.attackHistory ??= []).push(attempt);
+    const attempt = recordAttackAttempt(
+      next,
+      attacker.actorId,
+      defender.actorId,
+      'pvp_declaration',
+      battleId,
+    );
     next.turnBudgets.tacticalAction--;
     next.phase = {
       kind: 'pvp',
@@ -80,7 +78,7 @@ export function recordPvpCommand(next: GameState, action: Action): EngineEvent[]
         step: 'response',
       },
     };
-    return [structuredClone(attempt), { kind: 'phase_changed', from: 'strategy', to: 'pvp' }];
+    return [attempt, { kind: 'phase_changed', from: 'strategy', to: 'pvp' }];
   }
   if (next.phase.kind !== 'pvp') return [];
   const battle = next.phase.battle;
@@ -102,10 +100,29 @@ export function recordPvpCommand(next: GameState, action: Action): EngineEvent[]
     return [response, { kind: 'pvp_confirmed', battleId: battle.battleId, snapshot }];
   }
   if (action.kind === 'choose_reward' && battle.step === 'reward') {
-    const reward = resolveReward(next, battle.request, action.payload);
+    const request = structuredClone(battle.request);
+    const protection: EngineEvent[] = [];
+    const source = request.source;
+    if (action.payload.kind === 'coins' && source.kind === 'pvp') {
+      // C.4: Nurse Joy first, then an armed shield; evolution is never a coin loss.
+      const loser = next.players.find((player) => player.actorId === source.loserId)!;
+      const applied = applyCoinLossProtection(next, loser, {
+        actorId: request.winnerId,
+        actionId: request.rewardId,
+        source: 'pvp_coin_loss',
+        amount: Math.min(6, loser.coins),
+      });
+      source.coinLossBlocked = applied.blocked;
+      protection.push(...applied.events);
+    }
+    const reward = resolveReward(next, request, action.payload);
     if ('rejected' in reward) throw new Error('Validated PvP reward rejected');
     next.phase = { kind: 'strategy' };
-    return [...reward.events, { kind: 'phase_changed', from: 'pvp', to: 'strategy' }];
+    return [
+      ...protection,
+      ...reward.events,
+      { kind: 'phase_changed', from: 'pvp', to: 'strategy' },
+    ];
   }
   return [];
 }

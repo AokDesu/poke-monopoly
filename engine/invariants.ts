@@ -556,23 +556,45 @@ function checkAttackEvidence({ before, parsed, result }: Step): string[] {
   const errors: string[] = [];
   if (canonicalJson(history) !== canonicalJson([...prior, ...attempts]))
     errors.push('Attack history does not match the accepted attempt events');
-  if (parsed?.kind === 'declare_pvp') {
-    const target = before.players.find(
-      (player) => player.seatIndex === parsed.payload.targetSeatIndex,
-    );
-    const expected = {
-      kind: 'attack_attempt',
-      attackId: `pvp:${parsed.actionSeq}`,
-      actorId: parsed.actorId,
-      targetId: target?.actorId,
-      source: 'pvp_declaration',
-      actionSeq: parsed.actionSeq,
-      globalTurnNo: before.globalTurnNo,
-    };
+  const expected = expectedAttempt(before, parsed);
+  if (expected) {
     if (attempts.length !== 1 || canonicalJson(attempts[0]) !== canonicalJson(expected))
       errors.push('Declaration lacks exactly one directed attack attempt');
   } else if (attempts.length) errors.push('Attack attempt recorded without a declaration');
   return errors;
+}
+
+const HOSTILE_ITEMS = ['repel', 'pickpocket', 'sticky-web', 'battle-ticket'];
+
+/** The one attempt a PvP declaration or hostile item use must record (§4.4, §4.6, D6). */
+function expectedAttempt(before: GameState, parsed: Step['parsed']) {
+  if (!parsed) return;
+  const actor = before.players.find((player) => player.actorId === parsed.actorId);
+  let source: 'pvp_declaration' | 'hostile_item' | undefined;
+  let prefix = '';
+  let targetSeatIndex: number | undefined;
+  if (parsed.kind === 'declare_pvp') {
+    [source, prefix, targetSeatIndex] = ['pvp_declaration', 'pvp', parsed.payload.targetSeatIndex];
+  } else if (parsed.kind === 'use_item') {
+    const item = actor?.items.find((entry) => entry.instanceId === parsed.payload.itemInstanceId);
+    if (item && HOSTILE_ITEMS.includes(item.itemId)) {
+      [source, prefix, targetSeatIndex] = [
+        'hostile_item',
+        'hostile',
+        parsed.payload.targetSeatIndex,
+      ];
+    }
+  }
+  if (!source) return;
+  return {
+    kind: 'attack_attempt',
+    attackId: `${prefix}:${parsed.actionSeq}`,
+    actorId: parsed.actorId,
+    targetId: before.players.find((player) => player.seatIndex === targetSeatIndex)?.actorId,
+    source,
+    actionSeq: parsed.actionSeq,
+    globalTurnNo: before.globalTurnNo,
+  };
 }
 
 const S8_COINS = 'Coins never go negative, and every transfer has a source.';

@@ -17,6 +17,8 @@ function eventMessage(
     // Spec §5.7: persisted dialogue annotations are not gameplay announcements.
     // Status/evolution/reward records remain in the feed; dedicated UI is a later slice.
     case 'attack_attempt':
+    case 'shield_armed':
+    case 'protection_applied':
     case 'pvp_response':
     case 'pvp_confirmed':
     case 'pvp_resolved':

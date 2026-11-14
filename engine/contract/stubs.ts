@@ -1,4 +1,5 @@
 import { pendingDecision } from '../decisions.ts';
+import { attackVisibleTo } from '../visibility.ts';
 import { pvpChoices, pendingPvpChoices, recordPvpCommand, recordPvpRoll } from '../pvp.ts';
 import { positionOf } from './position.ts';
 import { actionSchema } from './schema.ts';
@@ -43,13 +44,20 @@ export function observe(state: GameState, seatIndex: number): Observation {
         knownItems: player.items
           .filter((item) => item.visibility === 'public')
           .map((item) => ({ ...item, visibility: 'public' as const })),
+        ...(player.armedShield?.visibility === 'public' ? { armedShield: player.armedShield } : {}),
         badges: player.badges,
         abilityReady: player.abilityUsedGlobalTurnNo !== state.globalTurnNo,
       })),
       globalTurnNo: state.globalTurnNo,
       stateRevision: state.stateRevision,
       activeSeatIndex: state.activeSeatIndex,
-      ...(state.attackHistory ? { attackHistory: state.attackHistory } : {}),
+      ...(state.attackHistory
+        ? {
+            attackHistory: state.attackHistory.filter((attempt) =>
+              attackVisibleTo(attempt, ownPlayer.actorId),
+            ),
+          }
+        : {}),
       phase: state.phase,
       lapTarget: state.config.lapTarget,
       finalTableRound: state.finalTableRound,
@@ -57,6 +65,7 @@ export function observe(state: GameState, seatIndex: number): Observation {
     own: {
       seatIndex,
       items: ownPlayer.items,
+      ...(ownPlayer.armedShield ? { armedShield: ownPlayer.armedShield } : {}),
       balls: ownPlayer.balls,
       privateResults: ownPlayer.privateResults,
     },

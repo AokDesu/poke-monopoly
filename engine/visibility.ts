@@ -1,4 +1,10 @@
-import type { Action, ActionRecord, EngineEvent, GameState } from './contract/schema.ts';
+import type {
+  Action,
+  ActionRecord,
+  AttackAttempt,
+  EngineEvent,
+  GameState,
+} from './contract/schema.ts';
 
 /** An action whose payload may have fields this seat must not see removed. */
 export type SeatAction = Action extends infer A
@@ -19,6 +25,19 @@ function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): bo
   if (event.kind === 'hostile_item_used') {
     return event.userSeatIndex === seatIndex || event.targetSeatIndex === seatIndex;
   }
+  const observerId = before.players.find((player) => player.seatIndex === seatIndex)?.actorId;
+  if (event.kind === 'attack_attempt') return attackVisibleTo(event, observerId);
+  // A secret shield's arming shows others only the item-count change (D6).
+  if (event.kind === 'shield_armed') {
+    return event.visibility === 'public' || event.ownerId === observerId;
+  }
+  // A blocked hostile item/Ability is seen by its user and target; a blocked coin loss is public.
+  if (
+    event.kind === 'protection_applied' &&
+    (event.source === 'hostile_item' || event.source === 'hostile_ability')
+  ) {
+    return event.actorId === observerId || event.targetId === observerId;
+  }
   // Items created during play are bought, hence secret (§4.1).
   if (event.kind === 'uid_created' && event.entity === 'item') {
     return (
@@ -33,6 +52,15 @@ function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): bo
     return item?.visibility === 'public' || owner?.seatIndex === seatIndex;
   }
   return true;
+}
+
+/** PvP declarations are public; hostile item/Ability attempts are the actor's and target's (#37). */
+export function attackVisibleTo(attempt: AttackAttempt, observerId: string | undefined): boolean {
+  return (
+    attempt.source === 'pvp_declaration' ||
+    attempt.actorId === observerId ||
+    attempt.targetId === observerId
+  );
 }
 
 /** The events of one accepted action that `seatIndex` may see, in their original order. */

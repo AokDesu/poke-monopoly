@@ -132,6 +132,13 @@ export const logHeaderSchema = z
     }
   });
 const privateResultSchema = z.strictObject({ kind: z.literal('peek'), eventId: id });
+/** One armed shield, independent of the consumed item UID (Appendix C.4 D6/D7). */
+export const armedShieldSchema = z.strictObject({
+  // `price` blocks a whole hostile item/Ability action or a PvP coin loss; `battle_coin_loss`
+  // (Shell Guard) blocks only the owner's next PvP or Gym coin loss.
+  scope: z.enum(['price', 'battle_coin_loss']),
+  visibility: z.enum(['public', 'secret']),
+});
 export const playerSchema = z.strictObject({
   actorId: id,
   seatIndex: count,
@@ -144,6 +151,8 @@ export const playerSchema = z.strictObject({
   ownTurnNo: count,
   // Slowing effects waiting for this player's next actual move (§4.6); absent when none.
   pendingSlows: z.array(z.enum(['repel'])).optional(),
+  // At most one armed shield from any source (D7); absent when none.
+  armedShield: armedShieldSchema.optional(),
   team: z.array(pokemonInstanceSchema),
   balls: ballPouchSchema,
   items: z.array(itemInstanceSchema).max(4),
@@ -194,13 +203,14 @@ const pvpBattleSchema = z.discriminatedUnion('step', [
     request: rewardRequestSchema,
   }),
 ]);
-/** Canonical directed attack evidence. Voluntary declarations are public, including declines. */
+/** Canonical directed attack evidence. PvP declarations are public, including declines;
+ * hostile item/Ability attempts are told only to their actor and target (§4.1, #37). */
 export const attackAttemptSchema = z.strictObject({
   kind: z.literal('attack_attempt'),
   attackId: id,
   actorId: id,
   targetId: id,
-  source: z.literal('pvp_declaration'),
+  source: z.enum(['pvp_declaration', 'hostile_item', 'hostile_ability']),
   actionSeq: z.int().positive(),
   globalTurnNo: count,
 });
@@ -355,6 +365,15 @@ const lineSelectedEventSchema = z.strictObject({
 });
 export const engineEventSchema = z.discriminatedUnion('kind', [
   attackAttemptSchema,
+  z.strictObject({ kind: z.literal('shield_armed'), ownerId: id, ...armedShieldSchema.shape }),
+  z.strictObject({
+    kind: z.literal('protection_applied'),
+    actorId: id,
+    targetId: id,
+    actionId: id,
+    source: z.enum(['hostile_item', 'hostile_ability', 'pvp_coin_loss', 'gym_coin_loss']),
+    protection: z.enum(['price', 'battle_coin_loss', 'nurse_joy']),
+  }),
   z.strictObject({
     kind: z.literal('pvp_response'),
     battleId: id,
@@ -460,6 +479,8 @@ export const observationSchema = z.strictObject({
         team: z.array(pokemonInstanceSchema),
         itemCount: count,
         knownItems: z.array(itemInstanceSchema.extend({ visibility: z.literal('public') })),
+        // Only a public shield is shown to other seats (D6).
+        armedShield: armedShieldSchema.optional(),
         badges: count,
         abilityReady: z.boolean(),
       }),
@@ -475,6 +496,7 @@ export const observationSchema = z.strictObject({
   own: z.strictObject({
     seatIndex: count,
     items: z.array(itemInstanceSchema),
+    armedShield: armedShieldSchema.optional(),
     balls: ballPouchSchema,
     privateResults: z.array(privateResultSchema),
   }),
