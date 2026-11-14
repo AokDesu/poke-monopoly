@@ -235,6 +235,16 @@ const pvpBattleSchema = z.discriminatedUnion('step', [
   }),
   z.strictObject({
     ...pvpParticipants,
+    // D4 step 9: challenger, then defender, may reroll its own die, each seeing both.
+    step: z.literal('reroll'),
+    snapshot: pvpSnapshotSchema,
+    attackerFace: z.int().min(1).max(6),
+    defenderFace: z.int().min(1).max(6),
+    side: z.enum(['attacker', 'defender']),
+    rerolling: z.literal(true).optional(),
+  }),
+  z.strictObject({
+    ...pvpParticipants,
     step: z.literal('reward'),
     snapshot: pvpSnapshotSchema,
     attackerFace: z.int().min(1).max(6),
@@ -252,6 +262,13 @@ const gymBattleSchema = z.discriminatedUnion('step', [
   z.strictObject({ ...gymEntry, step: z.literal('entry') }),
   z.strictObject({ ...gymEntry, step: z.literal('window') }),
   z.strictObject({ ...gymEntry, step: z.literal('roll'), snapshot: gymSnapshotSchema }),
+  z.strictObject({
+    ...gymEntry,
+    step: z.literal('reroll'),
+    snapshot: gymSnapshotSchema,
+    face: z.int().min(1).max(6),
+    rerolling: z.literal(true).optional(),
+  }),
   z.strictObject({
     ...gymEntry,
     step: z.literal('reward'),
@@ -274,7 +291,13 @@ export const attackAttemptSchema = z.strictObject({
 export const phaseSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('pvp'), battle: pvpBattleSchema }),
   z.strictObject({ kind: z.literal('gym'), battle: gymBattleSchema }),
-  z.strictObject({ kind: z.literal('move'), awaitingResult: z.boolean().optional() }),
+  z.strictObject({
+    kind: z.literal('move'),
+    awaitingResult: z.boolean().optional(),
+    // Porygon's A window: the revealed die awaiting reroll or keep, then the pending reroll (D11).
+    rolled: z.int().min(1).max(6).optional(),
+    rerolling: z.literal(true).optional(),
+  }),
   z.strictObject({
     kind: z.literal('first_player_roll'),
     contenders: z.array(count).min(1),
@@ -310,6 +333,9 @@ export const phaseSchema = z.discriminatedUnion('kind', [
         itemBonus: z.int(),
       })
       .optional(),
+    // Porygon's A window after the catch die (D11): revealed face, then the pending reroll.
+    face: z.int().min(1).max(6).optional(),
+    rerolling: z.literal(true).optional(),
   }),
   z.strictObject({ kind: z.literal('sell'), destinationPosition: z.int().min(0).max(23) }),
   z.strictObject({ kind: z.literal('shop'), offers: z.array(shopOfferSchema) }),

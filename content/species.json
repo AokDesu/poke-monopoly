@@ -123,7 +123,8 @@
     "ability": {
       "name": "Adaptability",
       "text": "+1 catch or +1 combat until end of turn",
-      "timing": "BEFORE_OWN_ROLL"
+      "timing": "BEFORE_OWN_ROLL",
+      "effect": "adaptability"
     }
   },
   {
@@ -162,7 +163,12 @@
     "base": 20,
     "tags": ["water"],
     "inEncounterPool": true,
-    "ability": { "name": "Intimidate", "text": "target −1 combat", "timing": "BEFORE_OWN_ROLL" }
+    "ability": {
+      "name": "Intimidate",
+      "text": "target −1 combat",
+      "timing": "BEFORE_OWN_ROLL",
+      "effect": "intimidate"
+    }
   },
   {
     "id": "snorlax",
@@ -191,7 +197,8 @@
     "ability": {
       "name": "Dragon Rush",
       "text": "+2 combat, then becomes tired after resolution",
-      "timing": "BEFORE_OWN_ROLL"
+      "timing": "BEFORE_OWN_ROLL",
+      "effect": "dragon_rush"
     }
   },
   {
@@ -218,7 +225,12 @@
     "base": 8,
     "tags": ["fire"],
     "inEncounterPool": false,
-    "ability": { "name": "Blaze", "text": "+1 combat", "timing": "BEFORE_OWN_ROLL" }
+    "ability": {
+      "name": "Blaze",
+      "text": "+1 combat",
+      "timing": "BEFORE_OWN_ROLL",
+      "effect": "blaze"
+    }
   },
   {
     "id": "squirtle",
@@ -248,7 +260,8 @@
     "ability": {
       "name": "Calculate",
       "text": "reroll one of your own dice once and use the new result",
-      "timing": "AFTER_OWN_ROLL"
+      "timing": "AFTER_OWN_ROLL",
+      "effect": "calculate"
     }
   },
   {

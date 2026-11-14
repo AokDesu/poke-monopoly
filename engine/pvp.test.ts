@@ -56,6 +56,8 @@ function game(seed = 1): GameState {
     player.ownTurnNo = index === 0 ? 3 : 2;
     player.routeProgress = index * 9;
     player.team[0]!.speciesId = 'eevee';
+    // Adaptability already used this Lap: these battles open no Ability window (C.3).
+    player.team[0]!.abilityReady = false;
   });
   return state;
 }

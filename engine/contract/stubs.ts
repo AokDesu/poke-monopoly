@@ -125,7 +125,18 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
     if (state.config.engineVersion === ENGINE_VERSION) pvpChoices(state, result);
   }
   if (state.phase.kind === 'move' && !state.phase.awaitingResult) {
-    result.enabled.push({ id: 'roll', kind: 'roll', payload: {} });
+    result.enabled.push(
+      state.phase.rolled === undefined
+        ? { id: 'roll', kind: 'roll', payload: {} }
+        : { id: 'keep-die', kind: 'skip', payload: {} },
+    );
+  }
+  if (
+    state.phase.kind === 'encounter' &&
+    state.phase.face !== undefined &&
+    !state.phase.rerolling
+  ) {
+    result.enabled.push({ id: 'keep-die', kind: 'skip', payload: {} });
   }
   if (
     state.config.engineVersion === ENGINE_VERSION &&

@@ -1,6 +1,7 @@
 import { effectiveForm } from './forms.ts';
 import { armShield } from './protection.ts';
-import { healStatus } from './status.ts';
+import { declareHostileAction } from './protection.ts';
+import { applyStatus, healStatus } from './status.ts';
 import type {
   AbilityEffectId,
   Action,
@@ -92,7 +93,7 @@ export const ABILITY_EFFECTS: Readonly<Record<AbilityEffectId, AbilityEffect>> =
 };
 
 /** The decision window a seat is in, if any (Appendix C.3 D3). */
-export type AbilityWindow = 'strategy' | 'encounter' | 'attacker' | 'defender' | 'gym';
+export type AbilityWindow = 'strategy' | 'encounter' | 'attacker' | 'defender' | 'gym' | 'reroll';
 
 const WINDOW_TIMINGS: Readonly<Record<AbilityWindow, readonly Timing[]>> = {
   strategy: ['OWN_STRATEGY', 'CHALLENGE_DECLARE'],
@@ -101,7 +102,14 @@ const WINDOW_TIMINGS: Readonly<Record<AbilityWindow, readonly Timing[]>> = {
   // A PvP defender may use either a B or an R Ability in its window (C.3).
   defender: ['BEFORE_OWN_ROLL', 'REACTION'],
   gym: ['BEFORE_OWN_ROLL'],
+  reroll: ['AFTER_OWN_ROLL'],
 };
+
+/** Ability numbers (Appendix A, C.2): the engine is their only home. */
+const BLAZE_BONUS = 1;
+const ADAPTABILITY_BONUS = 1;
+const DRAGON_RUSH_BONUS = 2;
+const INTIMIDATE_DEBUFF = 1;
 
 /** The effect the instance's current form carries; evolved fallback forms inherit it (§4.5). */
 export function abilityEffectOf(
@@ -127,6 +135,7 @@ export function currentWindow(state: GameState, seatIndex: number): AbilityWindo
   if (phase.kind === 'strategy' && active) return 'strategy';
   if (phase.kind === 'encounter' && !phase.catchRoll && active) return 'encounter';
   if (phase.kind === 'gym' && phase.battle.step === 'window' && active) return 'gym';
+  if (rerollSeat(state) === seatIndex) return 'reroll';
   if (phase.kind === 'pvp') {
     const battle = phase.battle;
     if (battle.step === 'attacker_window' && seatIndex === battle.attackerSeatIndex) {
@@ -138,6 +147,34 @@ export function currentWindow(state: GameState, seatIndex: number): AbilityWindo
   }
 }
 
+/** The seat whose own die was just revealed and awaits reroll or keep (C.3 A window, D11). */
+export function rerollSeat(state: GameState): number | undefined {
+  const phase = state.phase;
+  if (phase.kind === 'move' && phase.rolled !== undefined) return state.activeSeatIndex;
+  if (phase.kind === 'encounter' && phase.face !== undefined && !phase.rerolling) {
+    return state.activeSeatIndex;
+  }
+  if (phase.kind === 'gym' && phase.battle.step === 'reroll' && !phase.battle.rerolling) {
+    return state.activeSeatIndex;
+  }
+  if (phase.kind === 'pvp' && phase.battle.step === 'reroll' && !phase.battle.rerolling) {
+    const battle = phase.battle;
+    return battle.side === 'attacker' ? battle.attackerSeatIndex : battle.defenderSeatIndex;
+  }
+}
+
+/** Whether `seatIndex` holds a ready, allowed Calculate for an A window opening now. */
+export function canReroll(state: GameState, seatIndex: number): boolean {
+  return abilityChoices(state, seatIndex, 'reroll').length > 0;
+}
+
+/** The PvP opponent of `seatIndex` while its battle windows are open. */
+function battleOpponent(state: GameState, seatIndex: number): number | undefined {
+  if (state.phase.kind !== 'pvp') return;
+  const { attackerSeatIndex, defenderSeatIndex } = state.phase.battle;
+  return seatIndex === attackerSeatIndex ? defenderSeatIndex : attackerSeatIndex;
+}
+
 type Payload = Extract<Action, { kind: 'activate_ability' }>['payload'];
 
 /** Legal payloads for one ready source in one window; empty when its effect has no legal use. */
@@ -146,9 +183,29 @@ function effectPayloads(
   player: Player,
   pokemon: PokemonInstance,
   effect: AbilityEffectId,
+  window: AbilityWindow,
 ): Payload[] {
   const instanceId = pokemon.instanceId;
+  const battle = window === 'attacker' || window === 'defender' || window === 'gym';
   switch (effect) {
+    case 'blaze':
+    case 'dragon_rush':
+      return battle ? [{ instanceId }] : [];
+    case 'adaptability':
+      // D2: the scope is chosen on activation and lasts until the end of this globalTurnNo.
+      return [
+        { instanceId, scope: 'catch' },
+        { instanceId, scope: 'combat' },
+      ];
+    case 'intimidate': {
+      // D10: Intimidate needs a PvP opponent; a Gym has none (D5 step 2).
+      const opponent = battleOpponent(state, player.seatIndex);
+      return window !== 'gym' && battle && opponent !== undefined
+        ? [{ instanceId, targetSeatIndex: opponent }]
+        : [];
+    }
+    case 'calculate':
+      return window === 'reroll' ? [{ instanceId }] : [];
     case 'heal_pulse':
       // D10: Heal Pulse needs an own Pokémon with a status.
       return player.team
@@ -174,7 +231,7 @@ export function abilityChoices(
     const effect = abilityEffectOf(state, pokemon);
     if (!effect || !WINDOW_TIMINGS[window].includes(ABILITY_EFFECTS[effect].timing)) return [];
     if (!canActivate(state, player, pokemon)) return [];
-    return effectPayloads(state, player, pokemon, effect).map((payload) => ({
+    return effectPayloads(state, player, pokemon, effect, window).map((payload) => ({
       id: ['ability', ...Object.values(payload)].join(':'),
       kind: 'activate_ability' as const,
       payload,
@@ -209,9 +266,92 @@ export function activateAbility(next: GameState, action: Action): EngineEvent[] 
       ];
     case 'shell_guard':
       return [activated, ...armShield(player, { scope: 'battle_coin_loss', visibility: 'public' })];
+    case 'blaze':
+      addBattleTerms(next, player.seatIndex, { abilityBonus: BLAZE_BONUS });
+      return [activated];
+    case 'dragon_rush':
+      addBattleTerms(next, player.seatIndex, { abilityBonus: DRAGON_RUSH_BONUS });
+      addAfterResolution(next, player.seatIndex, pokemon.instanceId);
+      return [activated];
+    case 'adaptability':
+      player.rollEffects = [
+        ...(player.rollEffects ?? []).filter((entry) => entry.globalTurnNo === next.globalTurnNo),
+        { scope: action.payload.scope!, n: ADAPTABILITY_BONUS, globalTurnNo: next.globalTurnNo },
+      ];
+      return [activated];
+    case 'intimidate': {
+      const target = next.players.find(
+        (entry) => entry.seatIndex === action.payload.targetSeatIndex,
+      )!;
+      activated.targetId = target.actorId;
+      // A hostile Ability: always an attack attempt; an armed Price Shield blocks it whole (D6).
+      const declared = declareHostileAction(next, player, target, 'hostile_ability');
+      if (!declared.blocked) addBattleTerms(next, target.seatIndex, { debuffs: INTIMIDATE_DEBUFF });
+      return [activated, ...declared.events];
+    }
+    case 'calculate':
+      startReroll(next);
+      return [activated];
     default:
       throw new RangeError(`Ability effect ${effect} is not executable`);
   }
+}
+
+/** Add this battle's Ability terms to one side (§4.4 abilityBonus and debuffs). */
+function addBattleTerms(
+  next: GameState,
+  seatIndex: number,
+  terms: { abilityBonus?: number; debuffs?: number },
+): void {
+  const add = (mods: { abilityBonus: number; debuffs: number } | undefined) => ({
+    abilityBonus: (mods?.abilityBonus ?? 0) + (terms.abilityBonus ?? 0),
+    debuffs: (mods?.debuffs ?? 0) + (terms.debuffs ?? 0),
+  });
+  if (next.phase.kind === 'gym') {
+    next.phase.battle.modifiers = add(next.phase.battle.modifiers);
+  } else if (next.phase.kind === 'pvp') {
+    const battle = next.phase.battle;
+    const side = seatIndex === battle.attackerSeatIndex ? 'attacker' : 'defender';
+    const modifiers = battle.modifiers ?? {
+      attacker: { abilityBonus: 0, debuffs: 0 },
+      defender: { abilityBonus: 0, debuffs: 0 },
+    };
+    battle.modifiers = { ...modifiers, [side]: add(modifiers[side]) };
+  }
+}
+
+function addAfterResolution(next: GameState, seatIndex: number, instanceId: string): void {
+  if (next.phase.kind !== 'pvp' && next.phase.kind !== 'gym') return;
+  const battle = next.phase.battle;
+  battle.afterResolution = [...(battle.afterResolution ?? []), { seatIndex, instanceId }];
+}
+
+/** Calculate: the revealed die is replaced by a new logged die, never restored (D11). */
+function startReroll(next: GameState): void {
+  const phase = next.phase;
+  if (phase.kind === 'move') {
+    delete phase.rolled;
+    phase.awaitingResult = true;
+    phase.rerolling = true;
+  } else if (phase.kind === 'encounter') {
+    phase.rerolling = true;
+  } else if ((phase.kind === 'pvp' || phase.kind === 'gym') && phase.battle.step === 'reroll') {
+    phase.battle.rerolling = true;
+  }
+}
+
+/**
+ * D4 step 12 / D5 step 6 (D13): after the result and any reward, each `tiredSelf` source becomes
+ * Tired, attacker's first. Status follows the UID, so an evolved source is the new form.
+ */
+export function applyAfterResolution(
+  next: GameState,
+  entries: readonly { seatIndex: number; instanceId: string }[] = [],
+): EngineEvent[] {
+  return entries.flatMap(({ seatIndex, instanceId }) => {
+    const owner = next.players.find((entry) => entry.seatIndex === seatIndex)!;
+    return applyStatus(owner, instanceId, 'tired', 'dragon_rush');
+  });
 }
 
 /**

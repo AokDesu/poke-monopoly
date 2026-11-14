@@ -29,7 +29,7 @@ const content = toEngineContent(parseContent(files));
 
 /**
  * P0 Fisherman (Eevee) is active in Strategy at globalTurnNo 7. P1 Researcher owns a ready
- * Chansey (Heal Pulse, R) and a Tired Eevee; P2 Bug Catcher only watches.
+ * Chansey (Heal Pulse, R) and a Tired Pikachu; P2 Bug Catcher only watches.
  */
 function game(seed = 1): GameState {
   const state = createGame(
@@ -51,13 +51,15 @@ function game(seed = 1): GameState {
   for (const player of state.players) {
     player.ownTurnNo = 2;
     player.team[0]!.speciesId = 'eevee';
+    // Adaptability already used this Lap: only the defender's Heal Pulse can open a window.
+    player.team[0]!.abilityReady = false;
   }
   const defender = state.players[1]!;
   defender.team = [
-    { ...defender.team[0]!, speciesId: 'chansey' },
+    { ...defender.team[0]!, speciesId: 'chansey', abilityReady: true },
     {
       instanceId: 'caught:1:1',
-      speciesId: 'eevee',
+      speciesId: 'pikachu',
       origin: 'caught',
       evolutionStage: 0,
       tired: true,
@@ -115,7 +117,7 @@ test('a defender heals in its R window before the snapshot: one activation spend
   ]);
   expect(after.players[1]!.abilityUsedGlobalTurnNo).toBe(7);
   expect(after.turnBudgets).toEqual({ tacticalAction: 0, catchAttempt: 1, pokemonAbility: 1 });
-  // The healed Eevee (battle 2) now beats Chansey (battle 1) for the frozen snapshot.
+  // The healed Pikachu (battle 2) now beats Chansey (battle 1) for the frozen snapshot.
   expect(after.phase).toMatchObject({
     battle: {
       step: 'attacker_roll',
@@ -206,9 +208,9 @@ test('evolution never resets readiness or the allowance (§4.5, §8)', () => {
   const evolved = accept(rolled, 'choose_reward', {
     kind: 'evolve',
     instanceId: 'caught:1:1',
-    nextFormId: 'jolteon',
+    nextFormId: 'raichu',
   }).state;
-  expect(evolved.players[1]!.team[1]).toMatchObject({ speciesId: 'jolteon', abilityReady: true });
+  expect(evolved.players[1]!.team[1]).toMatchObject({ speciesId: 'raichu', abilityReady: true });
   expect(evolved.players[1]!.team[0]!.abilityReady).toBe(false);
   expect(evolved.players[1]!.abilityUsedGlobalTurnNo).toBe(7);
 });

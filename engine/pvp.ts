@@ -6,9 +6,9 @@ import type {
   LegalActions,
   Player,
 } from './contract/schema.ts';
-import { pvpSnapshotSchema } from './contract/combat.ts';
+import { pvpSnapshotSchema, type PvpSnapshot } from './contract/combat.ts';
 import { pvpSnapshot, resolvePvp, type CombatModifiers } from './combat.ts';
-import { abilityChoices } from './abilities.ts';
+import { abilityChoices, applyAfterResolution, canReroll } from './abilities.ts';
 import { battleReadyMembers } from './status.ts';
 import { pendingRewardChoices, resolveReward } from './rewards.ts';
 import {
@@ -77,6 +77,8 @@ export function pendingPvpChoices(state: GameState, result: LegalActions): void 
       { id: 'accept-pvp', kind: 'respond_pvp', payload: { accept: true } },
       { id: 'decline-pvp', kind: 'respond_pvp', payload: { accept: false } },
     );
+  } else if (battle.step === 'reroll' && !battle.rerolling) {
+    result.enabled.push({ id: 'keep-die', kind: 'skip', payload: {} });
   } else if (battle.step === 'attacker_window' || battle.step === 'defender_window') {
     // Choosing none spends nothing (D10); activations come from abilityChoices.
     result.enabled.push({ id: 'pass-window', kind: 'skip', payload: {} });
@@ -211,7 +213,9 @@ export function recordPvpCommand(next: GameState, action: Action): EngineEvent[]
     }
     return [response, ...openPvpWindows(next)];
   }
-  if (action.kind === 'skip') return closePvpWindow(next);
+  if (action.kind === 'skip') {
+    return battle.step === 'reroll' ? keepPvpDie(next) : closePvpWindow(next);
+  }
   if (action.kind === 'choose_reward' && battle.step === 'reward') {
     const request = structuredClone(battle.request);
     const protection: EngineEvent[] = [];
@@ -230,12 +234,7 @@ export function recordPvpCommand(next: GameState, action: Action): EngineEvent[]
     }
     const reward = resolveReward(next, request, action.payload);
     if ('rejected' in reward) throw new Error('Validated PvP reward rejected');
-    next.phase = { kind: 'strategy' };
-    return [
-      ...protection,
-      ...reward.events,
-      { kind: 'phase_changed', from: 'pvp', to: 'strategy' },
-    ];
+    return [...protection, ...reward.events, ...leavePvp(next)];
   }
   return [];
 }
@@ -246,7 +245,11 @@ export function pendingPvpRollPurpose(state: GameState): string | undefined {
   if (battle.step === 'attacker_roll' || battle.step === 'defender_roll') {
     return `${battle.battleId}:${battle.step}`;
   }
+  if (battle.step === 'reroll' && battle.rerolling)
+    return `${battle.battleId}:${battle.side}_reroll`;
 }
+
+type Faces = { attackerFace: number; defenderFace: number };
 
 export function recordPvpRoll(next: GameState, value: number): EngineEvent[] {
   if (next.phase.kind !== 'pvp') return [];
@@ -256,19 +259,65 @@ export function recordPvpRoll(next: GameState, value: number): EngineEvent[] {
     next.phase.battle = { ...battle, snapshot, step: 'defender_roll', attackerFace: value };
     return [];
   }
-  if (battle.step !== 'defender_roll') return [];
-  const result = resolvePvp(battle.snapshot, battle.attackerFace, value);
+  if (battle.step === 'defender_roll') {
+    return offerReroll(next, { attackerFace: battle.attackerFace, defenderFace: value });
+  }
+  if (battle.step !== 'reroll' || !battle.rerolling) return [];
+  // The new die replaces the old one, even when worse (D11).
+  const faces = {
+    attackerFace: battle.side === 'attacker' ? value : battle.attackerFace,
+    defenderFace: battle.side === 'defender' ? value : battle.defenderFace,
+  };
+  return offerReroll(next, faces, battle.side);
+}
+
+/** Keep the revealed die in the current reroll window (D11). */
+function keepPvpDie(next: GameState): EngineEvent[] {
+  if (next.phase.kind !== 'pvp' || next.phase.battle.step !== 'reroll') return [];
+  const { attackerFace, defenderFace, side } = next.phase.battle;
+  return offerReroll(next, { attackerFace, defenderFace }, side);
+}
+
+/**
+ * D4 step 9: the challenger, then the defender, may reroll its own die once with an eligible
+ * Calculate; each sees both dice. No result applies before both windows close.
+ */
+function offerReroll(next: GameState, faces: Faces, done?: 'attacker' | 'defender'): EngineEvent[] {
+  if (next.phase.kind !== 'pvp') return [];
+  const battle = next.phase.battle;
+  if (battle.step !== 'defender_roll' && battle.step !== 'reroll') return [];
+  const snapshot = pvpSnapshotSchema.parse(battle.snapshot);
+  const participants = {
+    battleId: battle.battleId,
+    attackerSeatIndex: battle.attackerSeatIndex,
+    defenderSeatIndex: battle.defenderSeatIndex,
+    ...(battle.forced ? { forced: battle.forced } : {}),
+    ...(battle.modifiers ? { modifiers: battle.modifiers } : {}),
+    ...(battle.afterResolution ? { afterResolution: battle.afterResolution } : {}),
+  };
+  for (const side of ['attacker', 'defender'] as const) {
+    if (done === 'defender' || (done === 'attacker' && side === 'attacker')) continue;
+    const seat = side === 'attacker' ? battle.attackerSeatIndex : battle.defenderSeatIndex;
+    if (canReroll(next, seat)) {
+      next.phase.battle = { ...participants, step: 'reroll', snapshot, ...faces, side };
+      return [];
+    }
+  }
+  return resolveBattle(next, snapshot, faces);
+}
+
+/** D4 steps 10–12: result, the winner's reward request, or a tie straight to consequences. */
+function resolveBattle(next: GameState, snapshot: PvpSnapshot, faces: Faces): EngineEvent[] {
+  if (next.phase.kind !== 'pvp') return [];
+  const battle = next.phase.battle;
+  const result = resolvePvp(snapshot, faces.attackerFace, faces.defenderFace);
   const event: EngineEvent = {
     kind: 'pvp_resolved',
     battleId: battle.battleId,
-    attackerFace: battle.attackerFace,
-    defenderFace: value,
+    ...faces,
     ...result,
   };
-  if (result.rewardSeatIndex === null) {
-    next.phase = { kind: 'strategy' };
-    return [event, { kind: 'phase_changed', from: 'pvp', to: 'strategy' }];
-  }
+  if (result.rewardSeatIndex === null) return [event, ...leavePvp(next)];
   const winner = next.players.find((player) => player.seatIndex === result.rewardSeatIndex)!;
   const loserSeat =
     result.rewardSeatIndex === battle.attackerSeatIndex
@@ -276,10 +325,15 @@ export function recordPvpRoll(next: GameState, value: number): EngineEvent[] {
       : battle.attackerSeatIndex;
   const loser = next.players.find((player) => player.seatIndex === loserSeat)!;
   next.phase.battle = {
-    ...battle,
-    snapshot: pvpSnapshotSchema.parse(battle.snapshot),
+    battleId: battle.battleId,
+    attackerSeatIndex: battle.attackerSeatIndex,
+    defenderSeatIndex: battle.defenderSeatIndex,
+    ...(battle.forced ? { forced: battle.forced } : {}),
+    ...(battle.modifiers ? { modifiers: battle.modifiers } : {}),
+    ...(battle.afterResolution ? { afterResolution: battle.afterResolution } : {}),
+    snapshot,
     step: 'reward',
-    defenderFace: value,
+    ...faces,
     request: {
       rewardId: battle.battleId,
       winnerId: winner.actorId,
@@ -287,4 +341,12 @@ export function recordPvpRoll(next: GameState, value: number): EngineEvent[] {
     },
   };
   return [event];
+}
+
+/** D4 step 12: after-resolution consequences, then back to the challenger's Strategy. */
+function leavePvp(next: GameState): EngineEvent[] {
+  if (next.phase.kind !== 'pvp') return [];
+  const consequences = applyAfterResolution(next, next.phase.battle.afterResolution);
+  next.phase = { kind: 'strategy' };
+  return [...consequences, { kind: 'phase_changed', from: 'pvp', to: 'strategy' }];
 }

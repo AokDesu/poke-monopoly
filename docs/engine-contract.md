@@ -464,3 +464,38 @@ A qualifying owner Start credit emits `abilities_reset` after the income transfe
 Sell phase change; the player's per-`globalTurnNo` allowance is untouched. The
 `ability-once-per-instance-per-lap` and `ability-once-per-player-turn` invariant checkers are
 active; `evolution-keeps-cooldowns` still guards evolution.
+
+## Roll modifiers and Porygon's reroll (issue #55 S11)
+
+Spec: §4.3, §4.4, §4.5, §6.1/6.8, §8; Appendix C.1 `rollBonus`, C.2, C.3, D2, D11, D13.
+
+Content 1.3.0 also binds Charmander `blaze`, Eevee `adaptability`, Gyarados `intimidate`, Porygon
+`calculate` and Dratini `dragon_rush`; evolved fallback forms inherit them.
+
+- Battle-scoped terms live in the pending battle's `modifiers` (`{ abilityBonus, debuffs }` per
+  PvP side, or one set at a Gym) and are frozen into the snapshot at confirmation. Blaze is
+  `abilityBonus +1`, Dragon Rush `+2` plus an `afterResolution` entry, Intimidate adds `debuffs 1`
+  to the opponent after `declareHostileAction` (a `hostile_ability` attempt; a Price Shield blocks
+  it). Intimidate is offered only in PvP windows; Blaze and Dragon Rush only in battle windows.
+- Adaptability records `player.rollEffects` `{ scope, n: 1, globalTurnNo }`; combat snapshots
+  (`sideModifiers`) and `catchSnapshot` add the entries for the current `globalTurnNo`, so
+  `catchOdds`, `pvpOdds` and `gymOdds` agree with the real roll. It is offered in every B window,
+  with both scopes.
+- `afterResolution` entries apply `status_changed` Tired (reason `dragon_rush`) when the battle
+  leaves: after a tie, a Gym loss, or the reward, attacker's first.
+
+Porygon's A window (`calculate`) opens only when the die's owner has an eligible ready Calculate:
+
+| Die | Pending decision | Keep | Reroll die purpose |
+|---|---|---|---|
+| Move | `move { rolled }` | `keep-die` moves by `rolled` | `move:<seat>:<turn>:reroll` |
+| Catch | `encounter { catchRoll, face }` | `keep-die` resolves `face` | `catch:<seat>:<turn>:reroll` |
+| PvP | `battle.step: 'reroll'`, `side` | `keep-die` | `<battleId>:<side>_reroll` |
+| Gym | `battle.step: 'reroll'`, `face` | `keep-die` | `<battleId>:challenger_reroll` |
+
+Rerolling is `activate_ability` on the Calculate instance and spends its normal costs; the new
+logged die replaces the old one, even when worse, and no Ball, catch budget or first-catch bonus is
+spent again. In PvP the attacker's window comes before the defender's, both after both dice. No
+outcome, reward, slow or movement applies before the decision. Start income may therefore be paid
+by the keep-die command too; `forced-movement-no-start-income` treats any accepted Move-phase
+command of the active seat as its own move.

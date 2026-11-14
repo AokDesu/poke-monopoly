@@ -220,6 +220,8 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
   - Nurse Joy clears Tired from every team UID at the start of her turn, after advancing `ownTurnNo` and resetting budgets, before Social. Battles do not automatically apply Tired; named effects and Events supply it.
   - Event e5 targets the highest printed battle, with instance ID as a stable tie-break.
 
+- **S11 roll modifiers scope (#55):** `rollBonus` effects run in the approved Appendix C windows. Blaze (+1) and Dragon Rush (+2) add to the activating side's `abilityBonus` for the current PvP or Gym battle; Adaptability adds +1 to the chosen scope (catch or combat) for every own snapshot until the end of the current `globalTurnNo`; Gyarados' Intimidate is a hostile Ability that adds a debuff of 1 to the PvP opponent's snapshot (blocked whole by an armed Price Shield, still an attack). Displayed odds use the same frozen terms. Porygon's Calculate opens an A window after its owner's own move, catch, PvP or Gym die: reroll (a new logged die that replaces the old one, even when worse) or keep; in PvP the challenger decides first, then the defender, each seeing both dice, and nothing resolves before. Dragon Rush's source becomes Tired after the result and any reward (D13). See the [roll modifier contract](engine-contract.md#roll-modifiers-and-porygons-reroll-issue-55-s11).
+
 **Proposed timing contract (#55 S00):** the PvP and Gym decision order, shield and Nurse Joy protection, and the order of reward and after-battle effects are proposed in [Appendix C](#appendix-c--ability-and-battle-timing-contract), pending Stream A team approval. It does not change the rules above.
 
 ### 4.5 Pokémon: encounters, Abilities, evolution and Starters

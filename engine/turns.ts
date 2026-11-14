@@ -1,6 +1,6 @@
 import { openGym, pendingGymRollPurpose } from './gym.ts';
 import { pendingPvpRollPurpose } from './pvp.ts';
-import { resetAbilities } from './abilities.ts';
+import { canReroll, resetAbilities } from './abilities.ts';
 import type { GameState, EngineEvent, Player } from './contract/schema.ts';
 import { expireStatuses } from './status.ts';
 import { startTurnClassPassive } from './classes.ts';
@@ -35,18 +35,31 @@ export function pendingRollPurpose(state: GameState): string | undefined {
   const pvp = pendingPvpRollPurpose(state);
   if (pvp) return pvp;
   if (state.phase.kind === 'encounter' && state.phase.catchRoll) {
-    return `catch:${state.activeSeatIndex}:${state.globalTurnNo}`;
+    const purpose = `catch:${state.activeSeatIndex}:${state.globalTurnNo}`;
+    if (state.phase.rerolling) return `${purpose}:reroll`;
+    if (state.phase.face === undefined) return purpose;
   }
   if (state.phase.kind === 'first_player_roll' && state.phase.awaitingResult) {
     return firstPlayerRollPurpose(state);
   }
   if (state.phase.kind === 'move' && state.phase.awaitingResult) {
-    return `move:${state.activeSeatIndex}:${state.globalTurnNo}`;
+    const purpose = `move:${state.activeSeatIndex}:${state.globalTurnNo}`;
+    return state.phase.rerolling ? `${purpose}:reroll` : purpose;
   }
 }
 
 export function recordMoveRoll(next: GameState, value: number): EngineEvent[] {
   if (next.phase.kind !== 'move' || !next.phase.awaitingResult) return [];
+  // C.3 move order: an eligible A window follows the die before slows and movement (D11).
+  if (!next.phase.rerolling && canReroll(next, next.activeSeatIndex)) {
+    next.phase = { kind: 'move', rolled: value };
+    return [];
+  }
+  return applyMove(next, value);
+}
+
+/** Owner movement by `value` before slows: Start credit, Sell, then Resolve (§4.2, §4.7). */
+function applyMove(next: GameState, value: number): EngineEvent[] {
   const player = next.players.find((entry) => entry.seatIndex === next.activeSeatIndex)!;
   const previousMilestone = Math.floor(player.routeProgress / 24);
   player.routeProgress += slowedSteps(player, value);
@@ -90,6 +103,10 @@ export function recordTurnCommand(next: GameState, kind: string): EngineEvent[] 
     return [];
   }
   if (kind !== 'skip') return [];
+  // Keeping Porygon's revealed move die moves by it (D11).
+  if (next.phase.kind === 'move' && next.phase.rolled !== undefined) {
+    return applyMove(next, next.phase.rolled);
+  }
   const from = next.phase.kind;
   switch (from) {
     case 'start':

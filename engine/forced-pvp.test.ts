@@ -46,6 +46,8 @@ function game(seed = 1): GameState {
   for (const player of state.players) {
     player.ownTurnNo = 2;
     player.items = [];
+    // Eevee's and Porygon's Abilities are spent this Lap: no window or reroll interrupts.
+    player.team[0]!.abilityReady = false;
   }
   return state;
 }

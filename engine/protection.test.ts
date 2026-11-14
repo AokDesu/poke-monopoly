@@ -46,6 +46,8 @@ function game(targetClass = 'researcher', seed = 1): GameState {
   for (const player of state.players) {
     player.ownTurnNo = 2;
     player.team[0]!.speciesId = 'eevee';
+    // Adaptability already used this Lap: these battles open no Ability window (C.3).
+    player.team[0]!.abilityReady = false;
     player.items = [];
   }
   return state;

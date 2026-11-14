@@ -180,7 +180,9 @@ test('only a battle-scoped shield covers a Gym loss; Price Shield and Nurse Joy 
 });
 
 test("Rival's +1 never applies at a Gym; the shared odds agree with the real resolver (D14, §3 odds)", () => {
-  const landed = accept(atGym(12, 'eevee', 'rival'), 'skip').state;
+  const rival = atGym(12, 'eevee', 'rival');
+  rival.players[0]!.team[0]!.abilityReady = false; // no Adaptability window
+  const landed = accept(rival, 'skip').state;
   const confirmed = accept(landed, 'challenge_gym');
   const event = confirmed.events.find((entry) => entry.kind === 'gym_confirmed')!;
   if (event.kind !== 'gym_confirmed') throw new Error('unreachable');

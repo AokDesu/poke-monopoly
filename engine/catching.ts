@@ -1,3 +1,4 @@
+import { canReroll } from './abilities.ts';
 import { classBonus, useCatchClassBonus } from './classes.ts';
 import { int, weightedPick } from './rng.ts';
 import type { Action, EngineEvent, GameState, Player } from './contract/schema.ts';
@@ -6,9 +7,11 @@ type BallType = keyof Player['balls'];
 
 type CatchRoll = NonNullable<Extract<GameState['phase'], { kind: 'encounter' }>['catchRoll']>;
 
-// Reserved hook: real Ability effects are deferred beyond this cycle.
-function abilityBonus(): number {
-  return 0;
+/** Catch-scope Ability roll bonuses active this globalTurnNo (Adaptability, D2). */
+function abilityBonus(state: GameState, player: Player): number {
+  return (player.rollEffects ?? [])
+    .filter((effect) => effect.scope === 'catch' && effect.globalTurnNo === state.globalTurnNo)
+    .reduce((sum, effect) => sum + effect.n, 0);
 }
 /** Lucky Egg's +1 lasts until the end of the turn it was used in (Appendix A). */
 function itemBonus(state: GameState): number {
@@ -33,7 +36,7 @@ export function catchSnapshot(state: GameState, player: Player, ballType: BallTy
       speciesTags: definition.tags,
     }),
     ballBonus: { poke: 0, great: 1, ultra: 2 }[ballType],
-    abilityBonus: abilityBonus(),
+    abilityBonus: abilityBonus(state, player),
     itemBonus: itemBonus(state),
   };
 }
@@ -46,6 +49,7 @@ export function catchSucceeds(roll: CatchRoll, face: number): boolean {
 
 export function confirmCatch(next: GameState, action: Action): EngineEvent[] {
   if (next.phase.kind !== 'encounter') return [];
+  if (action.kind === 'skip') return keepCatchDie(next);
   if (action.kind === 'release') {
     next.phase = { kind: 'end' };
     return [{ kind: 'phase_changed', from: 'encounter', to: 'end' }];
@@ -59,6 +63,22 @@ export function confirmCatch(next: GameState, action: Action): EngineEvent[] {
 }
 
 export function recordCatchRoll(next: GameState, value: number): EngineEvent[] {
+  if (next.phase.kind !== 'encounter' || !next.phase.catchRoll) return [];
+  // C.3 A window: nothing resolves before an eligible owner rerolls or keeps (D11).
+  if (!next.phase.rerolling) {
+    next.phase.face = value;
+    if (canReroll(next, next.activeSeatIndex)) return [];
+  }
+  return resolveCatch(next, value);
+}
+
+/** Keep the revealed catch die (D11). */
+export function keepCatchDie(next: GameState): EngineEvent[] {
+  if (next.phase.kind !== 'encounter' || next.phase.face === undefined) return [];
+  return resolveCatch(next, next.phase.face);
+}
+
+function resolveCatch(next: GameState, value: number): EngineEvent[] {
   if (next.phase.kind !== 'encounter' || !next.phase.catchRoll) return [];
   const events: EngineEvent[] = [];
   const player = next.players.find((entry) => entry.seatIndex === next.activeSeatIndex)!;

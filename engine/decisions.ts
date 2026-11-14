@@ -12,7 +12,9 @@ export function pendingDecision(state: GameState): { seatIndex: number; actorId:
     if (battle.step === 'response' || battle.step === 'defender_window') {
       seatIndex = battle.defenderSeatIndex;
     } else if (battle.step === 'attacker_window') seatIndex = battle.attackerSeatIndex;
-    else if (battle.step === 'reward') {
+    else if (battle.step === 'reroll') {
+      seatIndex = battle.side === 'attacker' ? battle.attackerSeatIndex : battle.defenderSeatIndex;
+    } else if (battle.step === 'reward') {
       const winner = state.players.find((player) => player.actorId === battle.request.winnerId);
       if (!winner) return null;
       seatIndex = winner.seatIndex;

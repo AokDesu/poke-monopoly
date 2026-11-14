@@ -1,7 +1,7 @@
 import type { Action, EngineEvent, GameState, LegalActions } from './contract/schema.ts';
 import { gymSnapshotSchema } from './contract/combat.ts';
 import { gymSnapshot, resolveGym } from './combat.ts';
-import { abilityChoices } from './abilities.ts';
+import { abilityChoices, applyAfterResolution, canReroll } from './abilities.ts';
 import { sideModifiers } from './pvp.ts';
 import { applyCoinLossProtection } from './protection.ts';
 import { pendingRewardChoices, resolveReward } from './rewards.ts';
@@ -35,6 +35,8 @@ export function pendingGymChoices(state: GameState, result: LegalActions): void 
       });
     }
     result.enabled.push({ id: 'skip', kind: 'skip', payload: {} });
+  } else if (battle.step === 'reroll' && !battle.rerolling) {
+    result.enabled.push({ id: 'keep-die', kind: 'skip', payload: {} });
   } else if (battle.step === 'window') {
     result.enabled.push({ id: 'pass-window', kind: 'skip', payload: {} });
   } else if (battle.step === 'reward') {
@@ -62,9 +64,12 @@ export function closeGymWindow(next: GameState): EngineEvent[] {
   return next.phase.kind === 'gym' && next.phase.battle.step === 'window' ? confirmGym(next) : [];
 }
 
-function leaveGym(next: GameState): EngineEvent {
+/** D5 step 6: after-resolution consequences, then End. */
+function leaveGym(next: GameState): EngineEvent[] {
+  const consequences =
+    next.phase.kind === 'gym' ? applyAfterResolution(next, next.phase.battle.afterResolution) : [];
   next.phase = { kind: 'end' };
-  return { kind: 'phase_changed', from: 'gym', to: 'end' };
+  return [...consequences, { kind: 'phase_changed', from: 'gym', to: 'end' }];
 }
 
 /** Called only after the executor validated actor, revision and the complete choice. */
@@ -73,7 +78,7 @@ export function recordGymCommand(next: GameState, action: Action): EngineEvent[]
   const battle = next.phase.battle;
   if (battle.step === 'entry') {
     // Skipping costs nothing; a challenge spends no tactical action (D5).
-    if (action.kind === 'skip') return [leaveGym(next)];
+    if (action.kind === 'skip') return leaveGym(next);
     if (action.kind !== 'challenge_gym') return [];
     // D5 step 2: the challenger's B window opens only with an eligible ready Ability.
     if (abilityChoices(next, next.activeSeatIndex, 'gym').length) {
@@ -83,24 +88,41 @@ export function recordGymCommand(next: GameState, action: Action): EngineEvent[]
     return confirmGym(next);
   }
   if (battle.step === 'window' && action.kind === 'skip') return confirmGym(next);
+  if (battle.step === 'reroll' && action.kind === 'skip') return resolveGymDie(next, battle.face);
   if (battle.step === 'reward' && action.kind === 'choose_reward') {
     const reward = resolveReward(next, battle.request, action.payload);
     if ('rejected' in reward) throw new Error('Validated Gym reward rejected');
-    return [...reward.events, leaveGym(next)];
+    return [...reward.events, ...leaveGym(next)];
   }
   return [];
 }
 
 export function pendingGymRollPurpose(state: GameState): string | undefined {
-  if (state.phase.kind === 'gym' && state.phase.battle.step === 'roll') {
-    return `${state.phase.battle.battleId}:challenger_roll`;
+  if (state.phase.kind !== 'gym') return;
+  const battle = state.phase.battle;
+  if (battle.step === 'roll') return `${battle.battleId}:challenger_roll`;
+  if (battle.step === 'reroll' && battle.rerolling) return `${battle.battleId}:challenger_reroll`;
+}
+
+/** The Gym die; an eligible Calculate opens an A window before any result (D5 step 4, D11). */
+export function recordGymRoll(next: GameState, value: number): EngineEvent[] {
+  if (next.phase.kind !== 'gym') return [];
+  const battle = next.phase.battle;
+  if (battle.step === 'reroll' && battle.rerolling) return resolveGymDie(next, value);
+  if (battle.step !== 'roll') return [];
+  if (canReroll(next, next.activeSeatIndex)) {
+    const snapshot = gymSnapshotSchema.parse(battle.snapshot);
+    next.phase.battle = { ...battle, step: 'reroll', snapshot, face: value };
+    return [];
   }
+  return resolveGymDie(next, value);
 }
 
 /** A win grants exactly one badge before the reward choice; a loss pays the bank (§4.4, D5). */
-export function recordGymRoll(next: GameState, value: number): EngineEvent[] {
-  if (next.phase.kind !== 'gym' || next.phase.battle.step !== 'roll') return [];
+function resolveGymDie(next: GameState, value: number): EngineEvent[] {
+  if (next.phase.kind !== 'gym') return [];
   const battle = next.phase.battle;
+  if (battle.step !== 'roll' && battle.step !== 'reroll') return [];
   const snapshot = gymSnapshotSchema.parse(battle.snapshot);
   const result = resolveGym(snapshot, value);
   const player = next.players.find((entry) => entry.seatIndex === next.activeSeatIndex)!;
@@ -113,7 +135,10 @@ export function recordGymRoll(next: GameState, value: number): EngineEvent[] {
   if (result.outcome === 'win') {
     player.badges++;
     next.phase.battle = {
-      ...battle,
+      battleId: battle.battleId,
+      position: battle.position,
+      ...(battle.modifiers ? { modifiers: battle.modifiers } : {}),
+      ...(battle.afterResolution ? { afterResolution: battle.afterResolution } : {}),
       snapshot,
       step: 'reward',
       face: value,
@@ -143,5 +168,5 @@ export function recordGymRoll(next: GameState, value: number): EngineEvent[] {
       reason: 'gym_loss',
     });
   }
-  return [...events, leaveGym(next)];
+  return [...events, ...leaveGym(next)];
 }

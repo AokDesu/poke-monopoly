@@ -1,3 +1,4 @@
+import { ABILITY_EFFECTS, abilityEffectOf } from './abilities.ts';
 import { pendingDecision } from './decisions.ts';
 import { applyAction, legalActions } from './contract/stubs.ts';
 import {
@@ -127,11 +128,19 @@ function checkEvolutionFields({ before, result }: Step): string[] {
           current.evolutionStage === previous.evolutionStage)
       )
         continue;
-      // Preserve all UID-bound fields, including future status/cooldown metadata.
+      // Preserve all UID-bound fields, including future status/cooldown metadata. A status change
+      // logged in the same action (Dragon Rush's post-reward Tired, D13) is checked elsewhere.
+      const statusLogged = eventsOf(result.events, 'status_changed').some(
+        (event) => event.instanceId === previous.instanceId,
+      );
       const retained = (pokemon: typeof previous) => {
         const fields: Partial<typeof previous> = { ...pokemon };
         delete fields.speciesId;
         delete fields.evolutionStage;
+        if (statusLogged) {
+          delete fields.tired;
+          delete fields.tiredExpiresOwnTurnNo;
+        }
         return fields;
       };
       if (
@@ -472,9 +481,13 @@ function checkStartPaymentOrder({ before, result }: Step): string[] {
 
 function checkForcedMovementIncome({ before, parsed, result }: Step): string[] {
   if (!accepted(result)) return [];
-  // Start income is paid only while the engine resolves the payee's own move roll.
+  // Start income is paid only while the payee's own Move phase resolves: its die, a kept or
+  // rerolled die (D11) or a fixed move (C.5). Displacement happens outside Move (D9).
   const ownMoveRoll =
-    parsed?.kind === 'dice_result' && pendingRollPurpose(before)?.startsWith('move:') === true;
+    before.phase.kind === 'move' &&
+    (parsed?.kind === 'dice_result'
+      ? pendingRollPurpose(before)?.startsWith('move:') === true
+      : parsed?.kind === 'roll' || parsed?.kind === 'skip');
   const mover = before.players.find((player) => player.seatIndex === before.activeSeatIndex);
   return startIncome(result.events)
     .filter(
@@ -578,7 +591,7 @@ const HOSTILE_ITEMS = ['repel', 'pickpocket', 'sticky-web', 'battle-ticket'];
 function expectedAttempt(before: GameState, parsed: Step['parsed']) {
   if (!parsed) return;
   const actor = before.players.find((player) => player.actorId === parsed.actorId);
-  let source: 'pvp_declaration' | 'hostile_item' | undefined;
+  let source: 'pvp_declaration' | 'hostile_item' | 'hostile_ability' | undefined;
   let prefix = '';
   let targetSeatIndex: number | undefined;
   if (parsed.kind === 'declare_pvp') {
@@ -589,6 +602,17 @@ function expectedAttempt(before: GameState, parsed: Step['parsed']) {
       [source, prefix, targetSeatIndex] = [
         'hostile_item',
         'hostile',
+        parsed.payload.targetSeatIndex,
+      ];
+    }
+  }
+  if (parsed.kind === 'activate_ability') {
+    const pokemon = actor?.team.find((entry) => entry.instanceId === parsed.payload.instanceId);
+    const effect = pokemon && abilityEffectOf(before, pokemon);
+    if (effect && ABILITY_EFFECTS[effect].hostile) {
+      [source, prefix, targetSeatIndex] = [
+        'hostile_ability',
+        'ability',
         parsed.payload.targetSeatIndex,
       ];
     }
