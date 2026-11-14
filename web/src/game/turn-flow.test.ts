@@ -215,6 +215,8 @@ test.each([2, 3] as const)(
       // With 3 seats, seat 2 was outside the chat: its revision does not count it.
       expect(request.stateRevision).toBe(request.observation.public.stateRevision);
       expect(request.stateRevision).toBe(before.state.stateRevision - (seats === 3 ? 1 : 0));
+      // The shared request IDs carry the seat's own revision together with the turn key.
+      expect(request.turnKey).toBe(`${before.state.globalTurnNo}:${request.seatIndex}`);
       return firstChoice(url, init);
     });
     vi.stubGlobal('fetch', transport);

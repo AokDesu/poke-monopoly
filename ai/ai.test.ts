@@ -324,7 +324,7 @@ describe('POST /api/ai/decide', () => {
       const response = await decide(request);
       expect(response.status).toBe(200);
       expect(decisionResponseSchema.parse(await response.json())).toMatchObject({
-        choice: request.enabledActions[0]!.id,
+        choice: policyChoice(request),
       });
       // A revision other than the observed one (the global count, for a bystander) is refused.
       const other = await decide({
