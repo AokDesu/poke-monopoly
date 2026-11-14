@@ -33,7 +33,7 @@ Ids are lowercase kebab-case (`poke-ball`, `main-character`). The engine's `Cont
 ## Add a species
 
 1. Add the row to the Appendix A table in the spec first. `content/content.test.ts` reads that table and compares it with `species.json` cell by cell, so the two cannot drift.
-2. Add the object to `species.json`: `id`, `name`, `rarity` (`common`, `uncommon`, `rare`), `dc`, `battle`, `base`, `tags`, `inEncounterPool`, and `ability: { name, text, timing }`. Copy the Ability text exactly. `timing` is `OWN_STRATEGY` (S), `CHALLENGE_DECLARE` (C), `BEFORE_OWN_ROLL` (B), `AFTER_OWN_ROLL` (A) or `REACTION` (R).
+2. Add the object to `species.json`: `id`, `name`, `rarity` (`common`, `uncommon`, `rare`), `dc`, `battle`, `base`, `tags`, `inEncounterPool`, and `ability: { name, text, timing }`. Copy the Ability text exactly. `timing` is `OWN_STRATEGY` (S), `CHALLENGE_DECLARE` (C), `BEFORE_OWN_ROLL` (B), `AFTER_OWN_ROLL` (A) or `REACTION` (R). If the engine implements the Ability, add `effect`, one of `abilityEffectIdSchema` in `engine/contract/schema.ts` (for example `string_shot`); as with a class `passive`, the effect's numbers and timing live in the engine (`engine/abilities.ts`) and the prose is never parsed. Leave `effect` out when the engine has no such effect.
 3. `inEncounterPool` is `false` only for the 3 starters and Porygon (§4.5). Rarity is the only thing that sets the draw weight.
 4. If the species evolves, add a line (below). If it is a class Starter, put its id in that class's `starterSpeciesIds` in `classes.json`.
 5. Update the counts the test pins (19 species, 15 in the pool) in the same pull request, and bump `CONTENT_VERSION`.
