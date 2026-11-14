@@ -546,3 +546,22 @@ Spec: §4.5 primitives, §4.6 deck, §5.4 privacy, §6.1/6.8, §8; Appendix C.1 
   `{ kind: 'peek', eventId }` to the owner's `privateResults` without drawing or reordering.
   Other seats' observations, legal actions, event copies and action records never carry the card
   or the order. Event squares remain C4 placeholders; C4 owns draws and effects on this deck.
+
+## Core Starter bindings and primitive coverage (issue #55 S14)
+
+Spec: §4.4, §4.5, §6.1, §8; Appendix A core classes/Abilities/evolution; Appendix C.1/C.2.
+
+Content 1.3.0 binds `ability.effect` for Bulbasaur `vine_pull`, Charmander `blaze`, Squirtle
+`shell_guard`, Eevee `adaptability`, Magikarp `lucky_splash`, Gyarados `intimidate`, Chansey
+`heal_pulse`, Caterpie `string_shot`, Porygon `calculate`, Pidgey `quick_flight` and Dratini
+`dragon_rush`. Fallback forms (Ivysaur/Venusaur, Charmeleon/Charizard, Wartortle/Blastoise,
+Vaporeon/Jolteon/Flareon, Metapod/Butterfree, Dragonair/Dragonite) inherit through
+`effectiveForm`; Gyarados has its own definition, so Magikarp's evolution changes the Ability but
+keeps the spent readiness. `challenge` (forcePvP: a forced, hostile PvP declaration that also
+spends the tactical action) and `track` (peek) are executable but unbound; C4 content binds them.
+
+`engine/starter-abilities.test.ts` is the coverage ledger: a table reaches each form's legal window
+(S, B attacker, R defender or A reroll) and checks an observable effect, the effect table maps to
+exactly the eight §4.5 primitives with every one exercised, authored timings equal the engine's,
+and an actually caught Dratini becomes Tired after Dragon Rush (not battle-ready, ×0.8 sale) and
+recovers by expiry or Potion (Nurse Joy and Chansey recovery are covered in the S03/S10 tests).

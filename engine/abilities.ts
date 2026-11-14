@@ -4,6 +4,7 @@ import { declareHostileAction } from './protection.ts';
 import { applyStatus, healStatus } from './status.ts';
 import { addSlow, hasSlowKind } from './slows.ts';
 import { shuffle } from './rng.ts';
+import { forceChallenge, pvpDisabledReason } from './pvp.ts';
 import type {
   AbilityEffectId,
   Action,
@@ -214,6 +215,16 @@ function effectPayloads(
     case 'quick_flight':
     case 'lucky_splash':
       return window === 'strategy' ? [{ instanceId }] : [];
+    case 'challenge':
+      // forceChallenge: the forced PvP's own legality (tactical action, both teams ready).
+      return window !== 'strategy'
+        ? []
+        : state.players
+            .filter(
+              (target) =>
+                target.seatIndex !== player.seatIndex && !pvpDisabledReason(state, player, target),
+            )
+            .map((target) => ({ instanceId, targetSeatIndex: target.seatIndex }));
     case 'track':
       // peek needs a deck to look at: a fresh deck, or a discard pile to reshuffle (§4.6).
       return window === 'strategy' &&
@@ -330,6 +341,14 @@ export function activateAbility(next: GameState, action: Action): EngineEvent[] 
       return [activated, { kind: 'phase_changed', from: 'strategy', to: 'chance_roll' }];
     case 'track':
       return [activated, ...peekTopEvent(next, player)];
+    case 'challenge': {
+      const target = next.players.find(
+        (entry) => entry.seatIndex === action.payload.targetSeatIndex,
+      )!;
+      activated.targetId = target.actorId;
+      // Also spends the tactical action; a Price Shield blocks the whole action (D4 step 3, D10).
+      return [activated, ...forceChallenge(next, player, target)];
+    }
     case 'quick_flight':
       // replaceRoll: this turn's move uses fixed steps with no die (C.1, C.5).
       next.turnEffects = { ...next.turnEffects, fixedMove: QUICK_FLIGHT_STEPS };

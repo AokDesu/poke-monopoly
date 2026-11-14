@@ -224,6 +224,8 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 
 - **S13 resource scope (#55):** Magikarp's Lucky Splash (`gainBall` `chanceBall`) rolls one logged d6 in Strategy: on 5–6 the owner gains one Great Ball (told only to the owner, since Ball pouches are private, §4.1); on 1–4 nothing changes, and the costs stay spent. The `peek` primitive (`topEvent`) privately shows its owner the top Event card without drawing or reordering it; only the owner's observation carries it. No core Starter binds `peek` or `forcePvP`; the engine ships their operations and C4 content decides which species carry them.
 
+- **S14 binding scope (#55):** content binds every core Starter line (Bulbasaur, Charmander, Squirtle, Eevee and its three branches, Magikarp and Gyarados, Chansey, Caterpie, Porygon) plus Pidgey and Dratini to the Appendix C.2 effects; fallback evolved forms inherit them. The engine's effect table uses exactly the eight primitives. `forcePvP` (`challenge`) and `peek` (`track`) ship as engine operations with no bound species: C4 content decides who carries them, and engine tests bind them to Machop and Growlithe only as representatives. Squirtle's Shell Guard arms a battle-scoped shield, unlike Price Shield (C.4).
+
 **Proposed timing contract (#55 S00):** the PvP and Gym decision order, shield and Nurse Joy protection, and the order of reward and after-battle effects are proposed in [Appendix C](#appendix-c--ability-and-battle-timing-contract), pending Stream A team approval. It does not change the rules above.
 
 ### 4.5 Pokémon: encounters, Abilities, evolution and Starters
