@@ -1,3 +1,4 @@
+import { pendingGymChoices, recordGymCommand, recordGymRoll } from '../gym.ts';
 import { pendingDecision } from '../decisions.ts';
 import { attackVisibleTo } from '../visibility.ts';
 import { pvpChoices, pendingPvpChoices, recordPvpCommand, recordPvpRoll } from '../pvp.ts';
@@ -94,6 +95,9 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   }
   if (state.config.engineVersion === ENGINE_VERSION && state.phase.kind === 'pvp') {
     pendingPvpChoices(state, result);
+  }
+  if (state.config.engineVersion === ENGINE_VERSION && state.phase.kind === 'gym') {
+    pendingGymChoices(state, result);
   }
   if (state.phase.kind === 'strategy') {
     if (state.config.engineVersion === ENGINE_VERSION) itemChoices(state, seatIndex, result);
@@ -203,14 +207,15 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       return { rejected: true, reason: 'illegal_action', state };
     }
     const pendingPurpose = pendingRollPurpose(state);
-    if (state.phase.kind === 'pvp' && !pendingPurpose) {
+    if ((state.phase.kind === 'pvp' || state.phase.kind === 'gym') && !pendingPurpose) {
       return { rejected: true, reason: 'illegal_action', state };
     }
     if (
       (action.payload.purpose.startsWith('first-player:') ||
         action.payload.purpose.startsWith('move:') ||
         action.payload.purpose.startsWith('catch:') ||
-        action.payload.purpose.startsWith('pvp:')) &&
+        action.payload.purpose.startsWith('pvp:') ||
+        action.payload.purpose.startsWith('gym:')) &&
       action.payload.purpose !== pendingPurpose
     ) {
       return { rejected: true, reason: 'illegal_action', state };
@@ -234,6 +239,7 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       ...recordMoveRoll(next, draw.value),
       ...recordCatchRoll(next, draw.value),
       ...recordPvpRoll(next, draw.value),
+      ...recordGymRoll(next, draw.value),
     ];
     return {
       accepted: true,
@@ -242,7 +248,7 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       record: { action, events: structuredClone(events) },
     };
   }
-  if (state.phase.kind === 'pvp' && action.actorId === 'engine') {
+  if ((state.phase.kind === 'pvp' || state.phase.kind === 'gym') && action.actorId === 'engine') {
     return { rejected: true, reason: 'illegal_action', state };
   }
   if (action.actorId === 'engine' && action.kind === 'shuffle') {
@@ -317,15 +323,17 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       ? recordSale(next, saleIds)
       : next.config.engineVersion !== ENGINE_VERSION
         ? recordTurnCommand(next, action.kind)
-        : action.kind === 'declare_pvp' || next.phase.kind === 'pvp'
-          ? recordPvpCommand(next, action)
-          : next.phase.kind === 'encounter'
-            ? confirmCatch(next, action)
-            : next.phase.kind === 'shop'
-              ? confirmShop(next, action)
-              : action.kind === 'use_item'
-                ? useItem(next, action)
-                : recordTurnCommand(next, action.kind);
+        : next.phase.kind === 'gym'
+          ? recordGymCommand(next, action)
+          : action.kind === 'declare_pvp' || next.phase.kind === 'pvp'
+            ? recordPvpCommand(next, action)
+            : next.phase.kind === 'encounter'
+              ? confirmCatch(next, action)
+              : next.phase.kind === 'shop'
+                ? confirmShop(next, action)
+                : action.kind === 'use_item'
+                  ? useItem(next, action)
+                  : recordTurnCommand(next, action.kind);
   return {
     accepted: true,
     state: next,

@@ -117,7 +117,7 @@ Content names the passive `lap_first_catch_bonus`; the engine gives +1 `classBon
 
 Spec: §1, §4.1, §10 C2. `GAME_PRESETS` exports `quick` (`lapTarget: 2`, `enabled: true`) and `standard` (`lapTarget: 3`, `enabled: false`); `LAP_TARGETS` derives from it. `enabled` only tells setup which presets to offer: `createGame` still accepts any positive `config.lapTarget`. The sim plays real games at `--lap-target <n>` (default 2, Quick), so `--lap-target 3` runs Standard.
 
-Resolve on an Event (2, 8, 14, 17, 22) or Gym (6, 12, 18) space emits `space_resolved` with `effect: "none_yet"`, then enters End. It changes no coins, items, Pokémon, budgets or RNG. Start and Shop resolutions keep the event without `effect`. Event cards and Gym battles replace this in cycles 4 and 3. The engine version advances as recorded in [engine/versions.ts](../engine/versions.ts) because accepted commands emit the new field; prior executable versions are rejected by setup/replay. Command-log and RNG versions are unchanged.
+Resolve on an Event (2, 8, 14, 17, 22) space emits `space_resolved` with `effect: "none_yet"`, then enters End. It changes no coins, items, Pokémon, budgets or RNG. Start and Shop resolutions keep the event without `effect`. Event cards replace this in cycle 4; Gym squares resolve since #55 S09 ([Gym](#gym-issue-55-s09)). The engine version advances as recorded in [engine/versions.ts](../engine/versions.ts) because accepted commands emit the new field; prior executable versions are rejected by setup/replay. Command-log and RNG versions are unchanged.
 
 ## Command log and replay (issue #20)
 
@@ -412,3 +412,26 @@ Ticket stays secret from third seats.
 - **forcePvP Ability:** `forceChallenge(next, attacker, defender)` in `engine/pvp.ts` is the
   adapter an Ability activation calls (S10/S14). It records a `hostile_ability` attempt, spends the
   tactical action, and begins the forced battle unless a Price Shield blocks it.
+
+## Gym (issue #55 S09)
+
+Spec: §4.2 Resolve, §4.4 Gym/Battle Reward, §4.7 winner, §6.1, §8; Appendix C.3 D5, C.4 D7, D14.
+
+Resolving a Gym square replaces the C2 `none_yet` placeholder with phase
+`{ kind: 'gym', battle: { battleId: 'gym:<revision>', position, step } }`; Event squares stay
+placeholders. Steps:
+
+1. `entry` — the active seat chooses `challenge_gym` or `skip` (to End). Without a battle-ready
+   member the challenge is disabled with "No battle-ready Pokémon" and the automatic driver
+   applies the single `skip`.
+2. `roll` — `gym_confirmed` carries S05's `gymSnapshot` (DC 5/7/9 by square; no Rival bonus). The
+   engine owes one `dice_result` with purpose `gym:<revision>:challenger_roll`.
+3. Win (`total >= dc`): `gym_resolved`, `badge_awarded` (badges +1), then step `reward`, where the
+   winner owns `choose_reward` over S04's Gym request (6 coins from the bank or one evolution).
+   Loss: `gym_resolved`, then `min(3, coins)` to the bank (`coin_transfer` reason `gym_loss`),
+   unless `applyCoinLossProtection` finds an armed `battle_coin_loss` shield. Price Shield and
+   Nurse Joy cover only PvP.
+
+Every step serializes; the phase then returns to End. Reward choice IDs are shared with PvP via
+`pendingRewardChoices`. A Gym reached after a Start-crossing Sell resolves only after that Sell and
+any Rescue Starter, so it uses the resulting team.

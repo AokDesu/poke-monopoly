@@ -9,7 +9,7 @@ import type {
 import { pvpSnapshotSchema } from './contract/combat.ts';
 import { pvpSnapshot, resolvePvp } from './combat.ts';
 import { battleReadyMembers } from './status.ts';
-import { rewardChoices, resolveReward } from './rewards.ts';
+import { pendingRewardChoices, resolveReward } from './rewards.ts';
 import {
   applyCoinLossProtection,
   declareHostileAction,
@@ -77,16 +77,7 @@ export function pendingPvpChoices(state: GameState, result: LegalActions): void 
       { id: 'decline-pvp', kind: 'respond_pvp', payload: { accept: false } },
     );
   } else if (battle.step === 'reward') {
-    for (const choice of rewardChoices(state, battle.request)) {
-      result.enabled.push({
-        id:
-          choice.kind === 'coins'
-            ? 'reward:coins'
-            : `reward:evolve:${choice.instanceId}:${choice.nextFormId}`,
-        kind: 'choose_reward',
-        payload: choice,
-      });
-    }
+    pendingRewardChoices(state, battle.request, result);
   }
 }
 

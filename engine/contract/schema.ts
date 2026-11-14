@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { pvpSnapshotSchema } from './combat.ts';
+import { gymSnapshotSchema, pvpSnapshotSchema } from './combat.ts';
 
 const id = z.string().min(1);
 const count = z.int().nonnegative();
@@ -211,6 +211,21 @@ const pvpBattleSchema = z.discriminatedUnion('step', [
     request: rewardRequestSchema,
   }),
 ]);
+const gymEntry = {
+  battleId: id,
+  position: z.union([z.literal(6), z.literal(12), z.literal(18)]),
+};
+const gymBattleSchema = z.discriminatedUnion('step', [
+  z.strictObject({ ...gymEntry, step: z.literal('entry') }),
+  z.strictObject({ ...gymEntry, step: z.literal('roll'), snapshot: gymSnapshotSchema }),
+  z.strictObject({
+    ...gymEntry,
+    step: z.literal('reward'),
+    snapshot: gymSnapshotSchema,
+    face: z.int().min(1).max(6),
+    request: rewardRequestSchema,
+  }),
+]);
 /** Canonical directed attack evidence. PvP declarations are public, including declines;
  * hostile item/Ability attempts are told only to their actor and target (§4.1, #37). */
 export const attackAttemptSchema = z.strictObject({
@@ -224,6 +239,7 @@ export const attackAttemptSchema = z.strictObject({
 });
 export const phaseSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('pvp'), battle: pvpBattleSchema }),
+  z.strictObject({ kind: z.literal('gym'), battle: gymBattleSchema }),
   z.strictObject({ kind: z.literal('move'), awaitingResult: z.boolean().optional() }),
   z.strictObject({
     kind: z.literal('first_player_roll'),
@@ -240,7 +256,6 @@ export const phaseSchema = z.discriminatedUnion('kind', [
       'end',
       'finished',
       'combat',
-      'gym',
       'ability',
       'deal',
       'promise',
@@ -293,6 +308,7 @@ export const gameStateSchema = z.strictObject({
 
 // Player commands and engine-generated records share one sequence in the log.
 const actionBodySchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('challenge_gym'), payload: z.strictObject({}) }),
   z.object({
     kind: z.literal('declare_pvp'),
     payload: z.strictObject({ targetSeatIndex: count, force: z.literal('rival').optional() }),
@@ -385,6 +401,17 @@ export const engineEventSchema = z.discriminatedUnion('kind', [
     source: z.enum(['hostile_item', 'hostile_ability', 'pvp_coin_loss', 'gym_coin_loss']),
     protection: z.enum(['price', 'battle_coin_loss', 'nurse_joy']),
   }),
+  z.strictObject({ kind: z.literal('gym_confirmed'), battleId: id, snapshot: gymSnapshotSchema }),
+  z.strictObject({
+    kind: z.literal('gym_resolved'),
+    battleId: id,
+    face: z.int().min(1).max(6),
+    total: z.int(),
+    dc: count,
+    outcome: z.enum(['win', 'loss']),
+    rewardSeatIndex: count.nullable(),
+  }),
+  z.strictObject({ kind: z.literal('badge_awarded'), battleId: id, ownerId: id }),
   z.strictObject({
     kind: z.literal('pvp_response'),
     battleId: id,

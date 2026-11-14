@@ -281,6 +281,7 @@ test('500 random mid-game states never show a seat another seat’s secrets, RNG
       'declare_pvp',
       'respond_pvp',
       'choose_reward',
+      'challenge_gym',
     ]),
   );
 });

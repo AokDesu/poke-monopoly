@@ -19,6 +19,9 @@ function eventMessage(
     case 'attack_attempt':
     case 'shield_armed':
     case 'protection_applied':
+    case 'gym_confirmed':
+    case 'gym_resolved':
+    case 'badge_awarded':
     case 'pvp_response':
     case 'pvp_confirmed':
     case 'pvp_resolved':

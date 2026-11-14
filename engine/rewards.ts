@@ -2,6 +2,7 @@ import {
   rewardChoiceSchema,
   rewardRequestSchema,
   type EngineEvent,
+  type LegalActions,
   type GameState,
   type RewardChoice,
   type RewardRequest,
@@ -108,4 +109,22 @@ export function resolveReward(
     coinAmount: choice.kind === 'coins' ? amount : 0,
   });
   return { accepted: true, events };
+}
+
+/** Shared pending-choice IDs for PvP and Gym winners. */
+export function pendingRewardChoices(
+  state: GameState,
+  request: RewardRequest,
+  result: LegalActions,
+): void {
+  for (const choice of rewardChoices(state, request)) {
+    result.enabled.push({
+      id:
+        choice.kind === 'coins'
+          ? 'reward:coins'
+          : `reward:evolve:${choice.instanceId}:${choice.nextFormId}`,
+      kind: 'choose_reward',
+      payload: choice,
+    });
+  }
 }

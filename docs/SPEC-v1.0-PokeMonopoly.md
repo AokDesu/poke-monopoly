@@ -149,7 +149,7 @@ Wherever this specification uses `round`, a half rounds up (approved 2026-10-07)
   - **Approved rule (#37, captain, 2026-10-17):** using a hostile item (Repel, Pickpocket) is told only to its user and its target; other seats see only its already-public effects, such as Pickpocket's coin transfer. This lets a target learn why it was slowed and lets a broken `no_attack` promise (§4.4) be judged from real events. Raw action records and logs are never shown to a seat; each seat gets a copy redacted for it.
 - **Start income:** the owner's forward movement passing or landing on a new Start milestone pays 5 coins from the bank, once per rewarded milestone (§6.5). Forced movement pays nothing. Nothing is paid at setup.
 
-**C2 placeholder scope (#34, decided in that issue):** until Gyms (C3) and Events (C4) land, landing on an Event or Gym space is an explicit no-op logged as `space_resolved` with `effect: "none_yet"`, so the UI can say nothing happens there yet. It changes no coins, items or Pokémon. Setup offers the Quick 2 Laps preset; the Standard 3 Laps preset exists but is flagged closed until playtest (§1), and the sim can still run it with `--lap-target 3`. See the [engine contract](engine-contract.md#c2-presets-and-placeholder-spaces-issue-34).
+**C2 placeholder scope (#34, decided in that issue):** Gyms resolve from C3 (#55 S09, §4.4). Until Events (C4) land, landing on an Event space is an explicit no-op logged as `space_resolved` with `effect: "none_yet"`, so the UI can say nothing happens there yet. It changes no coins, items or Pokémon. Setup offers the Quick 2 Laps preset; the Standard 3 Laps preset exists but is flagged closed until playtest (§1), and the sim can still run it with `--lap-target 3`. See the [engine contract](engine-contract.md#c2-presets-and-placeholder-spaces-issue-34).
 
 ### 4.2 Turn structure and action budgets
 
@@ -213,6 +213,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
   - A win gives 1 badge, then a choice of 6 coins or a one-stage evolution.
   - A loss pays up to 3 coins. The Gym can be re-challenged on a later landing.
   - Badges only break ties; they are never worth coins.
+  - **S09 Gym scope (#55):** landing on 6/12/18 in Resolve opens the approved Appendix C.3 D5 entry: `challenge_gym` (greyed out "No battle-ready Pokémon" without one) or `skip`, which ends the turn and costs nothing. A challenge spends no tactical action and freezes S05's Gym snapshot (no Rival bonus, D14). One logged engine die decides it: total ≥ DC wins exactly one badge, then the winner's exclusive S04 reward (6 bank coins or one evolution); a loss pays `min(3, coins)` to the bank unless an armed battle-scoped shield (Shell Guard) covers it. There is no cleared-Gym state. See the [Gym contract](engine-contract.md#gym-issue-55-s09).
 - **Tired:**
   - A tired Pokémon does not count for battle and sells at ×0.8.
   - It expires at the end of the owner's next turn. Re-applying keeps the later expiry. The UID stores `tiredExpiresOwnTurnNo = owner.ownTurnNo + 1` on application (whether applied during that owner's turn or another player's turn); reapplication takes the maximum of the existing and new expiry. End closes due statuses before final liquidation or starting the next turn.

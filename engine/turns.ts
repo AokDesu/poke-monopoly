@@ -1,3 +1,4 @@
+import { openGym, pendingGymRollPurpose } from './gym.ts';
 import { pendingPvpRollPurpose } from './pvp.ts';
 import type { GameState, EngineEvent, Player } from './contract/schema.ts';
 import { expireStatuses } from './status.ts';
@@ -28,6 +29,8 @@ export function firstPlayerRollPurpose(state: GameState): string {
 }
 
 export function pendingRollPurpose(state: GameState): string | undefined {
+  const gym = pendingGymRollPurpose(state);
+  if (gym) return gym;
   const pvp = pendingPvpRollPurpose(state);
   if (pvp) return pvp;
   if (state.phase.kind === 'encounter' && state.phase.catchRoll) {
@@ -129,9 +132,11 @@ function resolveDestination(next: GameState): EngineEvent[] {
         { kind: 'space_resolved', seatIndex: player.seatIndex, position },
         ...drawEncounter(next),
       ];
-    case 'event':
     case 'gym':
-      // Events arrive in cycle 4 and Gyms in cycle 3; until then landing is a logged no-op.
+      openGym(next, position);
+      return [{ kind: 'space_resolved', seatIndex: player.seatIndex, position }];
+    case 'event':
+      // Events remain explicit placeholders until their own slice.
       return [
         { kind: 'space_resolved', seatIndex: player.seatIndex, position, effect: 'none_yet' },
       ];
