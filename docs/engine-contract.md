@@ -276,7 +276,7 @@ rewards, Gym entry choice and UI/AI integration belong to later slices.
 
 ## Ability and battle timing contract (issue #55 S00)
 
-Spec: §4.2, §4.4–§4.6, §6.1, §8, Appendix A timing, Appendix C. [Spec Appendix C](SPEC-v1.0-PokeMonopoly.md#appendix-c--ability-and-battle-timing-contract) proposes the contract that the Ability, combat, Gym and protection slices (S05–S14) implement: the core Starter Ability to primitive-operation mapping, the timing windows, the PvP and Gym decision order, activation costs, shields, slows and the worked acceptance cases AC-1 to AC-5. Its decisions D1–D14 await Stream A team approval. The contract is not implemented: engine behaviour and the engine, content, RNG and command-log versions are unchanged.
+Spec: §4.2, §4.4–§4.6, §6.1, §8, Appendix A timing, Appendix C. [Spec Appendix C](SPEC-v1.0-PokeMonopoly.md#appendix-c--ability-and-battle-timing-contract) is the contract that the Ability, combat, Gym and protection slices (S05–S14) implement: the core Starter Ability to primitive-operation mapping, the timing windows, the PvP and Gym decision order, activation costs, shields, slows and the worked acceptance cases AC-1 to AC-5. Its decisions D1–D14 are approved (D1–D13 in the S00 review, D14 recorded at the reviewer's suggestion). The sections below record each slice's implementation.
 
 ## Evolution and exclusive reward helpers (issue #55 S04)
 
@@ -314,8 +314,8 @@ state/events; content/RNG versions and the command-log format remain unchanged.
 ## Voluntary PvP and decision ownership (issue #55 S06)
 
 Spec: §4.2, §4.4, §4.8 (attack evidence), §6.1/6.3/6.4/6.8/6.9, §8;
-Appendix C.3 proposed D3/D4. S06 implements that proposed order for voluntary challenges;
-Ability activations, reactions, rerolls and protection remain later slices.
+Appendix C.3 D3/D4. S06 implements that order for voluntary challenges; later #55 slices add
+protection (S07), forced sources (S08), Ability windows (S10) and rerolls (S11).
 
 In Strategy, `declare_pvp { targetSeatIndex }` is legal against any other seat at any
 board distance if both teams have a non-Tired member and the challenger has a tactical
@@ -338,9 +338,9 @@ are still recorded as actions owned by their actual deciding seat.
 
 A decline costs no coins, rolls nothing and returns to the challenger's Strategy. On
 acceptance, `pvp_response` precedes `pvp_confirmed`. Appendix C only offers Ability windows
-when a ready eligible Ability exists; no such executable Ability exists in S06. Thus the
-attacker and defender windows close in that order without extra prompts, then S05's
-`pvpSnapshot` freezes all combat terms. S10 can insert its windows before that snapshot.
+when a ready eligible Ability exists; S10 opens them in attacker-then-defender order, and
+without one the windows close without extra prompts. S05's `pvpSnapshot` then freezes all
+combat terms.
 The pending phase retains the confirmation and then the attacker's face. The engine draws
 one die per accepted `dice_result`, attacker first, with purposes
 `pvp:<declaration actionSeq>:attacker_roll` and `pvp:<declaration actionSeq>:defender_roll`.
@@ -591,3 +591,28 @@ other new points evenly. The browser lists the human's choices at the new points
 panel, and for an AI seat takes the engine's first listed choice, logged as a fallback with reason
 `unsupported_decision_point`. The Shop still offers only Lucky Egg, Repel and Pickpocket (§4.6 C2
 scope), so Battle Ticket and bought Price Shields or Sticky Webs are not yet reachable in play.
+
+## Invariant ledger and the 2/3/4-seat gate (issue #55 S16)
+
+Spec: §6.1/6.8/6.9, §7 CI, §8.
+
+Every §8 checker owned by this epic is active, each with a counterexample test:
+`pvp-turn-ownership` and `attack-attempt-logged` (S06; hostile items and Abilities S07–S14),
+`battle-reward-coins-or-evolution`, `evolution-one-stage-same-uid`, `evolution-keeps-cooldowns`
+(S04; a status change logged with the evolution is allowed), `tired-and-nurse-joy-useful` (S03),
+`ability-once-per-instance-per-lap` and `ability-once-per-player-turn` (S10),
+`move-debuff-until-next-move` (S12), and from S16 `resume-creates-nothing` (the RNG cursor advances
+exactly by the action's logged, consecutively numbered draws, and a saved copy re-asks the same
+seat) and `rescue-starter-no-coin-loop` (a Rescue Starter never sells for coins, is never resold in
+the phase that created it and stays untradeable). `deals-atomic` and `promise-closes-on-own-turn`
+stay pending: they belong to the conversation and deal work, not this epic.
+
+CI runs `npm run sim -- --games 100 --seed 1` at `--seats 2`, `3` and `4`, each checking every
+active invariant after every action and failing on any abort, illegal applied action or invariant
+failure (job timeout 15 minutes). The sim summary's `features` counts Ability primitives, class
+passives and battles; `sim/features.test.ts` requires all six core class passives, the five Ability
+primitives real content reaches in random play (`fixedMove`, `moveDebuff`, `rollBonus`, `shield`,
+`gainBall`) and PvP, forced PvP and Gym battles. `heal` (rare in random play), `peek` and `forcePvP`
+(unbound until C4) have their trigger evidence in the engine scenario tables. Replay and resume at
+pending decisions are covered per slice (S06 PvP steps, S10 defender window, S11 rerolls, S13
+peek) and by the 200-game replay property test.

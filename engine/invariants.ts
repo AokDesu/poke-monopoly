@@ -629,6 +629,69 @@ function expectedAttempt(before: GameState, parsed: Step['parsed']) {
   };
 }
 
+/**
+ * §8 replay/resume: the RNG advances by exactly the draws an accepted action logs, numbered in
+ * order, so no die is ever re-rolled silently; and a saved copy of the state re-asks the same seat.
+ */
+function checkResumeCreatesNothing({ before, result }: Step): string[] {
+  if (!('accepted' in result)) return [];
+  const errors: string[] = [];
+  const draws = eventsOf(result.events, 'random_result').filter(
+    (event) => event.drawCounter !== undefined,
+  );
+  const expected = draws.map((_, index) => before.rng.cursor + index + 1);
+  if (
+    result.state.rng.cursor !== before.rng.cursor + draws.length ||
+    canonicalJson(draws.map((event) => event.drawCounter)) !== canonicalJson(expected)
+  ) {
+    errors.push('RNG advanced without a matching logged draw');
+  }
+  const saved = JSON.parse(JSON.stringify(result.state)) as GameState;
+  if (canonicalJson(pendingDecision(saved)) !== canonicalJson(pendingDecision(result.state))) {
+    errors.push('A saved state asks a different seat');
+  }
+  return errors;
+}
+
+/** §4.5/§8: a Rescue Starter is worth 0, untradeable and never resold in its own Sell Phase. */
+function checkRescueNoCoinLoop({ before, result }: Step): string[] {
+  if (!('accepted' in result)) return [];
+  const errors: string[] = [];
+  const events = result.events;
+  const created = new Set(
+    eventsOf(events, 'uid_created')
+      .filter((event) => event.entity === 'pokemon')
+      .map((event) => event.instanceId),
+  );
+  const rescues = new Set(
+    before.players.flatMap((player) =>
+      player.team.filter((pokemon) => pokemon.origin === 'rescue_starter').map((p) => p.instanceId),
+    ),
+  );
+  events.forEach((event, index) => {
+    if (event.kind !== 'uid_destroyed' || event.entity !== 'pokemon') return;
+    if (created.has(event.instanceId)) errors.push('A Rescue Starter was resold in its own phase');
+    const payment = events[index - 1];
+    if (
+      rescues.has(event.instanceId) &&
+      payment?.kind === 'coin_transfer' &&
+      payment.amount !== 0
+    ) {
+      errors.push('A Rescue Starter sold for coins');
+    }
+  });
+  for (const player of result.state.players) {
+    if (
+      player.team.some(
+        (pokemon) => pokemon.origin === 'rescue_starter' && pokemon.tradeable !== false,
+      )
+    ) {
+      errors.push('A Rescue Starter is tradeable');
+    }
+  }
+  return errors;
+}
+
 /** §8: a pending slow lasts until its owner's next actual move, never clearing at Start (D8). */
 function checkMoveDebuffs({ before, parsed, result }: Step): string[] {
   if (!('accepted' in result)) return [];
@@ -837,7 +900,13 @@ export const INVARIANTS: readonly InvariantDefinition[] = [
     section: '§8',
     specLine: 'Promises close on the correct `ownTurnNo`.',
   },
-  { id: 'resume-creates-nothing', status: 'pending', section: '§8', specLine: S8_REPLAY },
+  {
+    id: 'resume-creates-nothing',
+    status: 'active',
+    check: checkResumeCreatesNothing,
+    section: '§8',
+    specLine: S8_REPLAY,
+  },
   {
     id: 'ability-once-per-instance-per-lap',
     status: 'active',
@@ -861,7 +930,8 @@ export const INVARIANTS: readonly InvariantDefinition[] = [
   },
   {
     id: 'rescue-starter-no-coin-loop',
-    status: 'pending',
+    status: 'active',
+    check: checkRescueNoCoinLoop,
     section: '§8',
     specLine: 'Rescue Starters cannot create a coin loop.',
   },

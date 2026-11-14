@@ -63,3 +63,5 @@ export {
   socialTargets,
   type EngineDecisionPoint,
 } from './decisions.ts';
+
+export { ABILITY_EFFECTS, type AbilityEffect } from './abilities.ts';

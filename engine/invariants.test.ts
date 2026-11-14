@@ -164,6 +164,10 @@ describe('registry (spec §8)', () => {
       'game-can-finish': 'active',
       'ability-once-per-instance-per-lap': 'active',
       'ability-once-per-player-turn': 'active',
+      'move-debuff-until-next-move': 'active',
+      'resume-creates-nothing': 'active',
+      'rescue-starter-no-coin-loop': 'active',
+      'tired-and-nurse-joy-useful': 'active',
       'evolution-keeps-cooldowns': 'active',
       'promise-closes-on-own-turn': 'pending',
       'deals-atomic': 'pending',
@@ -597,7 +601,11 @@ describe('replay-reproduces-state', () => {
     const action = command(before, 'roll');
     const result = applyAction(before, action);
     result.state.rng.cursor += 1;
-    expect(ids(checkInvariants(before, action, result))).toEqual(['replay-reproduces-state']);
+    // An unlogged RNG advance is also exactly what resume-creates-nothing guards (#55 S16).
+    expect(ids(checkInvariants(before, action, result))).toEqual([
+      'replay-reproduces-state',
+      'resume-creates-nothing',
+    ]);
   });
 
   test('a record that omits emitted events is reported', () => {
@@ -648,5 +656,65 @@ describe('game-can-finish', () => {
     const action = command(before, 'roll');
     const result = acceptedResult(before, action, (state) => (state.phase = { kind: 'resolve' }));
     expect(ids(checkFromEngine(before, action, result))).toEqual(['game-can-finish']);
+  });
+});
+
+describe('resume-creates-nothing (#55 S16)', () => {
+  test('an action with no draw keeps the cursor; an RNG advance without its logged draw is reported', () => {
+    const before = start();
+    const action = command(before, 'roll');
+    expect(checkInvariants(before, action, applyAction(before, action))).toEqual([]);
+    const silent = acceptedResult(before, action, (state) => {
+      state.rng = { ...state.rng, cursor: state.rng.cursor + 1 };
+    });
+    expect(ids(checkInvariants(before, action, silent))).toContain('resume-creates-nothing');
+  });
+});
+
+describe('rescue-starter-no-coin-loop (#55 S16)', () => {
+  const rescue = (state: GameState) => {
+    state.players[0]!.team = [
+      {
+        instanceId: 'rescue:0:1',
+        speciesId: state.players[0]!.team[0]!.speciesId,
+        origin: 'rescue_starter',
+        evolutionStage: 0,
+        tired: false,
+        abilityReady: true,
+        tradeable: false,
+      },
+    ];
+    return state;
+  };
+  test('a Rescue Starter sold for coins or made tradeable is reported', () => {
+    const before = rescue(start());
+    const action = command(before, 'skip');
+    const paid = acceptedResult(
+      before,
+      action,
+      (state) => {
+        state.players[0]!.team = [];
+        state.players[0]!.coins += 5;
+      },
+      [
+        {
+          kind: 'coin_transfer',
+          source: { kind: 'bank' },
+          destination: { kind: 'player', actorId: before.players[0]!.actorId },
+          amount: 5,
+          reason: 'pokemon_sale',
+        },
+        { kind: 'uid_destroyed', instanceId: 'rescue:0:1', entity: 'pokemon', reason: 'sold' },
+      ],
+    );
+    expect(checkInvariants(before, action, paid).map((v) => v.invariant)).toContain(
+      'rescue-starter-no-coin-loop',
+    );
+    const tradeable = acceptedResult(before, action, (state) => {
+      state.players[0]!.team[0]!.tradeable = true;
+    });
+    expect(checkInvariants(before, action, tradeable).map((v) => v.invariant)).toContain(
+      'rescue-starter-no-coin-loop',
+    );
   });
 });
