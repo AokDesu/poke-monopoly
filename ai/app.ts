@@ -117,6 +117,8 @@ export const createApp = ({
         const request = parsed.data;
         if (request.decisionPoint === 'shop') {
           const answer = decideShop(request);
+          // Like every other point, logged once the browser reports it applied (never the speculative one).
+          if (path === '/api/ai/decide') journal.propose(request, answer, answer.events ?? []);
           return c.json(
             toResponse(answer, crypto.randomUUID(), started),
             200,

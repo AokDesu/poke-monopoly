@@ -8,6 +8,7 @@ import { FallbackPolicy, PERSONALITIES } from './fallback/index.ts';
 import { createSdkJevClient, jevEnabled, type JevClient } from './jev/client.ts';
 import type { DecisionEvent } from './jev/decision-log.ts';
 import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
+import type { SellFacts } from './questions/index.ts';
 import {
   GameQuota,
   Orchestrator,
@@ -94,8 +95,45 @@ export interface OrchestratorDeciderOptions {
   maxGames?: number;
 }
 
-/** The engine numbers the wire carries: catch odds for the Encounter question and the policy. */
+/**
+ * The Sell Phase facts, only when the wire gives a row for every sellable Pokémon and none else;
+ * a partial or foreign set is as good as none, so the Sell Phase falls back as `missing_facts`
+ * instead of asking Jev about a team it cannot fully price.
+ */
+const sellFactsOf = (
+  request: DecisionRequest,
+): { facts: SellFacts; saleValue: Record<string, number> } | undefined => {
+  const rows = request.facts.sell;
+  if (!rows || request.decisionPoint !== 'sell') return undefined;
+  const sellable = new Set(
+    request.enabledActions.flatMap((action) =>
+      action.kind === 'sell' ? action.payload.pokemonInstanceIds : [],
+    ),
+  );
+  const given = new Set(rows.map((row) => row.instanceId));
+  if (given.size !== rows.length || given.size !== sellable.size) return undefined;
+  if (![...given].every((instanceId) => sellable.has(instanceId))) return undefined;
+  return {
+    facts: {
+      // No keep value: the engine has none yet, so Jev gets the sale value and class bonus only.
+      pokemon: rows.map(({ instanceId, salePrice, classBonusAlone, classBonusTogether }) => ({
+        instanceId,
+        salePrice,
+        classBonusAlone,
+        classBonusTogether,
+      })),
+    },
+    saleValue: Object.fromEntries(rows.map((row) => [row.instanceId, row.saleValue])),
+  };
+};
+
+/**
+ * The engine numbers the wire carries: catch odds for the Encounter question and the policy, and
+ * the Sell Phase's prices for the Sell Nouls and the policy's sale values.
+ */
 const toFacts = (request: DecisionRequest): DecideFacts => {
+  const sale = sellFactsOf(request);
+  if (sale) return { policy: { saleValue: sale.saleValue }, sell: sale.facts };
   const odds = request.facts.catchOdds;
   if (!odds) return {};
   const catchChance: Partial<Record<'poke' | 'great' | 'ultra', number>> = {};

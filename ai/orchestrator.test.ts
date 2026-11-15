@@ -674,11 +674,26 @@ describe('Sell Phase Nouls (§5.3)', () => {
     expect(decision).toMatchObject({ choice: 'finish-sell', source: 'jev', fallbackReason: null });
   });
 
-  test('without engine sale facts the Sell Phase falls back', async () => {
+  test('without engine sale facts the Sell Phase falls back without asking, and keeps the team', async () => {
     const client = createFakeJevClient(confidentRelease);
     const decision = await new Orchestrator({ client }).decide(sellRequest({ facts: {} }));
-    expect(decision).toMatchObject({ source: 'fallback', fallbackReason: 'missing_facts' });
+    expect(decision).toMatchObject({
+      choice: 'finish-sell',
+      source: 'fallback',
+      fallbackReason: 'missing_facts',
+    });
     expect(client.requests).toHaveLength(0);
+  });
+
+  test('with sale facts and Jev down, the fallback policy sells from the engine prices', async () => {
+    const client = createFakeJevClient(() => ({ ok: false, fallbackReason: 'timeout' }));
+    const saleValue = { 'pokemon-0': 14, 'pokemon-2': 16, 'pokemon-3': 14 };
+    const decision = await new Orchestrator({ client }).decide(
+      sellRequest({ facts: { sell: sellFacts, policy: { saleValue } } }),
+    );
+    expect(client.requests).toHaveLength(1);
+    expect(decision).toMatchObject({ source: 'fallback', fallbackReason: 'timeout' });
+    expect(decision.choice).not.toBe('finish-sell');
   });
 });
 
