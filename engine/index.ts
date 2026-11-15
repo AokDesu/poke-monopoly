@@ -16,6 +16,12 @@ export {
   type SeatAction,
   type SeatActionRecord,
 } from './visibility.ts';
+export {
+  actionVisibleToSpectator,
+  eventsVisibleToSpectator,
+  observeSpectator,
+  type SpectatorObservation,
+} from './spectator.ts';
 export { checkInvariants, INVARIANTS } from './invariants.ts';
 export type { InvariantDefinition, InvariantId, Violation } from './invariants.ts';
 export {
