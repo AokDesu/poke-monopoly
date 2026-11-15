@@ -9,6 +9,7 @@ import {
 } from './contract/schema.ts';
 import { canonicalJson, stateHash } from './state-hash.ts';
 import { pendingRollPurpose } from './turns.ts';
+import { actorRevision } from './visibility.ts';
 import { nextEvolutionForms } from './forms.ts';
 
 /** Spec §8 engine invariants, plus the §6.5 Lap credit rules that issue #14 names. */
@@ -356,7 +357,8 @@ function checkUidLifecycle({ before, result }: Step): string[] {
 }
 
 function checkRejectedOrStale({ before, parsed, result }: Step): string[] {
-  const stale = parsed !== null && parsed.stateRevisionBefore !== before.stateRevision;
+  const stale =
+    parsed !== null && parsed.stateRevisionBefore !== actorRevision(before, parsed.actorId);
   if (!stale && accepted(result)) return [];
   if (stateHash(result.state) === stateHash(before)) return [];
   return [`${stale ? 'stale' : 'rejected'} action changed the state hash`];

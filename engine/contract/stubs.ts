@@ -13,6 +13,8 @@ import { confirmShop } from '../shop.ts';
 import { itemChoices, useItem } from '../items.ts';
 import { ENGINE_VERSION } from '../versions.ts';
 import { recordSale, validSale } from '../selling.ts';
+import { chatChoices, chatsOf, recordChat, validChat } from '../social.ts';
+import { actorRevision } from '../visibility.ts';
 import type {
   GameState,
   Observation,
@@ -45,7 +47,7 @@ export function observe(state: GameState, seatIndex: number): Observation {
         abilityReady: player.abilityUsedGlobalTurnNo !== state.globalTurnNo,
       })),
       globalTurnNo: state.globalTurnNo,
-      stateRevision: state.stateRevision,
+      stateRevision: actorRevision(state, ownPlayer.actorId),
       activeSeatIndex: state.activeSeatIndex,
       phase: state.phase,
       lapTarget: state.config.lapTarget,
@@ -56,6 +58,8 @@ export function observe(state: GameState, seatIndex: number): Observation {
       items: ownPlayer.items,
       balls: ownPlayer.balls,
       privateResults: ownPlayer.privateResults,
+      // Only conversations this seat is part of; the key exists only when the Social window is on.
+      ...(state.config.socialWindow === true && { chats: chatsOf(state, seatIndex) }),
     },
   });
 }
@@ -99,6 +103,7 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   ) {
     result.enabled.push({ id: 'skip', kind: 'skip', payload: {} });
   }
+  if (state.phase.kind === 'social') chatChoices(state, seatIndex, result);
   if (state.phase.kind === 'encounter' && !state.phase.catchRoll) {
     for (const ballType of ['poke', 'great', 'ultra'] as const) {
       const action: LegalAction = { id: `catch:${ballType}`, kind: 'catch', payload: { ballType } };
@@ -169,10 +174,11 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
   const parsed = actionSchema.safeParse(input);
   if (!parsed.success) return { rejected: true, reason: 'malformed_action', state };
   const action = parsed.data;
-  if (action.stateRevisionBefore !== state.stateRevision) {
+  const revision = actorRevision(state, action.actorId);
+  if (action.stateRevisionBefore !== revision) {
     return { rejected: true, reason: 'stale_revision', state };
   }
-  if (action.actionSeq !== state.stateRevision + 1) {
+  if (action.actionSeq !== revision + 1) {
     return { rejected: true, reason: 'invalid_sequence', state };
   }
   // A finished game accepts nothing more, including engine-generated records.
@@ -204,7 +210,7 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       return { rejected: true, reason: 'illegal_action', state };
     }
     const next = structuredClone(state);
-    next.stateRevision = action.actionSeq;
+    next.stateRevision = state.stateRevision + 1;
     next.rng = draw.rng;
     const events = [
       ...draw.events,
@@ -228,7 +234,7 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       return { rejected: true, reason: 'illegal_action', state };
     }
     const next = structuredClone(state);
-    next.stateRevision = action.actionSeq;
+    next.stateRevision = state.stateRevision + 1;
     next.rng = { ...draw.rng };
     next.eventDeck.drawPile = draw.value;
     return {
@@ -243,7 +249,7 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       return { rejected: true, reason: 'illegal_action', state };
     }
     const next = structuredClone(state);
-    next.stateRevision = action.actionSeq;
+    next.stateRevision = state.stateRevision + 1;
     next.eventDeck.drawPile.shift();
     next.eventDeck.discardPile.push(action.payload.eventId);
     return { accepted: true, state: next, events: [], record: { action, events: [] } };
@@ -263,33 +269,37 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
           : undefined
       : undefined;
   if (
-    !(saleIds !== undefined
-      ? validSale(state, saleIds)
-      : legalActions(state, state.activeSeatIndex).enabled.some(
-          (choice) =>
-            choice.kind === action.kind &&
-            JSON.stringify(choice.payload) === JSON.stringify(action.payload),
-        ))
+    !(action.kind === 'chat'
+      ? validChat(state, state.activeSeatIndex, action.payload)
+      : saleIds !== undefined
+        ? validSale(state, saleIds)
+        : legalActions(state, state.activeSeatIndex).enabled.some(
+            (choice) =>
+              choice.kind === action.kind &&
+              JSON.stringify(choice.payload) === JSON.stringify(action.payload),
+          ))
   ) {
     return { rejected: true, reason: 'illegal_action', state };
   }
   const next = structuredClone(state);
-  next.stateRevision = action.actionSeq;
+  next.stateRevision = state.stateRevision + 1;
   if (next.phase.kind === 'first_player_roll' && action.kind === 'roll') {
     next.phase.awaitingResult = true;
   }
   const events =
-    saleIds !== undefined
-      ? recordSale(next, saleIds)
-      : next.config.engineVersion !== ENGINE_VERSION
-        ? recordTurnCommand(next, action.kind)
-        : next.phase.kind === 'encounter'
-          ? confirmCatch(next, action)
-          : next.phase.kind === 'shop'
-            ? confirmShop(next, action)
-            : action.kind === 'use_item'
-              ? useItem(next, action)
-              : recordTurnCommand(next, action.kind);
+    action.kind === 'chat'
+      ? recordChat(next, action.payload)
+      : saleIds !== undefined
+        ? recordSale(next, saleIds)
+        : next.config.engineVersion !== ENGINE_VERSION
+          ? recordTurnCommand(next, action.kind)
+          : next.phase.kind === 'encounter'
+            ? confirmCatch(next, action)
+            : next.phase.kind === 'shop'
+              ? confirmShop(next, action)
+              : action.kind === 'use_item'
+                ? useItem(next, action)
+                : recordTurnCommand(next, action.kind);
   return {
     accepted: true,
     state: next,

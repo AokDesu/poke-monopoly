@@ -1,4 +1,5 @@
 import { int } from './rng.ts';
+import { publicRevision } from './visibility.ts';
 import type { Action, Content, EngineEvent, GameState } from './contract/schema.ts';
 
 // This cycle's utility-item pool (§4.6); item effects arrive with item use.
@@ -67,8 +68,8 @@ export function confirmShop(next: GameState, action: Action): EngineEvent[] {
     if (offer.kind === 'ball') {
       player.balls[offer.ballType]++;
     } else {
-      // The accepted revision is unique, so this cannot collide with an existing UID.
-      const instanceId = `bought:${player.seatIndex}:${next.stateRevision}`;
+      // The revision without chats is unique to this (non-chat) record, so this cannot collide with an existing UID.
+      const instanceId = `bought:${player.seatIndex}:${publicRevision(next)}`;
       const item = next.content.items.find((entry) => entry.id === offer.itemId)!;
       // Utility items gained after setup are secret (§4.1).
       player.items.push({ instanceId, itemId: item.id, name: item.name, visibility: 'secret' });

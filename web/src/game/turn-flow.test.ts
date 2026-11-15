@@ -133,3 +133,97 @@ test('leaving the Board aborts a pending answer without advancing its decision',
   expect(await pending).toBe(false);
   expect(store.getSession()).toBe(before);
 });
+
+/** A Quick game with the Social window open; seat 0 is the human, then 1 or 2 AI opponents. */
+function socialGame(seats: 2 | 3): GameStore {
+  const opponents = [
+    { classId: 'main-character', starterSpeciesId: 'bulbasaur' },
+    { classId: 'rival', starterSpeciesId: 'eevee' },
+  ]
+    .slice(0, seats - 1)
+    .map((choice) => ({
+      ...choice,
+      personality: 'greedy' as const,
+      difficulty: 'normal' as const,
+    }));
+  const store = createGameStore();
+  store.start(
+    {
+      ...configForSetup(
+        {
+          mode: 'quick',
+          human: { classId: 'researcher', starterSpeciesId: 'porygon' },
+          opponents,
+        },
+        'private-game-seed',
+      ),
+      lapTarget: 10,
+      socialWindow: true,
+    },
+    engineContent,
+    opponents.map((_, index) => ({
+      seatIndex: index + 1,
+      personality: 'greedy',
+      difficulty: 'normal',
+    })),
+  );
+  return store;
+}
+
+/** Each opponent answers with its first enabled action. */
+const firstChoice = async (_url: RequestInfo | URL, init?: RequestInit) => {
+  const request = JSON.parse(String(init?.body));
+  return new Response(JSON.stringify({ choice: request.enabledActions[0].id, source: 'fallback' }));
+};
+
+test.each([2, 3] as const)(
+  '%i seats: after the human chats seat 1, the store submits each seat its observed revision (§4.8, #143)',
+  async (seats) => {
+    const store = socialGame(seats);
+    const seat = seats - 1;
+    vi.stubGlobal('fetch', firstChoice);
+    let chatted = false;
+    for (let step = 0; step < 1000; step++) {
+      if (store.advance({ human: true })) continue;
+      const { state } = store.getSession()!;
+      if (chatted && state.activeSeatIndex === seat) break;
+      if (state.activeSeatIndex === 0) {
+        const options = store.getView()!.legalActions.enabled;
+        const chat = options.find((choice) => choice.id === 'chat:seat-1:truce');
+        const pass = options.find(
+          (choice) =>
+            ['skip', 'release', 'skip_shop'].includes(choice.kind) || choice.id === 'finish-sell',
+        )!;
+        const pick: (typeof options)[number] = !chatted && chat ? chat : pass;
+        chatted ||= pick === chat;
+        expect('accepted' in store.choose(pick.id)).toBe(true);
+        continue;
+      }
+      expect(await store.playOpponent(new AbortController().signal)).toBe(true);
+    }
+    const before = store.getSession()!;
+    expect(chatted).toBe(true);
+    expect(before.state.activeSeatIndex).toBe(seat);
+    // The human took part in every chat, so its feed is numbered like its observation.
+    const view = store.getView()!;
+    expect(view.feed).toHaveLength(view.observation.public.stateRevision);
+    expect(view.feed.map((entry) => entry.record.action.actionSeq)).toEqual(
+      view.feed.map((_, index) => index + 1),
+    );
+    const transport = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const request = JSON.parse(String(init?.body));
+      // With 3 seats, seat 2 was outside the chat: its revision does not count it.
+      expect(request.stateRevision).toBe(request.observation.public.stateRevision);
+      expect(request.stateRevision).toBe(before.state.stateRevision - (seats === 3 ? 1 : 0));
+      // The shared request IDs carry the seat's own revision together with the turn key.
+      expect(request.turnKey).toBe(`${before.state.globalTurnNo}:${request.seatIndex}`);
+      return firstChoice(url, init);
+    });
+    vi.stubGlobal('fetch', transport);
+    expect(await store.playOpponent(new AbortController().signal)).toBe(true);
+    expect(transport).toHaveBeenCalled();
+    const after = store.getSession()!;
+    expect(after.state.stateRevision).toBe(before.state.stateRevision + 1);
+    expect(stateHash(replay(after.log))).toBe(stateHash(after.state));
+  },
+);

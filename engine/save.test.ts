@@ -10,6 +10,7 @@ import {
   deserialize,
   fixtureSchema,
   legalActions,
+  observe,
   resume,
   verifyReplay,
   serialize,
@@ -21,11 +22,23 @@ import fixture from './fixtures/start-of-game-2p.json';
 
 type Game = { state: GameState; log: GameLog };
 
-function newGame(seed: number): Game {
+function newGame(seed: number, social?: { seats: 2 | 3 }): Game {
   const scenario = fixtureSchema.parse(fixture).state;
+  const seats = [
+    ...scenario.config.seats,
+    { actorId: 'player-2', seatIndex: 2, classId: 'team-rocket', controller: 'ai' as const },
+  ].slice(0, social?.seats ?? 2);
+  const content = structuredClone(scenario.content);
+  if (seats.length === 3)
+    content.classes.push({
+      id: 'team-rocket',
+      name: 'Team Rocket',
+      starterSpeciesIds: ['eevee'],
+      classItemId: 'pickpocket',
+    });
   const state = createGame(
-    createGameConfig({ seats: scenario.config.seats, seed, lapTarget: 2 }),
-    scenario.content,
+    createGameConfig({ seats, seed, lapTarget: 2, ...(social && { socialWindow: true }) }),
+    content,
   );
   return { state, log: createGameLog(state) };
 }
@@ -45,10 +58,11 @@ function step(game: Game): Game {
   const { state } = game;
   const choices = legalActions(state, state.activeSeatIndex).enabled;
   const choice = choices[(state.stateRevision * 7 + 3) % choices.length]!;
+  const observed = observe(state, state.activeSeatIndex).public.stateRevision;
   const result = applyAction(state, {
     actorId: state.config.seats.find((seat) => seat.seatIndex === state.activeSeatIndex)!.actorId,
-    actionSeq: state.stateRevision + 1,
-    stateRevisionBefore: state.stateRevision,
+    actionSeq: observed + 1,
+    stateRevisionBefore: observed,
     kind: choice.kind,
     payload: choice.payload,
   } as never);
@@ -198,3 +212,58 @@ test('replaying a save confirms its state hash and fails a tampered save (§6.8,
   die.action.payload.value = (die.action.payload.value % 6) + 1;
   expect(verifyReplay(reRolled)).toMatchObject({ pass: false });
 });
+
+test.each([2, 3] as const)(
+  'a %i-seat game with chats saves, resumes mid-game and accepts the seat its observed revision (§4.8, §6.7)',
+  (seats) => {
+    // Play until an AI seat has a decision after at least one chat (a hidden one with 3 seats).
+    let game = newGame(5, { seats });
+    const ready = ({ state }: Game) =>
+      state.chats !== undefined &&
+      state.activeSeatIndex !== 0 &&
+      advanceAutomatically(state).records.length === 0 &&
+      (seats === 2 || (state.players[state.activeSeatIndex]!.unseenRecords ?? 0) > 0);
+    for (let steps = 0; !ready(game); steps++) {
+      if (steps > 5000 || game.state.phase.kind === 'finished') throw new Error('No decision');
+      game = step(game);
+    }
+    const loaded = deserialize(serialize(game));
+    expect(stateHash(loaded.state)).toBe(stateHash(game.state));
+    expect(verifyReplay(loaded)).toMatchObject({ pass: true });
+    // The log and save keep the global revision: one per accepted record.
+    expect(loaded.state.stateRevision).toBe(loaded.log.actions.length);
+    const { state, waitingFor } = resume(loaded);
+    expect(waitingFor).toMatchObject({ kind: 'decision', seatIndex: state.activeSeatIndex });
+    const seat = state.activeSeatIndex;
+    const observed = observe(state, seat).public.stateRevision;
+    expect(observed).toBe(
+      state.stateRevision - (seats === 3 ? state.players[seat]!.unseenRecords! : 0),
+    );
+    const choice = legalActions(state, seat).enabled[0]!;
+    const submit = (revision: number) =>
+      applyAction(state, {
+        actorId: state.players[seat]!.actorId,
+        actionSeq: revision + 1,
+        stateRevisionBefore: revision,
+        kind: choice.kind,
+        payload: choice.payload,
+      } as never);
+    // A revision older than a record the seat saw is stale.
+    expect(submit(observed - 1)).toMatchObject({ rejected: true, reason: 'stale_revision' });
+    if (seats === 3) {
+      expect(submit(state.stateRevision)).toMatchObject({
+        rejected: true,
+        reason: 'stale_revision',
+      });
+    }
+    const result = submit(observed);
+    if (!('accepted' in result)) throw new Error(result.reason);
+    const next = {
+      state: result.state,
+      log: { ...loaded.log, actions: [...loaded.log.actions, result.record] },
+    };
+    expect(verifyReplay(deserialize(serialize(next)))).toMatchObject({ pass: true });
+    // The resumed game plays on to the end and still replays from its log.
+    expect(verifyReplay(playToEnd(next))).toMatchObject({ pass: true });
+  },
+);
