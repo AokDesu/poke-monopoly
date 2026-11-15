@@ -12,6 +12,7 @@ import {
   legalActions,
   observe,
   oddsForAllBalls,
+  pendingDecision,
   saleQuote,
   winner,
   type SaleQuote,
@@ -336,11 +337,13 @@ export function createGameStore(): GameStore {
     },
     advance({ human = false } = {}): boolean {
       const { state, log } = current();
-      const active = state.config.seats.find((seat) => seat.seatIndex === state.activeSeatIndex);
+      const owner = state.config.seats.find(
+        (seat) => seat.seatIndex === pendingDecision(state)?.seatIndex,
+      );
       if (
         !human &&
-        active?.controller === 'human' &&
-        legalActions(state, active.seatIndex).enabled.length > 0
+        owner?.controller === 'human' &&
+        legalActions(state, owner.seatIndex).enabled.length > 0
       ) {
         return false;
       }
@@ -357,8 +360,11 @@ export function createGameStore(): GameStore {
       const snapshot = current();
       const token = gameToken;
       const { state } = snapshot;
-      const seatIndex = state.activeSeatIndex;
-      if (state.config.seats.find((seat) => seat.seatIndex === seatIndex)?.controller !== 'ai') {
+      const seatIndex = pendingDecision(state)?.seatIndex;
+      if (
+        seatIndex === undefined ||
+        state.config.seats.find((seat) => seat.seatIndex === seatIndex)?.controller !== 'ai'
+      ) {
         return false;
       }
       const enabledActions = legalActions(state, seatIndex).enabled;

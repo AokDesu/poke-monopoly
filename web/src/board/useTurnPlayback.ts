@@ -136,7 +136,7 @@ export function useTurnPlayback(store: GameStore, view: SeatView | null): TurnPl
         : STEP_MS[speed];
     const timer = setTimeout(() => {
       if (store.advance({ human: true })) return;
-      if (view.observation.public.activeSeatIndex !== view.seatIndex)
+      if (view.legalActions.enabled.length === 0)
         setRequested(view.observation.public.stateRevision);
     }, pause);
     return () => clearTimeout(timer);
