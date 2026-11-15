@@ -180,9 +180,9 @@ no-mistakes doctor
 
 The repository's `.gitignore` already keeps `.env` and local tool folders such as `.lavish/` out of git.
 
-### 5.3 The Jev key: `.env`, and keeping it away from agents
+### 5.3 The server keys: `.env`, and keeping them away from agents
 
-The team's Jev API key (`TYPESAFE_API_KEY`) is for the **server only** (spec §6 and §9). It must never be committed, pasted into an agent prompt, an issue or a PR, or be reachable from an agent's sandbox. Ask the stream B owner for it directly (a password manager or a private message, never an issue).
+The game has two server API keys: the Jev key (`TYPESAFE_API_KEY`) and the Haiku key (`ANTHROPIC_API_KEY`). Both are for the **server only** (spec §6 and §9). Neither may be committed, pasted into an agent prompt, an issue or a PR, or be reachable from an agent's sandbox. Ask the stream B owner for the Jev key and the repository owner for the Haiku key, directly (a password manager or a private message, never an issue). Haiku inside the game is a product part chosen by the repository owner, not a tool the team's builders use: no agent or builder calls it for their own work.
 
 Create `.env` by typing the key at a hidden prompt, so it never appears in your shell history or on screen:
 
@@ -196,15 +196,17 @@ git check-ignore -v .env      # must print a .gitignore rule; if it prints nothi
 
 These commands work in bash and zsh (macOS default) on macOS, Linux and WSL. On native Windows, create `.env` in an editor instead of pasting the key into a terminal, and don't add a trailing space or quotes to the value.
 
-`JEV_ENABLED=false` is the kill switch from spec §9: every AI falls back to the policy.
+Add the Haiku key the same way, and only on the machine that runs the live game or the live speech check: type it at a hidden prompt and append `ANTHROPIC_API_KEY=<key>` and `HAIKU_ENABLED=true` to `.env`. `.env.example` ships `HAIKU_ENABLED=false`.
+
+`JEV_ENABLED=false` is the kill switch from spec §9: every AI falls back to the policy. `HAIKU_ENABLED=false` (or no Haiku key) is the second kill switch: generated speech is off and the line bank speaks. Haiku is also held to its own limits (THB 150 in total, 60 calls and 80,000 input tokens per game, spec §9); past a limit the line bank speaks.
 
 Every live Jev request is logged to the git-ignored `logs/jev-usage.jsonl` (IDs, tokens and timings only, never state or the key). `npm run usage` prints the spend so far in USD and THB, its share of the THB 1,500 cap and the AI decision time per turn (p50, p95). The server warns once at 80% of the cap; at the cap, or once today's spend reaches an optional `JEV_DAILY_BUDGET_THB` in `.env`, every AI falls back with reason `budget_exceeded`.
 
-How the key stays out of agent reach. Be realistic: your agent runs as your user, and unless you run it inside a container or VM, it can read any file you can.
+How the keys stay out of agent reach. Be realistic: your agent runs as your user, and unless you run it inside a container or VM, it can read any file you can.
 
 1. **Agents work in their own worktrees, not in the directory that holds `.env`.** Keep the clone with `.env` for *you* (running the web app and live Jev evals yourself). Run agents from a separate worktree. A gitignored file is not copied into a new worktree, so the `.env` stays behind. Get a worktree with `treehouse get -b <branch>` or `git worktree add ../poke-monopoly-wt -b <branch>`; firstmate does this automatically.
 2. **Never list `.env` in a `.worktreeinclude`.** treehouse copies the gitignored files named in a committed `.worktreeinclude` from the main checkout into every worktree it hands out. Listing `.env` there would put the key into every agent's worktree.
-3. **Agent sessions run with Jev off.** Spec §7 gives agents the offline loops: `npm test`, `npm run sim -- --games 100 --seed <n>` and `npm run eval:jev -- --offline`. None needs the key. Live Jev evals are run by a human or by nightly CI (spec §7).
+3. **Agent sessions run with Jev and Haiku off.** Spec §7 gives agents the offline loops: `npm test`, `npm run sim -- --games 100 --seed <n>` and `npm run eval:jev -- --offline`. None needs a key. Live Jev evals are run by a human or by nightly CI (spec §7); the live Haiku speech check is run by the repository owner.
 4. **Deny the agent reading it.** In Claude Code, add to your *user* settings (`~/.claude/settings.json`) so it applies to every project:
    ```json
    { "permissions": { "deny": ["Read(//**/.env)", "Read(//**/.env.*)"] } }
@@ -212,7 +214,7 @@ How the key stays out of agent reach. Be realistic: your agent runs as your user
    A leading `//` makes the pattern filesystem-absolute, so it also covers a worktree agent reading `../poke-monopoly/.env`; a plain `./.env` rule would only match under the agent's own working directory. Per the [Claude Code permissions docs](https://code.claude.com/docs/en/permissions), Read deny rules cover the built-in file tools and the file commands Claude Code recognizes in Bash (`cat`, `head`, `tail`, `sed`), but not a command that reads files without naming them (for example `grep -r` from the directory that holds the file) or an arbitrary subprocess. So this is a safety net, not a boundary. Codex has no equivalent rule we verified; rely on points 1 to 3.
 5. **no-mistakes pipeline agents get pushed commits, not your working files.** Each run builds a worktree from the pushed branch, so an untracked `.env` is not in it. Be aware that by default no-mistakes launches Codex with its sandbox bypassed (`--dangerously-bypass-approvals-and-sandbox`) and, when no intent is supplied, reads recent local Claude Code and Codex transcripts to infer it. So if the key is ever typed into a prompt, it is in a transcript.
 
-If the key ever appears in a prompt, transcript, log, issue or PR, treat it as leaked: tell the team and rotate it.
+If a key (Jev or Haiku) ever appears in a prompt, transcript, log, issue or PR, treat it as leaked: tell the team and rotate it.
 
 ## 6. The team workflow: one change, end to end
 
@@ -365,7 +367,7 @@ chrome-devtools-axi console              # console messages
 chrome-devtools-axi stop                 # stop the background browser bridge
 ```
 
-Keep screenshots out of commits unless the PR is about them. Never point the browser at a page showing the Jev key.
+Keep screenshots out of commits unless the PR is about them. Never point the browser at a page showing a server key.
 
 ### lavish-axi: review a plan or UI visually
 
@@ -411,7 +413,7 @@ Then talk to the first mate. A projects folder inside firstmate holds the clones
 ```
 ahoy! Register https://github.com/AokDesu/poke-monopoly as a project that ships through
 no-mistakes. Then dispatch issues #14 and #15 as two parallel tasks. Each PR must cite the
-spec section named in its issue (spec v1.0 §3.1 for UI behaviour). Never put a Jev key
+spec section named in its issue (spec v1.0 §3.1 for UI behaviour). Never put a Jev or Haiku key
 anywhere. Tell me when the PRs are ready for my review.
 ```
 
