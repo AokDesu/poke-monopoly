@@ -8,6 +8,7 @@ import {
   createGameLog,
   d6,
   fixtureSchema,
+  itemEffectStatus,
   legalActions,
   replay,
   type GameState,
@@ -405,4 +406,30 @@ test('1,000 random legal actions with items keep coins nonnegative, transfers ba
     ),
     { numRuns: 2, seed: 31 },
   );
+});
+
+test.each([
+  ['lucky-egg', 'active'],
+  ['repel', 'active'],
+  ['pickpocket', 'active'],
+  ['potion', 'partial'],
+  ['price-shield', 'planned'],
+  ['sticky-web', 'planned'],
+  ['battle-ticket', 'planned'],
+] as const)(
+  '%s is %s: the claimed support matches whether Strategy offers it as a choice (Appendix A)',
+  (itemId, status) => {
+    expect(itemEffectStatus({ id: itemId, name: itemId, kind: 'utility', price: 1 })).toBe(status);
+    const { enabled, disabled } = legalActions(strategy(itemId), 0);
+    const choices = [...enabled, ...disabled].filter((choice) => choice.kind === 'use_item');
+    expect(choices.length > 0).toBe(status !== 'planned');
+  },
+);
+
+test('Balls always report an active effect, whatever their bonus (§4.3)', () => {
+  for (const ballType of ['poke', 'great', 'ultra'] as const) {
+    expect(
+      itemEffectStatus({ id: `${ballType}-ball`, name: 'Ball', kind: 'ball', price: 1, ballType }),
+    ).toBe('active');
+  }
 });

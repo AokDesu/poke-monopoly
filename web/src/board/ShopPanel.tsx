@@ -3,6 +3,7 @@ import { t } from '../i18n/en.ts';
 import { itemName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
 import { BallIcon } from '../ui/icons.tsx';
+import { ItemFacts } from './ItemFacts.tsx';
 
 export function ShopPanel({
   observation,
@@ -50,16 +51,19 @@ export function ShopPanel({
                   <span className="item-capsule" />
                 )}
               </span>
-              <ActionButton
-                {...availability}
-                variant="reward"
-                onClick={() => choice && onChoose(choice.id)}
-              >
-                {t(offer.price === 1 ? 'shop.buyOne' : 'shop.buy', {
-                  item: itemName(offer.itemId),
-                  price: offer.price,
-                })}
-              </ActionButton>
+              <div className="offer-body">
+                <ActionButton
+                  {...availability}
+                  variant="reward"
+                  onClick={() => choice && onChoose(choice.id)}
+                >
+                  {t(offer.price === 1 ? 'shop.buyOne' : 'shop.buy', {
+                    item: itemName(offer.itemId),
+                    price: offer.price,
+                  })}
+                </ActionButton>
+                <ItemFacts itemId={offer.itemId} price={offer.price} />
+              </div>
             </li>
           );
         })}

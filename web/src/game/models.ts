@@ -41,6 +41,14 @@ export const SPECIES_MODELS: Readonly<Record<string, ModelCredit>> = {
   },
 };
 
+/** The Starters the board's meadow diorama shows, with their ground positions (decorative only). */
+export const MEADOW_STARTERS = [
+  { id: 'bulbasaur', x: -1.4, z: 0.6 },
+  { id: 'charmander', x: 1.4, z: -0.4 },
+  { id: 'squirtle', x: 0.3, z: 1.5 },
+  { id: 'porygon', x: -0.7, z: -1.4 },
+] as const;
+
 export const BALL_MODEL: ModelCredit = {
   file: '/models/pokeball.glb',
   title: 'pokeball',

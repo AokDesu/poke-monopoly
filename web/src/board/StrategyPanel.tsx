@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import type { LegalActions, Observation } from '../../../engine/index.ts';
-import { content } from '../game/content.ts';
+import { content, itemStatus } from '../game/content.ts';
 import { t } from '../i18n/en.ts';
 import { itemName, speciesName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
+import { ItemFacts } from './ItemFacts.tsx';
 import { seatLabel } from './labels.ts';
 
 export function StrategyPanel({
@@ -58,7 +59,23 @@ export function StrategyPanel({
             (action) =>
               action.kind === 'use_item' && action.payload.itemInstanceId === owned.instanceId,
           );
-          if (choices.length === 0) return null;
+          if (choices.length === 0) {
+            // No engine choice: either the effect is not implemented, or no target exists. The
+            // greyed-out reason then says so, so the card does not repeat it.
+            const planned = itemStatus(owned.itemId) === 'planned';
+            return (
+              <li key={owned.instanceId}>
+                <ActionButton
+                  enabled={false}
+                  reasonText={t(planned ? 'item.status.planned' : 'action.reason.NO_VALID_TARGET')}
+                  variant="secondary"
+                >
+                  {itemName(owned.itemId)}
+                </ActionButton>
+                <ItemFacts itemId={owned.itemId} showStatus={!planned} />
+              </li>
+            );
+          }
           const enabled = choices.find((action) => !('reasonText' in action));
           const disabled = legalActions.disabled.find((action) =>
             choices.some((choice) => choice.id === action.id),
@@ -92,6 +109,7 @@ export function StrategyPanel({
               >
                 {itemName(owned.itemId)}
               </ActionButton>
+              <ItemFacts itemId={owned.itemId} />
             </li>
           );
         })}
