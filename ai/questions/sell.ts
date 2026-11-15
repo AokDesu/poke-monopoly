@@ -18,8 +18,12 @@ export interface SaleFact {
   classBonusAlone: number;
   /** Class bonus coins it still gets when every offered Pokémon is sold together. */
   classBonusTogether: number;
-  /** What keeping it is worth in coins, as the engine projects it (§5.6 keep value). */
-  keepValue: number;
+  /**
+   * What keeping it is worth in coins, as the engine projects it (§5.6 keep value). The engine has
+   * no such projection yet, so the live game omits it and Jev is asked without a keep bucket
+   * rather than with a number made up here.
+   */
+  keepValue?: number;
 }
 
 export interface SellFacts {
@@ -53,11 +57,19 @@ function classBonusWords(fact: SaleFact): 'yes' | 'no' | typeof BONUS_ONLY_ALONE
 }
 
 /** The Noul for `you.team[index]`; its facts are `sell_phase.offers[label]` (spec §5.3, §5.4). */
-export function sellInstructions(index: number, pokemon: string, label: string): string {
+export function sellInstructions(
+  index: number,
+  pokemon: string,
+  label: string,
+  withKeepValue = true,
+): string {
   return (
     `Sell Phase at Start: should \`you.team[${index}]\` (${pokemon}) be sold now? Its facts are ` +
-    `in \`sell_phase.offers.${label}\`. \`sale_value_now\` (coins from selling it now) and ` +
-    '`keep_value` (what keeping it is worth) are separate values, each low, medium or high. ' +
+    `in \`sell_phase.offers.${label}\`. ` +
+    (withKeepValue
+      ? '`sale_value_now` (coins from selling it now) and `keep_value` (what keeping it is worth) ' +
+        'are separate values, each low, medium or high. '
+      : '`sale_value_now` (coins from selling it now) is low, medium or high. ') +
     '`class_bonus` says whether your class adds bonus coins to this sale; a once-per-Lap bonus ' +
     'goes to only one Pokémon per Sell Phase.'
   );
@@ -77,7 +89,8 @@ export const SELL_CRITERIA = Object.freeze({
 export type SellOffer = {
   pokemon: string;
   sale_value_now: SellValue;
-  keep_value: SellValue;
+  /** Absent when the engine gave no keep value. */
+  keep_value?: SellValue;
   class_bonus: ReturnType<typeof classBonusWords>;
 };
 
@@ -131,7 +144,7 @@ export function buildSellQuestions(
     const offer: SellOffer = {
       pokemon: speciesText(pokemon.speciesId).name,
       sale_value_now: bucketSellValue(fact.salePrice),
-      keep_value: bucketSellValue(fact.keepValue),
+      ...(fact.keepValue !== undefined && { keep_value: bucketSellValue(fact.keepValue) }),
       class_bonus: classBonusWords(fact),
     };
     return [{ label: `sell_team_${index}`, index, instanceId: pokemon.instanceId, offer }];
@@ -148,7 +161,10 @@ export function buildSellQuestions(
     const options: Record<string, string> = {};
     const offers: Record<string, SellOffer> = {};
     for (const { label, index, instanceId, offer } of batch) {
-      questions[label] = noul(sellInstructions(index, offer.pokemon, label), { ...SELL_CRITERIA });
+      questions[label] = noul(
+        sellInstructions(index, offer.pokemon, label, offer.keep_value !== undefined),
+        { ...SELL_CRITERIA },
+      );
       options[label] = instanceId;
       offers[label] = offer;
     }

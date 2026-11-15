@@ -2,6 +2,8 @@ import { expect, test, vi } from 'vitest';
 import { fixtureSchema } from '../engine/index.ts';
 import fixture from '../engine/fixtures/shop-low-coins.json';
 import { createApp } from './app.ts';
+import { DecisionStats, decisionRates } from './orchestrator.ts';
+import type { DecisionRecord } from './jev/decision-log.ts';
 
 const parsed = fixtureSchema.parse(fixture);
 const request = {
@@ -32,11 +34,101 @@ test('Shop uses the offline seeded fallback, never Jev, and selects only an enab
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(request.enabledActions.some((choice) => choice.id === body.choice)).toBe(true);
-    expect(body).toMatchObject({ source: 'fallback', fallbackReason: 'stub' });
+    expect(body).toMatchObject({ source: 'fallback', fallbackReason: 'auto' });
     answers.push(body.choice);
   }
   expect(new Set(answers).size).toBe(1);
   expect(decider).not.toHaveBeenCalled();
+});
+
+const apply = (answer: Record<string, unknown>, app: ReturnType<typeof createApp>) =>
+  app.request('/api/ai/outcome', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      gameId: request.gameId,
+      seatIndex: request.seatIndex,
+      turnKey: request.turnKey,
+      stateRevision: request.stateRevision,
+      decisionPoint: 'shop',
+      choice: answer.choice,
+      source: answer.source,
+      fallbackReason: answer.fallbackReason,
+    }),
+  });
+
+test('a Shop decision is one decision-log row, labelled as a non-Jev decision, never a stub', async () => {
+  const records: DecisionRecord[] = [];
+  const app = createApp({ decisionLog: (line) => records.push(line) });
+  const answer = await (await post(request, app)).json();
+  // Nothing is logged until the browser reports what it applied, like every other decision.
+  expect(records).toHaveLength(0);
+  expect((await apply(answer, app)).status).toBe(204);
+  expect(records).toHaveLength(1);
+  expect(records[0]).toMatchObject({
+    decisionPoint: 'shop',
+    questionId: 'shop',
+    choice: answer.choice,
+    requestId: null,
+    model: null,
+    probabilities: null,
+    confidence: null,
+    sampled: null,
+    fallbackReason: 'auto',
+  });
+  expect(JSON.stringify(records)).not.toContain('stub');
+  // A repeat report of the same decision does not add a second row.
+  await apply(answer, app);
+  expect(records).toHaveLength(1);
+});
+
+test('a Shop decision never reads as a fallback to a consumer: no notice, no spend, no §5.6 count', async () => {
+  const record = vi.fn();
+  const usage = { record, budgetExceeded: () => false };
+  const app = createApp({ usage: () => usage, decisionLog: () => {} });
+  const response = await post(request, app);
+  const body = await response.json();
+  // The wire's `auto` is the established "no Jev question" reason: the browser shows no backup-bot
+  // notice for it (presentation.ts), unlike `timeout`, `network`, `disabled` and the other outages.
+  expect(body).toMatchObject({ source: 'fallback', fallbackReason: 'auto' });
+  expect(response.headers.get('x-ai-line-id')).toBeNull();
+  expect(response.headers.get('x-ai-dialogue-events')).toBeNull();
+  // It never reaches the orchestrator, so no Jev request, usage line or spend is recorded.
+  expect(record).not.toHaveBeenCalled();
+  // And as an orchestrator decision `auto` is no decision and no fallback in the §5.6 metrics.
+  const stats = new DecisionStats();
+  stats.record({
+    choice: body.choice,
+    source: 'auto',
+    fallbackReason: null,
+    requests: 0,
+    events: [],
+  });
+  expect(decisionRates(stats.counts())).toMatchObject({
+    decisions: 0,
+    fallbackRate: { total: 0, byCause: {} },
+  });
+});
+
+test('the speculative fallback for a Shop request is never logged', async () => {
+  const records: DecisionRecord[] = [];
+  const app = createApp({ decisionLog: (line) => records.push(line) });
+  const response = await app.request('/api/ai/fallback', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+  await apply(await response.json(), app);
+  expect(records).toHaveLength(0);
+});
+
+test('a Shop answer replaced by the browser deadline logs its own outcome', async () => {
+  const records: DecisionRecord[] = [];
+  const app = createApp({ decisionLog: (line) => records.push(line) });
+  const answer = await (await post(request, app)).json();
+  await apply({ ...answer, source: 'fallback', fallbackReason: 'timeout' }, app);
+  expect(records).toHaveLength(1);
+  expect(records[0]).toMatchObject({ decisionPoint: 'shop', fallbackReason: 'timeout' });
 });
 
 test.each([
