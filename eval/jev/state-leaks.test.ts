@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { expect, test } from 'vitest';
+import { checkChatLeaks, loadChatSet } from './chat.ts';
 import { fixtureSchema, observe } from '../../engine/index.ts';
 import {
   assertNoComparableNumbers,
@@ -94,5 +95,15 @@ for (const [path, input] of Object.entries(fixtures)) {
       changed.eventDeck.discardPile.push('DIFFERENT_DISCARD');
       expect(buildJevState(observe(changed, seat))).toEqual(built);
     }
+  });
+}
+
+const chatItems = await loadChatSet();
+
+for (const [path, input] of Object.entries(fixtures)) {
+  test(`${path}: no chat item or chat request carries another seat's secrets (spec §5.4, §8)`, () => {
+    const { state } = fixtureSchema.parse(input);
+    for (const { seatIndex } of state.players)
+      expect(checkChatLeaks(chatItems, state, seatIndex)).toBe(chatItems.length);
   });
 }
