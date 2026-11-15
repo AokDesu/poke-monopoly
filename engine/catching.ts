@@ -1,6 +1,7 @@
 import { canReroll } from './abilities.ts';
 import { classBonus, useCatchClassBonus } from './classes.ts';
 import { int, weightedPick } from './rng.ts';
+import { publicRevision } from './visibility.ts';
 import type { Action, EngineEvent, GameState, Player } from './contract/schema.ts';
 
 type BallType = keyof Player['balls'];
@@ -84,7 +85,7 @@ function resolveCatch(next: GameState, value: number): EngineEvent[] {
   const player = next.players.find((entry) => entry.seatIndex === next.activeSeatIndex)!;
   useCatchClassBonus(next.content, player);
   if (catchSucceeds(next.phase.catchRoll, value)) {
-    const instanceId = `caught:${next.activeSeatIndex}:${next.stateRevision}`;
+    const instanceId = `caught:${next.activeSeatIndex}:${publicRevision(next)}`;
     player.team.push({
       instanceId,
       speciesId: next.phase.pokemon.speciesId,

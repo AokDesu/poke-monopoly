@@ -14,6 +14,7 @@ import type {
   Player,
   PokemonInstance,
 } from './contract/schema.ts';
+import { publicRevision } from './revision.ts';
 
 type Timing =
   'OWN_STRATEGY' | 'CHALLENGE_DECLARE' | 'BEFORE_OWN_ROLL' | 'AFTER_OWN_ROLL' | 'REACTION';
@@ -335,7 +336,7 @@ export function activateAbility(next: GameState, action: Action): EngineEvent[] 
       // chanceBall: the engine owes one logged d6 before Strategy continues (C.1).
       next.phase = {
         kind: 'chance_roll',
-        rollId: `ability:${next.stateRevision}`,
+        rollId: `ability:${publicRevision(next)}`,
         seatIndex: player.seatIndex,
       };
       return [activated, { kind: 'phase_changed', from: 'strategy', to: 'chance_roll' }];

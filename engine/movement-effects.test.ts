@@ -14,7 +14,6 @@ import {
   positionOf,
   type Action,
   type ApplyActionResult,
-  type EngineEvent,
   type GameState,
 } from './index.ts';
 
@@ -79,7 +78,7 @@ function quickFlight(state: GameState) {
   return run(moving, 'roll');
 }
 
-const kinds = (events: EngineEvent[]) => events.map((event) => event.kind);
+const kinds = (events: { kind: string }[]) => events.map((event) => event.kind);
 
 test('AC-4: Quick Flight under a pending Repel draws no die, moves max(1, 3 − 2) = 1 and clears the slow (C.5 D8)', () => {
   const state = game();

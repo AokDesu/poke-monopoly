@@ -6,6 +6,7 @@ import { sideModifiers } from './pvp.ts';
 import { applyCoinLossProtection } from './protection.ts';
 import { pendingRewardChoices, resolveReward } from './rewards.ts';
 import { battleReadyMembers } from './status.ts';
+import { publicRevision } from './revision.ts';
 
 /** Every Gym loss pays the bank at most this many coins (§4.4). */
 const GYM_LOSS_COINS = 3;
@@ -15,7 +16,7 @@ export function openGym(next: GameState, position: number): void {
   if (position !== 6 && position !== 12 && position !== 18) throw new RangeError('Not a Gym');
   next.phase = {
     kind: 'gym',
-    battle: { battleId: `gym:${next.stateRevision}`, position, step: 'entry' },
+    battle: { battleId: `gym:${publicRevision(next)}`, position, step: 'entry' },
   };
 }
 

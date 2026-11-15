@@ -5,6 +5,7 @@ import type {
   AttackAttempt,
   EngineEvent,
   GameState,
+  SeatAttackAttempt,
 } from './contract/schema.ts';
 
 /** An action whose payload may have fields this seat must not see removed. */
@@ -13,8 +14,19 @@ export type SeatAction = Action extends infer A
     ? Omit<A, 'payload'> & { payload: Partial<P> }
     : never
   : never;
-/** A seat-safe copy of an `ActionRecord`. */
-export type SeatActionRecord = Omit<ActionRecord, 'action'> & { action: SeatAction };
+/** An event as a seat sees it: an attack attempt without its engine-internal `actionSeq`. */
+export type SeatEvent = Exclude<EngineEvent, AttackAttempt> | SeatAttackAttempt;
+/** A seat-safe copy of an `ActionRecord`, numbered within that seat's own feed. */
+export type SeatActionRecord = Omit<ActionRecord, 'action' | 'events'> & {
+  action: SeatAction;
+  events: SeatEvent[];
+};
+
+/** An attack attempt without the global sequence, which counts records a seat may not see (§4.8). */
+export function seatAttackAttempt(attempt: AttackAttempt): SeatAttackAttempt {
+  const { kind, attackId, actorId, targetId, source, globalTurnNo } = attempt;
+  return { kind, attackId, actorId, targetId, source, globalTurnNo };
+}
 
 /**
  * Whether `seatIndex` may see an event produced by applying an action to `before` (§4.1, §5.4).
@@ -28,6 +40,10 @@ function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): bo
   }
   if (event.kind === 'hostile_item_used') {
     return event.userSeatIndex === seatIndex || event.targetSeatIndex === seatIndex;
+  }
+  // A chat message is its sender's and recipient's alone (§4.8, §5.4).
+  if (event.kind === 'chat_sent') {
+    return event.fromSeatIndex === seatIndex || event.toSeatIndex === seatIndex;
   }
   const observerId = before.players.find((player) => player.seatIndex === seatIndex)?.actorId;
   if (event.kind === 'attack_attempt') return attackVisibleTo(event, observerId);
@@ -86,21 +102,57 @@ export function eventsVisibleTo(
   before: GameState,
   events: EngineEvent[],
   seatIndex: number,
-): EngineEvent[] {
+): SeatEvent[] {
   if (!before.players.some((player) => player.seatIndex === seatIndex)) {
     throw new RangeError('Unknown seat index');
   }
-  return structuredClone(events.filter((event) => visibleTo(before, event, seatIndex)));
+  return structuredClone(events)
+    .filter((event) => visibleTo(before, event, seatIndex))
+    .map((event) => (event.kind === 'attack_attempt' ? seatAttackAttempt(event) : event));
 }
 
-/** A copy of one accepted record that `seatIndex` may see; `before` is the state it was applied to. */
+/**
+ * The revision an actor sees and must submit as `stateRevisionBefore` (§4.8): accepted records
+ * minus those it may not see, so it equals the length of that seat's feed. The engine's own
+ * records, and any seat that missed nothing, use the global revision.
+ */
+export function actorRevision(state: GameState, actorId: string): number {
+  const player = state.players.find((candidate) => candidate.actorId === actorId);
+  return state.stateRevision - (player?.unseenRecords ?? 0);
+}
+
+export { publicRevision } from './revision.ts';
+
+/**
+ * Whether the record is a chat this seat took no part in (§4.8). A seat outside a conversation must
+ * not learn that it happened or whom it was with: in a three-seat game, "a chat happened and it was
+ * not to me" names the recipient, so the record is absent from the seat's feed, not redacted.
+ */
+function hiddenChat(before: GameState, record: ActionRecord, seatIndex: number): boolean {
+  const { action } = record;
+  if (action.kind !== 'chat') return false;
+  const actor = before.players.find((player) => player.actorId === action.actorId);
+  return actor?.seatIndex !== seatIndex && action.payload.targetSeatIndex !== seatIndex;
+}
+
+/**
+ * A copy of one accepted record that `seatIndex` may see, or `null` when the seat must not know it
+ * happened (a chat between two other seats, §4.8). `before` is the state it was applied to and
+ * `shownBefore` is how many records this seat's feed already holds. The copy is numbered in the
+ * seat's own feed (`actionSeq = shownBefore + 1`), so a hidden record leaves no gap in the
+ * sequence or revision. The full record, with its real numbers, stays in the engine's replay log.
+ */
 export function actionVisibleTo(
   before: GameState,
   record: ActionRecord,
   seatIndex: number,
-): SeatActionRecord {
+  shownBefore: number,
+): SeatActionRecord | null {
   const events = eventsVisibleTo(before, record.events, seatIndex);
+  if (hiddenChat(before, record, seatIndex)) return null;
   const action: SeatAction = structuredClone(record.action);
+  action.actionSeq = shownBefore + 1;
+  action.stateRevisionBefore = shownBefore;
   const actor = before.players.find((player) => player.actorId === action.actorId);
   // Another seat's purchase is secret: its price is public, the offer is not (§4.1).
   if (action.kind === 'buy' && actor?.seatIndex !== seatIndex) delete action.payload.offerId;
@@ -130,5 +182,14 @@ export function actionVisibleTo(
   ) {
     delete action.payload.value;
   }
-  return { ...structuredClone(record), action, events };
+  const copy: SeatActionRecord = { ...structuredClone(record), action, events };
+  // Whether another seat's Social step had alternatives would tell whether it spent its chat (§4.8).
+  if (
+    before.phase.kind === 'social' &&
+    before.config.socialWindow === true &&
+    actor?.seatIndex !== seatIndex
+  ) {
+    delete copy.auto;
+  }
+  return copy;
 }

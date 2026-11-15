@@ -10,6 +10,8 @@ export interface EncounterDialogProps {
   legalActions: LegalActions;
   catchOdds: readonly ({ ballType: BallType } & CatchOdds)[];
   onChoose: (id: string) => void;
+  /** Dev gallery only: show the same dialog in the page flow instead of as a modal. */
+  inline?: boolean;
 }
 
 /** A catch is a protected decision: native modal focus stays here until a legal choice is made. */
@@ -18,15 +20,17 @@ export function EncounterDialog({
   legalActions,
   catchOdds,
   onChoose,
+  inline = false,
 }: EncounterDialogProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const headingId = useId();
   const bodyId = useId();
   useEffect(() => {
+    if (inline) return;
     const element = dialog.current!;
     element.showModal();
     return () => element.close();
-  }, []);
+  }, [inline]);
   const phase = observation.public.phase;
   if (phase.kind !== 'encounter') return null;
   const pokemon = content.species.find((species) => species.id === phase.pokemon.speciesId)!.name;
@@ -35,6 +39,7 @@ export function EncounterDialog({
   return (
     <dialog
       ref={dialog}
+      open={inline || undefined}
       className="encounter-dialog panel"
       aria-labelledby={headingId}
       aria-describedby={bodyId}

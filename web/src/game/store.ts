@@ -5,6 +5,7 @@ import {
   createGame,
   createGameConfig,
   createGameLog,
+  createRng,
   eventsVisibleTo,
   engineEventSchema,
   fixtureSchema,
@@ -29,6 +30,7 @@ import {
   type LegalActions,
   type Observation,
   type SeatActionRecord,
+  type SeatEvent,
 } from '../../../engine/index.ts';
 import { reportOutcome, requestOpponent, type AiDecision } from './ai.ts';
 import type { DifficultyId, GameSetup, PersonalityId } from './setup.ts';
@@ -174,10 +176,9 @@ function feedFrom(log: GameLog, seatIndex: number): SeatFeedEntry[] {
   const feed: SeatFeedEntry[] = [];
   for (const record of log.actions) {
     const { phase, activeSeatIndex, globalTurnNo } = observe(cursor, seatIndex).public;
-    feed.push({
-      before: { phase, activeSeatIndex, globalTurnNo },
-      record: actionVisibleTo(cursor, record, seatIndex),
-    });
+    // A chat between two other seats is absent from this seat's feed, not redacted (spec §4.8).
+    const visible = actionVisibleTo(cursor, record, seatIndex, feed.length);
+    if (visible) feed.push({ before: { phase, activeSeatIndex, globalTurnNo }, record: visible });
     const applied = applyAction(cursor, record.action);
     if (!('accepted' in applied)) throw new Error('Save log does not replay');
     cursor = applied.state;
@@ -228,10 +229,14 @@ export function createGameStore(): GameStore {
     if (seatIndex !== undefined && records.length > 0) {
       const { phase, activeSeatIndex, globalTurnNo, players } = observe(before, seatIndex).public;
       // Each step applies one record (engine contract: `advanceAutomatically` does not loop).
+      let shown = feed.length;
       feed = [
         ...feed,
-        ...records.map((record) => {
-          const visible = actionVisibleTo(before, record, seatIndex);
+        ...records.flatMap((record): SeatFeedEntry[] => {
+          const visible = actionVisibleTo(before, record, seatIndex, shown);
+          // A chat between two other seats is absent from this seat's feed (spec §4.8).
+          if (!visible) return [];
+          shown++;
           const sale = visible.events.find(
             (event) => event.kind === 'coin_transfer' && event.reason === 'pokemon_sale',
           );
@@ -244,21 +249,23 @@ export function createGameStore(): GameStore {
                   .find((player) => player.seatIndex === activeSeatIndex)
                   ?.team.find((entry) => entry.instanceId === sold.instanceId)
               : undefined;
-          return {
-            before: { phase, activeSeatIndex, globalTurnNo },
-            record: visible,
-            ...(decision && {
-              decision,
-              lineContext: {
-                ...(pokemon && { pokemonSpeciesId: pokemon.speciesId }),
-                ...(sale?.kind === 'coin_transfer' && { coins: sale.amount }),
-                ...(visible.action.kind === 'use_item' &&
-                  visible.action.payload.targetSeatIndex !== undefined && {
-                    targetSeatIndex: visible.action.payload.targetSeatIndex,
-                  }),
-              },
-            }),
-          };
+          return [
+            {
+              before: { phase, activeSeatIndex, globalTurnNo },
+              record: visible,
+              ...(decision && {
+                decision,
+                lineContext: {
+                  ...(pokemon && { pokemonSpeciesId: pokemon.speciesId }),
+                  ...(sale?.kind === 'coin_transfer' && { coins: sale.amount }),
+                  ...(visible.action.kind === 'use_item' &&
+                    visible.action.payload.targetSeatIndex !== undefined && {
+                      targetSeatIndex: visible.action.payload.targetSeatIndex,
+                    }),
+                },
+              }),
+            },
+          ];
         }),
       ];
     }
@@ -274,10 +281,15 @@ export function createGameStore(): GameStore {
     dialogueEvents: EngineEvent[] = [],
   ): ApplyActionResult => {
     const { state, log } = current();
+    // A seat submits the revision it observed; it skips chats it was not part of (spec §4.8).
+    const seat = state.players.find((player) => player.actorId === command.actorId);
+    const revision = seat
+      ? observe(state, seat.seatIndex).public.stateRevision
+      : state.stateRevision;
     const result = applyAction(state, {
       ...command,
-      actionSeq: state.stateRevision + 1,
-      stateRevisionBefore: state.stateRevision,
+      actionSeq: revision + 1,
+      stateRevisionBefore: revision,
     });
     if ('accepted' in result) {
       commit(
@@ -386,17 +398,18 @@ export function createGameStore(): GameStore {
         return true;
       }
       const settings = opponents.find((opponent) => opponent.seatIndex === seatIndex);
+      const observation = observe(state, seatIndex);
       const ids = {
         gameId: gameToken,
         seatIndex,
         decisionPoint,
-        stateRevision: state.stateRevision,
+        stateRevision: observation.public.stateRevision,
         turnKey: `${state.globalTurnNo}:${seatIndex}`,
       };
       const answer = await requestOpponent(
         JSON.stringify({
           ...ids,
-          observation: observe(state, seatIndex),
+          observation,
           enabledActions,
           facts:
             decisionPoint === 'encounter' ? { catchOdds: oddsForAllBalls(state, seatIndex) } : {},
@@ -493,11 +506,32 @@ export function createGameStore(): GameStore {
  */
 export function projectBoardFixture(input: unknown): {
   observation: Observation;
-  events: EngineEvent[];
+  events: SeatEvent[];
 } {
   const fixture = fixtureSchema.parse(input);
   return {
     observation: observe(fixture.state, 0),
     events: fixture.log.flatMap((record) => eventsVisibleTo(fixture.state, record.events, 0)),
   };
+}
+
+/**
+ * Dev gallery adapter (issue #53): a store resting on a fixture snapshot, so a screen can be
+ * shown in a state that is hard to reach by playing. Config, content and RNG are normalised to
+ * the current engine; every command and quote still runs through `applyAction`. `edit` adjusts
+ * the snapshot's data (coins, items, seats) before it is sealed into the log.
+ */
+export function createFixtureStore(
+  input: unknown,
+  content: Content,
+  edit?: (state: GameState) => void,
+): GameStore {
+  const { state } = fixtureSchema.parse(input);
+  edit?.(state);
+  state.config = createGameConfig({ seats: state.config.seats, seed: 3, lapTarget: 3 });
+  state.content = structuredClone(content);
+  state.rng = createRng(3);
+  const store = createGameStore();
+  store.restore({ state, log: createGameLog(state) });
+  return store;
 }

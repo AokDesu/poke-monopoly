@@ -16,6 +16,7 @@ import {
   declareHostileAction,
   recordAttackAttempt,
 } from './protection.ts';
+import { publicRevision } from './revision.ts';
 
 /** Shared readiness/action legality for every PvP source; null when legal (§4.4, D10). */
 export function pvpDisabledReason(state: GameState, attacker: Player, target: Player) {
@@ -104,7 +105,7 @@ export function beginPvp(
   next.phase = {
     kind: 'pvp',
     battle: {
-      battleId: `pvp:${next.stateRevision}`,
+      battleId: `pvp:${publicRevision(next)}`,
       attackerSeatIndex: attacker.seatIndex,
       defenderSeatIndex: defender.seatIndex,
       ...(forced ? { forced: true as const } : {}),
@@ -194,7 +195,7 @@ export function recordPvpCommand(next: GameState, action: Action): EngineEvent[]
       attacker.actorId,
       defender.actorId,
       'pvp_declaration',
-      `pvp:${next.stateRevision}`,
+      `pvp:${publicRevision(next)}`,
     );
     return [attempt, ...beginPvp(next, attacker, defender, forced)];
   }

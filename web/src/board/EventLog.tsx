@@ -1,4 +1,4 @@
-import type { EngineEvent, Observation } from '../../../engine/index.ts';
+import type { Observation, SeatEvent } from '../../../engine/index.ts';
 import type { SeatFeedEntry } from '../game/store.ts';
 import { t, type MessageKey } from '../i18n/en.ts';
 import { itemName } from '../i18n/names.ts';
@@ -6,7 +6,7 @@ import { phaseLabel, playerLabel, reasonLabel, seatLabel } from './labels.ts';
 import { turnMessages } from './turnMessages.ts';
 
 function eventMessage(
-  event: EngineEvent,
+  event: SeatEvent,
   observation: Observation,
 ): { key: MessageKey; text: string }[] {
   const seat = (index: number) => seatLabel(index, observation.own.seatIndex);
@@ -33,6 +33,9 @@ function eventMessage(
     case 'pokemon_evolved':
     case 'battle_reward_resolved':
     case 'line_selected':
+      return [];
+    // Chat has its own screen (#57); the flag keeping the Social window closed is off until then.
+    case 'chat_sent':
       return [];
     case 'random_result':
       if (event.purpose.startsWith('line:')) return [];
@@ -89,7 +92,7 @@ export function EventLog({
   observation,
   feed,
 }: {
-  events: readonly EngineEvent[];
+  events: readonly SeatEvent[];
   observation: Observation;
   feed?: readonly SeatFeedEntry[];
 }) {

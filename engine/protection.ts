@@ -1,5 +1,6 @@
 import { protectsPvpCoinLoss } from './classes.ts';
 import type { AttackAttempt, EngineEvent, GameState, Player } from './contract/schema.ts';
+import { publicRevision } from './revision.ts';
 
 type ArmedShield = NonNullable<Player['armedShield']>;
 type HostileSource = 'hostile_item' | 'hostile_ability';
@@ -43,7 +44,7 @@ export function declareHostileAction(
   target: Player,
   source: HostileSource,
 ): { blocked: boolean; events: EngineEvent[] } {
-  const attackId = `${source === 'hostile_item' ? 'hostile' : 'ability'}:${next.stateRevision}`;
+  const attackId = `${source === 'hostile_item' ? 'hostile' : 'ability'}:${publicRevision(next)}`;
   const events: EngineEvent[] = [
     recordAttackAttempt(next, actor.actorId, target.actorId, source, attackId),
   ];

@@ -332,6 +332,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 - Asking for a specific item never makes the engine reveal whether the AI holds it.
 - **The hard line:** messages may change only the AI's intent in choosing action, target, item and willingness. They must never change coins, assets, Deal Card terms, dice results or legality.
 - Loose talk is not a contract, and the UI must show when something is only words.
+- **Engine interaction (#56 S01):** the engine accepts a topic message only from the active human in the Social window, when the optional `GameConfig.socialWindow` is `true`. With the flag absent or `false` Social offers only Skip. One message spends the turn's whole social interaction (`turnBudgets.socialInteraction`, reset at Start); AI seats never start one. It keeps the last 3 messages per pair, shows a seat only the messages it sent or received, and changes nothing else. The recipient is private: a seat outside the chat gets no event, no entry in its action feed and no gap in the feed's sequence or revision numbers and no change in the revision it observes and submits, so it cannot tell that a chat happened or whom it went to. The item named in an item message is a content item ID, so the choices never depend on what the target holds. Free text arrives in a later slice.
 
 **Deal Card**
 
@@ -367,7 +368,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 | `closed_by_game_end` | Excluded from the kept/broken ratio |
 
 - **Privacy:** whether an attack was possible is private information. The promise button does not depend on holding a hostile item, so it does not leak cards.
-- **Attack evidence (S06):** a public voluntary declaration appends one canonical `attack_attempt` (actor→target, source, declaration sequence and global turn) to engine history and its accepted-action events. Declines and ties retain it. Public observations and seat-visible event copies expose that evidence without items or private willingness data. Future `no_attack` consumers use these events; promise settlement is not implemented here.
+- **Attack evidence (S06):** a public voluntary declaration appends one canonical `attack_attempt` (actor→target, source, declaration sequence and global turn) to engine history and its accepted-action events. Declines and ties retain it. Public observations and seat-visible event copies expose that evidence without items or private willingness data, and without the declaration sequence, which counts chats a seat may not see and so stays engine-internal (§6.3). Future `no_attack` consumers use these events; promise settlement is not implemented here.
 - **Memory UI:** shows evidence from real events, e.g. "Broke a promise on turn 5".
 
 ## 5. AI opponents with Jev (Harness)
@@ -495,7 +496,7 @@ TypeScript plus a web app with API routes. The folders are `engine/`, `content/`
 
 1. **`engine/`** has no IO. The same engine runs in the web app, sim and eval, and human and AI commands pass the same validation.
 2. **`ai/`** is a server-side endpoint. It holds `TYPESAFE_API_KEY`, validates payload shape and size, builds questions from state, calls Jev and returns only action IDs and line IDs.
-3. **Action records:** fields, accepted-action sequencing and revision semantics are defined in [Engine contract v1](engine-contract.md#records-and-counters), including the approved clarification.
+3. **Action records:** fields, accepted-action sequencing and revision semantics are defined in [Engine contract v1](engine-contract.md#records-and-counters), including the approved clarification. A seat observes and submits its own revision, which counts only the records it can see. A chat between two other seats never makes its action stale (§4.8, #143). The global revision stays in the engine's log, saves and replay. Any engine ID a seat can observe (caught, rescue and bought instance IDs, PvP and Gym battle IDs, Ability roll IDs and attack IDs) derives from the revision without chats, never the global one, so it cannot reveal a hidden chat.
 4. **Turn counters:** `globalTurnNo` counts turns and `ownTurnNo` counts each player's turns, both separate from `seatIndex`. The engine’s `pendingDecision(state)` returns the current deciding seat/actor, or null while an engine result is pending or the game is finished. During voluntary PvP this can be the defender or reward winner while `activeSeatIndex` stays with the challenger. Legality, execution, automatic stepping, resume, progress invariants, simulation and property drivers use this query for decisions.
 5. **Movement and Laps:** movement stores a signed `routeProgress`, a monotonic paid-lap count `creditedLap`, and a monotonic `highestRewardedMilestone`.
    - Position = `((routeProgress % 24) + 24) % 24`.

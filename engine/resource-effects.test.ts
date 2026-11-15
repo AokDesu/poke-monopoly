@@ -114,14 +114,14 @@ test.each([
       purpose: expect.stringMatching(/:chance$/),
       value: face,
     });
-    expect(actionVisibleTo(activated.state, dieRecord, 0).action.payload).toEqual(
+    expect(actionVisibleTo(activated.state, dieRecord, 0, 0)!.action.payload).toEqual(
       dieRecord.action.payload,
     );
-    expect(actionVisibleTo(activated.state, dieRecord, 1).action.payload).not.toHaveProperty(
+    expect(actionVisibleTo(activated.state, dieRecord, 1, 0)!.action.payload).not.toHaveProperty(
       'value',
     );
     expect(
-      actionVisibleTo(activated.state, activated.record, 1).events.map((event) => event.kind),
+      actionVisibleTo(activated.state, activated.record, 1, 0)!.events.map((event) => event.kind),
     ).toContain('ability_activated');
     // The same Lap and globalTurnNo offer no second activation.
     expect(legalActions(after, 0).enabled.map((choice) => choice.id)).not.toContain(
@@ -147,7 +147,7 @@ test('Track peeks the top Event card privately: a logged first shuffle fills the
     const seen = JSON.stringify([
       observe(after, seat),
       legalActions(after, seat),
-      actionVisibleTo(initial, peeked.record as ActionRecord, seat),
+      actionVisibleTo(initial, peeked.record as ActionRecord, seat, 0),
     ]);
     for (const card of after.eventDeck.drawPile) expect(seen).not.toContain(`"${card}"`);
   }

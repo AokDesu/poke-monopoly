@@ -15,6 +15,7 @@ export {
   eventsVisibleTo,
   type SeatAction,
   type SeatActionRecord,
+  type SeatEvent,
 } from './visibility.ts';
 export { checkInvariants, INVARIANTS } from './invariants.ts';
 export type { InvariantDefinition, InvariantId, Violation } from './invariants.ts';

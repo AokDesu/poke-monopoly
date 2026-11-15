@@ -145,9 +145,12 @@ test('any distant ready opponent is legal; declaration spends one tactical actio
   };
   expect(result.state.attackHistory).toEqual([attempt]);
   expect(result.events.filter((event) => event.kind === 'attack_attempt')).toEqual([attempt]);
+  // Seats see the attempt without its internal global sequence, which counts hidden chats (§6.3).
+  const seen: Partial<typeof attempt> = { ...attempt };
+  delete seen.actionSeq;
   for (const seat of [0, 1, 2]) {
-    expect(observe(result.state, seat).public.attackHistory).toEqual([attempt]);
-    expect(eventsVisibleTo(before, result.events, seat)).toContainEqual(attempt);
+    expect(observe(result.state, seat).public.attackHistory).toEqual([seen]);
+    expect(eventsVisibleTo(before, result.events, seat)).toContainEqual(seen);
   }
   expect(before.attackHistory).toBeUndefined();
   expect(pendingDecision(result.state)).toEqual({ seatIndex: 2, actorId: 'p2' });
