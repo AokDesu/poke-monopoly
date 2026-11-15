@@ -86,7 +86,13 @@ test('the two Adaptability scopes in a Gym Ability window get labels the player 
   );
   const labels = screen.getAllByRole('button').map((button) => button.textContent);
   expect(new Set(labels).size).toBe(labels.length);
-  fireEvent.click(screen.getByRole('button', { name: t('choice.abilityCombat', { label: t('choice.ability', { ability: 'Adaptability', pokemon: 'Eevee' }) }) }));
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: t('choice.abilityCombat', {
+        label: t('choice.ability', { ability: 'Adaptability', pokemon: 'Eevee' }),
+      }),
+    }),
+  );
   const combat = actions.enabled.find(
     (action) => action.kind === 'activate_ability' && action.payload.scope === 'combat',
   )!;

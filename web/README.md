@@ -73,8 +73,9 @@ each accepted action. Continue restores that save and asks again for a pending A
 it does not re-roll a die or start a new turn. If storage is unavailable, play continues
 with a one-line notice.
 
-Opponent single-action steps use the same engine automation. At a multi-choice step,
-`store.playOpponent(signal)` sends only that AI seat's `Observation`, enabled actions and
+Opponent single-action steps use the same engine automation. At a multi-choice step whose
+engine `pendingDecision` seat is an AI (also during the human's turn, for example a PvP
+defender's window or reward), `store.playOpponent(signal)` sends only that AI seat's `Observation`, enabled actions and
 engine catch odds to `/api/ai/decide`, then submits the returned choice or Sell batch through
 `applyAction`. No opponent projection is exposed by `getView()`. Abort, replaced-game and
 revision checks discard late responses; failed or invalid responses leave the decision
