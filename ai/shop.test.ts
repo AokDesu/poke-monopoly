@@ -2,6 +2,7 @@ import { expect, test, vi } from 'vitest';
 import { fixtureSchema } from '../engine/index.ts';
 import fixture from '../engine/fixtures/shop-low-coins.json';
 import { createApp } from './app.ts';
+import { DecisionStats, decisionRates } from './orchestrator.ts';
 import type { DecisionRecord } from './jev/decision-log.ts';
 
 const parsed = fixtureSchema.parse(fixture);
@@ -79,6 +80,34 @@ test('a Shop decision is one decision-log row, labelled as a non-Jev decision, n
   // A repeat report of the same decision does not add a second row.
   await apply(answer, app);
   expect(records).toHaveLength(1);
+});
+
+test('a Shop decision never reads as a fallback to a consumer: no notice, no spend, no §5.6 count', async () => {
+  const record = vi.fn();
+  const usage = { record, budgetExceeded: () => false };
+  const app = createApp({ usage: () => usage, decisionLog: () => {} });
+  const response = await post(request, app);
+  const body = await response.json();
+  // The wire's `auto` is the established "no Jev question" reason: the browser shows no backup-bot
+  // notice for it (presentation.ts), unlike `timeout`, `network`, `disabled` and the other outages.
+  expect(body).toMatchObject({ source: 'fallback', fallbackReason: 'auto' });
+  expect(response.headers.get('x-ai-line-id')).toBeNull();
+  expect(response.headers.get('x-ai-dialogue-events')).toBeNull();
+  // It never reaches the orchestrator, so no Jev request, usage line or spend is recorded.
+  expect(record).not.toHaveBeenCalled();
+  // And as an orchestrator decision `auto` is no decision and no fallback in the §5.6 metrics.
+  const stats = new DecisionStats();
+  stats.record({
+    choice: body.choice,
+    source: 'auto',
+    fallbackReason: null,
+    requests: 0,
+    events: [],
+  });
+  expect(decisionRates(stats.counts())).toMatchObject({
+    decisions: 0,
+    fallbackRate: { total: 0, byCause: {} },
+  });
 });
 
 test('the speculative fallback for a Shop request is never logged', async () => {
