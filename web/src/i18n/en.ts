@@ -298,6 +298,8 @@ export const en = {
   'choice.rewardCoins': 'Take the coins',
   'choice.rewardEvolve': 'Evolve {pokemon} into {form}',
   'choice.ability': 'Use {ability} ({pokemon})',
+  'choice.abilityCatch': '{label}: boost catch rolls',
+  'choice.abilityCombat': '{label}: boost battle rolls',
   'turn.lastMove': 'Last move: rolled {roll}, arrived at square {position}.',
   'turn.end': 'Turn complete. Passing to the next trainer.',
   'turn.finished': 'The game is complete.',

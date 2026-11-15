@@ -30,10 +30,15 @@ export function choiceLabel(action: LegalAction, observation: Observation): stri
     case 'activate_ability': {
       const pokemon = own.team.find((entry) => entry.instanceId === action.payload.instanceId);
       const form = pokemon ? currentForm(pokemon.speciesId) : undefined;
-      return t('choice.ability', {
+      const label = t('choice.ability', {
         ability: form?.ability?.name ?? action.payload.instanceId,
         pokemon: form?.name ?? action.payload.instanceId,
       });
+      // Adaptability lists one choice per scope; name the scope so the options differ.
+      const scope = action.payload.scope;
+      if (scope === 'catch') return t('choice.abilityCatch', { label });
+      if (scope === 'combat') return t('choice.abilityCombat', { label });
+      return label;
     }
     case 'skip':
       if (phase.kind === 'gym' && phase.battle.step === 'entry') return t('choice.skipGym');
