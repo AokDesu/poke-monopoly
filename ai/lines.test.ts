@@ -11,7 +11,10 @@ import {
   verifyReplay,
 } from '../engine/index.ts';
 import fixture from '../engine/fixtures/start-of-game-2p.json';
-import { selectLine } from './lines.ts';
+import { readdirSync } from 'node:fs';
+import { PERSONALITY_IDS, SLOTS, fillSlots } from '../content/lines-schema.ts';
+import { PERSONALITIES } from './fallback/index.ts';
+import { LINES, selectLine, type Situation } from './lines.ts';
 
 test('selectLine picks the same line for the same seed and logs the pick with its line ID', () => {
   const first = selectLine('catch_success', 'greedy', 'neutral', createRng(42));
@@ -70,3 +73,33 @@ test('line selection events survive a real save and load without changing comman
   });
   expect(verifyReplay(loaded)).toMatchObject({ pass: true });
 });
+
+test('the registry holds exactly the situation files in content/lines/en', () => {
+  const files = readdirSync(new URL('../content/lines/en/', import.meta.url))
+    .filter((name) => name.endsWith('.json'))
+    .map((name) => name.slice(0, -'.json'.length));
+  expect(Object.keys(LINES).sort()).toEqual(files.sort());
+});
+
+test('every registered personality is one the line bank covers', () => {
+  expect(
+    Object.keys(PERSONALITIES).filter((id) => !(PERSONALITY_IDS as readonly string[]).includes(id)),
+  ).toEqual([]);
+});
+
+test.each(Object.keys(LINES) as Situation[])(
+  'selectLine returns a fillable line for every personality at neutral trust: %s',
+  (situation) => {
+    const values = Object.fromEntries(SLOTS.map((slot) => [slot, slot]));
+    for (const personality of PERSONALITY_IDS) {
+      const picked = selectLine(
+        situation,
+        personality,
+        'neutral',
+        createRng(`${situation}:${personality}`),
+      );
+      expect(LINES[situation].find((l) => l.id === picked.lineId)?.personality).toBe(personality);
+      expect(fillSlots(picked.template, values)).not.toMatch(/[{}]/);
+    }
+  },
+);

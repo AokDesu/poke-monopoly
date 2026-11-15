@@ -1,0 +1,74 @@
+[
+  {
+    "id": "deal-reject-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "No deal, {target}. It costs me too much."
+  },
+  {
+    "id": "deal-reject-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "I reject it. The coins do not add up."
+  },
+  {
+    "id": "deal-reject-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Not at that price, {target}."
+  },
+  {
+    "id": "deal-reject-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Rejected, {target}. I do not need it."
+  },
+  {
+    "id": "deal-reject-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "No. That deal does not work for me."
+  },
+  {
+    "id": "deal-reject-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "I say no. Try someone else."
+  },
+  {
+    "id": "deal-reject-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "I decline, {target}. The risk is too high."
+  },
+  {
+    "id": "deal-reject-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "No, thank you. I am not comfortable with these terms."
+  },
+  {
+    "id": "deal-reject-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "I will pass on this deal. It is too uncertain."
+  },
+  {
+    "id": "deal-reject-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Passing, {target}. There is no gain for me here."
+  },
+  {
+    "id": "deal-reject-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "I reject it. I can do better elsewhere."
+  },
+  {
+    "id": "deal-reject-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Not this one, {target}. I see a better use for my assets."
+  }
+]

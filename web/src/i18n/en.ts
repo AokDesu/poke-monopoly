@@ -1,14 +1,31 @@
+import catchFail from '../../../content/lines/en/catch_fail.json';
+import catchSuccess from '../../../content/lines/en/catch_success.json';
+import dealAccept from '../../../content/lines/en/deal_accept.json';
+import dealReject from '../../../content/lines/en/deal_reject.json';
 import fallbackNotice from '../../../content/lines/en/fallback_notice.json';
 import gameStart from '../../../content/lines/en/game_start.json';
-import catchSuccess from '../../../content/lines/en/catch_success.json';
-import catchFail from '../../../content/lines/en/catch_fail.json';
+import gymWin from '../../../content/lines/en/gym_win.json';
+import manipulationRefused from '../../../content/lines/en/manipulation_refused.json';
+import promiseBroken from '../../../content/lines/en/promise_broken.json';
+import promiseKept from '../../../content/lines/en/promise_kept.json';
 import soldPokemon from '../../../content/lines/en/sold_pokemon.json';
+import tauntLeader from '../../../content/lines/en/taunt_leader.json';
 
 const dialogue = Object.fromEntries(
-  [...fallbackNotice, ...gameStart, ...catchSuccess, ...catchFail, ...soldPokemon].map((line) => [
-    `ai.line.${line.id}`,
-    line.text,
-  ]),
+  [
+    ...catchFail,
+    ...catchSuccess,
+    ...dealAccept,
+    ...dealReject,
+    ...fallbackNotice,
+    ...gameStart,
+    ...gymWin,
+    ...manipulationRefused,
+    ...promiseBroken,
+    ...promiseKept,
+    ...soldPokemon,
+    ...tauntLeader,
+  ].map((line) => [`ai.line.${line.id}`, line.text]),
 ) as Record<`ai.line.${string}`, string>;
 
 /**

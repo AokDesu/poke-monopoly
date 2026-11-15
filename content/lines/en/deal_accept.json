@@ -1,0 +1,74 @@
+[
+  {
+    "id": "deal-accept-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Deal accepted. The numbers work for me."
+  },
+  {
+    "id": "deal-accept-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "I accept, {target}. That pays."
+  },
+  {
+    "id": "deal-accept-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Agreed. A good price is a good price."
+  },
+  {
+    "id": "deal-accept-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Accepted, {target}. Let us finish it."
+  },
+  {
+    "id": "deal-accept-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Deal. I take it."
+  },
+  {
+    "id": "deal-accept-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "I accept. Now we both move on."
+  },
+  {
+    "id": "deal-accept-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "I accept, {target}, after checking the terms."
+  },
+  {
+    "id": "deal-accept-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Accepted. The terms are fair and clear."
+  },
+  {
+    "id": "deal-accept-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "I agree to this deal. It looks safe."
+  },
+  {
+    "id": "deal-accept-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Accepted, {target}. This suits me."
+  },
+  {
+    "id": "deal-accept-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "I will take that deal."
+  },
+  {
+    "id": "deal-accept-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Agreed. The timing is good for me."
+  }
+]

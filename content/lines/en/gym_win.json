@@ -1,0 +1,74 @@
+[
+  {
+    "id": "gym-win-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Gym cleared. Now for the reward."
+  },
+  {
+    "id": "gym-win-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "I won at the Gym. Time to collect."
+  },
+  {
+    "id": "gym-win-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Gym battle won. That is a good result for me."
+  },
+  {
+    "id": "gym-win-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "I won the Gym battle. Who is next?"
+  },
+  {
+    "id": "gym-win-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Gym beaten. That is how it is done."
+  },
+  {
+    "id": "gym-win-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "The Gym is cleared, {target}. I came to win."
+  },
+  {
+    "id": "gym-win-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "I won the Gym battle. My preparation paid off."
+  },
+  {
+    "id": "gym-win-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Gym cleared. I am glad I was careful."
+  },
+  {
+    "id": "gym-win-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "The Gym battle is won. A good result."
+  },
+  {
+    "id": "gym-win-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Gym won. The chance was there and I took it."
+  },
+  {
+    "id": "gym-win-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "I won the Gym battle. Good timing."
+  },
+  {
+    "id": "gym-win-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Gym cleared, {target}. I took my opening."
+  }
+]

@@ -16,5 +16,59 @@
     "personality": "greedy",
     "trust": "neutral",
     "text": "Ready. The most coins wins, and I want them."
+  },
+  {
+    "id": "game-start-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Ready, {target}. I play to win."
+  },
+  {
+    "id": "game-start-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "No holding back from me. Let us begin."
+  },
+  {
+    "id": "game-start-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Let us start. I want the lead."
+  },
+  {
+    "id": "game-start-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Good luck, {target}. I will play carefully."
+  },
+  {
+    "id": "game-start-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Let us begin. I will think each move through."
+  },
+  {
+    "id": "game-start-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Ready. A steady game suits me."
+  },
+  {
+    "id": "game-start-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Good luck, {target}. I will see what the board offers."
+  },
+  {
+    "id": "game-start-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Let us begin. I watch for openings."
+  },
+  {
+    "id": "game-start-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Ready. I will take what comes my way."
   }
 ]

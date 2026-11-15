@@ -7,6 +7,9 @@ import { z } from 'zod';
 export const SLOTS = ['target', 'turn', 'pokemon', 'coins'] as const;
 export type Slot = (typeof SLOTS)[number];
 
+/** The four personality ids of spec §5.5; each is a `content/personalities/<id>.json` file. */
+export const PERSONALITY_IDS = ['greedy', 'aggressive', 'cautious', 'opportunist'] as const;
+
 const SLOT = /\{(\w+)\}/g;
 const isSlot = (name: string): name is Slot => (SLOTS as readonly string[]).includes(name);
 const kebab = (what: string) =>
@@ -14,8 +17,9 @@ const kebab = (what: string) =>
 
 const lineSchema = z.strictObject({
   id: kebab('id'),
-  /** A `content/personalities/<id>.json` id. */
-  personality: kebab('personality'),
+  personality: z.enum(PERSONALITY_IDS, {
+    error: `personality must be one of ${PERSONALITY_IDS.join(', ')}`,
+  }),
   /** Trust bucket; v0 ships `neutral` only. */
   trust: kebab('trust'),
   /** English (spec §3); `{slot}`s are filled by `fillSlots`. */
