@@ -9,6 +9,7 @@ Run with `npm run dev:web` (port 5173). Spec: §3, §3.1, §6.1. Skill: `skills/
 | `src/screens.ts`        | The screen state: `home`, `setup` (mode, class, AI rival, review, first roll), `play`, `results`, `credits`. A plain value in `App`, no router. |
 | `src/setup/`            | The setup screens, spec §3: Home to the first-player roll.                                                                                      |
 | `src/board/`            | Observation-only Board, human turn controls, native Encounter dialog and seat-filtered field log (§3, §3.1, §4.2, §4.3).                        |
+| `src/gallery/`          | Developer-only gallery of every spec §3.1 row that has a screen (below). Absent from the production build.                                      |
 | `src/ui/three/`         | Three.js scenes (lazy chunk); `public/models/` holds the licensed GLB models.                                                                   |
 | `src/i18n/en.ts`        | Every player-facing string (English, spec §3), read with `t(key)`. `src/i18n/inline-text.test.ts` fails on UI text typed elsewhere.             |
 | `src/game/store.ts`     | Rules adapter: state and action log. Calls engine functions only from `engine/index.ts`.                                                        |
@@ -130,3 +131,29 @@ Run `npm run dev` for API plus Vite, or `npm run build` and `npm start` for the 
 Review at 1440×900 and 1024×768; the board is height-bounded at desktop sizes so the whole
 loop remains visible without horizontal scrolling. Long panels and the event log remain
 available by vertical scrolling.
+
+## UI states gallery (dev only)
+
+Run `npm run dev:web` and open `/?gallery` (for example `http://localhost:5173/?gallery`). The
+page lists every spec §3.1 row that has a screen in this build (plus §3's Backup bot mode badge),
+each labelled `Spec §3.1, row N` under the spec's own wording, and each example rendered by the
+real component: `TurnPanel` (turn copy, Shop, AI badge and banners), `EncounterDialog`,
+`SellPanel` and `SavePrompt`. A closing list names the rows with no screen yet (chat, deals,
+engine-only cases) so every row of the table is accounted for.
+
+The states are engine fixtures moved on only through the store's own commands
+(`createFixtureStore` in `src/game/store.ts`, scenes in `src/gallery/scenes.ts`), so the screens
+read real observations, legal actions, quotes and accepted records. Nothing runs on a clock and
+nothing the page offers changes a game. `EncounterDialog` and `SellPanel` take an `inline` prop
+so their dialogs open in the page flow instead of as modals.
+
+It is not reachable from the player flow. `Root.tsx` opens it only when `__UI_GALLERY__` is true.
+`vite.config.ts` sets that to true for the dev server only (the command decides, not `NODE_ENV`),
+so every build folds it to `false` and drops the route, its styles and the fixtures. The plugin's
+`virtual:gallery-fixtures` module also throws if a build ever imports it.
+`gallery-build.test.ts` builds the app and checks that nothing of the gallery is emitted,
+`Root.test.tsx` that `?gallery` opens the game when the build is not dev, and `App.test.tsx`
+that no screen of the flow links to it. `GalleryPage.test.tsx` fails if a catalog key of a
+listed row is not on screen, or if a row of the spec's §3.1 table is neither shown nor listed.
+When a screen gains a state for a pending row, move it into `src/gallery/catalog.tsx` and add its
+keys to `SHOWN` in the test.
