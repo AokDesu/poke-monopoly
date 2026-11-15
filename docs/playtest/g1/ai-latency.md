@@ -4,7 +4,11 @@ Spec: v1.0 §1, §8, §9.
 
 ## Answer
 
-**Yes: p95 1,055 ms <= 2 s.** The spec §1 target for AI decision time per turn is a p95 of 2 s or less.
+**Provisionally yes: p95 1,055 ms over 7 turns, one team-played game; not a gate measurement**
+
+The spec §1 target for AI decision time per turn is a p95 of 2 s or less.
+
+**Still needed:** two live-Jev participant sessions, re-measured after #150.
 
 ## Sample: one team-played game, not a participant session
 
