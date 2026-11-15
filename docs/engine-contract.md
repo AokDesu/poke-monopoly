@@ -90,6 +90,13 @@ balances throw `RangeError` without mutation. Quotes neither commit nor consume 
 the subsequent `sell` command still validates through `applyAction`. This additive API
 changes no rule, existing function behavior, version stamp or save format.
 
+Issue #150 adds the read-only `saleFacts(state, seatIndex): SalePriceFact[]` on top of `saleQuote`: for
+every Pokémon on the active seat's team, in team order, `{ instanceId, salePrice, classBonusAlone,
+classBonusTogether, saleValue }`, where the bonus is quoted selling it alone and selling the whole team
+in one batch (§4.7), and `saleValue` (`salePrice + classBonusTogether`) is what that batch pays for it.
+The browser sends it to `/api/ai/decide` as `facts.sell`, so AI seats get the same engine prices the
+Sell UI shows. Same errors and no-mutation guarantee as `saleQuote`; no rule, version or save change.
+
 ## Game end (issue #25)
 
 Spec: §1, §4.7 steps 3–4, §6.4, §8. `config.lapTarget` sets the paid Laps that end the game; `LAP_TARGETS` exports Quick 2 and Standard 3. The first owner Start crossing that brings a player's `creditedLap` to the target sets `finalTableRound` to that seat and its current `ownTurnNo`, and logs `final_table_round` with the same fields between the `start_income` transfer and the change to Sell. That player still completes Sell and the rest of the turn. Later arrivals at the target are paid and sell as usual but never re-announce or move the target.

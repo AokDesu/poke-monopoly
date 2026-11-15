@@ -12,6 +12,7 @@ import {
   legalActions,
   observe,
   oddsForAllBalls,
+  saleFacts,
   type GameState,
 } from '../engine/index.ts';
 import startFixture from '../engine/fixtures/start-of-game-2p.json';
@@ -105,7 +106,12 @@ const requestFor = (json: unknown): DecisionRequest => {
     stateRevision: observation.public.stateRevision,
     observation,
     enabledActions: fixture.legalActions[String(seat)]!.enabled,
-    facts: decisionPoint === 'encounter' ? { catchOdds: oddsForAllBalls(fixture.state, seat) } : {},
+    facts:
+      decisionPoint === 'encounter'
+        ? { catchOdds: oddsForAllBalls(fixture.state, seat) }
+        : decisionPoint === 'sell'
+          ? { sell: saleFacts(fixture.state, seat) }
+          : {},
     difficulty: 'normal',
     personalityId: 'cautious',
     turnKey: `${seat}:${observation.public.globalTurnNo}`,
@@ -503,11 +509,59 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
     expect(bare.requests).toHaveLength(0);
   });
 
-  test('a Sell Phase has no sale facts on the wire yet, so the policy sells', async () => {
+  test('the request sale facts reach the Sell Nouls, one per Pokémon, with named buckets only', async () => {
     const fake = createFakeJevClient(pickSkip);
     const body = await (await decide(sell, testApp({ jevClient: () => fake }))).json();
-    expect(body).toMatchObject({ source: 'fallback', fallbackReason: 'missing_facts' });
-    expect(fake.requests).toHaveLength(0);
+    expect(body).toMatchObject({ source: 'jev' });
+    expect(body).toHaveProperty('sellUids');
+    expect(fake.requests).toHaveLength(1);
+    const sent = fake.requests[0]!;
+    expect(Object.keys(sent.questions)).toEqual(['sell_team_0', 'sell_team_1', 'sell_team_2']);
+    const wire = JSON.stringify(sent);
+    for (const row of sell.facts.sell!) expect(wire).not.toContain(`"salePrice":${row.salePrice}`);
+    expect(wire).toMatch(/sale_value_now/);
+    // The engine has no keep value yet, so none is sent or made up.
+    expect(wire).not.toMatch(/keep_value/);
+  });
+
+  test('without sale facts, or with partial or foreign rows, a Sell Phase falls back as missing_facts', async () => {
+    const rows = sell.facts.sell!;
+    for (const facts of [
+      {},
+      { sell: rows.slice(1) },
+      { sell: [...rows, { ...rows[0]!, instanceId: 'not-mine' }] },
+      { sell: [rows[0]!, rows[0]!, ...rows.slice(2)] },
+    ]) {
+      const fake = createFakeJevClient(pickSkip);
+      const body = await (
+        await decide({ ...sell, facts }, testApp({ jevClient: () => fake }))
+      ).json();
+      expect(body).toMatchObject({ source: 'fallback', fallbackReason: 'missing_facts' });
+      expect(body).toHaveProperty('sellUids');
+      expect(fake.requests).toHaveLength(0);
+    }
+  });
+
+  test('a malformed sale fact is a 400, never an unchecked request', async () => {
+    const row = sell.facts.sell![0]!;
+    for (const bad of [
+      { ...row, salePrice: -1 },
+      { ...row, salePrice: 1.5 },
+      { ...row, keepValue: 3 },
+      { instanceId: row.instanceId },
+    ]) {
+      const response = await decide({ ...sell, facts: { sell: [bad] } });
+      expect(response.status).toBe(400);
+    }
+  });
+
+  test('the fallback policy sells from the sale facts when Jev is off, and keeps nothing it cannot price', async () => {
+    vi.stubEnv('JEV_ENABLED', 'false');
+    const priced = await (await decide(sell, testApp())).json();
+    const bare = await (await decide({ ...sell, facts: {} }, testApp())).json();
+    expect(priced).toMatchObject({ source: 'fallback', fallbackReason: 'disabled' });
+    expect(priced.sellUids.length).toBeGreaterThan(0);
+    expect(bare.sellUids).toEqual([]);
   });
 
   test('an unusable answer falls back with the orchestrator’s reason', async () => {
@@ -788,7 +842,26 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
 
     test('a Sell decision logs one event per question asked', async () => {
       const records: DecisionRecord[] = [];
-      await decideApplied(sell, testApp({ decisionLog: (line) => records.push(line) }));
+      await decideApplied(
+        sell,
+        testApp({
+          jevClient: () => createFakeJevClient(pickSkip),
+          decisionLog: (line) => records.push(line),
+        }),
+      );
+      expect(records.map((line) => [line.questionId, line.fallbackReason])).toEqual([
+        ['sell_team_0', null],
+        ['sell_team_1', null],
+        ['sell_team_2', null],
+      ]);
+    });
+
+    test('a Sell decision without sale facts logs one missing_facts event for the decision point', async () => {
+      const records: DecisionRecord[] = [];
+      await decideApplied(
+        { ...sell, facts: {} },
+        testApp({ decisionLog: (line) => records.push(line) }),
+      );
       expect(records).toHaveLength(1);
       expect(records[0]).toMatchObject({ questionId: 'sell', fallbackReason: 'missing_facts' });
     });
@@ -978,7 +1051,7 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
         { ...good, fallbackReason: undefined },
         { ...good, source: 'jev' },
         { ...good, choice: undefined },
-        { ...good, decisionPoint: 'shop' },
+        { ...good, decisionPoint: 'trade' },
       ]) {
         expect((await report(bad, app)).status).toBe(400);
       }

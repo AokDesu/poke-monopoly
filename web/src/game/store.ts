@@ -13,6 +13,7 @@ import {
   legalActions,
   observe,
   oddsForAllBalls,
+  saleFacts,
   saleQuote,
   winner,
   type SaleQuote,
@@ -393,7 +394,11 @@ export function createGameStore(): GameStore {
           observation,
           enabledActions,
           facts:
-            decisionPoint === 'encounter' ? { catchOdds: oddsForAllBalls(state, seatIndex) } : {},
+            decisionPoint === 'encounter'
+              ? { catchOdds: oddsForAllBalls(state, seatIndex) }
+              : decisionPoint === 'sell'
+                ? { sell: saleFacts(state, seatIndex) }
+                : {},
           difficulty: settings?.difficulty ?? 'normal',
           personalityId: settings?.personality ?? 'greedy',
         }),
