@@ -185,11 +185,19 @@ afterAll(() => {
 });
 
 describe('GET /api/ai/status', () => {
+  const speechOff = { enabled: false, reason: 'disabled' };
+
+  beforeEach(() => {
+    vi.stubEnv('HAIKU_ENABLED', undefined);
+    vi.stubEnv('ANTHROPIC_API_KEY', undefined);
+  });
+
   test('reports Jev on when enabled with a key', async () => {
     expect(await (await status()).json()).toEqual({
       jevEnabled: true,
       backupOnly: false,
       reason: null,
+      speech: speechOff,
     });
   });
 
@@ -200,6 +208,7 @@ describe('GET /api/ai/status', () => {
       jevEnabled: false,
       backupOnly: true,
       reason: 'disabled',
+      speech: speechOff,
     });
   });
 
@@ -208,6 +217,7 @@ describe('GET /api/ai/status', () => {
       jevEnabled: true,
       backupOnly: true,
       reason: 'budget_exceeded',
+      speech: speechOff,
     });
   });
 
@@ -217,6 +227,32 @@ describe('GET /api/ai/status', () => {
       jevEnabled: true,
       backupOnly: true,
       reason: 'missing_key',
+      speech: speechOff,
+    });
+  });
+
+  test('reports speech on with HAIKU_ENABLED=true and its own key, independent of Jev', async () => {
+    vi.stubEnv('HAIKU_ENABLED', 'true');
+    vi.stubEnv('ANTHROPIC_API_KEY', 'placeholder-haiku-key');
+    vi.stubEnv('JEV_ENABLED', 'false');
+    expect(await (await status()).json()).toEqual({
+      jevEnabled: false,
+      backupOnly: true,
+      reason: 'disabled',
+      speech: { enabled: true, reason: null },
+    });
+  });
+
+  test('reports speech off for a missing key and for a spent Haiku or total cap', async () => {
+    vi.stubEnv('HAIKU_ENABLED', 'true');
+    expect((await (await status()).json()).speech).toEqual({
+      enabled: false,
+      reason: 'missing_key',
+    });
+    vi.stubEnv('ANTHROPIC_API_KEY', 'placeholder-haiku-key');
+    expect((await (await status(testApp({ usage: overBudget }))).json()).speech).toEqual({
+      enabled: false,
+      reason: 'budget_exceeded',
     });
   });
 });

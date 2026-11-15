@@ -20,6 +20,7 @@ import type { JevClient } from './jev/client.ts';
 import { DecisionJournal } from './jev/decision-journal.ts';
 import { fileDecisionLog, type DecisionLog } from './jev/decision-log.ts';
 import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
+import { speechStatus } from './haiku/status.ts';
 import { presentationHeaders } from './presentation.ts';
 import { decideShop, shopRequestSchema } from './shop.ts';
 
@@ -65,7 +66,9 @@ export const createApp = ({
   // Never a stack trace or an error message: either could carry request or key material.
   app.onError((_error, c) => c.json({ error: 'internal_error' }, 500));
 
-  app.get('/api/ai/status', (c) => c.json(aiStatusSchema.parse(jevStatus(usage))));
+  app.get('/api/ai/status', (c) =>
+    c.json(aiStatusSchema.parse({ ...jevStatus(usage), speech: speechStatus(usage) })),
+  );
 
   // The browser reports the outcome it applied: the answer here, or its own fallback at the
   // deadline. Only then is the decision logged (spec §6.8); the speculative fallback never is.

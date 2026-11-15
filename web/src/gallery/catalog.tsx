@@ -200,7 +200,12 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
               view={decisionOpen().view}
               playback={{
                 ...STATIC_PLAYBACK,
-                status: { jevEnabled: false, backupOnly: true, reason: 'disabled' },
+                status: {
+                  jevEnabled: false,
+                  backupOnly: true,
+                  reason: 'disabled',
+                  speech: { enabled: false, reason: 'disabled' },
+                },
               }}
               actionError={false}
               onChoose={noop}

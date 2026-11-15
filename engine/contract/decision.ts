@@ -137,11 +137,23 @@ export const decisionOutcomeSchema = z
     message: 'A fallback names its reason; a Jev answer has none',
   });
 
-/** `GET /api/ai/status`, for the "Backup bot mode" badge (spec §9 kill switch and spend cap). */
+const statusReason = z.enum(['disabled', 'budget_exceeded', 'missing_key']);
+
+/** The speech writer's state for the "Voice off" badge (spec §9 Haiku kill switch and caps). */
+export const speechStatusSchema = z.strictObject({
+  enabled: z.boolean(),
+  reason: statusReason.nullable(),
+});
+
+/**
+ * `GET /api/ai/status`, for the "Backup bot mode" and "Voice off" badges (spec §9 kill switches
+ * and spend caps).
+ */
 export const aiStatusSchema = z.strictObject({
   jevEnabled: z.boolean(),
   backupOnly: z.boolean(),
-  reason: z.enum(['disabled', 'budget_exceeded', 'missing_key']).nullable(),
+  reason: statusReason.nullable(),
+  speech: speechStatusSchema,
 });
 
 export type DecisionPoint = z.infer<typeof decisionPointSchema>;
@@ -152,3 +164,6 @@ export type DecisionFallbackReason = z.infer<typeof decisionFallbackReasonSchema
 export type DecisionResponse = z.infer<typeof decisionResponseSchema>;
 export type DecisionOutcome = z.infer<typeof decisionOutcomeSchema>;
 export type AiStatus = z.infer<typeof aiStatusSchema>;
+/** The Jev half of the status, which the decider needs; the speech half is the Haiku client's. */
+export type JevStatus = Omit<AiStatus, 'speech'>;
+export type SpeechStatus = z.infer<typeof speechStatusSchema>;

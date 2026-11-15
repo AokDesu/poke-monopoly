@@ -468,7 +468,7 @@ Every level uses the same observation.
 TypeScript plus a web app with API routes. The folders are `engine/`, `content/`, `ai/` (server), `web/`, `sim/` and `eval/`. No extra monorepo toolchain is required.
 
 1. **`engine/`** has no IO. The same engine runs in the web app, sim and eval, and human and AI commands pass the same validation.
-2. **`ai/`** is a server-side endpoint. It holds `TYPESAFE_API_KEY`, validates payload shape and size, builds questions from state, calls Jev and returns only action IDs and line IDs.
+2. **`ai/`** is a server-side endpoint. It holds `TYPESAFE_API_KEY` and `ANTHROPIC_API_KEY`, validates payload shape and size, builds questions from state, calls Jev and returns only action IDs and line IDs. Only `ai/` may import the Haiku client; `sim/` and `eval/` never do.
 3. **Action records:** fields, accepted-action sequencing and revision semantics are defined in [Engine contract v1](engine-contract.md#records-and-counters), including the approved clarification. A seat observes and submits its own revision, which counts only the records it can see. A chat between two other seats never makes its action stale (§4.8, #143). The global revision stays in the engine's log, saves and replay.
 4. **Turn counters:** `globalTurnNo` counts turns and `ownTurnNo` counts each player's turns, both separate from `seatIndex`.
 5. **Movement and Laps:** movement stores a signed `routeProgress`, a monotonic paid-lap count `creditedLap`, and a monotonic `highestRewardedMilestone`.
@@ -507,7 +507,7 @@ TypeScript plus a web app with API routes. The folders are `engine/`, `content/`
   - `npm run eval:jev -- --offline` (recorded fixtures, no network).
 - **Agent boundaries:**
   - Work on a branch, with a step or time limit per task.
-  - No `TYPESAFE_API_KEY` in the sandbox.
+  - No `TYPESAFE_API_KEY` or `ANTHROPIC_API_KEY` in the sandbox.
   - A PR must cite a spec section and pass CI.
   - One teammate reviews before merge.
 - **CI on every PR:** unit + invariants + a 100-game sim + offline eval. Live Jev evals run manually or nightly within the §9 budget.
@@ -574,13 +574,14 @@ Each layer covers what the one below misses.
 - **Limits:**
   - ≤3 requests per AI turn and ≤600k input tokens per game. Past that, the AI uses the fallback until the game ends.
   - A daily budget on the development key.
-  - A **total cap of THB 1,500**, tracked from the usage log.
-- **Kill switch:** `JEV_ENABLED=false` puts every AI on the fallback, and the UI says so truthfully.
+  - A **total cap of THB 1,500**, tracked from the usage log, which counts Jev and Haiku together.
+  - Haiku (generated speech) has its own hard stop of **THB 150** inside that total; at either cap the server sends no Haiku request. A timed-out request counts its configured token estimate, as Jev's does.
+- **Kill switch:** `JEV_ENABLED=false` puts every AI on the fallback, and the UI says so truthfully. Haiku is off unless `HAIKU_ENABLED=true` and `ANTHROPIC_API_KEY` is set; `GET /api/ai/status` says whether speech is on and, when off, why.
 - **Sim limits:** max steps per game, and concurrency ≤10 requests/s, well under the rate limit.
 
 **Safety (least privilege)**
 
-- The key lives only on the server: never in the browser, saves, logs, or a coding agent's sandbox.
+- Both keys (`TYPESAFE_API_KEY` for Jev, `ANTHROPIC_API_KEY` for Haiku) live only on the server: never in the browser, saves, logs, or a coding agent's sandbox.
 - Jev reads one role's observation and can answer only with IDs from the options, so it cannot modify state.
 - Chat is length-limited, sent as quoted data, and screened by the manipulation Noul. A message that fails never enters any decision's state. The adversarial set is a gate before free text is enabled.
 - No personal data about players is stored; playtests use codes instead of names.

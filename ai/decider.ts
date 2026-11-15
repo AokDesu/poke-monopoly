@@ -1,5 +1,5 @@
 import type {
-  AiStatus,
+  JevStatus,
   DecisionFallbackReason,
   DecisionRequest,
 } from '../engine/contract/decision.ts';
@@ -25,7 +25,7 @@ export type DeciderAnswer = DeciderPick & {
 } & ({ source: 'jev' } | { source: 'fallback'; fallbackReason: DecisionFallbackReason });
 
 export interface DeciderContext {
-  status: AiStatus;
+  status: JevStatus;
 }
 
 /** The pluggable seam `POST /api/ai/decide` calls; `createOrchestratorDecider` is the default. */
@@ -37,7 +37,7 @@ export type Decider = (request: DecisionRequest, context: DeciderContext) => Pro
  */
 export const jevStatus = (
   usage: () => Pick<UsageRecorder, 'budgetExceeded'> = defaultUsageLedger,
-): AiStatus => {
+): JevStatus => {
   if (!jevEnabled()) return { jevEnabled: false, backupOnly: true, reason: 'disabled' };
   if (!process.env.TYPESAFE_API_KEY?.trim()) {
     return { jevEnabled: true, backupOnly: true, reason: 'missing_key' };
