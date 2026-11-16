@@ -275,4 +275,8 @@ export const PENDING_ROWS: readonly PendingRow[] = [
   { specRow: 10, label: 'gallery.row.chatUnclassified', reason: 'gallery.pending.chat' },
   { specRow: 11, label: 'gallery.row.chatManipulation', reason: 'gallery.pending.chat' },
   { specRow: 14, label: 'gallery.row.eventDeckOut', reason: 'gallery.pending.eventDeck' },
+  { specRow: 15, label: 'gallery.row.haikuOff', reason: 'gallery.pending.speech' },
+  { specRow: 16, label: 'gallery.row.haikuScreenFail', reason: 'gallery.pending.speech' },
+  { specRow: 17, label: 'gallery.row.watchBrowserClosed', reason: 'gallery.pending.watch' },
+  { specRow: 18, label: 'gallery.row.watchAllBackup', reason: 'gallery.pending.watch' },
 ];

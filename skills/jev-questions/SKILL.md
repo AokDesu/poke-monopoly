@@ -30,3 +30,4 @@ Source: spec §5.4 (`docs/SPEC-v1.0-PokeMonopoly.md`). Decision points and their
 - **Size:** state ≤ ~4k tokens per request.
   - At most the last 3 relevant chat messages, as quoted data with the speaker's name.
   - Memory is included as event evidence, e.g. "broke no_attack on turn 5".
+- **Speech brief:** Haiku is sent only public facts, the speaker's own setup (personality text, class hint and difficulty), the world card and the topic. It never gets the speaker's hand, Balls, peek results, another seat's private chat, a seed or the deck order, and never a number it could state or compare.
