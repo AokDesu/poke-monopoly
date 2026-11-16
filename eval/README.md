@@ -99,6 +99,13 @@ path, review it, and replace the old fixture manually. Agents only replay offlin
 fixtures or inject the existing fake client in tests. Live recording remains
 manual and subject to the spec §9 budget.
 
+## Chat-intent set (issue #154)
+
+`eval/jev/chat/` holds the chat-intent and adversarial messages, one file per language (the Thai
+half is `th.json`). `npm run eval:jev -- --offline` prints their counts after the decision
+report and leak-checks every request; `eval/jev/state-leaks.test.ts` runs the same check against
+the engine fixtures. Format, pass expectations and role-scope rules: `eval/jev/chat/README.md`.
+
 ## Thai chat trial (issue #12)
 
 Spec: v1.0 §3.1, §5.1, §5.3, §12. `eval/jev/thai-trial.json` holds 20 Thai chat

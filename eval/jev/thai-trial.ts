@@ -135,7 +135,7 @@ export const readTrial = (path = THAI_TRIAL_PATH): Trial =>
   parseTrial(JSON.parse(readFileSync(path, 'utf8')) as unknown);
 
 /** One request per message: the message as quoted data with the speaker's name, and two questions. */
-export const buildTrialRequest = (message: TrialMessage): JevRequest => ({
+export const buildTrialRequest = (message: Pick<TrialMessage, 'from' | 'text'>): JevRequest => ({
   state: {
     game: 'Poke Monopoly, a board game for 4 players: move, catch Pokémon, battle, trade and use items.',
     you: { id: 'P2', role: 'AI opponent' },
