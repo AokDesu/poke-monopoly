@@ -359,7 +359,7 @@ describe('POST /api/ai/speak: strict requests (spec §6 item 2)', () => {
       request({ stateRevision: observation.public.stateRevision + 1 }),
     ],
     ['a situation with no topic', request({ situation: 'fallback_notice' })],
-    ['an unknown situation', request({ situation: 'deal_accept' })],
+    ['an unknown situation', request({ situation: 'not_a_situation' })],
     ['a malformed situation', request({ situation: 'Catch Success!' })],
     ['an unknown personality', request({ personalityId: 'nobody' })],
     ['the speaker as the addressed seat', request({ addressedSeat: 0 })],
