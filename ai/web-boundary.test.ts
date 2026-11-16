@@ -4,10 +4,14 @@ import { join, resolve } from 'node:path';
 import { build } from 'vite';
 import { expect, test, vi } from 'vitest';
 
-test('production browser chunks contain neither a sentinel server key nor the Jev transport', async () => {
+test('production browser chunks contain neither sentinel server keys nor the Jev or Haiku transport', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'poke-ai-web-'));
-  const key = 'server-only-sentinel-key-never-in-a-browser-5a83';
-  vi.stubEnv('TYPESAFE_API_KEY', key);
+  const keys = {
+    TYPESAFE_API_KEY: 'server-only-sentinel-key-never-in-a-browser-5a83',
+    ANTHROPIC_API_KEY: 'server-only-sentinel-haiku-key-never-in-a-browser-7c19',
+  };
+  for (const [name, key] of Object.entries(keys)) vi.stubEnv(name, key);
+  vi.stubEnv('HAIKU_ENABLED', 'true');
   try {
     const root = resolve(import.meta.dirname, '../web');
     await build({
@@ -21,9 +25,9 @@ test('production browser chunks contain neither a sentinel server key nor the Je
     );
     for (const file of files) {
       const text = await readFile(join(directory, file), 'utf8');
-      expect(text, file).not.toContain(key);
+      for (const key of Object.values(keys)) expect(text, file).not.toContain(key);
       expect(text, file).not.toMatch(
-        /TYPESAFE_API_KEY|@typesafe-ai|api\.typesafe\.ai|(?:sk|tsai|typesafe)[_-][A-Za-z0-9_-]{24,}/,
+        /TYPESAFE_API_KEY|ANTHROPIC_API_KEY|HAIKU_ENABLED|@typesafe-ai|api\.typesafe\.ai|api\.anthropic\.com|(?:sk|tsai|typesafe)[_-][A-Za-z0-9_-]{24,}/,
       );
     }
   } finally {

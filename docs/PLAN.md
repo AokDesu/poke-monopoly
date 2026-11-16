@@ -50,10 +50,14 @@ Never cut playing to completion, the fallback, the hard gates, or the core conve
 
 |Item|Date|Status|Owner to find out|
 |---|---|---|---|
-|Course deadline|unknown|unknown, ask by 18 Oct|AokDesu|
+|Course deadline|2026-12-15|known: submission due 15 Dec 2026 (source: repository owner, AokDesu, 2026-11-15)|n/a|
 |Midterm exam|2026-10-15|past|n/a|
 |Other exam weeks|unknown|unknown, ask by 18 Oct|AokDesu|
 |No-development weeks|unknown|unknown, ask by 18 Oct|AokDesu|
+
+2026-11-15: course deadline 2026-12-15 → cut-list item 4 (animation and decorative graphs); item 6, only its line-bank part (line bank beyond the core tier); and the stream C cut-list items Thai wording pass and Thai names, which are not on the numbered list above.
+
+Why: the owner's schedule for the date is code frozen about 9 Dec, report and demo assembled 10–14 Dec, due 15 Dec. C5 (30 Nov–13 Dec) then has to hold the evidence, the report and the demo, so work that only decorates or widens the content no longer fits before the date. The other cut-list items do not move: the owner chose only the stream C cut-list (Thai wording pass, Thai names, line bank beyond the core tier, decorative graphs, animation). This record does not re-plan the cycle rows above: C6 (14–27 Dec) and its 20 Dec code freeze fall after the due date, and revising spec §10 is a separate change.
 
 ## Rule: when dates become known
 

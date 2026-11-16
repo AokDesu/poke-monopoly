@@ -347,6 +347,20 @@ const lineSelectedEventSchema = z.strictObject({
   trustBucket: id,
   lineId: id,
 });
+/**
+ * Generated table talk (§5.7): presentation only. It is not an `EngineEvent`, so no action record
+ * or fixture accepts it; it lives only in `GameLog.dialogueEvents`.
+ */
+export const aiSpeechEventSchema = z.strictObject({
+  kind: z.literal('ai_speech'),
+  speakerSeatIndex: count,
+  addressedSeatIndex: count.optional(),
+  source: z.enum(['haiku', 'bank']),
+  lineId: id.optional(),
+  // One short line; 280 is the chat free-text limit (§4.8).
+  text: z.string().min(1).max(280),
+  globalTurnNo: count,
+});
 export const engineEventSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('pokemon_evolved'),
@@ -485,15 +499,16 @@ export const gameLogSchema = z
     actions: z.array(actionRecordSchema),
     // Presentation draws use a separate RNG and never alter command replay.
     dialogueEvents: z
-      .array(engineEventSchema)
+      .array(z.union([engineEventSchema, aiSpeechEventSchema]))
       .refine(
         (events) =>
           events.every(
             (event) =>
               event.kind === 'line_selected' ||
+              event.kind === 'ai_speech' ||
               (event.kind === 'random_result' && event.purpose.startsWith('line:')),
           ),
-        'Dialogue events must be line selections or line random results',
+        'Dialogue events must be line selections, line random results or AI speech',
       )
       .optional(),
   })
@@ -503,6 +518,18 @@ export const gameLogSchema = z
         ctx.addIssue({ code: 'custom', path: [field], message: 'Must match initialConfig' });
       }
     }
+    const seats = log.initialConfig.seats.map((seat) => seat.seatIndex);
+    log.dialogueEvents?.forEach((event, index) => {
+      if (event.kind !== 'ai_speech') return;
+      const named = [event.speakerSeatIndex, event.addressedSeatIndex ?? event.speakerSeatIndex];
+      if (!named.every((seat) => seats.includes(seat)) || named[0] === event.addressedSeatIndex) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['dialogueEvents', index],
+          message: 'Speech must name configured seats and cannot address its own speaker',
+        });
+      }
+    });
   });
 
 export type GameConfig = z.infer<typeof gameConfigSchema>;
@@ -520,6 +547,7 @@ export type ItemInstance = z.infer<typeof itemInstanceSchema>;
 export type BallPouch = z.infer<typeof ballPouchSchema>;
 export type Action = z.infer<typeof actionSchema>;
 export type EngineEvent = z.infer<typeof engineEventSchema>;
+export type AiSpeechEvent = z.infer<typeof aiSpeechEventSchema>;
 export type Observation = z.infer<typeof observationSchema>;
 export type LegalAction = z.infer<typeof legalActionSchema>;
 export type DisabledAction = z.infer<typeof disabledActionSchema>;

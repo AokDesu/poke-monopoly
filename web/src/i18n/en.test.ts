@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { expect, test } from 'vitest';
 import { classOptions } from '../game/content.ts';
 import { DIFFICULTIES, PERSONALITIES } from '../game/setup.ts';
@@ -317,4 +319,19 @@ test('content screens: species facts, evolution hints, item facts and status lab
     expect(Object.hasOwn(en, `board.tag.${tag}`), tag).toBe(true);
   }
   expect(t('item.ball.effect', { bonus: 2 })).toContain('+2');
+});
+
+test('every line-bank line renders through the dialogue catalogue with its slots filled', () => {
+  const dir = resolve(import.meta.dirname, '../../../content/lines/en');
+  const lines = readdirSync(dir)
+    .filter((name) => name.endsWith('.json'))
+    .flatMap((name) => JSON.parse(readFileSync(join(dir, name), 'utf8')) as { id: string }[]);
+  expect(lines.length).toBeGreaterThanOrEqual(12 * 4 * 3);
+  for (const { id } of lines) {
+    const key = `ai.line.${id}` as MessageKey;
+    expect(Object.hasOwn(en, key), key).toBe(true);
+    const text = t(key, { target: 'Ash', turn: 4, pokemon: 'Pidgey', coins: 12 });
+    expect(text, key).not.toMatch(/[{}]/);
+    expect(text.trim(), key).not.toBe('');
+  }
 });

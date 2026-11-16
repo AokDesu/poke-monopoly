@@ -14,7 +14,7 @@ Poke Monopoly: single-player web board game against AI opponents. The specificat
 
 1. Work on a branch.
 2. Keep a step or time limit per task.
-3. No `TYPESAFE_API_KEY` in the sandbox.
+3. No `TYPESAFE_API_KEY` or `ANTHROPIC_API_KEY` in the sandbox. They are the two server keys (Jev and Haiku). Haiku inside the game is a product part chosen by the repository owner, not a tool the team's builders use.
 4. A PR must cite a spec section and pass CI.
 5. One teammate reviews before merge.
 
@@ -28,16 +28,16 @@ npm run eval:jev -- --offline
 
 ## Folders
 
-| Folder     | Rule                                                    |
-| ---------- | ------------------------------------------------------- |
-| `engine/`  | Pure rules, no IO. The only place numbers are computed. |
-| `content/` | Game data and text. No logic.                           |
-| `ai/`      | Server only. Holds the Jev key. Never imports `web/`.   |
-| `web/`     | Browser UI. Never imports `ai/`.                        |
-| `sim/`     | Simulation CLI.                                         |
-| `eval/`    | Jev evaluation (`eval/jev/`).                           |
-| `docs/`    | The spec and team guides.                               |
-| `skills/`  | Project skills, listed below.                           |
+| Folder     | Rule                                                             |
+| ---------- | ---------------------------------------------------------------- |
+| `engine/`  | Pure rules, no IO. The only place numbers are computed.          |
+| `content/` | Game data and text. No logic.                                    |
+| `ai/`      | Server only. Holds the Jev and Haiku keys. Never imports `web/`. |
+| `web/`     | Browser UI. Never imports `ai/`.                                 |
+| `sim/`     | Simulation CLI.                                                  |
+| `eval/`    | Jev evaluation (`eval/jev/`).                                    |
+| `docs/`    | The spec and team guides.                                        |
+| `skills/`  | Project skills, listed below.                                    |
 
 ## Skills
 

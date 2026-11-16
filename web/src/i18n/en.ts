@@ -1,14 +1,31 @@
+import catchFail from '../../../content/lines/en/catch_fail.json';
+import catchSuccess from '../../../content/lines/en/catch_success.json';
+import dealAccept from '../../../content/lines/en/deal_accept.json';
+import dealReject from '../../../content/lines/en/deal_reject.json';
 import fallbackNotice from '../../../content/lines/en/fallback_notice.json';
 import gameStart from '../../../content/lines/en/game_start.json';
-import catchSuccess from '../../../content/lines/en/catch_success.json';
-import catchFail from '../../../content/lines/en/catch_fail.json';
+import gymWin from '../../../content/lines/en/gym_win.json';
+import manipulationRefused from '../../../content/lines/en/manipulation_refused.json';
+import promiseBroken from '../../../content/lines/en/promise_broken.json';
+import promiseKept from '../../../content/lines/en/promise_kept.json';
 import soldPokemon from '../../../content/lines/en/sold_pokemon.json';
+import tauntLeader from '../../../content/lines/en/taunt_leader.json';
 
 const dialogue = Object.fromEntries(
-  [...fallbackNotice, ...gameStart, ...catchSuccess, ...catchFail, ...soldPokemon].map((line) => [
-    `ai.line.${line.id}`,
-    line.text,
-  ]),
+  [
+    ...catchFail,
+    ...catchSuccess,
+    ...dealAccept,
+    ...dealReject,
+    ...fallbackNotice,
+    ...gameStart,
+    ...gymWin,
+    ...manipulationRefused,
+    ...promiseBroken,
+    ...promiseKept,
+    ...soldPokemon,
+    ...tauntLeader,
+  ].map((line) => [`ai.line.${line.id}`, line.text]),
 ) as Record<`ai.line.${string}`, string>;
 
 /**
@@ -438,6 +455,9 @@ export const en = {
   'gallery.pending.chat': 'Needs the chat panel, which is not built yet.',
   'gallery.pending.eventDeck':
     'The notice is in this catalog, but no screen shows it yet and the board has no Event deck.',
+  'gallery.pending.speech':
+    'Needs the speech writer and the Table talk panel, which are not built yet.',
+  'gallery.pending.watch': 'Needs watch mode, which is not built yet.',
   'gallery.row.onlyLegalAction': 'Only one legal action (e.g. must roll)',
   'gallery.row.shortlistEmpty': 'Shortlist empty after personality filtering',
   'gallery.row.noBall': 'Pokémon found but no Ball',
@@ -454,6 +474,11 @@ export const en = {
   'gallery.row.browserClosed': 'The browser closes during an AI turn',
   'gallery.row.teamEmpty': 'Team is empty after the Sell Phase',
   'gallery.row.eventDeckOut': 'Event deck runs out',
+  'gallery.row.haikuOff': 'Haiku is off, has no key, is out of budget or is slow',
+  'gallery.row.haikuScreenFail':
+    "Haiku's text fails the output screen (too long, a digit, a link, a non-public item name, an offer or promise)",
+  'gallery.row.watchBrowserClosed': "A watched game's browser closes",
+  'gallery.row.watchAllBackup': 'Every AI in a watched game is on the backup bot',
   'gallery.row.backupBadge':
     'A "Backup bot mode" badge shows truthfully whenever an AI is using the fallback',
   'gallery.example.beforeAuto': 'Before the game applies it',
