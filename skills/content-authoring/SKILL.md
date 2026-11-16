@@ -9,19 +9,20 @@ Content is data. Appendix A of `docs/SPEC-v1.0-PokeMonopoly.md` is the baseline 
 
 ## Where things live
 
-| File                                | Holds                                                                  | Spec             |
-| ----------------------------------- | ---------------------------------------------------------------------- | ---------------- |
-| `content/board.json`                | The 24 squares                                                         | §4.1, Appendix A |
-| `content/classes.json`              | 6 core classes and 2 `stretch: true` classes                           | Appendix A       |
-| `content/species.json`              | The 19 species: stats, tags, Ability                                   | §4.5, Appendix A |
-| `content/evolutions.json`           | Evolved forms with no species definition, and the evolution lines      | §4.5, Appendix A |
-| `content/items.json`                | 3 Balls and 7 utility items                                            | §4.6, Appendix A |
-| `content/events.json`               | Events e1 to e6 as text                                                | §4.6             |
-| `content/config.json`               | Starting kit, Start income, Lap targets, rarity weights                | §1, §4.1, §4.5   |
-| `content/schema.ts`                 | zod schemas, `parseContent`, `toEngineContent`                         | §6               |
-| `content/index.ts`                  | `CONTENT_VERSION`, stamped into every game config and log              | §6.8             |
-| `content/personalities/<name>.json` | One file per personality, validated by `content/personality-schema.ts` | §5.5             |
-| `content/lines/en/<situation>.json` | English line bank, validated by `content/lines-schema.ts`              | §3, §5.7         |
+| File                                | Holds                                                                                                               | Spec             |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| `content/board.json`                | The 24 squares                                                                                                      | §4.1, Appendix A |
+| `content/classes.json`              | 6 core classes and 2 `stretch: true` classes                                                                        | Appendix A       |
+| `content/species.json`              | The 19 species: stats, tags, Ability                                                                                | §4.5, Appendix A |
+| `content/evolutions.json`           | Evolved forms with no species definition, and the evolution lines                                                   | §4.5, Appendix A |
+| `content/items.json`                | 3 Balls and 7 utility items                                                                                         | §4.6, Appendix A |
+| `content/events.json`               | Events e1 to e6 as text                                                                                             | §4.6             |
+| `content/config.json`               | Starting kit, Start income, Lap targets, rarity weights                                                             | §1, §4.1, §4.5   |
+| `content/schema.ts`                 | zod schemas, `parseContent`, `toEngineContent`                                                                      | §6               |
+| `content/index.ts`                  | `CONTENT_VERSION`, stamped into every game config and log                                                           | §6.8             |
+| `content/personalities/<name>.json` | One file per personality, validated by `content/personality-schema.ts`                                              | §5.5             |
+| `content/lines/en/<situation>.json` | English line bank, validated by `content/lines-schema.ts`                                                           | §3, §5.7         |
+| `content/voice/en.json`             | The world card, a hint per class and a topic per situation for Haiku speech, validated by `content/voice-schema.ts` | §5.4, §5.7       |
 
 Ids are lowercase kebab-case (`poke-ball`, `main-character`). The engine's `Content` type is inferred from `contentSchema` in `engine/contract/schema.ts`; the schema rows in `content/schema.ts` extend those rows, so every engine field is validated exactly as the engine does. Authoring-only fields (`passiveText`, `inEncounterPool`, `bonus`, `effect`, `stretch`) are not in the engine's `Content`. Evolution forms/lines and authored Ability descriptions are retained for the engine's effective-form lookup; Ability prose is not an executable primitive mapping. `ParsedContent` is assignable to `Content`, but the engine's `createGame` parses strictly and rejects those extra fields: pass it `toEngineContent(parsed)`, never the parsed object.
 
@@ -55,6 +56,10 @@ In `evolutions.json`, add `{ "speciesId": "<base>", "stages": [{ "forms": ["<for
 ## Add a dialogue line
 
 Spec §5.7: lines live in `content/lines/en/<situation>.json` (for example `deal_accept`, `promise_broken`) and are English (§3). Each file is an array of `{ id, personality, trust, text }`; ids are kebab-case such as `game-start-greedy-neutral-1`. Each situation needs at least 3 lines per personality per trust bucket. Slots are `{target}`, `{turn}`, `{pokemon}` and `{coins}` (`SLOTS` in `content/lines-schema.ts`); the engine fills them with `fillSlots`, which throws on an unknown or unfilled slot, so a line never holds a number of its own. Write plainly, with no jokes, and never promise anything the game does not do. Jev picks a line id and never writes text; until it does, `selectLine` in `ai/lines.ts` picks uniformly with the seeded RNG and logs a `line_selected` event. `parseLines(situation, json)` validates a file and rejects Thai script, a stray brace, an unknown slot or a number literal; register a new situation in `LINES` in `ai/lines.ts`. `content/lines.test.ts` pins the situations and runs `parseLines` on every shipped line.
+
+## Edit the voice file
+
+Spec §5.4, §5.7: `content/voice/en.json` is everything Haiku is told about the setting. It is team-written English with three parts: `world` (one fixed card, the same for every game), `classHints` (one line per class id in `classes.json`) and `topics` (one line per line-bank situation except `fallback_notice`, written as what just happened). `voiceSchema` accepts letters and basic punctuation only, so a digit or markup cannot be saved. Do not name a species, form, class, item or any real-world or official character, and do not put hidden information in it (house rule 3); `content/voice.test.ts` checks the keys and the names. A new class or line-bank situation needs its hint or topic in the same pull request: `buildSpeechBrief` (`ai/speech/`) throws without it. The system instruction is code (`ai/speech/instruction.ts`), not content, because it states the 140-character limit. The file is not part of `parseContent` and does not change `CONTENT_VERSION`.
 
 ## Add a personality
 

@@ -48,17 +48,42 @@ describe('the usage report over a fixture log (spec §1, §9)', () => {
     expect(usageReport([], TODAY)).toMatchObject({ requests: 0, thb: 0, turnMs: null });
   });
 
-  test('prints totals, the share of the cap and per-turn p50 and p95', () => {
+  test('prints Jev and Haiku apart, each with its share of its cap, and the total', () => {
     expect(formatUsageReport(report, { path: 'sample.jsonl', dailyBudgetThb: 50 })).toEqual([
-      'Jev usage: sample.jsonl',
-      '  Requests              7 (ok 5, failed 2)',
-      '  Input tokens          15,480',
-      '  Output tokens         0',
-      '  Spend                 USD 0.0007, THB 0.0215',
-      '  Cap                   0.0014% of THB 1,500',
-      '  Today (UTC)           THB 0.0045 of THB 50 daily budget',
-      '  Decision time / turn  p50 260 ms, p95 1,500 ms over 5 turns',
+      'AI usage: sample.jsonl',
+      '  Jev requests          7 (ok 5, failed 2)',
+      '  Jev input tokens      15,480',
+      '  Jev output tokens     0',
+      '  Jev spend             USD 0.0007, THB 0.0215',
+      '  Jev cap               0.0014% of THB 1,500',
+      '  Jev today (UTC)       THB 0.0045 of THB 50 daily budget',
+      '  Jev time / turn       p50 260 ms, p95 1,500 ms over 5 turns',
+      '  Haiku requests        0 (ok 0, failed 0)',
+      '  Haiku input tokens    0',
+      '  Haiku output tokens   0',
+      '  Haiku spend           USD 0.0000, THB 0.0000',
+      '  Haiku cap             0.0000% of THB 150',
+      '  Total spend           THB 0.0215, 0.0014% of THB 1,500',
     ]);
+  });
+
+  test('Haiku lines add to Haiku and the total, never to Jev’s figures or decision time', () => {
+    const haiku = {
+      ...lines[0]!,
+      provider: 'haiku' as const,
+      model: 'claude-haiku-5-5',
+      inputTokens: 1_000_000,
+      outputTokens: 1_000_000,
+      decisionMs: 9_999,
+    };
+    const both = usageReport([...lines, haiku], TODAY);
+    expect(both).toMatchObject({ requests: 7, inputTokens: 15_480, turnMs: report.turnMs });
+    expect(both.haiku).toMatchObject({ requests: 1, answered: 1, inputTokens: 1_000_000 });
+    // $0.10 in + $0.50 out = $0.60 = THB 19.8: 13.2% of THB 150.
+    expect(both.haiku.thb).toBeCloseTo(19.8, 10);
+    expect(both.haiku.capPercent).toBeCloseTo(13.2, 10);
+    expect(both.totalThb).toBeCloseTo(report.thb + 19.8, 10);
+    expect(both.totalCapPercent).toBeCloseTo(((report.thb + 19.8) / 1500) * 100, 10);
   });
 
   test('counts and prints requests whose tokens are the timeout estimate', () => {
@@ -67,7 +92,7 @@ describe('the usage report over a fixture log (spec §1, §9)', () => {
     expect(estimated).toMatchObject({ estimated: 1, inputTokens: 12_240 });
     expect(report.estimated).toBe(0);
     expect(formatUsageReport(estimated, { path: 'late.jsonl' })[2]).toBe(
-      '  Input tokens          12,240 (1 timed-out request(s) estimated)',
+      '  Jev input tokens      12,240 (1 timed-out or unreadable request(s) estimated)',
     );
   });
 

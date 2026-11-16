@@ -7,13 +7,15 @@ const FOLDERS = ['ai', 'web', 'sim', 'eval'];
 const folderImport = (names) => `^(\\.{1,2}/)+(${names.join('|')})(/|$)`;
 const ADAPTERS = ['web/src/game/store.ts', 'web/src/game/save.ts', 'web/src/game/content.ts'];
 
-// The Jev key lives only on the server, so only ai/ may name it (spec §7, §9).
-const KEY_MESSAGE = 'TYPESAFE_API_KEY is read only inside ai/.';
-const keyOutsideAi = [
-  { selector: "Identifier[name='TYPESAFE_API_KEY']", message: KEY_MESSAGE },
-  { selector: "Literal[value='TYPESAFE_API_KEY']", message: KEY_MESSAGE },
-  { selector: 'TemplateElement[value.raw=/TYPESAFE_API_KEY/]', message: KEY_MESSAGE },
-];
+// The Jev and Haiku keys and the Haiku kill switch live only on the server, so only ai/ may name them (spec §7, §9).
+const keyOutsideAi = ['TYPESAFE_API_KEY', 'ANTHROPIC_API_KEY', 'HAIKU_ENABLED'].flatMap((name) => {
+  const message = `${name} is read only inside ai/.`;
+  return [
+    { selector: `Identifier[name='${name}']`, message },
+    { selector: `Literal[value='${name}']`, message },
+    { selector: `TemplateElement[value.raw=/${name}/]`, message },
+  ];
+});
 
 // Engine is pure rules with no IO (spec §6 item 1, §7 house rules).
 const enginePurity = {
@@ -71,7 +73,11 @@ export default defineConfig([
   ]),
   js.configs.recommended,
   tseslint.configs.recommended,
-  { ignores: ['ai/**'], rules: { 'no-restricted-syntax': ['error', ...keyOutsideAi] } },
+  // This file names the keys to forbid them, so it is the one file outside ai/ the rule skips.
+  {
+    ignores: ['ai/**', 'eslint.config.js'],
+    rules: { 'no-restricted-syntax': ['error', ...keyOutsideAi] },
+  },
   { files: ['engine/**/*.{ts,tsx}'], rules: enginePurity },
   {
     files: ['web/**/*.{ts,tsx}'],
@@ -147,6 +153,20 @@ export default defineConfig([
       ],
     },
   })),
+  // Simulation, replay and evaluation never call Haiku (spec §5.2). sim/ is already confined to ai/fallback/ above; eval/ may use the Jev client but not Haiku's.
+  {
+    files: ['eval/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { regex: '^(\\.{1,2}/)+ai/haiku(/|$)', message: 'eval/ must not import ai/haiku/.' },
+          ],
+        },
+      ],
+    },
+  },
   {
     files: ['ai/**/*.{ts,tsx}'],
     rules: {
