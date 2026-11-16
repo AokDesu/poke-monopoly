@@ -94,6 +94,7 @@ export const en = {
   'board.finished': 'Game finished',
   'board.noGame': 'No game is open. Start a new game from Home.',
   'board.habitat': 'Starter meadow',
+  'board.habitatNames': 'In the meadow: {names}',
   'board.phase.first_player_roll': 'First-player roll',
   'board.phase.start': 'Start of turn',
   'board.phase.social': 'Social',
@@ -239,6 +240,15 @@ export const en = {
   'team.readOnly': 'Inspection only. Evolution is chosen as a battle reward.',
   'team.tiredReason': 'Cannot battle while Tired. Clears at the end of its owner’s next turn.',
   'team.rescueRestriction': 'Cannot be traded or receive a sale bonus, even after evolution.',
+  'team.baseValue': 'Base value',
+  'team.baseValueNote':
+    'Base value is the listed worth of this form. The Sell Phase quotes what it actually sells for.',
+  'team.nextFormStats': 'Battle {battle} · Base value {base}',
+  'team.nextFormAbility': 'Ability: {ability}',
+  'team.branchChoice': 'This line branches. You choose one of these forms when it evolves.',
+  'species.catchDc': 'Catch DC',
+  'starter.facts': 'About your Starter, {name}',
+  'starter.rivalFacts': 'About the rival’s Starter, {name}',
 
   'play.heading': 'Game board',
   'results.heading': 'Results',
@@ -324,6 +334,7 @@ export const en = {
   'encounter.released': '{pokemon} was released. No Ball was spent.',
   'encounter.release': 'Release',
   'encounter.noBall': 'No Ball, so you cannot catch. Release the Pokémon to go on.',
+  'encounter.facts': 'About this Pokémon',
 
   'shop.notEnoughCoins': 'Not enough coins for this item. You can leave the Shop without buying.',
   'shop.itemsFull':
@@ -332,6 +343,16 @@ export const en = {
   'shop.buy': 'Buy {item} · {price} coins',
   'shop.buyOne': 'Buy {item} · {price} coin',
   'shop.balance': 'You have {coins} coins',
+
+  'item.kind.ball': 'Ball',
+  'item.kind.utility': 'Utility item',
+  'item.price': 'Price: {price} coins',
+  'item.priceOne': 'Price: {price} coin',
+  'item.ball.effect': 'Required to catch a Pokémon. Catch roll bonus: +{bonus}.',
+  'item.effect.planned': 'Planned effect: {effect}',
+  'item.status.partial':
+    'Only part of this effect works in this build: it clears Tired. Combat debuffs are not tracked yet.',
+  'item.status.planned': 'Not active yet: this build does not apply this effect.',
 
   'strategy.targets': 'Choose an opponent',
   'strategy.preview': 'Effect preview',

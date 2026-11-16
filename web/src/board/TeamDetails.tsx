@@ -18,6 +18,11 @@ export function TeamDetails({ pokemon, form }: { pokemon: TeamMember; form: Effe
           <p className="team-status-note">{t('team.rescueRestriction')}</p>
         )}
         <dl>
+          <dt>{t('team.baseValue')}</dt>
+          <dd>
+            <strong>{form.base}</strong>
+            <p>{t('team.baseValueNote')}</p>
+          </dd>
           <dt>{t('team.ability')}</dt>
           <dd>
             {form.ability ? (
@@ -32,11 +37,21 @@ export function TeamDetails({ pokemon, form }: { pokemon: TeamMember; form: Effe
           <dt>{t('team.nextForms')}</dt>
           <dd>
             {next.length > 0 ? (
-              <ul>
-                {next.map((choice) => (
-                  <li key={choice.id}>{choice.name}</li>
-                ))}
-              </ul>
+              <>
+                {next.length > 1 && <p>{t('team.branchChoice')}</p>}
+                <ul>
+                  {next.map((choice) => (
+                    <li key={choice.id}>
+                      <strong>{choice.name}</strong>
+                      <span className="next-form-facts">
+                        {t('team.nextFormStats', { battle: choice.battle, base: choice.base })}
+                        {choice.ability &&
+                          ` · ${t('team.nextFormAbility', { ability: choice.ability.name })}`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
             ) : (
               <p>{t('team.finalForm')}</p>
             )}

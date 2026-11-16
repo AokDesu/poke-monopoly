@@ -1,9 +1,10 @@
 import { useEffect, useId, useRef } from 'react';
 import type { BallType, CatchOdds, LegalActions, Observation } from '../../../engine/index.ts';
-import { content } from '../game/content.ts';
 import { t } from '../i18n/en.ts';
+import { speciesName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
 import { BallIcon } from '../ui/icons.tsx';
+import { SpeciesFacts } from '../ui/SpeciesFacts.tsx';
 
 export interface EncounterDialogProps {
   observation: Observation;
@@ -33,7 +34,7 @@ export function EncounterDialog({
   }, [inline]);
   const phase = observation.public.phase;
   if (phase.kind !== 'encounter') return null;
-  const pokemon = content.species.find((species) => species.id === phase.pokemon.speciesId)!.name;
+  const pokemon = speciesName(phase.pokemon.speciesId);
   const release = legalActions.enabled.find((choice) => choice.kind === 'release');
   const disabledCatch = legalActions.disabled.find((choice) => choice.kind === 'catch');
   return (
@@ -50,6 +51,9 @@ export function EncounterDialog({
       </div>
       <h2 id={headingId}>{t('encounter.heading', { pokemon })}</h2>
       <p id={bodyId}>{t(catchOdds.length === 0 ? 'encounter.noBall' : 'encounter.body')}</p>
+      <section aria-label={t('encounter.facts')}>
+        <SpeciesFacts speciesId={phase.pokemon.speciesId} showCatchDc />
+      </section>
       <div className="encounter-choices">
         {catchOdds.map(({ ballType, percent }) => {
           const choice = legalActions.enabled.find(

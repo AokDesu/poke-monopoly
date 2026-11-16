@@ -8,6 +8,7 @@ import { DisabledReason } from '../ui/DisabledReason.tsx';
 import { Screen } from '../ui/Screen.tsx';
 import { SpeciesArt } from '../ui/SpeciesArt.tsx';
 import { SetupProgress } from './SetupProgress.tsx';
+import { StarterFacts } from './StarterFacts.tsx';
 import { StarterPicker } from './StarterPicker.tsx';
 
 interface ClassScreenProps {
@@ -115,6 +116,8 @@ export function ClassScreen({ classes, chosen, onSelect, onNext, onBack }: Class
           }
         />
       )}
+
+      {chosenClass && chosen && <StarterFacts speciesId={chosen.starterSpeciesId} />}
 
       {closed.length > 0 && (
         <>

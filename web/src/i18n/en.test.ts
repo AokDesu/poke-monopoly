@@ -281,6 +281,46 @@ test('read-only team inspection covers form paths, instance identity and status 
   for (const key of keys) expect(t(key).trim(), key).not.toBe('');
 });
 
+test('content screens: species facts, evolution hints, item facts and status labels have English text', () => {
+  const keys: MessageKey[] = [
+    'board.habitatNames',
+    'encounter.facts',
+    'species.catchDc',
+    'starter.facts',
+    'starter.rivalFacts',
+    'team.baseValue',
+    'team.baseValueNote',
+    'team.nextFormStats',
+    'team.nextFormAbility',
+    'team.branchChoice',
+    'item.kind.ball',
+    'item.kind.utility',
+    'item.price',
+    'item.priceOne',
+    'item.ball.effect',
+    'item.effect.planned',
+    'item.status.partial',
+    'item.status.planned',
+  ];
+  for (const key of keys) expect(t(key).trim(), key).not.toBe('');
+  // Every tag a species can carry has its label, so no form shows the generic "Other".
+  for (const tag of [
+    'bug',
+    'cute',
+    'flying',
+    'water',
+    'normal',
+    'fire',
+    'fighting',
+    'dragon',
+    'grass',
+    'electric',
+  ]) {
+    expect(Object.hasOwn(en, `board.tag.${tag}`), tag).toBe(true);
+  }
+  expect(t('item.ball.effect', { bonus: 2 })).toContain('+2');
+});
+
 test('every line-bank line renders through the dialogue catalogue with its slots filled', () => {
   const dir = resolve(import.meta.dirname, '../../../content/lines/en');
   const lines = readdirSync(dir)

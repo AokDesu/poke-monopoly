@@ -31,6 +31,10 @@
   --color-type-water: #3a86e8;
   --color-type-normal: #a6957a;
   --color-type-bug: #93b01c;
+  --color-type-electric: #e0a800;
+  --color-type-flying: #6f8fe0;
+  --color-type-fighting: #c2452f;
+  --color-type-dragon: #6a4fd1;
 
   /* Board-space kinds. */
   --color-kind-start: #d3301f;

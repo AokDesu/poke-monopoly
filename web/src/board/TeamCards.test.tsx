@@ -61,11 +61,16 @@ test('public team cards show engine current forms, inherited abilities and every
     expect(within(disclosure).getByText(form.ability!.text)).toBeTruthy();
     const next = nextEvolutionForms(engineContent, pokemon.speciesId);
     const choices = within(disclosure).getByRole('list');
-    expect(
-      within(choices)
-        .getAllByRole('listitem')
-        .map((entry) => entry.textContent),
-    ).toEqual(next.map((id) => effectiveForm(engineContent, id).name));
+    const entries = within(choices).getAllByRole('listitem');
+    expect(entries.map((entry) => entry.querySelector('strong')!.textContent)).toEqual(
+      next.map((id) => effectiveForm(engineContent, id).name),
+    );
+    entries.forEach((entry, index) => {
+      const nextForm = effectiveForm(engineContent, next[index]!);
+      expect(entry.textContent).toContain(
+        t('team.nextFormStats', { battle: nextForm.battle, base: nextForm.base }),
+      );
+    });
     for (const id of next) expect(within(choices).queryByText(id, { exact: true })).toBeNull();
   }
 });
