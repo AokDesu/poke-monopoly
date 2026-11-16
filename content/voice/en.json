@@ -14,6 +14,13 @@
     "game_start": "The game is just starting and everyone has taken a seat.",
     "catch_success": "A wild creature was just caught.",
     "catch_fail": "A catch attempt just failed.",
-    "sold_pokemon": "A creature was just sold at Start."
+    "sold_pokemon": "A creature was just sold at Start.",
+    "deal_accept": "A deal between two trainers was just accepted.",
+    "deal_reject": "A deal between two trainers was just turned down.",
+    "promise_kept": "A trainer just kept a promise made earlier at the table.",
+    "promise_broken": "A trainer just broke a promise made earlier at the table.",
+    "gym_win": "A trainer just won a gym battle.",
+    "taunt_leader": "A trainer is teasing the player who is currently in the lead.",
+    "manipulation_refused": "A trainer just refused a pushy attempt to sway their choice."
   }
 }

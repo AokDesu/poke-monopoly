@@ -1,0 +1,74 @@
+[
+  {
+    "id": "promise-broken-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "The promise between us is broken, {target}. Trust is worth coins."
+  },
+  {
+    "id": "promise-broken-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "A broken promise is bad for business, {target}."
+  },
+  {
+    "id": "promise-broken-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "That promise is broken. I take it into account."
+  },
+  {
+    "id": "promise-broken-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "The promise between us is broken, {target}. So be it."
+  },
+  {
+    "id": "promise-broken-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Our promise is broken. I take it seriously."
+  },
+  {
+    "id": "promise-broken-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "That promise is over, {target}. It was broken."
+  },
+  {
+    "id": "promise-broken-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "The promise between us is broken, {target}. That worries me."
+  },
+  {
+    "id": "promise-broken-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "A broken promise makes me more careful."
+  },
+  {
+    "id": "promise-broken-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Our promise is broken. I need to be careful now."
+  },
+  {
+    "id": "promise-broken-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "The promise between us is broken, {target}. I adjust."
+  },
+  {
+    "id": "promise-broken-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Our promise is broken. I will plan around that."
+  },
+  {
+    "id": "promise-broken-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "That promise is broken, {target}. It changes my options."
+  }
+]

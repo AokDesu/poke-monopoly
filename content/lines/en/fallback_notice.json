@@ -16,5 +16,59 @@
     "personality": "greedy",
     "trust": "neutral",
     "text": "A backup bot is playing this seat."
+  },
+  {
+    "id": "fallback-notice-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Heads up: a backup bot is playing for me now."
+  },
+  {
+    "id": "fallback-notice-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Since turn {turn}, a backup bot is making my moves."
+  },
+  {
+    "id": "fallback-notice-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "A backup bot is playing my seat for now."
+  },
+  {
+    "id": "fallback-notice-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Please note that a backup bot is playing for me."
+  },
+  {
+    "id": "fallback-notice-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "A backup bot is making my moves from turn {turn}."
+  },
+  {
+    "id": "fallback-notice-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "For the moment, a backup bot is playing this seat."
+  },
+  {
+    "id": "fallback-notice-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Just so you know, a backup bot is playing for me."
+  },
+  {
+    "id": "fallback-notice-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "From turn {turn} on, a backup bot is making my moves."
+  },
+  {
+    "id": "fallback-notice-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "A backup bot is playing my seat at the moment."
   }
 ]

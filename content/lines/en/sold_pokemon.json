@@ -16,5 +16,59 @@
     "personality": "greedy",
     "trust": "neutral",
     "text": "{coins} coins for {pokemon}. I will take the cash."
+  },
+  {
+    "id": "sold-pokemon-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Sold {pokemon} for {coins} coins. Now I put them to use."
+  },
+  {
+    "id": "sold-pokemon-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{pokemon} went for {coins} coins. I need them for the next fight."
+  },
+  {
+    "id": "sold-pokemon-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{coins} coins for {pokemon}. Time to move forward."
+  },
+  {
+    "id": "sold-pokemon-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Sold {pokemon} for {coins} coins. A safe reserve."
+  },
+  {
+    "id": "sold-pokemon-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "{pokemon} went for {coins} coins. I will keep those coins in hand."
+  },
+  {
+    "id": "sold-pokemon-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "{coins} coins for {pokemon}. I think that was the sensible choice."
+  },
+  {
+    "id": "sold-pokemon-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Sold {pokemon} for {coins} coins. The price was right."
+  },
+  {
+    "id": "sold-pokemon-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "{pokemon} went for {coins} coins. I sold while the sale was good."
+  },
+  {
+    "id": "sold-pokemon-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "{coins} coins for {pokemon}. That is a fair price."
   }
 ]
