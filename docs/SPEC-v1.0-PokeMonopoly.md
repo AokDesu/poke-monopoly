@@ -603,6 +603,7 @@ Each layer covers what the one below misses.
 **Safety (least privilege)**
 
 - Both keys (`TYPESAFE_API_KEY`, `ANTHROPIC_API_KEY`) live only on the server: never in the browser, saves, logs, or a coding agent's sandbox.
+- The speech route (`POST /api/ai/speak`) spends the Haiku credit, so it accepts only JSON requests whose Host is loopback and whose Origin is that same host. Every failure past a valid request is an HTTP 200 with a line-bank line or no line.
 - Jev reads one role's observation and can answer only with IDs from the options, so it cannot modify state.
 - Chat is length-limited, sent as quoted data, and screened by the manipulation Noul. A message that fails never enters any decision's state. The adversarial set is a gate before free text is enabled. It is also a gate before generated speech is enabled.
 - No personal data about players is stored; playtests use codes instead of names.
