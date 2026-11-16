@@ -198,6 +198,8 @@ These commands work in bash and zsh (macOS default) on macOS, Linux and WSL. On 
 
 Add the Haiku key the same way, and only on the machine that runs the live game or the live speech check: type it at a hidden prompt and append `ANTHROPIC_API_KEY=<key>` and `HAIKU_ENABLED=true` to `.env`. `.env.example` ships `HAIKU_ENABLED=false`.
 
+The live speech check is `npm run speech:smoke` (`-- --rounds <n>`, default 4, so 12 requests): it sends three fixed briefs to the real service one at a time and prints each line, its tokens, its baht cost and its latency, then p50 and p95 latency and tokens and baht per call. It spends real credit and is run by the repository owner only, never by an agent.
+
 `JEV_ENABLED=false` is the kill switch from spec §9: every AI falls back to the policy. `HAIKU_ENABLED=false` (or no Haiku key) is the second kill switch: generated speech is off and the line bank speaks. Haiku is also held to its own limits (THB 150 in total, 60 calls and 80,000 input tokens per game, spec §9); past a limit the line bank speaks.
 
 Every live Jev request is logged to the git-ignored `logs/jev-usage.jsonl` (IDs, tokens and timings only, never state or the key). `npm run usage` prints the spend so far in USD and THB, its share of the THB 1,500 cap and the AI decision time per turn (p50, p95). The server warns once at 80% of the cap; at the cap, or once today's spend reaches an optional `JEV_DAILY_BUDGET_THB` in `.env`, every AI falls back with reason `budget_exceeded`.
