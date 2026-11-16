@@ -76,7 +76,7 @@ with a one-line notice.
 
 Opponent single-action steps use the same engine automation. At a multi-choice step,
 `store.playOpponent(signal)` sends only that AI seat's `Observation`, enabled actions and
-engine catch odds to `/api/ai/decide`, then submits the returned choice or Sell batch through
+engine catch odds (Encounter) or engine sale prices from `saleFacts` (Sell) to `/api/ai/decide`, then reports the applied outcome, the Shop's included, to `/api/ai/outcome` and submits the returned choice or Sell batch through
 `applyAction`. No opponent projection is exposed by `getView()`. Abort, replaced-game and
 revision checks discard late responses; failed or invalid responses leave the decision
 unchanged and show a notice with Retry.

@@ -343,6 +343,18 @@ describe('buckets (spec §5.4, §5.6)', () => {
     expect(offer).toMatchObject({ sale_value_now: 'high', keep_value: 'low' });
   });
 
+  test('with no keep value from the engine the offer has no keep bucket and the question never mentions one', () => {
+    const state = sellPhase([caught(1, 'dratini')]);
+    const facts: SellFacts = {
+      pokemon: engineFacts(state).pokemon.map((fact) => ({ ...fact, keepValue: undefined })),
+    };
+    const { requests } = ask(state, facts);
+    const offer = requests[0]!.state.sell_phase.offers.sell_team_0!;
+    expect(offer).toMatchObject({ sale_value_now: 'high' });
+    expect(offer).not.toHaveProperty('keep_value');
+    expect(JSON.stringify(requests[0]!.questions)).not.toMatch(/keep_value/);
+  });
+
   test('Laps remaining and the last Sell Phase follow the Lap target and the Final Table Round', () => {
     const state = sellPhase(fiveTeam());
     expect(ask(state).requests[0]!.state.sell_phase).toMatchObject({

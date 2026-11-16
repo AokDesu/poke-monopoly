@@ -434,6 +434,9 @@ export const en = {
   'gallery.pending.chat': 'Needs the chat panel, which is not built yet.',
   'gallery.pending.eventDeck':
     'The notice is in this catalog, but no screen shows it yet and the board has no Event deck.',
+  'gallery.pending.speech':
+    'Needs the speech writer and the Table talk panel, which are not built yet.',
+  'gallery.pending.watch': 'Needs watch mode, which is not built yet.',
   'gallery.row.onlyLegalAction': 'Only one legal action (e.g. must roll)',
   'gallery.row.shortlistEmpty': 'Shortlist empty after personality filtering',
   'gallery.row.noBall': 'Pokémon found but no Ball',
@@ -450,6 +453,11 @@ export const en = {
   'gallery.row.browserClosed': 'The browser closes during an AI turn',
   'gallery.row.teamEmpty': 'Team is empty after the Sell Phase',
   'gallery.row.eventDeckOut': 'Event deck runs out',
+  'gallery.row.haikuOff': 'Haiku is off, has no key, is out of budget or is slow',
+  'gallery.row.haikuScreenFail':
+    "Haiku's text fails the output screen (too long, a digit, a link, a non-public item name, an offer or promise)",
+  'gallery.row.watchBrowserClosed': "A watched game's browser closes",
+  'gallery.row.watchAllBackup': 'Every AI in a watched game is on the backup bot',
   'gallery.row.backupBadge':
     'A "Backup bot mode" badge shows truthfully whenever an AI is using the fallback',
   'gallery.example.beforeAuto': 'Before the game applies it',

@@ -76,11 +76,11 @@ Thai:
 
 English:
 
-> This is a board game against a computer opponent. You catch creatures with Balls, decide whether to keep or sell them, and the player with the most coins at the end wins. I will not explain the buttons or tell you what to do. Play as you would on your own. You may talk through your thinking, but you do not have to. If the game freezes or you cannot go on, tell me.
+> This is a board game against a computer opponent. You catch creatures with Balls, decide whether to keep or sell them, and the player with the most coins at the end wins. I will not explain the buttons or tell you what to do. Play as you would on your own. You may talk through your thinking, but you do not have to. What the AI opponents say is written by a computer program. If the game freezes or you cannot go on, tell me.
 
 Thai:
 
-> นี่คือเกมกระดานที่เล่นกับคู่แข่งที่เป็นคอมพิวเตอร์ คุณจะจับตัวต่าง ๆ ด้วยบอล แล้วเลือกว่าจะเก็บหรือขาย ใครมีเหรียญมากที่สุดเมื่อจบเกมเป็นผู้ชนะ เราจะไม่อธิบายปุ่มและไม่บอกว่าควรทำอะไร ให้เล่นเหมือนตอนที่เล่นคนเดียว จะพูดความคิดออกมาด้วยก็ได้ แต่ไม่ต้องก็ได้ ถ้าเกมค้างหรือเล่นต่อไม่ได้ ให้บอกเรา
+> นี่คือเกมกระดานที่เล่นกับคู่แข่งที่เป็นคอมพิวเตอร์ คุณจะจับตัวต่าง ๆ ด้วยบอล แล้วเลือกว่าจะเก็บหรือขาย ใครมีเหรียญมากที่สุดเมื่อจบเกมเป็นผู้ชนะ เราจะไม่อธิบายปุ่มและไม่บอกว่าควรทำอะไร ให้เล่นเหมือนตอนที่เล่นคนเดียว จะพูดความคิดออกมาด้วยก็ได้ แต่ไม่ต้องก็ได้ สิ่งที่ AI คู่แข่งพูดถูกเขียนโดยโปรแกรมคอมพิวเตอร์ ถ้าเกมค้างหรือเล่นต่อไม่ได้ ให้บอกเรา
 
 ## 5. What the facilitator may and may not say
 
@@ -152,6 +152,8 @@ After the game, or after the game stopped, ask these in order, word for word, an
 |2|Could you tell an opponent's personality from what it did?|คุณดูออกไหมว่าคู่ต่อสู้ที่เป็น AI มีบุคลิกแบบไหน จากสิ่งที่มันทำ|
 |3|Did any conversation change the game?|มีการพูดคุยครั้งไหนไหมที่ทำให้เกมเปลี่ยนไป|
 |4|When did waiting or reading get boring?|ช่วงไหนที่คุณรู้สึกเบื่อ เพราะต้องรอหรือต้องอ่าน|
+
+Question 3 counts the participant's own chats only. AI table talk never changes a decision (spec §4.2, §5.7), so it is not "a conversation that changed the game": if the participant names it, write that in `notes` and leave it out of `q3_conversation_changed_game`.
 
 ## 7. After the session: where the data goes
 
