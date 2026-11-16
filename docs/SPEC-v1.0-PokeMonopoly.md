@@ -489,7 +489,7 @@ Every level uses the same observation.
 TypeScript plus a web app with API routes. The folders are `engine/`, `content/`, `ai/` (server), `web/`, `sim/` and `eval/`. No extra monorepo toolchain is required.
 
 1. **`engine/`** has no IO. The same engine runs in the web app, sim and eval, and human and AI commands pass the same validation.
-2. **`ai/`** is a server-side endpoint. It holds `TYPESAFE_API_KEY` and `ANTHROPIC_API_KEY`, validates payload shape and size, builds questions and speech briefs from state, calls Jev and Haiku, and returns only action IDs, line IDs and one screened plain-text line.
+2. **`ai/`** is a server-side endpoint. It holds `TYPESAFE_API_KEY` and `ANTHROPIC_API_KEY`, validates payload shape and size, builds questions and speech briefs from state, calls Jev and Haiku, and returns only action IDs, line IDs and one screened plain-text line. Only `ai/` may import the Haiku client; `sim/` and `eval/` never do.
 3. **Action records:** fields, accepted-action sequencing and revision semantics are defined in [Engine contract v1](engine-contract.md#records-and-counters), including the approved clarification. A seat observes and submits its own revision, which counts only the records it can see. A chat between two other seats never makes its action stale (§4.8, #143). The global revision stays in the engine's log, saves and replay.
 4. **Turn counters:** `globalTurnNo` counts turns and `ownTurnNo` counts each player's turns, both separate from `seatIndex`.
 5. **Movement and Laps:** movement stores a signed `routeProgress`, a monotonic paid-lap count `creditedLap`, and a monotonic `highestRewardedMilestone`.
@@ -595,9 +595,9 @@ Each layer covers what the one below misses.
 - **Limits:**
   - ≤3 requests per AI turn and ≤600k input tokens per game. Past that, the AI uses the fallback until the game ends.
   - A daily budget on the development key.
-  - A **total cap of THB 1,500**, tracked from the usage log.
-  - Haiku: at most 60 calls and 80,000 input tokens per game, one call in flight per game and a 1,200 ms deadline per call; at most THB 150 in total for Haiku (10% of the THB 1,500 cap), inside that cap. These are hard stops: at a per-game limit that game's AIs speak from the line bank, and at THB 150 in total every game's AIs do.
-- **Kill switch:** `JEV_ENABLED=false` puts every AI on the fallback, and the UI says so truthfully. `HAIKU_ENABLED=false` (or no key) silences generated speech; the line bank continues and the UI says so truthfully.
+  - A **total cap of THB 1,500**, tracked from the usage log, which counts Jev and Haiku together.
+  - Haiku: at most 60 calls and 80,000 input tokens per game, one call in flight per game and a 1,200 ms deadline per call; at most THB 150 in total for Haiku (10% of the THB 1,500 cap), inside that cap. These are hard stops: at a per-game limit that game's AIs speak from the line bank, and at THB 150 in total every game's AIs do. A timed-out request counts its configured token estimate, as Jev's does.
+- **Kill switch:** `JEV_ENABLED=false` puts every AI on the fallback, and the UI says so truthfully. `HAIKU_ENABLED=false` (or no key) silences generated speech; the line bank continues and the UI says so truthfully. `GET /api/ai/status` says whether speech is on and, when off, why.
 - **Sim limits:** max steps per game, and concurrency ≤10 requests/s, well under the rate limit.
 
 **Safety (least privilege)**

@@ -19,6 +19,15 @@ export const SPEND_CONFIG = Object.freeze({
    * spike's measured average, so the cap and the per-game budget err on the safe side.
    */
   estimatedInputTokensPerRequest: 3240,
+  /** The repository owner's 15 Nov 2026 board answer: Haiku's own hard stop, inside the total cap. */
+  haikuCapThb: 150,
+  /** Published Haiku prices, per model; the Jev prices above apply to every `jev-1.*` release. */
+  haikuModelPrices: {
+    'claude-haiku-5-5': { inputUsdPerMillionTokens: 0.1, outputUsdPerMillionTokens: 0.5 },
+  },
+  /** Tokens counted for a timed-out Haiku request or an unreadable reply: a speech brief and a capped line. */
+  estimatedHaikuInputTokensPerRequest: 1500,
+  estimatedHaikuOutputTokensPerRequest: 80,
 });
 
 export type SpendConfig = {
@@ -28,21 +37,35 @@ export type SpendConfig = {
   totalCapThb: number;
   warnAtShareOfCap: number;
   estimatedInputTokensPerRequest: number;
+  haikuCapThb: number;
+  haikuModelPrices: Readonly<Record<string, ModelPrice>>;
+  estimatedHaikuInputTokensPerRequest: number;
+  estimatedHaikuOutputTokensPerRequest: number;
 };
 
-/** Git-ignored (`logs/`): one JSON line per Jev request. */
+export interface ModelPrice {
+  inputUsdPerMillionTokens: number;
+  outputUsdPerMillionTokens: number;
+}
+
+export const USAGE_PROVIDERS = ['jev', 'haiku'] as const;
+export type UsageProvider = (typeof USAGE_PROVIDERS)[number];
+
+/** Git-ignored (`logs/`): one JSON line per Jev or Haiku request. */
 export const USAGE_LOG_PATH = 'logs/jev-usage.jsonl';
 
 const count = z.int().nonnegative();
 
 /**
- * One Jev request (spec §9): IDs, token counts and timings only, never a state body or the key.
+ * One Jev or Haiku request (spec §9): IDs, token counts and timings only, never a state body, a
+ * line of speech or a key. `provider` is absent on a Jev line, so every older line still parses.
  * `status` is `ok` or the client's fallback reason. `decision` numbers the decision within the
  * game, so a decision that sent several requests counts its `decisionMs` once per turn.
  * `estimated` marks a timed-out request whose tokens are the configured estimate, not measured.
  */
 export const usageLineSchema = z.strictObject({
   time: z.iso.datetime(),
+  provider: z.enum(USAGE_PROVIDERS).optional(),
   gameId: z.string(),
   requestId: z.string().nullable(),
   model: z.string(),
@@ -58,20 +81,49 @@ export const usageLineSchema = z.strictObject({
 
 export type UsageLine = z.infer<typeof usageLineSchema>;
 
-/** What the orchestrator needs: log each request and ask whether the budget is spent. */
+/** What a client needs: log each request and ask whether its provider's budget is spent. */
 export interface UsageRecorder {
   record(line: UsageLine): void;
-  /** The total cap or the daily budget has been reached; later decisions use the fallback. */
-  budgetExceeded(): boolean;
+  /**
+   * The total cap, or for Jev the daily budget, or for Haiku its own cap, has been reached: later
+   * requests of that provider are not sent. Jev when no provider is named.
+   */
+  budgetExceeded(provider?: UsageProvider): boolean;
 }
 
+export const providerOf = (line: Pick<UsageLine, 'provider'>): UsageProvider =>
+  line.provider ?? 'jev';
+
+/** A Haiku model with no listed price counts at the dearest listed one, so spend is never understated. */
+const priceOf = (
+  line: Partial<Pick<UsageLine, 'provider' | 'model'>>,
+  config: SpendConfig,
+): ModelPrice => {
+  if (providerOf(line) === 'jev') return config;
+  const prices = Object.values(config.haikuModelPrices);
+  return (
+    config.haikuModelPrices[line.model ?? ''] ??
+    prices.reduce((dear, price) =>
+      price.inputUsdPerMillionTokens + price.outputUsdPerMillionTokens >
+      dear.inputUsdPerMillionTokens + dear.outputUsdPerMillionTokens
+        ? price
+        : dear,
+    )
+  );
+};
+
 export const costUsd = (
-  line: Pick<UsageLine, 'inputTokens' | 'outputTokens'>,
+  line: Pick<UsageLine, 'inputTokens' | 'outputTokens'> &
+    Partial<Pick<UsageLine, 'provider' | 'model'>>,
   config: SpendConfig = SPEND_CONFIG,
-): number =>
-  (line.inputTokens * config.inputUsdPerMillionTokens +
-    line.outputTokens * config.outputUsdPerMillionTokens) /
-  1_000_000;
+): number => {
+  const price = priceOf(line, config);
+  return (
+    (line.inputTokens * price.inputUsdPerMillionTokens +
+      line.outputTokens * price.outputUsdPerMillionTokens) /
+    1_000_000
+  );
+};
 
 /** The UTC day of a line's `time`, which the daily budget counts by. */
 const dayOf = (time: string): string => time.slice(0, 10);
@@ -89,8 +141,9 @@ export interface SpendLedgerOptions {
 }
 
 /**
- * Spec §9 spend guard over the usage log: adds up THB spent in total and per UTC day, warns once
- * at `warnAtShareOfCap` of the cap, and reports the budget exceeded at the cap or the daily budget.
+ * Spec §9 spend guard over the usage log: adds up THB spent in total (Jev and Haiku together),
+ * per provider and, for Jev, per UTC day. It warns once at `warnAtShareOfCap` of the total cap and
+ * once of Haiku's own cap, and reports the budget exceeded at either cap or the daily budget.
  */
 export class SpendLedger implements UsageRecorder {
   readonly #append: (line: UsageLine) => void;
@@ -99,8 +152,8 @@ export class SpendLedger implements UsageRecorder {
   readonly #warn: (message: string) => void;
   readonly #now: () => Date;
   readonly #byDay = new Map<string, number>();
-  #totalThb = 0;
-  #warned = false;
+  readonly #thb: Record<UsageProvider, number> = { jev: 0, haiku: 0 };
+  readonly #warned = { total: false, haiku: false };
 
   constructor({
     lines = [],
@@ -116,45 +169,59 @@ export class SpendLedger implements UsageRecorder {
     this.#warn = warn;
     this.#now = now;
     for (const line of lines) this.#add(line);
-    this.#checkWarning();
+    this.#checkWarnings();
   }
 
   /** Counts the line before writing it, so a failed write never hides spend from the guard. */
   record(line: UsageLine): void {
     this.#add(line);
-    this.#checkWarning();
+    this.#checkWarnings();
     this.#append(line);
   }
 
-  budgetExceeded(): boolean {
-    if (this.#totalThb >= this.#config.totalCapThb) return true;
+  budgetExceeded(provider: UsageProvider = 'jev'): boolean {
+    if (this.spentThb() >= this.#config.totalCapThb) return true;
+    if (provider === 'haiku') return this.#thb.haiku >= this.#config.haikuCapThb;
     if (this.#dailyBudgetThb === undefined) return false;
     return this.spentTodayThb() >= this.#dailyBudgetThb;
   }
 
-  spentThb(): number {
-    return this.#totalThb;
+  /** THB spent by one provider, or by both when none is named. */
+  spentThb(provider?: UsageProvider): number {
+    return provider ? this.#thb[provider] : this.#thb.jev + this.#thb.haiku;
   }
 
+  /** THB Jev spent on the current UTC day, which `JEV_DAILY_BUDGET_THB` counts. */
   spentTodayThb(): number {
     return this.#byDay.get(dayOf(this.#now().toISOString())) ?? 0;
   }
 
   #add(line: UsageLine): void {
+    const provider = providerOf(line);
     const thb = costUsd(line, this.#config) * this.#config.thbPerUsd;
-    this.#totalThb += thb;
+    this.#thb[provider] += thb;
+    if (provider !== 'jev') return;
     const day = dayOf(line.time);
     this.#byDay.set(day, (this.#byDay.get(day) ?? 0) + thb);
   }
 
-  #checkWarning(): void {
-    const { totalCapThb, warnAtShareOfCap } = this.#config;
-    if (this.#warned || this.#totalThb < totalCapThb * warnAtShareOfCap) return;
-    this.#warned = true;
-    this.#warn(
-      `Jev spend is THB ${this.#totalThb.toFixed(2)}, ${Math.round(warnAtShareOfCap * 100)}% or more ` +
-        `of the THB ${totalCapThb} cap; at the cap every AI uses the fallback (spec §9).`,
-    );
+  #checkWarnings(): void {
+    const { totalCapThb, haikuCapThb, warnAtShareOfCap } = this.#config;
+    const share = `${Math.round(warnAtShareOfCap * 100)}% or more`;
+    if (!this.#warned.total && this.spentThb() >= totalCapThb * warnAtShareOfCap) {
+      this.#warned.total = true;
+      this.#warn(
+        `AI spend is THB ${this.spentThb().toFixed(2)}, ${share} of the THB ${totalCapThb} cap; ` +
+          'at the cap every AI uses the fallback (spec §9).',
+      );
+    }
+    if (!this.#warned.haiku && this.#thb.haiku >= haikuCapThb * warnAtShareOfCap) {
+      this.#warned.haiku = true;
+      this.#warn(
+        `Haiku spend is THB ${this.#thb.haiku.toFixed(2)}, ${share} of its THB ${haikuCapThb} cap; ` +
+          'at the cap every AI speaks from the line bank (spec §9).',
+      );
+    }
   }
 }
 

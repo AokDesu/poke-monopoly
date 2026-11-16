@@ -202,6 +202,8 @@ Add the Haiku key the same way, and only on the machine that runs the live game 
 
 Every live Jev request is logged to the git-ignored `logs/jev-usage.jsonl` (IDs, tokens and timings only, never state or the key). `npm run usage` prints the spend so far in USD and THB, its share of the THB 1,500 cap and the AI decision time per turn (p50, p95). The server warns once at 80% of the cap; at the cap, or once today's spend reaches an optional `JEV_DAILY_BUDGET_THB` in `.env`, every AI falls back with reason `budget_exceeded`.
 
+Every Haiku request writes one line to the same `logs/jev-usage.jsonl` with `provider: "haiku"` (tokens and timings only, never a prompt, a line of speech or the key). Jev and Haiku count together toward the THB 1,500 cap; the server warns once at 80% of Haiku's THB 150 and sends no Haiku request at the cap. `GET /api/ai/status` reports `speech: { enabled: false, reason }` when speech is off. `npm run usage` prints Jev and Haiku spend separately, each with its share of its cap.
+
 How the keys stay out of agent reach. Be realistic: your agent runs as your user, and unless you run it inside a container or VM, it can read any file you can.
 
 1. **Agents work in their own worktrees, not in the directory that holds `.env`.** Keep the clone with `.env` for *you* (running the web app and live Jev evals yourself). Run agents from a separate worktree. A gitignored file is not copied into a new worktree, so the `.env` stays behind. Get a worktree with `treehouse get -b <branch>` or `git worktree add ../poke-monopoly-wt -b <branch>`; firstmate does this automatically.
