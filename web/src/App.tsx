@@ -168,7 +168,7 @@ export function App({
     go(
       phase === 'finished'
         ? { screen: 'results' }
-        : phase === 'first_player_roll'
+        : phase === 'first_player_roll' && offer.summary.humanSeat !== undefined
           ? { screen: 'setup', step: 'firstPlayer' }
           : { screen: 'play' },
     );

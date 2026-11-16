@@ -276,10 +276,16 @@ export const en = {
   'save.pendingDecision': 'Open decision: {phase}. Waiting on {name}.',
   'save.pendingRoll': 'A die result is still waiting. It was not rolled before the save.',
   'save.pendingFinished': 'This game has already finished.',
+  'save.pendingWatched': 'A watched game is in progress, turn {turn}.',
   'save.mismatchHeading': 'This save cannot be loaded',
   'save.mismatchNext': 'New game starts a fresh game and removes this save from the browser.',
   'save.unreadable':
     'This save could not be read. New game starts a fresh game and removes it from the browser.',
+
+  'watch.stepWhileRunning': 'Pause the game first. Step plays one action while paused.',
+  'watch.stepBusy': 'Wait for the action in progress to finish.',
+  'watch.stepFailed': 'The AI decision failed. Retry it before stepping.',
+  'watch.stepFinished': 'The game has finished.',
 
   'credits.link': 'Credits',
   'credits.heading': '3D model credits',
