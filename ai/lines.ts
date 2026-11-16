@@ -1,8 +1,15 @@
 import catchFail from '../content/lines/en/catch_fail.json';
 import catchSuccess from '../content/lines/en/catch_success.json';
+import dealAccept from '../content/lines/en/deal_accept.json';
+import dealReject from '../content/lines/en/deal_reject.json';
 import fallbackNotice from '../content/lines/en/fallback_notice.json';
 import gameStart from '../content/lines/en/game_start.json';
+import gymWin from '../content/lines/en/gym_win.json';
+import manipulationRefused from '../content/lines/en/manipulation_refused.json';
+import promiseBroken from '../content/lines/en/promise_broken.json';
+import promiseKept from '../content/lines/en/promise_kept.json';
 import soldPokemon from '../content/lines/en/sold_pokemon.json';
+import tauntLeader from '../content/lines/en/taunt_leader.json';
 import { parseLines, type Line } from '../content/lines-schema.ts';
 import { int, type RandomResultEvent, type RngState } from '../engine/index.ts';
 
@@ -13,6 +20,13 @@ export const LINES = Object.freeze({
   catch_fail: parseLines('catch_fail', catchFail),
   sold_pokemon: parseLines('sold_pokemon', soldPokemon),
   fallback_notice: parseLines('fallback_notice', fallbackNotice),
+  deal_accept: parseLines('deal_accept', dealAccept),
+  deal_reject: parseLines('deal_reject', dealReject),
+  promise_kept: parseLines('promise_kept', promiseKept),
+  promise_broken: parseLines('promise_broken', promiseBroken),
+  gym_win: parseLines('gym_win', gymWin),
+  taunt_leader: parseLines('taunt_leader', tauntLeader),
+  manipulation_refused: parseLines('manipulation_refused', manipulationRefused),
 } satisfies Record<string, Line[]>);
 
 export type Situation = keyof typeof LINES;

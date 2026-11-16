@@ -16,6 +16,12 @@ export {
   type SeatAction,
   type SeatActionRecord,
 } from './visibility.ts';
+export {
+  actionVisibleToSpectator,
+  eventsVisibleToSpectator,
+  observeSpectator,
+  type SpectatorObservation,
+} from './spectator.ts';
 export { checkInvariants, INVARIANTS } from './invariants.ts';
 export type { InvariantDefinition, InvariantId, Violation } from './invariants.ts';
 export {
@@ -56,3 +62,4 @@ export {
 export { pvpOdds, gymOdds, type CombatOdds, type OutcomeOdds } from './odds.ts';
 export { evolvePokemon } from './evolution.ts';
 export { rewardChoices, resolveReward, type RewardResolution } from './rewards.ts';
+export { itemEffectStatus, type ItemEffectStatus } from './items.ts';

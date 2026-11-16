@@ -5,11 +5,28 @@ import type {
   GameState,
   LegalAction,
   LegalActions,
+  Content,
   Player,
 } from './contract/schema.ts';
 
 // Hostile items cannot target the user and ignore board distance (§4.6).
 const HOSTILE = ['repel', 'pickpocket'];
+
+/**
+ * How much of an item's authored effect (Appendix A) this engine applies, so screens never claim
+ * more than it does. `partial`: Potion clears Tired only; combat debuffs are not tracked yet.
+ * `planned`: held and listed, but no Strategy choice or protective/forcing effect exists yet.
+ */
+export type ItemEffectStatus = 'active' | 'partial' | 'planned';
+
+const PARTIAL_EFFECTS = ['potion'];
+const ACTIVE_UTILITY_EFFECTS = ['lucky-egg', 'repel', 'pickpocket'];
+
+/** Balls always work (§4.3); utility items follow `useItem` and `itemChoices` below. */
+export function itemEffectStatus(item: Content['items'][number]): ItemEffectStatus {
+  if (item.kind === 'ball' || ACTIVE_UTILITY_EFFECTS.includes(item.id)) return 'active';
+  return PARTIAL_EFFECTS.includes(item.id) ? 'partial' : 'planned';
+}
 
 /** Strategy choices for each held usable item, one per opponent for hostile items. */
 export function itemChoices(state: GameState, seatIndex: number, result: LegalActions): void {

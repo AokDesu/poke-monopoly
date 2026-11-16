@@ -421,7 +421,7 @@ describe('output screen (§4.8, §5.7, §8)', () => {
     const rng = createRng('quiet');
     for (const reply of ['I promise to win.', null, recorded.unsafe[0]!.reply]) {
       expect(
-        resolveSpeech({ reply, brief: speech, content, personalityId: 'cautious', rng }),
+        resolveSpeech({ reply, brief: speech, content, personalityId: 'unwritten', rng }),
       ).toMatchObject({ kind: 'silence', rng });
     }
   });
