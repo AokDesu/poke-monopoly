@@ -4,6 +4,7 @@ import {
   createGame,
   createGameConfig,
   fixtureSchema,
+  saleFacts,
   saleQuote,
   type GameState,
 } from './index.ts';
@@ -124,4 +125,42 @@ test('invalid seats, phases, foreign/duplicate/unknown IDs and overflowing quote
   state.players[0]!.coins = Number.MAX_SAFE_INTEGER;
   expect(() => saleQuote(state, 0, ['caught'])).toThrow(RangeError);
   expect(saleQuote(state, 0, []).total).toBe(0);
+});
+
+test('sale facts price every team member alone and with the whole team, as the batch pays them', () => {
+  const state = scenario();
+  const before = structuredClone(state);
+  const facts = saleFacts(state, 0);
+  expect(facts).toEqual([
+    // Alone it takes the once-per-Lap class bonus; sold with `caught` it does not (§4.7).
+    {
+      instanceId: 'starter:0',
+      salePrice: 5,
+      classBonusAlone: 3,
+      classBonusTogether: 0,
+      saleValue: 5,
+    },
+    {
+      instanceId: 'caught',
+      salePrice: 10,
+      classBonusAlone: 3,
+      classBonusTogether: 3,
+      saleValue: 13,
+    },
+    { instanceId: 'rescue', salePrice: 0, classBonusAlone: 0, classBonusTogether: 0, saleValue: 0 },
+  ]);
+  // The values are what the batch selling the whole team actually pays, row by row.
+  const paid = commit(
+    state,
+    facts.map((fact) => fact.instanceId),
+  );
+  expect(
+    paid.events.flatMap((e) =>
+      e.kind === 'coin_transfer' && e.reason === 'pokemon_sale' ? [e.amount] : [],
+    ),
+  ).toEqual(facts.map((fact) => fact.saleValue));
+  expect(state).toEqual(before);
+  expect(() => saleFacts(state, 1)).toThrow(RangeError);
+  state.phase = { kind: 'strategy' };
+  expect(() => saleFacts(state, 0)).toThrow(RangeError);
 });

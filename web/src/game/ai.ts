@@ -114,10 +114,10 @@ export interface DecisionIds {
  * Tells the local server which answer this browser applied: the server's, or its own fallback at
  * the deadline (spec §6.8). The server logs a decision only from this, so a late answer it
  * produced after the deadline never appears as applied. IDs only; best effort, never awaited, and
- * a failure changes nothing. The Shop has no Jev question, so it is not reported.
+ * a failure changes nothing. The Shop is reported too: it has no Jev question, but the log holds
+ * every AI decision, and its row says the decision was not Jev's.
  */
 export function reportOutcome(ids: DecisionIds, answer: OpponentAnswer): void {
-  if (ids.decisionPoint === 'shop') return;
   const { source, fallbackReason } = answer;
   void fetch('/api/ai/outcome', {
     method: 'POST',

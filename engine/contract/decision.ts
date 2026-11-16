@@ -8,6 +8,12 @@ const id = z.string().min(1);
 const count = z.int().nonnegative();
 
 export const decisionPointSchema = z.enum(['strategy', 'encounter', 'sell']);
+/**
+ * An outcome may also name the Shop, which has no Jev question (spec §5.3) but whose decision the
+ * log still records, as a non-Jev decision (§6 item 8). A request names it through the Shop's own
+ * additive schema.
+ */
+export const outcomeDecisionPointSchema = z.enum([...decisionPointSchema.options, 'shop']);
 export const difficultySchema = z.enum(['easy', 'normal', 'hard']);
 
 // `legalActionSchema` strips unknown top-level keys; the strict outer shape rejects them instead.
@@ -27,6 +33,23 @@ export const decisionFactsSchema = z.strictObject({
         percent: z.int().min(0).max(100),
       }),
     )
+    .optional(),
+  /**
+   * The Sell Phase's engine prices, one row per Pokémon on the team (spec §4.7, §5.4): `saleFacts`
+   * from the engine, never client arithmetic. ai/ turns them into named buckets for Jev's Sell
+   * Nouls and into the fallback policy's sale values; missing or partial rows are not used.
+   */
+  sell: z
+    .array(
+      z.strictObject({
+        instanceId: id,
+        salePrice: count,
+        classBonusAlone: count,
+        classBonusTogether: count,
+        saleValue: count,
+      }),
+    )
+    .max(64)
     .optional(),
 });
 
@@ -90,7 +113,8 @@ export const decisionFallbackReasonSchema = z.enum([
   'request_limit',
   'token_budget',
   'missing_facts',
-  // No Jev question was asked (one legal action), so the fallback policy chose.
+  // No Jev question was asked (one legal action, or a phase with none such as the Shop), so the
+  // fallback policy chose. It is not a fallback in the §5.6 metrics.
   'auto',
 ]);
 
@@ -124,7 +148,7 @@ const outcomeBase = {
   seatIndex: count,
   turnKey: id,
   stateRevision: count,
-  decisionPoint: decisionPointSchema,
+  decisionPoint: outcomeDecisionPointSchema,
   source: z.enum(['jev', 'fallback']),
   fallbackReason: decisionFallbackReasonSchema.optional(),
 };
