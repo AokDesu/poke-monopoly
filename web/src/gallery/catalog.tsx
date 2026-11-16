@@ -231,6 +231,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
                 waiting: 'decision',
                 seatIndex: decisionOpen().view.observation.public.activeSeatIndex,
                 humanSeat: decisionOpen().view.seatIndex,
+                turn: decisionOpen().view.observation.public.globalTurnNo,
                 aiDecision: true,
               })}
               onContinue={noop}

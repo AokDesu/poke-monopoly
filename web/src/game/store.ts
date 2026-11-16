@@ -1,5 +1,6 @@
 import {
   actionVisibleTo,
+  actionVisibleToSpectator,
   advanceAutomatically,
   applyAction,
   createGame,
@@ -12,6 +13,7 @@ import {
   GAME_PRESETS,
   legalActions,
   observe,
+  observeSpectator,
   oddsForAllBalls,
   saleFacts,
   saleQuote,
@@ -29,6 +31,7 @@ import {
   type GameState,
   type LegalActions,
   type Observation,
+  type SpectatorObservation,
   type SeatActionRecord,
 } from '../../../engine/index.ts';
 import { reportOutcome, requestOpponent, type AiDecision } from './ai.ts';
@@ -77,9 +80,21 @@ export interface SeatView {
   readonly opponents: readonly OpponentSettings[];
 }
 
+/**
+ * What a watcher with no seat may read: the public view and the feed of records every seat may
+ * see (engine contract: spectator projection, issue #169). It names no seat: `seatIndex` is absent.
+ */
+export interface SpectatorView {
+  readonly seatIndex?: undefined;
+  readonly observation: SpectatorObservation;
+  readonly feed: readonly SeatFeedEntry[];
+  readonly opponents: readonly OpponentSettings[];
+}
+
 /** Finished standings. Coins, badges and the engine's winner only — never a team size. */
 export interface GameResults {
-  readonly humanSeat: number;
+  /** Absent when no seat is human. */
+  readonly humanSeat?: number;
   readonly standings: readonly {
     readonly actorId: string;
     readonly seatIndex: number;
@@ -97,6 +112,8 @@ export interface GameStore {
   getSession(): GameSession | null;
   /** The human seat's view, or null without a game or a human seat. Stable between changes. */
   getView(): SeatView | null;
+  /** The watcher's view, or null without a game or when a seat is human. Stable between changes. */
+  getSpectatorView(): SpectatorView | null;
   /** Creates the game and its log together (engine contract: `createGameLog(createGame(...))`). */
   start(config: GameConfig, content: Content, opponents?: readonly OpponentSettings[]): void;
   /** Rejected commands change nothing and notify no one. */
@@ -151,11 +168,30 @@ function humanSeat(state: GameState): number | undefined {
   return state.config.seats.find((seat) => seat.controller === 'human')?.seatIndex;
 }
 
+/** The public state this viewer sees: the human seat's, or the spectator's when no seat is human. */
+function publicOf(state: GameState, seatIndex: number | undefined) {
+  return seatIndex === undefined
+    ? observeSpectator(state).public
+    : observe(state, seatIndex).public;
+}
+
+/** One record as this viewer may see it, or null for a chat it was not part of (spec §4.8). */
+function recordFor(
+  state: GameState,
+  record: ActionRecord,
+  seatIndex: number | undefined,
+  shown: number,
+): SeatActionRecord | null {
+  return seatIndex === undefined
+    ? actionVisibleToSpectator(state, record, shown)
+    : actionVisibleTo(state, record, seatIndex, shown);
+}
+
 function resultsOf(state: GameState): GameResults | null {
   if (state.phase.kind !== 'finished') return null;
   const outcome = winner(state);
   return {
-    humanSeat: humanSeat(state) ?? 0,
+    ...(humanSeat(state) !== undefined && { humanSeat: humanSeat(state) }),
     standings: [...state.players]
       .sort((a, b) => a.seatIndex - b.seatIndex)
       .map((player) => ({
@@ -170,13 +206,13 @@ function resultsOf(state: GameState): GameResults | null {
 }
 
 /** Rebuilds the seat-filtered feed from the log. Recorded dice are applied, never re-rolled. */
-function feedFrom(log: GameLog, seatIndex: number): SeatFeedEntry[] {
+function feedFrom(log: GameLog, seatIndex: number | undefined): SeatFeedEntry[] {
   let cursor = log.initialState;
   const feed: SeatFeedEntry[] = [];
   for (const record of log.actions) {
-    const { phase, activeSeatIndex, globalTurnNo } = observe(cursor, seatIndex).public;
+    const { phase, activeSeatIndex, globalTurnNo } = publicOf(cursor, seatIndex);
     // A chat between two other seats is absent from this seat's feed, not redacted (spec §4.8).
-    const visible = actionVisibleTo(cursor, record, seatIndex, feed.length);
+    const visible = recordFor(cursor, record, seatIndex, feed.length);
     if (visible) feed.push({ before: { phase, activeSeatIndex, globalTurnNo }, record: visible });
     const applied = applyAction(cursor, record.action);
     if (!('accepted' in applied)) throw new Error('Save log does not replay');
@@ -188,6 +224,8 @@ function feedFrom(log: GameLog, seatIndex: number): SeatFeedEntry[] {
 export function createGameStore(): GameStore {
   let session: GameSession | null = null;
   let view: SeatView | null = null;
+  let spectatorView: SpectatorView | null = null;
+  let shownFeed: readonly SeatFeedEntry[] = [];
   let results: GameResults | null = null;
   let opponents: readonly OpponentSettings[] = [];
   let gameToken = '';
@@ -195,7 +233,12 @@ export function createGameStore(): GameStore {
 
   const publish = (next: GameSession, feed: readonly SeatFeedEntry[]) => {
     session = next;
+    shownFeed = feed;
     view = viewOf(next.state, feed);
+    spectatorView =
+      humanSeat(next.state) === undefined
+        ? { observation: observeSpectator(next.state), feed, opponents }
+        : null;
     results = resultsOf(next.state);
     for (const listener of listeners) listener();
   };
@@ -224,15 +267,15 @@ export function createGameStore(): GameStore {
     decision?: AiDecision,
   ) => {
     const seatIndex = humanSeat(before);
-    let feed = view?.feed ?? [];
-    if (seatIndex !== undefined && records.length > 0) {
-      const { phase, activeSeatIndex, globalTurnNo, players } = observe(before, seatIndex).public;
+    let feed = shownFeed;
+    if (records.length > 0) {
+      const { phase, activeSeatIndex, globalTurnNo, players } = publicOf(before, seatIndex);
       // Each step applies one record (engine contract: `advanceAutomatically` does not loop).
       let shown = feed.length;
       feed = [
         ...feed,
         ...records.flatMap((record): SeatFeedEntry[] => {
-          const visible = actionVisibleTo(before, record, seatIndex, shown);
+          const visible = recordFor(before, record, seatIndex, shown);
           // A chat between two other seats is absent from this seat's feed (spec §4.8).
           if (!visible) return [];
           shown++;
@@ -321,11 +364,14 @@ export function createGameStore(): GameStore {
     getView(): SeatView | null {
       return view;
     },
+    getSpectatorView(): SpectatorView | null {
+      return spectatorView;
+    },
     start(config: GameConfig, content: Content, settings: readonly OpponentSettings[] = []): void {
       const state = createGame(config, content);
       gameToken = crypto.randomUUID();
       opponents = settings;
-      view = null;
+      shownFeed = [];
       commit({ state, log: createGameLog(state) }, state, []);
     },
     submit,
@@ -468,8 +514,7 @@ export function createGameStore(): GameStore {
     restore(game: GameSession, settings: readonly OpponentSettings[] = []): void {
       opponents = settings;
       gameToken = crypto.randomUUID();
-      const seat = humanSeat(game.state);
-      publish(game, seat === undefined ? [] : feedFrom(game.log, seat));
+      publish(game, feedFrom(game.log, humanSeat(game.state)));
     },
     getResults(): GameResults | null {
       return results;
@@ -477,6 +522,8 @@ export function createGameStore(): GameStore {
     clear(): void {
       session = null;
       view = null;
+      spectatorView = null;
+      shownFeed = [];
       results = null;
       opponents = [];
       gameToken = '';

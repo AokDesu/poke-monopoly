@@ -7,6 +7,7 @@ import { Screen } from './ui/Screen.tsx';
 /** What the saved game is waiting for, in the catalog's words. */
 export function pendingLine(summary: SaveSummary): string {
   if (summary.waiting === 'finished') return t('save.pendingFinished');
+  if (summary.humanSeat === undefined) return t('save.pendingWatched', { turn: summary.turn });
   if (summary.waiting === 'engine_result') return t('save.pendingRoll');
   const name =
     summary.seatIndex === summary.humanSeat
