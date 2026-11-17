@@ -1,0 +1,74 @@
+[
+  {
+    "id": "chat-reply-use-item-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Use it, {target}? Items cost coins. I will see if it pays."
+  },
+  {
+    "id": "chat-reply-use-item-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Maybe I will, {target}. Only if it makes me richer."
+  },
+  {
+    "id": "chat-reply-use-item-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Noted, {target}. I will not waste an item without a reason."
+  },
+  {
+    "id": "chat-reply-use-item-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Use it? Maybe I will, {target}. I like a bold move."
+  },
+  {
+    "id": "chat-reply-use-item-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Good idea, {target}. I may put it to work this turn."
+  },
+  {
+    "id": "chat-reply-use-item-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "I will think about it, {target}. Items are for using."
+  },
+  {
+    "id": "chat-reply-use-item-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Thank you, {target}. I will consider using it, carefully."
+  },
+  {
+    "id": "chat-reply-use-item-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "I will keep that suggestion in mind, {target}."
+  },
+  {
+    "id": "chat-reply-use-item-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Perhaps, {target}. I do not use things without a plan."
+  },
+  {
+    "id": "chat-reply-use-item-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Hmm, use it, {target}? If the timing is right, I might."
+  },
+  {
+    "id": "chat-reply-use-item-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Fair suggestion, {target}. I will see what the turn brings."
+  },
+  {
+    "id": "chat-reply-use-item-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "I will weigh it, {target}. A good moment is worth waiting for."
+  }
+]

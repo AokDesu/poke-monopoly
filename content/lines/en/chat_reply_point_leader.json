@@ -1,0 +1,74 @@
+[
+  {
+    "id": "chat-reply-point-leader-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "The leader has the most coins, {target}. That is worth remembering."
+  },
+  {
+    "id": "chat-reply-point-leader-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "You may be right, {target}. A rich rival is a tempting target."
+  },
+  {
+    "id": "chat-reply-point-leader-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Noted, {target}. I will keep an eye on whoever is ahead."
+  },
+  {
+    "id": "chat-reply-point-leader-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "The leader should worry, {target}. I will remember that."
+  },
+  {
+    "id": "chat-reply-point-leader-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Good tip, {target}. A big lead makes a big target."
+  },
+  {
+    "id": "chat-reply-point-leader-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "I hear you, {target}. Someone has to knock them down."
+  },
+  {
+    "id": "chat-reply-point-leader-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Thank you for the warning, {target}. I will watch the leader closely."
+  },
+  {
+    "id": "chat-reply-point-leader-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "That is worth knowing, {target}. I will be careful of them."
+  },
+  {
+    "id": "chat-reply-point-leader-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "I see, {target}. I will keep that in mind."
+  },
+  {
+    "id": "chat-reply-point-leader-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Useful, {target}. A leader makes a fine target when the moment is right."
+  },
+  {
+    "id": "chat-reply-point-leader-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "I will keep that in mind, {target}. It might help me."
+  },
+  {
+    "id": "chat-reply-point-leader-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Interesting tip, {target}. I will see if it suits me."
+  }
+]

@@ -1,0 +1,74 @@
+[
+  {
+    "id": "chat-reply-trade-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "A trade, {target}? Show me a price that pays and we will talk."
+  },
+  {
+    "id": "chat-reply-trade-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "I like deals, {target}. This is only talk for now, nothing binding."
+  },
+  {
+    "id": "chat-reply-trade-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Interesting. Every trade has to leave me ahead, {target}."
+  },
+  {
+    "id": "chat-reply-trade-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "A trade? Say what you want, {target}. This is only words so far."
+  },
+  {
+    "id": "chat-reply-trade-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "I am listening, {target}, but I do not bargain for long."
+  },
+  {
+    "id": "chat-reply-trade-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Maybe we can deal. No promises, {target}."
+  },
+  {
+    "id": "chat-reply-trade-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "A trade, {target}? I would need to think it over carefully."
+  },
+  {
+    "id": "chat-reply-trade-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Thank you, {target}. This is only talk, and I will weigh it slowly."
+  },
+  {
+    "id": "chat-reply-trade-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "I am open to hearing it, {target}, but I am in no hurry."
+  },
+  {
+    "id": "chat-reply-trade-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "A trade, {target}? That could be useful. Keep talking."
+  },
+  {
+    "id": "chat-reply-trade-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "I am always open to a good swap. This is only talk, {target}."
+  },
+  {
+    "id": "chat-reply-trade-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Hmm, tempting. Let me see what the turn offers first, {target}."
+  }
+]
