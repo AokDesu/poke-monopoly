@@ -83,6 +83,24 @@ export function readMeta(storage: SaveStorage): SaveMeta {
   }
 }
 
+/** One AI seat of a saved game: its class from the engine save, its settings from the meta. */
+export interface SavedRival {
+  readonly seatIndex: number;
+  readonly classId: string;
+  /** Absent when the meta has no valid personality and difficulty for this seat. */
+  readonly settings?: SaveMeta['opponents'][number];
+}
+
+export function savedRivals(game: SavedGame, meta: SaveMeta): SavedRival[] {
+  return game.state.config.seats
+    .filter((seat) => seat.controller === 'ai')
+    .map((seat) => ({
+      seatIndex: seat.seatIndex,
+      classId: seat.classId,
+      settings: meta.opponents.find((row) => row.seatIndex === seat.seatIndex),
+    }));
+}
+
 /**
  * Loads an engine save. A different engine, content or RNG version keeps the engine's own
  * message. Anything else is unreadable. Neither path throws.

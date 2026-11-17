@@ -11,6 +11,8 @@ import {
   readSaveText,
   summarize,
   writeSave,
+  savedRivals,
+  type SavedRival,
   type SaveMeta,
   type SaveStorage,
   type SaveSummary,
@@ -18,7 +20,7 @@ import {
 import {
   completeSetup,
   freshSeed,
-  opponentFor,
+  withRivalCount,
   randomSetup,
   type ModeId,
   type SetupDraft,
@@ -63,6 +65,7 @@ type SaveOffer =
       kind: 'continue';
       session: GameSession;
       opponents: SaveMeta['opponents'];
+      rivals: SavedRival[];
       summary: SaveSummary;
     }
   | { kind: 'mismatch'; message: string }
@@ -87,11 +90,13 @@ function inspect(storage: SaveStorage | null): { offer: SaveOffer | null; unavai
       unavailable: false,
     };
   }
+  const meta = readMeta(storage);
   return {
     offer: {
       kind: 'continue',
       session: loaded.game,
-      opponents: readMeta(storage).opponents,
+      opponents: meta.opponents,
+      rivals: savedRivals(loaded.game, meta),
       summary: summarize(loaded.game, loaded.resumed),
     },
     unavailable: false,
@@ -149,7 +154,7 @@ export function App({
     setRoute(next);
   };
   const canStart = randomSetup(classOptions, OPEN_MODES, () => 0) !== undefined;
-  const setup = completeSetup(draft);
+  const setup = completeSetup(draft, classOptions);
   const continueSaved = () => {
     if (offer?.kind !== 'continue') return;
     try {
@@ -199,6 +204,7 @@ export function App({
       ? {
           kind: 'continue',
           pending: pendingLine(offer.summary),
+          rivals: offer.rivals,
           onContinue: continueSaved,
           onNewGame: discardSave,
         }
@@ -220,7 +226,7 @@ export function App({
           onRandomAll={() => {
             const picked = randomSetup(classOptions, OPEN_MODES, random);
             if (!picked) return;
-            setDraft({ mode: picked.mode, human: picked.human, opponent: picked.opponents[0] });
+            setDraft({ mode: picked.mode, human: picked.human, rivals: picked.opponents });
             go({ screen: 'setup', step: 'review' });
           }}
         />
@@ -244,14 +250,16 @@ export function App({
             <ClassScreen
               classes={classOptions}
               chosen={draft.human}
-              onSelect={(human) =>
-                setDraft({
-                  ...draft,
-                  human,
-                  opponent: opponentFor(classOptions, human, draft.opponent),
-                })
-              }
-              onNext={() => go({ screen: 'setup', step: 'opponents' })}
+              rivals={draft.rivals}
+              onSelect={(human) => setDraft({ ...draft, human })}
+              onNext={() => {
+                // The first time through, one rival on the first free class; later answers stay.
+                const rivals = draft.rivals?.length
+                  ? draft.rivals
+                  : (withRivalCount(classOptions, draft.human!, [], 1) ?? []);
+                setDraft({ ...draft, rivals });
+                go({ screen: 'setup', step: 'opponents' });
+              }}
               onBack={() => go({ screen: 'setup', step: 'mode' })}
             />
           );
@@ -261,8 +269,8 @@ export function App({
             <OpponentScreen
               classes={classOptions}
               human={draft.human}
-              opponent={draft.opponent}
-              onChange={(opponent) => setDraft({ ...draft, opponent })}
+              rivals={draft.rivals ?? []}
+              onChange={(rivals) => setDraft({ ...draft, rivals })}
               onNext={() => go({ screen: 'setup', step: 'review' })}
               onBack={() => go({ screen: 'setup', step: 'class' })}
             />

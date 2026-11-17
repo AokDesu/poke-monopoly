@@ -15,3 +15,9 @@ export function classPassive(id: string): string | undefined {
   const key = `class.passive.${id}`;
   return Object.hasOwn(en, key) ? t(key as MessageKey) : undefined;
 }
+
+/** Why a class is not open: its own reason when the catalog has one, else the general one. */
+export function classClosedReason(id: string): string {
+  const key = `class.closed.${id}`;
+  return Object.hasOwn(en, key) ? t(key as MessageKey) : t('class.comingLater');
+}
