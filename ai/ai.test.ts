@@ -113,7 +113,7 @@ const requestFor = (json: unknown): DecisionRequest => {
           ? { sell: saleFacts(fixture.state, seat) }
           : {},
     difficulty: 'normal',
-    personalityId: 'cautious',
+    personalityId: 'greedy',
     turnKey: `${seat}:${observation.public.globalTurnNo}`,
   };
 };
