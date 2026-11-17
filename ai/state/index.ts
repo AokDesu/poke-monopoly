@@ -68,7 +68,7 @@ function socialState(observation: Observation, extras: SocialExtras) {
         text: `${attempt.actorId === actor(me) ? 'you' : attempt.actorId} broke no_attack on turn ${attempt.globalTurnNo}`,
       })),
   );
-  return {
+  const result = {
     promises: mine.filter(active).map((promise) => ({
       kind: 'no_attack',
       promiser_id: actor(promise.promiserSeatIndex),
@@ -92,6 +92,13 @@ function socialState(observation: Observation, extras: SocialExtras) {
         }
       : {}),
   };
+  // Nothing to say: no key at all, so a quiet game's state and token count are unchanged.
+  const quiet =
+    result.promises.length === 0 &&
+    result.broken_promises.length === 0 &&
+    result.trust.length === 0 &&
+    !('pending_card' in result);
+  return quiet ? undefined : result;
 }
 
 /** Explicit projection rather than spreading observations (spec §1, §5.4, §9). */

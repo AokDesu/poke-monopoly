@@ -176,7 +176,7 @@ test("social state: a seat sees its own promise and pending card, never a third 
   const responder = buildJevState(observe(offered, 1));
   expect(responder.social?.pending_card).toMatchObject({ from_id: 'player-0' });
   const bystander = buildJevState(observe(offered, 2));
-  expect(bystander.social).toEqual({ promises: [], broken_promises: [], trust: [] });
+  expect(bystander.social).toBeUndefined();
   expect(JSON.stringify(bystander)).not.toMatch(/pending_card|no_attack/);
 
   const accepted = act(offered, 1, 'respond', { answer: 'accept' });
@@ -191,7 +191,7 @@ test("social state: a seat sees its own promise and pending card, never a third 
     ]);
   }
   const outside = buildJevState(observe(accepted, 2));
-  expect(outside.social?.promises).toEqual([]);
+  expect(outside.social).toBeUndefined();
   assertNoComparableNumbers(outside);
   assertStateTokenBudget(outside);
 });
