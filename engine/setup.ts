@@ -9,6 +9,7 @@ import { createRng, RNG_VERSION } from './rng.ts';
 import { ENGINE_VERSION } from './versions.ts';
 import { WILD_EXCLUDED_SPECIES_IDS, WILD_RARITIES } from './catching.ts';
 import { shopUtilityPool } from './shop.ts';
+import { EVENT_IDS } from './events.ts';
 
 /** Revision-zero snapshot: first-player rolls are subsequent logged commands (§3, §4.1). */
 export function createGame(inputConfig: GameConfig, inputContent: Content): GameState {
@@ -24,6 +25,13 @@ export function createGame(inputConfig: GameConfig, inputContent: Content): Game
     if (!represented) throw new RangeError(`Wild content lacks a ${rarity} species`);
   }
   shopUtilityPool(content);
+  if (
+    content.events &&
+    (content.events.length !== EVENT_IDS.length ||
+      EVENT_IDS.some((id) => content.events!.filter((event) => event.id === id).length !== 1))
+  ) {
+    throw new RangeError('Event content must contain e1–e6 exactly once');
+  }
   config.seats.sort((a, b) => a.seatIndex - b.seatIndex);
   if (config.seats.some((seat, index) => seat.seatIndex !== index)) {
     throw new RangeError('Setup requires fixed seats numbered 0 through n-1');

@@ -167,7 +167,7 @@ Wherever this specification uses `round`, a half rounds up (approved 2026-10-07)
 - **Spectator (watch mode):** a spectator is not a seat. It sees the public view only: coins, positions, teams, item counts and public items; never a Ball pouch, a secret item, a peek result, a chat, a private hostile attack/Ability target (the use itself is public, §4.1), a secret shield, Lucky Splash's die or Ball gain, the seed or the Event order. Public battle phases and public shields remain visible. See [Engine contract v1](engine-contract.md#spectator-projection-issue-169).
 - **Start income:** the owner's forward movement passing or landing on a new Start milestone pays 5 coins from the bank, once per rewarded milestone (§6.5). Forced movement pays nothing. Nothing is paid at setup.
 
-**C2 placeholder scope (#34, decided in that issue):** Gyms resolve from C3 (#55 S09, §4.4). Until Events (C4) land, landing on an Event space is an explicit no-op logged as `space_resolved` with `effect: "none_yet"`, so the UI can say nothing happens there yet. It changes no coins, items or Pokémon. Setup offers the Quick 2 Laps preset; the Standard 3 Laps preset exists but is flagged closed until playtest (§1), and the sim can still run it with `--lap-target 3`. See the [engine contract](engine-contract.md#c2-presets-and-placeholder-spaces-issue-34).
+**Board resolution scope (#34, #55 S09, #162):** Gyms resolve by §4.4 and Event spaces draw and resolve a card by §4.6. Setup offers the Quick 2 Laps preset; the Standard 3 Laps preset exists but is flagged closed until playtest (§1), and the sim can still run it with `--lap-target 3`. See the [engine contract](engine-contract.md#c2-presets-and-placeholder-spaces-issue-34).
 
 ### 4.2 Turn structure and action budgets
 
@@ -317,10 +317,12 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 - e5: the highest-battle Pokémon becomes tired.
 - e6: the poorest player(s) receive 5 coins, split and rounded down.
 
+**C4 Event resolution (#162):** Resolve on an Event space draws and discards the top card exactly once, then applies its effect in the same accepted action. e1 uses the normal Wild encounter pool and existing catch/release flow; it grants no extra catch attempt or Ball. e3 pays `min(4, coins)` to the bank. e4 uniformly selects one utility item from engine content, grants a fresh secret item UID, or grants one Poké Ball without a selection draw when the hand already holds 4 items. Only the recipient sees the item identity or Ball reward. e5 uses the current form's printed battle (including Tired members), breaking ties by ascending UID, and reapplies the usual Tired expiry; an empty team has no target. e6 determines all poorest seats before payment, and pays each `floor(5 / recipients)` from the bank; the remainder is unawarded. Public draw/resolution records and the last Event summary expose the card and public results; the recipient alone observes the private e4 reward. See the [Event contract](engine-contract.md#event-draw-and-resolution-issue-162).
+
 **Deck and randomness**
 
-- The deck is shuffled at setup. All randomness lives in the engine and is logged.
-- **S13 deck scope (#55):** engine content carries the Event IDs. Setup still draws no randomness (revision 0 keeps RNG cursor 0, §6.8), so the first thing that needs the deck — today only a `peek` — fills an empty draw pile with one logged engine shuffle: of the discard pile if it has cards, otherwise of every Event (the §3.1 reshuffle rule). Event squares stay placeholders until C4 ([deck contract](engine-contract.md#gainball-peek-and-the-event-deck-issue-55-s13)).
+- All randomness lives in the engine and is logged. Setup draws no randomness (revision 0 keeps RNG cursor 0, §6.8).
+- **Deck scope (#55 S13, #162):** engine content carries the six Event IDs. The first draw or `peek` fills an empty draw pile with one logged engine shuffle: of the discard pile if it has cards, otherwise of every Event. After exhaustion the next use reshuffles the discard pile (§3.1). Shuffle choices and remaining deck order stay hidden from every seat, spectator and AI request. Peeking never draws or reorders the top card ([deck contract](engine-contract.md#gainball-peek-and-the-event-deck-issue-55-s13)).
 - The seeded engine generator is versioned. Draw events, seed mapping and helper contracts are defined in [Engine contract v1](engine-contract.md#public-seam-and-visibility).
 
 ### 4.7 Selling at Start, Laps and game end
