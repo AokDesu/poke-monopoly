@@ -556,8 +556,8 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
     const wire = JSON.stringify(sent);
     for (const row of sell.facts.sell!) expect(wire).not.toContain(`"salePrice":${row.salePrice}`);
     expect(wire).toMatch(/sale_value_now/);
-    // The engine has no keep value yet, so none is sent or made up.
-    expect(wire).not.toMatch(/keep_value/);
+    expect(wire).toMatch(/keep_value/);
+    for (const row of sell.facts.sell!) expect(wire).not.toContain(`"keepValue":${row.keepValue}`);
   });
 
   test('without sale facts, or with partial or foreign rows, a Sell Phase falls back as missing_facts', async () => {
@@ -583,7 +583,10 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
     for (const bad of [
       { ...row, salePrice: -1 },
       { ...row, salePrice: 1.5 },
-      { ...row, keepValue: 3 },
+      { ...row, keepValue: -1 },
+      { ...row, keepValue: 1.5 },
+      { ...row, keepValue: undefined },
+      { ...row, unexpectedField: 3 },
       { instanceId: row.instanceId },
     ]) {
       const response = await decide({ ...sell, facts: { sell: [bad] } });
@@ -598,6 +601,19 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
     expect(priced).toMatchObject({ source: 'fallback', fallbackReason: 'disabled' });
     expect(priced.sellUids.length).toBeGreaterThan(0);
     expect(bare.sellUids).toEqual([]);
+  });
+
+  test('fallback receives engine keep values and holds high Battle contributors (§5.6)', async () => {
+    vi.stubEnv('JEV_ENABLED', 'false');
+    const request = (keepValue: number): DecisionRequest => ({
+      ...sell,
+      personalityId: 'greedy',
+      facts: { sell: sell.facts.sell!.map((row) => ({ ...row, keepValue })) },
+    });
+    const low = await (await decide(request(0), testApp())).json();
+    const high = await (await decide(request(3), testApp())).json();
+    expect(low.sellUids.length).toBeGreaterThan(0);
+    expect(high.sellUids).toEqual([]);
   });
 
   test('an unusable answer falls back with the orchestrator’s reason', async () => {

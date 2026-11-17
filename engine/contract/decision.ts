@@ -47,6 +47,7 @@ export const decisionFactsSchema = z.strictObject({
         classBonusAlone: count,
         classBonusTogether: count,
         saleValue: count,
+        keepValue: count,
       }),
     )
     .max(64)

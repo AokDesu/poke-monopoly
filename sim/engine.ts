@@ -7,6 +7,7 @@ import {
   legalActions,
   observe,
   oddsForAllBalls,
+  saleFacts,
   winner,
   type GameState,
 } from '../engine/index.ts';
@@ -64,7 +65,7 @@ export const realEngine: SimEngine = {
  * The engine's own numbers for the deciding seat (spec §5.2): catch odds from `oddsForAllBalls`,
  * and each sellable Pokémon's payout within one batch selling every one of them (§4.7: a batch
  * is priced as a whole), read from the coin transfers `applyAction` reports on a detached copy
- * (the engine exports no sale quote yet). Nothing here is shown to other seats.
+ * and keep values from `saleFacts`. Nothing here is shown to other seats.
  */
 function facts(state: GameState, seatIndex: number): PolicyFacts {
   if (seatIndex !== state.activeSeatIndex) return {};
@@ -94,5 +95,10 @@ function facts(state: GameState, seatIndex: number): PolicyFacts {
   const payouts = result.events.flatMap((event) =>
     event.kind === 'coin_transfer' && event.reason === 'pokemon_sale' ? [event.amount] : [],
   );
-  return { saleValue: Object.fromEntries(ids.map((id, index) => [id, payouts[index] ?? 0])) };
+  return {
+    saleValue: Object.fromEntries(ids.map((id, index) => [id, payouts[index] ?? 0])),
+    keepValue: Object.fromEntries(
+      saleFacts(state, seatIndex).map((row) => [row.instanceId, row.keepValue]),
+    ),
+  };
 }

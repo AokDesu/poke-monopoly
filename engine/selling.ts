@@ -1,4 +1,5 @@
 import { effectiveForm } from './forms.ts';
+import { highestBattleMember } from './combat.ts';
 import { classBonus } from './classes.ts';
 import { publicRevision } from './visibility.ts';
 import type {
@@ -78,6 +79,17 @@ export interface SalePriceFact {
   classBonusTogether: number;
   /** Coins it fetches in one batch selling the whole team: `salePrice` plus `classBonusTogether`. */
   saleValue: number;
+  /** Drop in the team's highest battle-ready current-form Battle stat if this member is removed. */
+  keepValue: number;
+}
+
+/** Presentation of lost Battle points, kept separate from sale-coin buckets (§5.4, §5.6). */
+export function bucketKeepValue(value: number): 'low' | 'medium' | 'high' {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new RangeError('Keep value must be a nonnegative whole number of Battle points');
+  }
+  if (value === 0) return 'low';
+  return value <= 2 ? 'medium' : 'high';
 }
 
 /**
@@ -90,14 +102,20 @@ export function saleFacts(state: GameState, seatIndex: number): SalePriceFact[] 
   if (!player) throw new RangeError('Sale quotes require the active seat in Sell');
   const ids = player.team.map((entry) => entry.instanceId);
   const together = saleQuote(state, seatIndex, ids).rows;
+  const best = highestBattleMember(state.content, player)?.effectiveBattle ?? 0;
   return together.map((row) => {
     const alone = saleQuote(state, seatIndex, [row.instanceId]).rows[0]!;
+    const without =
+      highestBattleMember(state.content, {
+        team: player.team.filter((entry) => entry.instanceId !== row.instanceId),
+      })?.effectiveBattle ?? 0;
     return {
       instanceId: row.instanceId,
       salePrice: alone.basePrice,
       classBonusAlone: alone.classBonus,
       classBonusTogether: row.classBonus,
       saleValue: row.basePrice + row.classBonus,
+      keepValue: Math.max(0, best - without),
     };
   });
 }
