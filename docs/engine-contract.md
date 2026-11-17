@@ -493,6 +493,30 @@ Sell phase change; the player's per-`globalTurnNo` allowance is untouched. The
 `ability-once-per-instance-per-lap` and `ability-once-per-player-turn` invariant checkers are
 active; `evolution-keeps-cooldowns` still guards evolution.
 
+### Disabled Ability reasons (issue #136)
+
+Spec: §3.1, §4.5, Appendix C.3, D7, D10. `legalActions` lists, beside the enabled `activate_ability`
+choices, every bound Ability on the seat's team that is not usable in its current window, as a
+`disabled` entry with the same stable ID the enabled form would have and a `reasonCode` /
+English `reasonText` (`abilityDisabled` in `engine/abilities.ts`). It is report-only: it lists
+nothing `abilityChoices` lists, applies no rule, and a disabled entry still rejects as
+`illegal_action`. Only the deciding seat gets entries, and only for its own team. The first reason
+that applies wins, in this order:
+
+| Reason | `reasonCode` | When |
+|---|---|---|
+| Instance used this Lap | `ABILITY_USED_THIS_LAP` | the instance's `abilityReady` is false; Start makes it ready again, evolution does not |
+| Player used this turn | `ABILITY_USED_THIS_GLOBAL_TURN` | the player's allowance for this `globalTurnNo` is spent, or the active player has no `pokemonAbility` |
+| Wrong timing | `ABILITY_WRONG_TIMING` | the window does not cover the effect's timing, or a battle-only effect is offered outside a battle |
+| Tactical action | `ALREADY_USED_THIS_TURN` | Challenge (`forcePvP`) with no `tacticalAction`, as `pvpDisabledReason` words it |
+| No valid target | `NO_VALID_TARGET` | no legal target: a slowed String Shot target (as the item rules word it), a target team with no battle-ready Pokémon, no status to heal, an armed shield, no Event card, Intimidate at a Gym |
+
+Targeted effects (Vine Pull, String Shot, Challenge) list one disabled entry per blocked
+opponent, so one blocked target never hides the others. An Ability whose content has no `effect`
+is not listed; content marks it planned. `abilityCosts(effect)` reports whether activating it also
+spends the tactical action (only `forcePvP` does). The visibility rules above are unchanged: as for
+items, a String Shot target's pending slow already shows in which targets the engine lists (#192).
+
 ## Roll modifiers and Porygon's reroll (issue #55 S11)
 
 Spec: §4.3, §4.4, §4.5, §6.1/6.8, §8; Appendix C.1 `rollBonus`, C.2, C.3, D2, D11, D13.

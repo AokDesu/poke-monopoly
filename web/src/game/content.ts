@@ -1,7 +1,11 @@
 import {
+  ABILITY_EFFECTS,
+  abilityCosts,
   effectiveForm,
   itemEffectStatus,
   nextEvolutionForms,
+  positionOf,
+  type AbilityEffectId,
   type ItemEffectStatus,
 } from '../../../engine/index.ts';
 import board from '../../../content/board.json';
@@ -24,6 +28,17 @@ export const engineContent = toEngineContent(content);
 export const currentForm = (formId: string) => effectiveForm(engineContent, formId);
 export const nextForms = (formId: string) =>
   nextEvolutionForms(engineContent, formId).map(currentForm);
+
+/**
+ * What the engine says activating an Ability effect costs and risks beyond its prose: whether it
+ * is hostile (§4.5) and whether it also spends the tactical action (Appendix C, D10).
+ */
+export function abilityFacts(effect: AbilityEffectId) {
+  return { hostile: ABILITY_EFFECTS[effect].hostile, ...abilityCosts(effect) };
+}
+
+/** The visible square of a signed route progress (§6.5). */
+export const squareOf = positionOf;
 
 /** How much of an item's effect the engine applies; undefined for an unknown item id. */
 export function itemStatus(itemId: string): ItemEffectStatus | undefined {

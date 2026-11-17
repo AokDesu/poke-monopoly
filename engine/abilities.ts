@@ -11,8 +11,10 @@ import type {
   EngineEvent,
   GameState,
   LegalAction,
+  LegalActions,
   Player,
   PokemonInstance,
+  ReasonCode,
 } from './contract/schema.ts';
 import { publicRevision } from './revision.ts';
 
@@ -126,13 +128,99 @@ export function abilityEffectOf(
   return effectiveForm(state.content, pokemon.speciesId).ability?.effect;
 }
 
+type Reason = { reasonCode: ReasonCode; reasonText: string };
+
+/** Effects that name an opponent as their target. */
+const TARGETED_EFFECTS: readonly AbilityEffectId[] = ['vine_pull', 'string_shot', 'challenge'];
+
+const TIMING_TEXT: Readonly<Record<Timing, string>> = {
+  OWN_STRATEGY: 'Usable in your Strategy phase',
+  CHALLENGE_DECLARE: 'Usable when you declare a challenge in Strategy',
+  BEFORE_OWN_ROLL: 'Usable before your own catch or battle roll',
+  AFTER_OWN_ROLL: 'Usable right after your own die is revealed',
+  REACTION: 'Usable as the defender in a battle',
+};
+
+/**
+ * Why a source cannot activate now whatever the window (§4.5, D10): its own Lap use first, then
+ * the player's allowance for this globalTurnNo, which the active player also spends as
+ * `pokemonAbility`. Tired Pokémon may still activate (D2).
+ */
+function activationBlock(
+  state: GameState,
+  player: Player,
+  pokemon: PokemonInstance,
+): Reason | undefined {
+  if (!pokemon.abilityReady) {
+    return {
+      reasonCode: 'ABILITY_USED_THIS_LAP',
+      reasonText: 'Already used this Lap; ready again after you pass Start',
+    };
+  }
+  if (
+    player.abilityUsedGlobalTurnNo === state.globalTurnNo ||
+    (player.seatIndex === state.activeSeatIndex && state.turnBudgets.pokemonAbility === 0)
+  ) {
+    return {
+      reasonCode: 'ABILITY_USED_THIS_GLOBAL_TURN',
+      reasonText: 'You already used an Ability this turn',
+    };
+  }
+}
+
+/** A window the effect's timing does not cover (C.3 D3). */
+function timingBlock(effect: AbilityEffectId, window: AbilityWindow): Reason | undefined {
+  const { timing } = ABILITY_EFFECTS[effect];
+  return WINDOW_TIMINGS[window].includes(timing)
+    ? undefined
+    : { reasonCode: 'ABILITY_WRONG_TIMING', reasonText: TIMING_TEXT[timing] };
+}
+
+/** Why one opponent is no legal target of a targeted effect (D10); the item rules' wording. */
+function targetBlock(
+  state: GameState,
+  player: Player,
+  effect: AbilityEffectId,
+  target: Player,
+): Reason | undefined {
+  if (effect === 'string_shot' && hasSlowKind(target, 'minus')) {
+    return { reasonCode: 'NO_VALID_TARGET', reasonText: 'Target is already slowed' };
+  }
+  if (effect === 'challenge') return pvpDisabledReason(state, player, target) ?? undefined;
+}
+
+/** Why an untargeted effect has no legal use in its own window (D7, D10). */
+function effectBlock(
+  state: GameState,
+  player: Player,
+  effect: AbilityEffectId,
+  window: AbilityWindow,
+): Reason {
+  const battle = window === 'attacker' || window === 'defender' || window === 'gym';
+  const noTarget = (reasonText: string): Reason => ({ reasonCode: 'NO_VALID_TARGET', reasonText });
+  if (!battle && (effect === 'blaze' || effect === 'dragon_rush' || effect === 'intimidate')) {
+    return { reasonCode: 'ABILITY_WRONG_TIMING', reasonText: 'Works only in a battle' };
+  }
+  switch (effect) {
+    case 'intimidate':
+      return noTarget('Needs a Pokémon battle opponent; a Gym has none');
+    case 'heal_pulse':
+      return noTarget('No Pokémon with a status to heal');
+    case 'shell_guard':
+      return noTarget('A shield is already armed');
+    case 'track':
+      return noTarget('No Event card to look at');
+    default:
+      return noTarget('No valid target');
+  }
+}
+
 /**
  * A ready source plus the player's unused allowance for this globalTurnNo; the active player also
  * needs `pokemonAbility` (§4.2, §4.5, C.3). Tired Pokémon may still activate (D2).
  */
 export function canActivate(state: GameState, player: Player, pokemon: PokemonInstance): boolean {
-  if (!pokemon.abilityReady || player.abilityUsedGlobalTurnNo === state.globalTurnNo) return false;
-  return player.seatIndex !== state.activeSeatIndex || state.turnBudgets.pokemonAbility > 0;
+  return activationBlock(state, player, pokemon) === undefined;
 }
 
 /** The window open for `seatIndex` in the current phase. */
@@ -223,7 +311,8 @@ function effectPayloads(
         : state.players
             .filter(
               (target) =>
-                target.seatIndex !== player.seatIndex && !pvpDisabledReason(state, player, target),
+                target.seatIndex !== player.seatIndex &&
+                !targetBlock(state, player, effect, target),
             )
             .map((target) => ({ instanceId, targetSeatIndex: target.seatIndex }));
     case 'track':
@@ -243,7 +332,7 @@ function effectPayloads(
             .filter(
               (target) =>
                 target.seatIndex !== player.seatIndex &&
-                (effect === 'vine_pull' || !hasSlowKind(target, 'minus')),
+                !targetBlock(state, player, effect, target),
             )
             .map((target) => ({ instanceId, targetSeatIndex: target.seatIndex }));
     case 'heal_pulse':
@@ -259,6 +348,11 @@ function effectPayloads(
   }
 }
 
+/** The stable choice ID of one activation (`ability:<instance>[:<target>…]`). */
+function abilityActionId(payload: Payload): string {
+  return ['ability', ...Object.values(payload)].join(':');
+}
+
 /** Every enabled activation for `seatIndex` in its current window (C.3: only eligible ones). */
 export function abilityChoices(
   state: GameState,
@@ -272,11 +366,56 @@ export function abilityChoices(
     if (!effect || !WINDOW_TIMINGS[window].includes(ABILITY_EFFECTS[effect].timing)) return [];
     if (!canActivate(state, player, pokemon)) return [];
     return effectPayloads(state, player, pokemon, effect, window).map((payload) => ({
-      id: ['ability', ...Object.values(payload)].join(':'),
+      id: abilityActionId(payload),
       kind: 'activate_ability' as const,
       payload,
     }));
   });
+}
+
+/**
+ * Every activation `seatIndex` holds in its current window that is not enabled, each with the
+ * reason the player is shown (§3.1: an unusable control says why). Report-only: it never lists
+ * an action `abilityChoices` lists and changes no rule. Reasons keep the instance's Lap use, the
+ * player's per-`globalTurnNo` allowance, a window the timing does not cover, a missing target and
+ * a spent tactical action apart; the first that applies wins, in that order. Effects without an
+ * engine binding never appear here (content marks them planned).
+ */
+export function abilityDisabled(
+  state: GameState,
+  seatIndex: number,
+  window = currentWindow(state, seatIndex),
+): LegalActions['disabled'] {
+  if (!window) return [];
+  const player = state.players.find((entry) => entry.seatIndex === seatIndex)!;
+  return player.team.flatMap((pokemon) => {
+    const effect = abilityEffectOf(state, pokemon);
+    if (!effect) return [];
+    const { instanceId } = pokemon;
+    const disabled = (payload: Payload, reason: Reason) => ({
+      id: abilityActionId(payload),
+      kind: 'activate_ability' as const,
+      payload,
+      ...reason,
+    });
+    const blocked = activationBlock(state, player, pokemon) ?? timingBlock(effect, window);
+    if (blocked) return [disabled({ instanceId }, blocked)];
+    if (TARGETED_EFFECTS.includes(effect)) {
+      return state.players.flatMap((target) => {
+        const reason =
+          target.seatIndex === seatIndex ? undefined : targetBlock(state, player, effect, target);
+        return reason ? [disabled({ instanceId, targetSeatIndex: target.seatIndex }, reason)] : [];
+      });
+    }
+    return effectPayloads(state, player, pokemon, effect, window).length
+      ? []
+      : [disabled({ instanceId }, effectBlock(state, player, effect, window))];
+  });
+}
+
+/** What activating `effect` spends beyond readiness and the allowance (D10): `forcePvP` also spends the tactical action. */
+export function abilityCosts(effect: AbilityEffectId): { tacticalAction: boolean } {
+  return { tacticalAction: ABILITY_EFFECTS[effect].primitive === 'forcePvP' };
 }
 
 /**

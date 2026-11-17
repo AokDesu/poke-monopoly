@@ -1,4 +1,5 @@
 import type { SeatEvent } from '../../../engine/index.ts';
+import { currentForm, squareOf } from '../game/content.ts';
 import type { SeatFeedEntry } from '../game/store.ts';
 import { t, type MessageKey } from '../i18n/en.ts';
 import { itemName } from '../i18n/names.ts';
@@ -20,10 +21,6 @@ function eventMessage(
     case 'attack_attempt':
     case 'shield_armed':
     case 'protection_applied':
-    case 'ability_activated':
-    case 'abilities_reset':
-    case 'player_displaced':
-    case 'ball_gained':
     case 'item_gained':
     case 'event_deck_shuffled':
     case 'event_drawn':
@@ -39,6 +36,40 @@ function eventMessage(
     case 'battle_reward_resolved':
     case 'line_selected':
       return [];
+    // A used Ability is public, with its user and Pokémon; the engine strips a hostile Ability's
+    // target from every seat but its user and target (§4.1, #192), so a target is named only when kept.
+    case 'ability_activated': {
+      const pokemon = observation.public.players
+        .flatMap((player) => player.team)
+        .find((member) => member.instanceId === event.instanceId);
+      const form = pokemon ? currentForm(pokemon.speciesId) : undefined;
+      const values = {
+        user: playerLabel(observation, event.ownerId),
+        ability: form?.ability?.name ?? event.effect,
+        pokemon: form?.name ?? event.instanceId,
+      };
+      return event.targetId
+        ? message('board.event.abilityUsedOn', {
+            ...values,
+            target: playerLabel(observation, event.targetId),
+          })
+        : message('board.event.abilityUsed', values);
+    }
+    case 'abilities_reset':
+      return message('board.event.abilitiesReset', {
+        owner: playerLabel(observation, event.ownerId),
+      });
+    case 'player_displaced':
+      return message('board.event.displaced', {
+        target: playerLabel(observation, event.targetId),
+        position: squareOf(event.to),
+      });
+    // Told to the owner alone (§4.1): a Lucky Splash hit shows in no other seat's log.
+    case 'ball_gained':
+      return message('board.event.ballGained', {
+        owner: playerLabel(observation, event.ownerId),
+        ball: t(`board.ball.${event.ballType}`),
+      });
     // Chat has its own screen (#57); the flag keeping the Social window closed is off until then.
     case 'chat_sent':
     case 'promise_offered':

@@ -95,7 +95,7 @@ export function TurnPanel({
   if (humanTurn && game.phase.kind === 'encounter' && view.legalActions.enabled.length > 1) {
     body = t('turn.encounterBody');
   }
-  if (choiceOpen) body = t('turn.choiceBody');
+  if (choiceOpen) body = t(humanTurn ? 'turn.choiceBody' : 'turn.reactionBody');
   if (opponentFailed) body = t('turn.opponentError');
   return (
     <section className="turn-panel panel" aria-label={t('turn.actions')}>
@@ -109,7 +109,7 @@ export function TurnPanel({
                 ? t('board.finished')
                 : humanTurn
                   ? phaseLabel(game.phase.kind)
-                  : t('turn.opponent')}
+                  : t(choiceOpen ? 'turn.reaction' : 'turn.opponent')}
         </h2>
         <p role={opponentFailed ? 'alert' : 'status'}>{body}</p>
         {automaticMessage && !decisionOpen && (

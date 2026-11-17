@@ -27,8 +27,8 @@ export interface GalleryExample {
 /** One spec row that has a screen in this build, with the examples that show it. */
 export interface GalleryRow {
   readonly id: string;
-  /** Row number in the spec §3.1 table; `null` for the §3 "Backup bot mode" badge line. */
-  readonly specRow: number | null;
+  /** Row number in the spec §3.1 table; `'ai-turns'` for the §3 AI-turn lines; `'abilities'` for the §4.5 Ability states. */
+  readonly specRow: number | 'ai-turns' | 'abilities';
   /** The spec's own wording for the situation. */
   readonly label: MessageKey;
   /** Catalog keys the examples must put on screen; the gallery test fails if one is missing. */
@@ -60,6 +60,8 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
   const wholeTeamSold = once(scenes.wholeTeamSold);
   const decisionOpen = once(scenes.rivalDecisionOpen);
   const watchOpen = once(scenes.watchDecisionOpen);
+  const abilityStrategy = once(scenes.abilityStrategy);
+  const abilityReaction = once(scenes.abilityReaction);
   const rivalFallback = (reason: string, rivals: 1 | 2) =>
     once(() => scenes.rivalLeftShop({ source: 'fallback', fallbackReason: reason }, rivals));
   const timeoutOfOne = rivalFallback('timeout', 1);
@@ -209,7 +211,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
     },
     {
       id: 'backup-badge',
-      specRow: null,
+      specRow: 'ai-turns',
       label: 'gallery.row.backupBadge',
       keys: ['ai.backupBadge', 'ai.reason.timeout', 'ai.reason.rate_limited'],
       examples: [
@@ -396,7 +398,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
     },
     {
       id: 'ai-exchange',
-      specRow: null,
+      specRow: 'ai-turns',
       label: 'gallery.row.aiExchange',
       keys: ['talk.aiWritten', 'talk.onlyWords', 'talk.empty'],
       examples: [
@@ -461,6 +463,24 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
                 speech: { enabled: false, reason: 'disabled' },
               },
             }),
+        },
+      ],
+    },
+    {
+      id: 'abilities',
+      specRow: 'abilities',
+      label: 'gallery.row.abilities',
+      keys: ['ability.heading', 'ability.planned', 'ability.choosePrompt', 'turn.reaction'],
+      examples: [
+        {
+          id: 'strategy',
+          caption: 'gallery.example.abilityStrategy',
+          render: () => turnPanel(abilityStrategy()),
+        },
+        {
+          id: 'reaction',
+          caption: 'gallery.example.abilityReaction',
+          render: () => turnPanel(abilityReaction()),
         },
       ],
     },

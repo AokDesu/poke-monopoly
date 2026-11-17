@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import {
   applyAction,
@@ -58,7 +58,7 @@ test('a Gym entry lists the engine’s challenge and skip choices in plain words
   expect(chosen).toEqual(['challenge-gym', 'skip']);
 });
 
-test('the two Adaptability scopes in a Gym Ability window get labels the player can tell apart', () => {
+test('the two Adaptability scopes in a Gym Ability window are told apart, previewed, and only the confirmed one is submitted', () => {
   let state = gymEntry('rival'); // the Rival's Starter is Eevee
   state.players[0]!.team[0]!.abilityReady = true;
   state.turnBudgets.pokemonAbility = 1;
@@ -84,14 +84,23 @@ test('the two Adaptability scopes in a Gym Ability window get labels the player 
       onChoose={(id) => chosen.push(id)}
     />,
   );
-  const labels = screen.getAllByRole('button').map((button) => button.textContent);
-  expect(new Set(labels).size).toBe(labels.length);
+  fireEvent.click(screen.getByRole('button', { name: 'Adaptability' }));
+  const scopeButtons = within(
+    screen.getByRole('group', { name: t('ability.scopes') }),
+  ).getAllByRole('button');
+  expect(scopeButtons.map((button) => button.textContent)).toEqual([
+    t('ability.scope.catch'),
+    t('ability.scope.combat'),
+  ]);
+  fireEvent.click(scopeButtons[1]!);
+  const preview = screen.getByLabelText(t('ability.preview'));
+  expect(preview.textContent).toContain(
+    t('ability.previewScope', { scope: t('ability.scope.combat') }),
+  );
+  expect(preview.textContent).toContain(t('ability.cost'));
+  expect(chosen).toEqual([]);
   fireEvent.click(
-    screen.getByRole('button', {
-      name: t('choice.abilityCombat', {
-        label: t('choice.ability', { ability: 'Adaptability', pokemon: 'Eevee' }),
-      }),
-    }),
+    screen.getByRole('button', { name: t('ability.confirm', { ability: 'Adaptability' }) }),
   );
   const combat = actions.enabled.find(
     (action) => action.kind === 'activate_ability' && action.payload.scope === 'combat',

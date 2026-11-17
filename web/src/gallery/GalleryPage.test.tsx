@@ -74,6 +74,11 @@ const SHOWN = [
     keys: ['save.pendingWatched', 'save.continue', 'game.resumedAiTurn'],
   },
   { id: 'watch-all-backup', specRow: '18', keys: ['ai.allBackupBanner', 'ai.backupBadge'] },
+  {
+    id: 'abilities',
+    specRow: 'abilities',
+    keys: ['ability.heading', 'ability.planned', 'ability.choosePrompt', 'turn.reaction'],
+  },
 ] as const satisfies readonly { id: string; specRow: string; keys: readonly MessageKey[] }[];
 
 /** Rows with nothing for a player to see in this build (no chat, deals or event-deck screen, engine-only). */
@@ -116,7 +121,9 @@ test('every §3.1 row that has a screen shows each of its catalog keys, labelled
     const label =
       row.specRow === 'ai-turns'
         ? t('gallery.specAiTurns')
-        : t('gallery.specRow', { row: row.specRow });
+        : row.specRow === 'abilities'
+          ? t('gallery.specAbilities')
+          : t('gallery.specRow', { row: row.specRow });
     expect(within(el).getByText(label), row.id).toBeTruthy();
   }
 });
