@@ -1,7 +1,13 @@
 /// <reference types="vite/client" />
 import { expect, test } from 'vitest';
 import { checkChatLeaks, loadChatSet } from './chat.ts';
-import { fixtureSchema, observe } from '../../engine/index.ts';
+import {
+  applyAction,
+  createGame,
+  createGameConfig,
+  fixtureSchema,
+  observe,
+} from '../../engine/index.ts';
 import {
   assertNoComparableNumbers,
   assertStateTokenBudget,
@@ -107,3 +113,91 @@ for (const [path, input] of Object.entries(fixtures)) {
       expect(checkChatLeaks(chatItems, state, seatIndex)).toBe(chatItems.length);
   });
 }
+
+/** Seats 0 and 1 trade a promise and a chat; seat 2 is outside both (spec §4.8, §5.4, #143). */
+function threeSeatSocial() {
+  const scenario = fixtureSchema.parse(
+    fixtures['../../engine/fixtures/start-of-game-2p.json'],
+  ).state;
+  const content = structuredClone(scenario.content);
+  content.classes.push({
+    id: 'team-rocket',
+    name: 'Team Rocket',
+    starterSpeciesIds: ['eevee'],
+    classItemId: 'pickpocket',
+  });
+  const state = createGame(
+    createGameConfig({
+      seats: [
+        ...scenario.config.seats,
+        { actorId: 'player-2', seatIndex: 2, classId: 'team-rocket', controller: 'ai' as const },
+      ],
+      seed: 4,
+      lapTarget: 3,
+      socialWindow: true,
+    }),
+    content,
+  );
+  state.phase = { kind: 'social' };
+  state.globalTurnNo = 1;
+  state.players[0]!.ownTurnNo = 1;
+  state.turnBudgets = {
+    tacticalAction: 1,
+    catchAttempt: 1,
+    pokemonAbility: 1,
+    socialInteraction: 1,
+  };
+  return state;
+}
+
+function act(
+  state: ReturnType<typeof threeSeatSocial>,
+  seat: number,
+  kind: string,
+  payload: object,
+) {
+  const revision = observe(state, seat).public.stateRevision;
+  const result = applyAction(state, {
+    actorId: state.players[seat]!.actorId,
+    actionSeq: revision + 1,
+    stateRevisionBefore: revision,
+    kind,
+    payload,
+  } as never);
+  if ('rejected' in result) throw new Error(result.reason);
+  return result.state;
+}
+
+test("social state: a seat sees its own promise and pending card, never a third party's (spec §4.8, §5.4)", () => {
+  const offered = act(threeSeatSocial(), 0, 'offer_promise', {
+    targetSeatIndex: 1,
+    direction: 'offer',
+  });
+  const responder = buildJevState(observe(offered, 1));
+  expect(responder.social?.pending_card).toMatchObject({ from_id: 'player-0' });
+  const bystander = buildJevState(observe(offered, 2));
+  expect(bystander.social).toEqual({ promises: [], broken_promises: [], trust: [] });
+  expect(JSON.stringify(bystander)).not.toMatch(/pending_card|no_attack/);
+
+  const accepted = act(offered, 1, 'respond', { answer: 'accept' });
+  for (const seat of [0, 1]) {
+    expect(buildJevState(observe(accepted, seat)).social?.promises).toEqual([
+      {
+        kind: 'no_attack',
+        promiser_id: 'player-0',
+        recipient_id: 'player-1',
+        yours_to_keep: seat === 0,
+      },
+    ]);
+  }
+  const outside = buildJevState(observe(accepted, 2));
+  expect(outside.social?.promises).toEqual([]);
+  assertNoComparableNumbers(outside);
+  assertStateTokenBudget(outside);
+});
+
+test('social state: trust is a named bucket per opponent, supplied once S07 provides it', () => {
+  const state = threeSeatSocial();
+  const built = buildJevState(observe(state, 0), { trust: { 'player-1': 'wary' } });
+  expect(built.social?.trust).toEqual([{ id: 'player-1', bucket: 'wary' }]);
+});
