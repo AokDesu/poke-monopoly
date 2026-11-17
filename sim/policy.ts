@@ -74,11 +74,14 @@ export class RandomPolicy implements Policy {
 }
 
 /**
- * `--policy <name>`; `fallback` plays every seat as Greedy (spec §5.2, §5.5), and `jev` decides
+ * `--policy <name>`; `fallback` plays every seat as Greedy and `fallback-<personality>` as that personality (spec §5.2, §5.5), and `jev` decides
  * every seat's turns through the Jev decision orchestrator (§5.6).
  */
 export const POLICIES: Readonly<Record<string, PolicyFactory>> = {
   random: () => new RandomPolicy(),
   fallback: () => new FallbackPolicy(PERSONALITIES.greedy),
+  'fallback-aggressive': () => new FallbackPolicy(PERSONALITIES.aggressive),
+  'fallback-cautious': () => new FallbackPolicy(PERSONALITIES.cautious),
+  'fallback-opportunist': () => new FallbackPolicy(PERSONALITIES.opportunist),
   jev: createJevPolicy,
 };

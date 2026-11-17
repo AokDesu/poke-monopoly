@@ -1,0 +1,11 @@
+{
+  "name": "Cautious",
+  "description": "Plays safe and steady; avoids fights and gambles, and keeps promises to protect a lead.",
+  "weights": {
+    "risk": 0.2,
+    "aggression": 0.2,
+    "liquidity": 0.5,
+    "loyalty": 0.8
+  },
+  "lineStyle": "careful"
+}
