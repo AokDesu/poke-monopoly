@@ -36,3 +36,10 @@ export {
   type SellState,
   type SellValue,
 } from './sell.ts';
+export {
+  buildManipulationRequest,
+  MANIPULATION_INSTRUCTIONS,
+  MANIPULATION_TEXT_MAX_CHARS,
+  manipulationVerdict,
+  type ManipulationMessage,
+} from './manipulation.ts';

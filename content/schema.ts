@@ -124,6 +124,11 @@ const configSchema = z.strictObject({
   startIncome: count,
   lapTargets: z.strictObject({ quick: z.int().positive(), standard: z.int().positive() }),
   rarityWeights: z.strictObject({ common: count, uncommon: count, rare: count }),
+  /**
+   * AI table talk (spec §5.7), not a game rule: a line whose manipulation Noul is at or above
+   * `manipulationThreshold` is never quoted to another AI. Read by `ai/` only.
+   */
+  aiTalk: z.strictObject({ manipulationThreshold: z.number().gt(0).max(1) }),
 });
 
 const contentFilesSchema = z

@@ -63,6 +63,11 @@ const SHOWN = [
     ],
   },
   { id: 'haiku-screen-fail', specRow: '16', keys: ['talk.bank', 'talk.onlyWords', 'talk.empty'] },
+  {
+    id: 'ai-exchange',
+    specRow: 'ai-turns',
+    keys: ['talk.aiWritten', 'talk.onlyWords', 'talk.empty'],
+  },
 ] as const satisfies readonly { id: string; specRow: string; keys: readonly MessageKey[] }[];
 
 /** Rows with nothing for a player to see in this build (no chat, deals, speech or watch screen, engine-only). */

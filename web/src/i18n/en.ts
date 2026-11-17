@@ -454,7 +454,8 @@ export const en = {
   'talk.show': 'Show table talk',
   'talk.hidden': 'Table talk is hidden. No new lines are asked for while it is hidden.',
   'talk.empty':
-    'No table talk yet. An AI may comment after a rare catch, a big sale, a Gym win, a change in the lead or the final round.',
+    'No table talk yet. An AI may comment, or speak to another AI that answers, after a rare catch, a big sale, a Gym win, a change in the lead or the final round.',
+  'talk.exchange': 'An exchange: {from} speaks to {to}, who answers',
   'talk.onlyWords': 'Only words: table talk never changes a game number or an AI’s choice.',
   'talk.aiWritten': 'AI-written · only words',
   'talk.bank': 'Line bank · only words',
@@ -542,6 +543,7 @@ export const en = {
   'gallery.row.haikuOff': 'Haiku is off, has no key, is out of budget or is slow',
   'gallery.row.haikuScreenFail':
     "Haiku's text fails the output screen (too long, a digit, a link, a non-public item name, an offer or promise)",
+  'gallery.row.aiExchange': 'One AI speaks to another and the other answers (AI-to-AI table talk)',
   'gallery.row.watchBrowserClosed': "A watched game's browser closes",
   'gallery.row.watchAllBackup': 'Every AI in a watched game is on the backup bot',
   'gallery.row.backupBadge':
@@ -568,6 +570,10 @@ export const en = {
     'The text failed the screen: the bank line is shown, not labelled AI-written',
   'gallery.example.screenSilence':
     'The text failed the screen and the bank has no line: nothing is shown',
+  'gallery.example.exchange':
+    'An exchange: the opening line, then the answer set in beneath it, each labelled AI-written',
+  'gallery.example.exchangeDropped':
+    'An exchange the manipulation check refused or that ran out of time: nothing is shown or saved',
   'gallery.example.badgeRateLimited': 'One of two rivals was rate limited',
 } as const satisfies Record<string, string>;
 

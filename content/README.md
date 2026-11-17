@@ -1,6 +1,6 @@
 # content/
 
-Game data and text: the Appendix A baseline as JSON (`board`, `classes`, `species`, `evolutions`, `items`, `events`, `config`), personality files (`content/personalities/<name>.json`) the English line bank (`content/lines/en/<situation>.json`) and the voice file Haiku writes from (`content/voice/en.json`).
+Game data and text: the Appendix A baseline as JSON (`board`, `classes`, `species`, `evolutions`, `items`, `events`, `config`, which also holds `aiTalk.manipulationThreshold`, the Jev gate's cut-off for AI-to-AI table talk), personality files (`content/personalities/<name>.json`) the English line bank (`content/lines/en/<situation>.json`) and the voice file Haiku writes from (`content/voice/en.json`).
 
 Data only. The code files are `schema.ts` (zod schemas, a pure `parseContent(files)` that validates and returns typed content plus `contentVersion`, and `toEngineContent` for the engine's strict `Content`), `personality-schema.ts` (a pure `parsePersonality(id, json)` for `content/personalities/<name>.json`) `lines-schema.ts` (a pure `parseLines(situation, json)` and the `fillSlots` slot filler for the line bank) and `voice-schema.ts` (a pure `parseVoice(json)`). Nothing here reads files: `sim/content.ts` loads the JSON in Node, and a browser app can import the JSON files directly.
 
