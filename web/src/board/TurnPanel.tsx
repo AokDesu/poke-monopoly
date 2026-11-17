@@ -1,4 +1,4 @@
-import type { SeatView } from '../game/store.ts';
+import type { SeatView, SpectatorView } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
 import { AiTurn } from './AiTurn.tsx';
@@ -9,11 +9,11 @@ import { turnMessages } from './turnMessages.ts';
 import type { TurnPlayback } from './useTurnPlayback.ts';
 
 /** The rival's latest announced action, from the accepted records alone. */
-export function opponentMessageOf(view: SeatView) {
+export function opponentMessageOf(view: SeatView | SpectatorView) {
   const game = view.observation.public;
   const automatic = view.feed.at(-1);
   return automatic?.before.activeSeatIndex === game.activeSeatIndex
-    ? turnMessages(automatic).find((message) => message.key.startsWith('ai.'))
+    ? turnMessages(automatic, view.seatIndex).find((message) => message.key.startsWith('ai.'))
     : undefined;
 }
 
@@ -42,13 +42,14 @@ export function TurnPanel({
   const decisionOpen = humanTurn && ['shop', 'strategy', 'sell'].includes(game.phase.kind);
   const result = view.feed
     .filter(({ before }) => before.activeSeatIndex === view.seatIndex)
-    .flatMap(turnMessages)
+    .flatMap((entry) => turnMessages(entry, view.seatIndex))
     .findLast((message) =>
       ['encounter.caught', 'encounter.escaped', 'encounter.released'].includes(message.key),
     );
   const automatic = view.feed.at(-1);
   const automaticMessage =
-    automatic && turnMessages(automatic).find((message) => message.key === 'turn.automatic');
+    automatic &&
+    turnMessages(automatic, view.seatIndex).find((message) => message.key === 'turn.automatic');
   const lastSale = view.feed.findLast(
     ({ before }) => before.activeSeatIndex === view.seatIndex && before.phase.kind === 'sell',
   );

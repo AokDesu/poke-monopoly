@@ -7,18 +7,42 @@ import { useTurnPlayback } from './useTurnPlayback.ts';
 import { EncounterDialog } from './EncounterDialog.tsx';
 import { SellPanel } from './SellPanel.tsx';
 import { opponentMessageOf, TurnPanel } from './TurnPanel.tsx';
+import { WatchScreen } from './WatchScreen.tsx';
 import './turn-flow.css';
 import './decision-panels.css';
 
-export function BoardScreen({
-  store,
-  notice,
-  onFinished,
-}: {
+export interface BoardScreenProps {
   store: GameStore;
   notice?: string;
   onFinished?: () => void;
-}) {
+  /** Watch mode only: true when the browser cannot keep a save. */
+  savingOff?: boolean;
+  /** Watch mode only: the watcher chose Save and continue later, or End, from Leave. Without it the bar has no Leave. */
+  onLeave?: (how: 'save' | 'end') => void;
+}
+
+/** A game with no human seat is watched; any other game is played from its human seat. */
+export function BoardScreen({ savingOff, onLeave, ...props }: BoardScreenProps) {
+  const spectator = useSyncExternalStore(props.store.subscribe, props.store.getSpectatorView);
+  return spectator ? (
+    <WatchScreen
+      store={props.store}
+      view={spectator}
+      notice={props.notice}
+      savingOff={savingOff}
+      onFinished={props.onFinished}
+      onLeave={onLeave}
+    />
+  ) : (
+    <PlayerBoardScreen {...props} />
+  );
+}
+
+function PlayerBoardScreen({
+  store,
+  notice,
+  onFinished,
+}: Pick<BoardScreenProps, 'store' | 'notice' | 'onFinished'>) {
   const view = useSyncExternalStore(store.subscribe, store.getView);
   const openedAt = useRef<number | null>(null);
   const playback = useTurnPlayback(store, view);

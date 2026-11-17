@@ -6,7 +6,16 @@ import './team-details.css';
 type TeamMember = Observation['public']['players'][number]['team'][number];
 
 /** Native, local disclosure: inspecting public team data never submits a game action. */
-export function TeamDetails({ pokemon, form }: { pokemon: TeamMember; form: EffectiveForm }) {
+export function TeamDetails({
+  pokemon,
+  form,
+  watched = false,
+}: {
+  pokemon: TeamMember;
+  form: EffectiveForm;
+  /** A watcher holds no seat, so no one is "you" who chooses an evolution. */
+  watched?: boolean;
+}) {
   const next = nextForms(pokemon.speciesId);
   return (
     <details className="team-details">
@@ -38,7 +47,9 @@ export function TeamDetails({ pokemon, form }: { pokemon: TeamMember; form: Effe
           <dd>
             {next.length > 0 ? (
               <>
-                {next.length > 1 && <p>{t('team.branchChoice')}</p>}
+                {next.length > 1 && (
+                  <p>{t(watched ? 'team.branchChoiceWatched' : 'team.branchChoice')}</p>
+                )}
                 <ul>
                   {next.map((choice) => (
                     <li key={choice.id}>

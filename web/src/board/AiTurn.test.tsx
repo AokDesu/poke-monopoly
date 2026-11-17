@@ -221,7 +221,7 @@ test('during an opponent turn the now-strip names the same action as the log and
   }
   const view = store.getView()!;
   const latest = view.feed.at(-1)!;
-  const message = turnMessages(latest).find((entry) => entry.key.startsWith('ai.'));
+  const message = turnMessages(latest, 0).find((entry) => entry.key.startsWith('ai.'));
   expect(message).toBeTruthy();
   const seat = latest.before.activeSeatIndex;
   const strip = document.querySelector('.now-strip');
@@ -267,7 +267,7 @@ test('during a rival movement die the now-strip stays visible, truthful and alig
       latest.record.action.kind === 'dice_result' &&
       latest.before.phase.kind === 'move';
     if (!movesDie) continue;
-    const message = turnMessages(latest).find((entry) => entry.key.startsWith('ai.'));
+    const message = turnMessages(latest, 0).find((entry) => entry.key.startsWith('ai.'));
     expect(message).toBeTruthy();
     expect(message!.text).toContain(
       String(latest.record.events.find((event) => event.kind === 'random_result')?.result),

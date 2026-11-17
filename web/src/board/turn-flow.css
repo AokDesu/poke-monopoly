@@ -238,6 +238,51 @@
 .now-between {
   white-space: pre;
 }
+/* Watch mode: the control bar under the turn text (issue #174). Four buttons in two columns
+   keep every touch target at least 44px and every disabled reason beside its button. */
+.watch-controls {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-line);
+}
+.watch-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.2rem 0.75rem;
+  align-items: start;
+}
+.turn-panel .watch-buttons .action-control {
+  margin-top: 0.5rem;
+}
+.watch-buttons .btn,
+.watch-ask .btn {
+  min-height: 3rem;
+  padding-inline: 0.9rem;
+  font-size: 1rem;
+}
+.watch-ask {
+  padding: 1rem;
+  border-radius: 16px;
+  background: var(--color-panel-tint);
+  line-height: 1.5;
+}
+.watch-ask:focus-visible {
+  outline: 3px solid var(--color-ink);
+  outline-offset: 3px;
+}
+.watch-ask-actions {
+  display: grid;
+  gap: 0.2rem;
+  margin-top: 0.5rem;
+}
+.watch-ask-actions .btn {
+  width: 100%;
+}
+.watch-ask-actions .action-control {
+  margin-top: 0.5rem;
+}
 @media (max-width: 1023px) {
   .turn-panel {
     grid-column: 1 / -1;

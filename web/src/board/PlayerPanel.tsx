@@ -1,20 +1,26 @@
 import type { Observation } from '../../../engine/index.ts';
 import { ballItemId, currentForm, speciesType } from '../game/content.ts';
+import type { OpponentSettings } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { className, itemName } from '../i18n/names.ts';
 import { BallIcon } from '../ui/icons.tsx';
 import { TypeOrb } from '../ui/TypeOrb.tsx';
-import { seatLabel, tagLabel } from './labels.ts';
+import { ownSeatOf, seatLabel, tagLabel, type ViewedObservation } from './labels.ts';
 import { ItemFacts } from './ItemFacts.tsx';
 import { TeamDetails } from './TeamDetails.tsx';
 
 interface PlayerPanelProps {
   player: Observation['public']['players'][number];
-  observation: Observation;
+  observation: ViewedObservation;
+  /** A watcher sees every seat's setup beside its public numbers. */
+  setup?: OpponentSettings;
 }
 
-export function PlayerPanel({ player, observation }: PlayerPanelProps) {
-  const own = player.seatIndex === observation.own.seatIndex;
+export function PlayerPanel({ player, observation, setup }: PlayerPanelProps) {
+  const ownSeat = ownSeatOf(observation);
+  const ownData =
+    'own' in observation && player.seatIndex === ownSeat ? observation.own : undefined;
+  const own = ownData !== undefined;
   const active = player.seatIndex === observation.public.activeSeatIndex;
   return (
     <section
@@ -31,10 +37,16 @@ export function PlayerPanel({ player, observation }: PlayerPanelProps) {
           {player.seatIndex}
         </span>
         <div>
-          <h2 id={`player-heading-${player.seatIndex}`}>
-            {seatLabel(player.seatIndex, observation.own.seatIndex)}
-          </h2>
+          <h2 id={`player-heading-${player.seatIndex}`}>{seatLabel(player.seatIndex, ownSeat)}</h2>
           <p>{className(player.classId)}</p>
+          {setup && (
+            <p className="player-setup">
+              {t('watch.setup', {
+                personality: t(`personality.${setup.personality}`),
+                difficulty: t(`difficulty.${setup.difficulty}`),
+              })}
+            </p>
+          )}
         </div>
         {active && (
           <span
@@ -43,7 +55,7 @@ export function PlayerPanel({ player, observation }: PlayerPanelProps) {
               own
                 ? t('board.yourTurn')
                 : t('board.turn', {
-                    name: seatLabel(player.seatIndex, observation.own.seatIndex),
+                    name: seatLabel(player.seatIndex, ownSeat),
                   })
             }
           />
@@ -93,7 +105,7 @@ export function PlayerPanel({ player, observation }: PlayerPanelProps) {
                     <strong aria-label={t('board.battle')}>{form.battle}</strong>
                   </div>
                 </div>
-                <TeamDetails pokemon={pokemon} form={form} />
+                <TeamDetails pokemon={pokemon} form={form} watched={ownSeat === undefined} />
               </li>
             );
           })}
@@ -109,7 +121,7 @@ export function PlayerPanel({ player, observation }: PlayerPanelProps) {
                   <BallIcon className="size-6" />
                   <span>{t(`board.ball.${ball}`)}</span>
                 </dt>
-                <dd aria-label={t(`board.ball.${ball}`)}>{observation.own.balls[ball]}</dd>
+                <dd aria-label={t(`board.ball.${ball}`)}>{ownData.balls[ball]}</dd>
                 <dd className="pouch-facts">
                   <ItemFacts itemId={ballItemId(ball)} />
                 </dd>
@@ -118,10 +130,10 @@ export function PlayerPanel({ player, observation }: PlayerPanelProps) {
           </dl>
           <h3>{t('board.items')}</h3>
           <ul className="item-list" aria-label={t('board.items')}>
-            {observation.own.items.length === 0 ? (
+            {ownData.items.length === 0 ? (
               <li className="panel-note">{t('board.emptyItems')}</li>
             ) : (
-              observation.own.items.map((item) => (
+              ownData.items.map((item) => (
                 <li key={item.instanceId}>
                   <span className="item-capsule" aria-hidden="true" />
                   <div className="item-entry">

@@ -1,15 +1,16 @@
-import type { EngineEvent, Observation } from '../../../engine/index.ts';
+import type { EngineEvent } from '../../../engine/index.ts';
 import type { SeatFeedEntry } from '../game/store.ts';
 import { t, type MessageKey } from '../i18n/en.ts';
 import { itemName } from '../i18n/names.ts';
-import { phaseLabel, playerLabel, reasonLabel, seatLabel } from './labels.ts';
+import { ownSeatOf, phaseLabel, playerLabel, reasonLabel, seatLabel } from './labels.ts';
+import type { ViewedObservation } from './labels.ts';
 import { turnMessages } from './turnMessages.ts';
 
 function eventMessage(
   event: EngineEvent,
-  observation: Observation,
+  observation: ViewedObservation,
 ): { key: MessageKey; text: string }[] {
-  const seat = (index: number) => seatLabel(index, observation.own.seatIndex);
+  const seat = (index: number) => seatLabel(index, ownSeatOf(observation));
   const message = (key: MessageKey, values?: Record<string, string | number>) => [
     { key, text: t(key, values) },
   ];
@@ -80,12 +81,12 @@ export function EventLog({
   feed,
 }: {
   events: readonly EngineEvent[];
-  observation: Observation;
+  observation: ViewedObservation;
   feed?: readonly SeatFeedEntry[];
 }) {
   const rows = feed
     ? feed.flatMap((entry) => [
-        ...turnMessages(entry),
+        ...turnMessages(entry, ownSeatOf(observation)),
         ...entry.record.events.flatMap((event) => eventMessage(event, observation)),
       ])
     : events.flatMap((event) => eventMessage(event, observation));

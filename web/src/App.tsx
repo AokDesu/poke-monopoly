@@ -28,6 +28,7 @@ import {
   createGameStore,
   MODES,
   opponentSettings,
+  rematchConfig,
   type GameSession,
   type GameStore,
 } from './game/store.ts';
@@ -194,6 +195,35 @@ export function App({
     store.clear();
     go(HOME);
   };
+  /** Leave from a watched game: Save keeps the game for Continue, End discards it. */
+  const leaveWatch = (how: 'save' | 'end') => {
+    if (how === 'end') {
+      playAgain();
+      return;
+    }
+    noticeRef.current = null;
+    setResumeNotice(null);
+    setOffer(inspect(storage).offer);
+    go(HOME);
+  };
+  /** Same AIs and settings, a new seed (spec §3, watch path). */
+  const watchAgain = () => {
+    const session = store.getSession();
+    if (!session) {
+      playAgain();
+      return;
+    }
+    const settings = store.getOpponents();
+    noticeRef.current = null;
+    setResumeNotice(null);
+    try {
+      store.start(rematchConfig(session.state.config, freshSeed()), engineContent, settings);
+    } catch {
+      playAgain();
+      return;
+    }
+    go({ screen: 'play' });
+  };
   const prompt: SavePromptProps | null = offer
     ? offer.kind === 'continue'
       ? {
@@ -316,11 +346,13 @@ export function App({
           store={store}
           notice={resumeNotice ?? undefined}
           onFinished={() => go({ screen: 'results' })}
+          savingOff={savingOff}
+          onLeave={leaveWatch}
         />
       );
       break;
     case 'results':
-      screen = <ResultsScreen store={store} onPlayAgain={playAgain} />;
+      screen = <ResultsScreen store={store} onPlayAgain={playAgain} onWatchAgain={watchAgain} />;
       break;
     case 'credits':
       screen = <CreditsScreen onBack={() => go(creditsFrom)} />;
