@@ -1,3 +1,4 @@
+import { inSocialWindow, sentThisTurn } from '../game/chat.ts';
 import type { SeatView, SpectatorView } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
@@ -6,8 +7,12 @@ import { phaseLabel } from './labels.ts';
 import { ShopPanel } from './ShopPanel.tsx';
 import { ChoicePanel } from './ChoicePanel.tsx';
 import { StrategyPanel } from './StrategyPanel.tsx';
+import { SocialPanel } from './SocialPanel.tsx';
+import type { ChatReplyControls } from './useChatReply.ts';
 import { turnMessages } from './turnMessages.ts';
 import type { TurnPlayback } from './useTurnPlayback.ts';
+
+const NO_REPLY: ChatReplyControls = { state: { status: 'none' }, retry: () => {} };
 
 /** The rival's latest announced action, from the accepted records alone. */
 export function opponentMessageOf(view: SeatView | SpectatorView) {
@@ -27,6 +32,8 @@ export interface TurnPanelProps {
   actionError: boolean;
   onChoose: (id: string) => void;
   onFinished?: () => void;
+  /** The reply to this turn's topic message; absent where no window is open (the gallery). */
+  social?: ChatReplyControls;
 }
 
 /** What the player may do now and what just happened, from the human seat's view only. */
@@ -37,17 +44,22 @@ export function TurnPanel({
   actionError,
   onChoose,
   onFinished,
+  social = NO_REPLY,
 }: TurnPanelProps) {
   const { public: game } = view.observation;
   const humanTurn = game.activeSeatIndex === view.seatIndex;
   // Gym entry, Ability windows, rerolls and rewards have no dedicated panel yet (#55): list the
   // engine's enabled choices whenever this seat owns a real decision outside the panels below.
+  const socialOpen = inSocialWindow(view);
   const choiceOpen =
     view.legalActions.enabled.length > 1 &&
+    !socialOpen &&
     !['shop', 'strategy', 'sell'].includes(game.phase.kind) &&
     !(game.phase.kind === 'encounter' && !game.phase.catchRoll);
   const decisionOpen =
-    (humanTurn && ['shop', 'strategy', 'sell'].includes(game.phase.kind)) || choiceOpen;
+    (humanTurn && ['shop', 'strategy', 'sell'].includes(game.phase.kind)) ||
+    socialOpen ||
+    choiceOpen;
   const result = view.feed
     .filter(({ before }) => before.activeSeatIndex === view.seatIndex)
     .flatMap((entry) => turnMessages(entry, view.seatIndex))
@@ -95,6 +107,7 @@ export function TurnPanel({
   if (humanTurn && game.phase.kind === 'encounter' && view.legalActions.enabled.length > 1) {
     body = t('turn.encounterBody');
   }
+  if (socialOpen) body = t('turn.socialBody');
   if (choiceOpen) body = t('turn.choiceBody');
   if (opponentFailed) body = t('turn.opponentError');
   return (
@@ -155,6 +168,16 @@ export function TurnPanel({
           key={game.stateRevision}
           observation={view.observation}
           legalActions={view.legalActions}
+          onChoose={onChoose}
+        />
+      )}
+      {socialOpen && (
+        <SocialPanel
+          key={game.stateRevision}
+          observation={view.observation}
+          legalActions={view.legalActions}
+          sent={sentThisTurn(view)}
+          reply={social}
           onChoose={onChoose}
         />
       )}

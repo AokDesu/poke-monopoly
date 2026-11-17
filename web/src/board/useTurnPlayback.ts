@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { AiStatus } from '../../../engine/contract/decision.ts';
 import type { GameStore, SeatView, SpectatorView } from '../game/store.ts';
 import { AI_DECISION_MS } from '../game/ai.ts';
+import { inSocialWindow } from '../game/chat.ts';
 import type { TurnSpeed } from '../game/setup.ts';
 import { en, t, type MessageKey } from '../i18n/en.ts';
 import { content } from '../game/content.ts';
@@ -145,7 +146,10 @@ export function useTurnPlayback(
   }, [lineSequence, speed]);
 
   useEffect(() => {
+    // The game pauses only in the human's Social window, and there it waits for the player: the
+    // sole Skip that follows a message is Continue, not a step to apply (spec §4.2).
     if (!view || finished || held || failed || thinking || lineSequence !== undefined) return;
+    if (view.seatIndex !== undefined && inSocialWindow(view)) return;
     // Only rival steps get the readable AI pace. The human's own automatic steps
     // (rolls, phase handoffs) run on their own short pause (review on #127).
     const pause = stepping

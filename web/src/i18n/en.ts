@@ -584,6 +584,57 @@ export const en = {
   'chat.manipulationRefused':
     'Send a new message that does not ask to break the rules or reveal secrets. The AI’s willingness and trust have not changed.',
 
+  // The Social window (spec §3, §4.2, §4.8): topic buttons, one rival, one message, one reply.
+  'turn.socialBody':
+    'Talk to one rival before your move, or skip. The game waits only in this window.',
+  'social.panel': 'Social window',
+  'social.open': 'You can send one message to one rival this turn.',
+  'social.onlyWords':
+    'This is only words. A message never moves coins, items or dice, never changes a rule and never makes a promise.',
+  'social.noticeTrade': 'A trade happens only through a Deal Card that you confirm yourself.',
+  'social.noticeTruce':
+    'A truce counts only as a promise that the rival accepts and you confirm. Words do not make one.',
+  'social.rival': '{seat} · {class}',
+  'social.recipients': 'Talk to',
+  'social.topics': 'Topic',
+  'social.topic.truce': 'Ask for a truce',
+  'social.topic.trade': 'Offer a trade',
+  'social.topic.point_leader': 'Point at the leader',
+  'social.topic.use_item': 'Ask them to use an item',
+  'social.topic.hold_item': 'Ask them to hold an item',
+  'social.leaders': 'Point at which rival?',
+  'social.items': 'Which item?',
+  'social.summary.truce': 'Ask for a truce',
+  'social.summary.trade': 'Offer a trade',
+  'social.summary.point_leader': 'Point at {leader} as the leader',
+  'social.summary.use_item': 'Ask them to use {item}',
+  'social.summary.hold_item': 'Ask them to hold {item}',
+  'social.preview': 'You will tell {rival}: {summary}. You can send one message this turn.',
+  'social.send': 'Send to {rival}',
+  'social.sendNone': 'Send the message',
+  'social.skip': 'Skip talking',
+  'social.continue': 'Continue',
+  'social.reason.chooseRival': 'Choose who to talk to first.',
+  'social.reason.chooseTopic': 'Choose a topic first.',
+  'social.reason.chooseLeader': 'Choose which rival to point at first.',
+  'social.reason.chooseItem': 'Choose an item first.',
+  'social.reason.noThirdSeat': 'Needs a third player at the table to point at.',
+  'social.reason.unavailable': 'The game offers no message on this topic right now.',
+  'social.sent': 'You told {rival}: {summary}.',
+  'social.spent':
+    'Your message for this turn is sent. One message to one rival is the limit, so the window is used up.',
+  'social.spentOther': 'This turn’s social window is used up. Continue with your turn.',
+  'social.waiting': 'Waiting for {rival} to answer. You can continue without the answer.',
+  'social.replyNoLine': '{rival} has nothing to say about that. Continue with your turn.',
+  'social.refused': '{rival} refused the message. Their willingness and trust have not changed.',
+  'social.failed.timeout':
+    '{rival} did not answer in time. Your message was sent and the game goes on.',
+  'social.failed.network':
+    'The answer from {rival} could not be fetched. Your message was sent and the game goes on.',
+  'social.failed.invalid':
+    'The answer from {rival} did not fit your message, so it was dropped. Your message was sent and the game goes on.',
+  'social.retry': 'Ask {rival} again',
+
   'game.resumedAiTurn': 'Picked up from the last saved action. The AI is deciding its turn again.',
   'sell.rescueStarter':
     'No Pokémon left after the Sell Phase. You got a Rescue Starter, so you can keep playing.',
@@ -595,6 +646,7 @@ export const en = {
     'Developer page, not part of the game. Each example is the real screen, shown with fixed test data and labelled with its row in the spec. Nothing here changes a game.',
   'gallery.specRow': 'Spec §3.1, row {row}',
   'gallery.specAiTurns': 'Spec §3, AI turns',
+  'gallery.specSocial': 'Spec §4.8, Chat',
   'gallery.pendingHeading': 'Rows with no screen yet',
   'gallery.pendingIntro':
     'These rows have nothing a player can see in this build, so there is no example to show.',
@@ -603,7 +655,8 @@ export const en = {
   'gallery.pending.deals': 'Needs the Deal screen, which is not built yet.',
   'gallery.pending.dealsBadge':
     'Needs the Deal screen, which is not built yet. The Backup bot mode badge already shows timeouts and rate limits on AI turns.',
-  'gallery.pending.chat': 'Needs the chat panel, which is not built yet.',
+  'gallery.pending.chatFreeText':
+    'Needs free-text chat, which is not built yet. The topic buttons are never classified.',
   'gallery.pending.eventDeck':
     'The notice is in this catalog, but no screen shows it yet and the board has no Event deck.',
   'gallery.row.onlyLegalAction': 'Only one legal action (e.g. must roll)',
@@ -628,6 +681,8 @@ export const en = {
   'gallery.row.aiExchange': 'One AI speaks to another and the other answers (AI-to-AI table talk)',
   'gallery.row.watchBrowserClosed': "A watched game's browser closes",
   'gallery.row.watchAllBackup': 'Every AI in a watched game is on the backup bot',
+  'gallery.row.socialWindow':
+    'The Social window: five topic buttons, one rival, one message, one reply',
   'gallery.row.backupBadge':
     'A "Backup bot mode" badge shows truthfully whenever an AI is using the fallback',
   'gallery.example.beforeAuto': 'Before the game applies it',
@@ -660,6 +715,14 @@ export const en = {
   'gallery.example.exchangeDropped':
     'An exchange the manipulation check refused or that ran out of time: nothing is shown or saved',
   'gallery.example.badgeRateLimited': 'One of two rivals was rate limited',
+  'gallery.example.socialOpenTwo':
+    'Social window open against two rivals: choose a rival and a topic',
+  'gallery.example.socialOpenOne':
+    'Social window open against one rival: pointing at the leader needs a third player',
+  'gallery.example.socialWaiting': 'The message is sent and the rival has not answered yet',
+  'gallery.example.socialReply': 'The rival’s answer, a line from the bank, only words',
+  'gallery.example.socialRefused': 'The answer is a refusal; willingness and trust do not change',
+  'gallery.example.socialFailed': 'The answer did not arrive: ask again or continue',
 } as const satisfies Record<string, string>;
 
 export type MessageKey = keyof typeof en | keyof typeof dialogue;

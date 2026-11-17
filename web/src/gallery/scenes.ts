@@ -67,6 +67,18 @@ function addRival(state: GameState, seatIndex: number): void {
   state.config.seats.push({ actorId, seatIndex, classId: 'researcher', controller: 'ai' });
 }
 
+/** The human's own Social window with its one interaction unspent (spec §4.2). */
+function openSocialWindow(state: GameState): void {
+  state.config.socialWindow = true;
+  state.phase = { kind: 'social' };
+  state.turnBudgets = {
+    tacticalAction: 1,
+    catchAttempt: 1,
+    pokemonAbility: 1,
+    socialInteraction: 1,
+  };
+}
+
 export function createScenes(fixtures: GalleryFixtures) {
   return {
     /** §3.1: a wild Pokémon appears and the pouch holds no Ball. The only legal action is Release. */
@@ -156,6 +168,23 @@ export function createScenes(fixtures: GalleryFixtures) {
         kind: 'sell',
         payload: { pokemonInstanceIds: you.team.map((member) => member.instanceId) },
       });
+      if ('rejected' in result) throw new Error(`Gallery: ${result.reason}`);
+      return sceneOf(store);
+    },
+
+    /** §4.2, §4.8: the human's Social window, open and unspoken in, against 1 or 2 AI rivals. */
+    socialWindowOpen: (rivals: 1 | 2): Scene =>
+      sceneOf(
+        createFixtureStore(fixtures['shop-low-coins'], engineContent, (state) => {
+          openSocialWindow(state);
+          if (rivals === 2) addRival(state, 2);
+        }),
+      ),
+
+    /** The same window after the human sent a truce message to seat 1: its one message is spent. */
+    socialMessageSent: (): Scene => {
+      const store = createFixtureStore(fixtures['shop-low-coins'], engineContent, openSocialWindow);
+      const result = store.choose('chat:seat-1:truce');
       if ('rejected' in result) throw new Error(`Gallery: ${result.reason}`);
       return sceneOf(store);
     },

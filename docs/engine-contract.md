@@ -656,7 +656,7 @@ peek) and by the 200-game replay property test.
 
 Spec: §4.2, §4.8 Chat, §5.4, §9.
 
-**Flag.** `GameConfig.socialWindow` is optional. Absent or `false`, Social offers only `skip` to every seat, a `chat` command is rejected as `illegal_action`, no budget key exists and `observe` has no `own.chats`: behaviour is exactly as before, so the browser keeps skipping Social. Stream C turns the flag on together with the chat screen (#57); this slice does not.
+**Flag.** `GameConfig.socialWindow` is optional. Absent or `false`, Social offers only `skip` to every seat, a `chat` command is rejected as `illegal_action`, no budget key exists and `observe` has no `own.chats`: behaviour is exactly as before. The browser turns the flag on for every game it creates with a human seat (`configForSetup`, #137), so the human's Social window offers the topic buttons and the game waits there for the player; watched games and saves made without the flag keep skipping Social.
 
 **Command.** `chat` has the payload `{ targetSeatIndex, topic, leaderSeatIndex?, itemId? }`, with `topic` one of `truce`, `trade`, `point_leader`, `use_item`, `hold_item`. Free text is not part of this slice. It is accepted only from the active **human** seat in Social while the flag is on and the turn's social interaction is unspent. AI seats are never offered one (§4.2: the human starts conversations). Validity is decided by `validChat` in [engine/social.ts](../engine/social.ts) over exactly the set `legalActions` enumerates (id `chat:seat-<target>:<topic>[:seat-<leader>|:<itemId>]`):
 

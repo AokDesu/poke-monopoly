@@ -138,9 +138,9 @@ available by vertical scrolling.
 Run `npm run dev:web` and open `/?gallery` (for example `http://localhost:5173/?gallery`). The
 page lists every spec §3.1 row that has a screen in this build (plus §3's Backup bot mode badge),
 each labelled `Spec §3.1, row N` under the spec's own wording, and each example rendered by the
-real component: `TurnPanel` (turn copy, Shop, AI badge and banners), `EncounterDialog`,
-`SellPanel` and `SavePrompt`. A closing list names the rows with no screen yet (chat, deals,
-engine-only cases) so every row of the table is accounted for.
+real component: `TurnPanel` (turn copy, Shop, AI badge and banners, the Social window of §4.8),
+`EncounterDialog`, `SellPanel` and `SavePrompt`. A closing list names the rows with no screen yet
+(free-text chat, deals, engine-only cases) so every row of the table is accounted for.
 
 The states are engine fixtures moved on only through the store's own commands
 (`createFixtureStore` in `src/game/store.ts`, scenes in `src/gallery/scenes.ts`), so the screens

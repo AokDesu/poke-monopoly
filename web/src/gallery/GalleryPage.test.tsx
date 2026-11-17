@@ -74,9 +74,32 @@ const SHOWN = [
     keys: ['save.pendingWatched', 'save.continue', 'game.resumedAiTurn'],
   },
   { id: 'watch-all-backup', specRow: '18', keys: ['ai.allBackupBanner', 'ai.backupBadge'] },
+  {
+    id: 'social-window',
+    specRow: 'social',
+    keys: [
+      'social.onlyWords',
+      'social.topic.truce',
+      'social.topic.trade',
+      'social.topic.point_leader',
+      'social.topic.use_item',
+      'social.topic.hold_item',
+      'social.skip',
+      'social.reason.chooseRival',
+      'social.reason.noThirdSeat',
+      'social.spent',
+      'social.waiting',
+      'social.noticeTruce',
+      'social.continue',
+      'talk.bank',
+      'social.refused',
+      'social.failed.timeout',
+      'social.retry',
+    ],
+  },
 ] as const satisfies readonly { id: string; specRow: string; keys: readonly MessageKey[] }[];
 
-/** Rows with nothing for a player to see in this build (no chat, deals or event-deck screen, engine-only). */
+/** Rows with nothing for a player to see in this build (no free-text chat, deals or event-deck screen, engine-only). */
 const PENDING = ['2', '6', '10', '11', '14'];
 
 /** A catalog message as a pattern, so templated values (`{value}`) match whatever the engine says. */
@@ -116,7 +139,9 @@ test('every §3.1 row that has a screen shows each of its catalog keys, labelled
     const label =
       row.specRow === 'ai-turns'
         ? t('gallery.specAiTurns')
-        : t('gallery.specRow', { row: row.specRow });
+        : row.specRow === 'social'
+          ? t('gallery.specSocial')
+          : t('gallery.specRow', { row: row.specRow });
     expect(within(el).getByText(label), row.id).toBeTruthy();
   }
 });

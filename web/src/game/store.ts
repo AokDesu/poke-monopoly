@@ -38,6 +38,7 @@ import {
   type SeatActionRecord,
   type SeatEvent,
 } from '../../../engine/index.ts';
+import type { ChatReplyRequest } from './chat.ts';
 import { reportOutcome, requestOpponent, type AiDecision } from './ai.ts';
 import type { DifficultyId, GameSetup, PersonalityId, WatchSettings, WatchSetup } from './setup.ts';
 
@@ -144,6 +145,12 @@ export interface GameStore {
   advance(options?: { human?: boolean }): boolean;
   /** Sends an AI seat's own projection to the server, then validates its answer via applyAction. */
   playOpponent(signal: AbortSignal): Promise<boolean>;
+  /**
+   * The request that asks the recipient of this turn's topic message for its reply (spec §4.8):
+   * the recipient's own observation, which holds the message only because it was addressed to
+   * that seat. Null unless the human has sent a message in this Social window.
+   */
+  chatReplyRequest(): ChatReplyRequest | null;
   /** Setup saved beside the engine log so a resumed AI decision uses the same personality. */
   getOpponents(): readonly OpponentSettings[];
   /** A watched game's talk and starting-speed settings, kept with the game; absent otherwise. */
@@ -181,7 +188,13 @@ export function configForSetup(setup: GameSetup, seed: GameConfig['seed']): Game
     starterSpeciesId: choice.starterSpeciesId,
     controller: seatIndex === 0 ? ('human' as const) : ('ai' as const),
   }));
-  return createGameConfig({ seats, seed, lapTarget: MODES[setup.mode].lapTarget });
+  // The human seat starts conversations, so the Social window is open in every game it plays (§4.2).
+  return createGameConfig({
+    seats,
+    seed,
+    lapTarget: MODES[setup.mode].lapTarget,
+    socialWindow: true,
+  });
 }
 
 export function opponentSettings(setup: GameSetup): OpponentSettings[] {
@@ -483,6 +496,27 @@ export function createGameStore(): GameStore {
       );
       return true;
     },
+    chatReplyRequest(): ChatReplyRequest | null {
+      const { state } = current();
+      const seatIndex = humanSeat(state);
+      if (seatIndex === undefined || state.phase.kind !== 'social') return null;
+      if (state.activeSeatIndex !== seatIndex) return null;
+      const message = observe(state, seatIndex).own.chats?.findLast(
+        (entry) => entry.fromSeatIndex === seatIndex && entry.globalTurnNo === state.globalTurnNo,
+      );
+      if (!message) return null;
+      const observation = observe(state, message.toSeatIndex);
+      return {
+        gameId: gameToken,
+        seatIndex: message.toSeatIndex,
+        stateRevision: observation.public.stateRevision,
+        observation,
+        personalityId:
+          opponents.find((opponent) => opponent.seatIndex === message.toSeatIndex)?.personality ??
+          'greedy',
+        turnKey: `${state.globalTurnNo}:${message.toSeatIndex}`,
+      };
+    },
     async playOpponent(signal: AbortSignal): Promise<boolean> {
       const snapshot = current();
       const token = gameToken;
@@ -682,7 +716,12 @@ export function createFixtureStore(
 ): GameStore {
   const { state } = fixtureSchema.parse(input);
   edit?.(state);
-  state.config = createGameConfig({ seats: state.config.seats, seed: 3, lapTarget: 3 });
+  state.config = createGameConfig({
+    seats: state.config.seats,
+    seed: 3,
+    lapTarget: 3,
+    ...(state.config.socialWindow === true && { socialWindow: true }),
+  });
   state.content = structuredClone(content);
   state.rng = createRng(3);
   const store = createGameStore();

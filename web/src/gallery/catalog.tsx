@@ -10,6 +10,8 @@ import { t, type MessageKey } from '../i18n/en.ts';
 import { className } from '../i18n/names.ts';
 import { pendingLine, SavePrompt } from '../SavePrompt.tsx';
 import type { TurnPlayback } from '../board/useTurnPlayback.ts';
+import type { ChatReplyControls, ChatReplyState } from '../board/useChatReply.ts';
+import type { ChatReply } from '../game/chat.ts';
 import {
   createScenes,
   STATIC_PLAYBACK,
@@ -29,6 +31,8 @@ export interface GalleryRow {
   readonly id: string;
   /** Row number in the spec §3.1 table; `null` for the §3 "Backup bot mode" badge line. */
   readonly specRow: number | null;
+  /** The spec section of a row with no §3.1 number, when it is not the §3 AI-turns line. */
+  readonly spec?: { readonly id: string; readonly label: MessageKey };
   /** The spec's own wording for the situation. */
   readonly label: MessageKey;
   /** Catalog keys the examples must put on screen; the gallery test fails if one is missing. */
@@ -118,7 +122,26 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
     timeoutOfTwo().view.observation.public.players.map((player) =>
       player.seatIndex === 2 ? { ...player, classId: 'researcher' } : player,
     );
-  const turnPanel = (scene: Pick<Scene, 'view'>, extra?: { notice?: string }) => (
+  const socialOpenTwo = once(() => scenes.socialWindowOpen(2));
+  const socialOpenOne = once(() => scenes.socialWindowOpen(1));
+  const socialSent = once(scenes.socialMessageSent);
+  const reply = (state: ChatReplyState): ChatReplyControls => ({ state, retry: noop });
+  const chatReply = (lineId: string, refused = false): ChatReply => ({
+    fromSeatIndex: 0,
+    toSeatIndex: 1,
+    visibleToSeats: [0, 1],
+    topic: 'truce',
+    situation: refused ? 'manipulation_refused' : 'chat_reply',
+    lineId,
+    refused,
+    source: 'jev',
+    requestId: 'gallery',
+    latencyMs: 0,
+  });
+  const turnPanel = (
+    scene: Pick<Scene, 'view'>,
+    extra?: { notice?: string; social?: ChatReplyControls },
+  ) => (
     <TurnPanel
       view={scene.view}
       playback={STATIC_PLAYBACK}
@@ -464,13 +487,80 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
         },
       ],
     },
+    {
+      id: 'social-window',
+      specRow: null,
+      spec: { id: 'social', label: 'gallery.specSocial' },
+      label: 'gallery.row.socialWindow',
+      keys: [
+        'social.onlyWords',
+        'social.topic.truce',
+        'social.topic.trade',
+        'social.topic.point_leader',
+        'social.topic.use_item',
+        'social.topic.hold_item',
+        'social.skip',
+        'social.reason.chooseRival',
+        'social.reason.noThirdSeat',
+        'social.spent',
+        'social.waiting',
+        'social.noticeTruce',
+        'social.continue',
+        'talk.bank',
+        'social.refused',
+        'social.failed.timeout',
+        'social.retry',
+      ],
+      examples: [
+        {
+          id: 'open-two-rivals',
+          caption: 'gallery.example.socialOpenTwo',
+          render: () => turnPanel(socialOpenTwo()),
+        },
+        {
+          id: 'open-one-rival',
+          caption: 'gallery.example.socialOpenOne',
+          render: () => turnPanel(socialOpenOne()),
+        },
+        {
+          id: 'waiting',
+          caption: 'gallery.example.socialWaiting',
+          render: () => turnPanel(socialSent(), { social: reply({ status: 'waiting' }) }),
+        },
+        {
+          id: 'reply',
+          caption: 'gallery.example.socialReply',
+          render: () =>
+            turnPanel(socialSent(), {
+              social: reply({ status: 'ready', reply: chatReply('chat-reply-cautious-neutral-1') }),
+            }),
+        },
+        {
+          id: 'refused',
+          caption: 'gallery.example.socialRefused',
+          render: () =>
+            turnPanel(socialSent(), {
+              social: reply({
+                status: 'ready',
+                reply: chatReply('manipulation-refused-greedy-neutral-2', true),
+              }),
+            }),
+        },
+        {
+          id: 'failed',
+          caption: 'gallery.example.socialFailed',
+          render: () =>
+            turnPanel(socialSent(), { social: reply({ status: 'failed', reason: 'timeout' }) }),
+        },
+      ],
+    },
   ];
 }
 /** Every §3.1 row not in `GALLERY_ROWS`. The test holds both lists to the spec's table. */
 export const PENDING_ROWS: readonly PendingRow[] = [
   { specRow: 2, label: 'gallery.row.shortlistEmpty', reason: 'gallery.pending.engine' },
   { specRow: 6, label: 'gallery.row.jevTimeoutDeal', reason: 'gallery.pending.dealsBadge' },
-  { specRow: 10, label: 'gallery.row.chatUnclassified', reason: 'gallery.pending.chat' },
-  { specRow: 11, label: 'gallery.row.chatManipulation', reason: 'gallery.pending.chat' },
+  { specRow: 10, label: 'gallery.row.chatUnclassified', reason: 'gallery.pending.chatFreeText' },
+  { specRow: 11, label: 'gallery.row.chatManipulation', reason: 'gallery.pending.chatFreeText' },
   { specRow: 14, label: 'gallery.row.eventDeckOut', reason: 'gallery.pending.eventDeck' },
 ];
