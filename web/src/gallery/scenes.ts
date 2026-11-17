@@ -2,7 +2,12 @@ import type { GameState } from '../../../engine/index.ts';
 import type { TurnPlayback } from '../board/useTurnPlayback.ts';
 import type { AiDecision } from '../game/ai.ts';
 import { content, engineContent } from '../game/content.ts';
-import { createFixtureStore, type GameStore, type SeatView } from '../game/store.ts';
+import {
+  createFixtureStore,
+  type GameStore,
+  type SeatView,
+  type SpectatorView,
+} from '../game/store.ts';
 
 /**
  * Deterministic game states for the dev gallery (issue #53). Every state is a committed engine
@@ -24,6 +29,12 @@ export interface Scene {
 }
 
 const sceneOf = (store: GameStore): Scene => ({ store, view: store.getView()! });
+
+/** A game with no human seat, read as its watcher reads it: the public-only view. */
+export interface WatchScene {
+  readonly store: GameStore;
+  readonly view: SpectatorView;
+}
 
 /** A frozen playback: nothing is thinking, speaking or failing, and no clock runs. */
 export const STATIC_PLAYBACK: TurnPlayback = {
@@ -105,6 +116,18 @@ export function createScenes(fixtures: GalleryFixtures) {
         store,
         view: { ...view, feed: view.feed.map((entry) => ({ ...entry, decision: answer })) },
       };
+    },
+
+    /**
+     * A watched game: every seat is an AI and seat 1 holds an open decision, which is what a
+     * closed browser leaves behind (§3.1, "A watched game's browser closes").
+     */
+    watchDecisionOpen: (): WatchScene => {
+      const store = createFixtureStore(fixtures['shop-low-coins'], engineContent, (state) => {
+        for (const seat of state.config.seats) seat.controller = 'ai';
+        state.activeSeatIndex = 1;
+      });
+      return { store, view: store.getSpectatorView()! };
     },
 
     /** Seat 1 (an AI) holds a decision that is still open: what a resumed save asks again. */

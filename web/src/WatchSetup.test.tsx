@@ -47,15 +47,13 @@ async function toAis(user: UserEvent) {
   expect(heading()).toBe(t('watchSetup.heading'));
 }
 
-/** The class of a seat as the screen offers it: the checked class radio of that seat. */
+/** The seat chooser: one radio per AI, labelled with its seat and class. */
+const tab = (seat: number) => radio(new RegExp(`^${t('board.rivalLabel', { seat })}`));
+
+/** The class of an AI as the seat chooser shows it. */
 const classOf = (seat: number) =>
-  classOptions.find(
-    (option) =>
-      (
-        document.querySelector(
-          `input[name="rival-${seat}-class"]:checked`,
-        ) as HTMLInputElement | null
-      )?.value === option.id,
+  classOptions.find((option) =>
+    tab(seat).closest('label')!.textContent!.includes(className(option.id)),
   )?.id;
 
 test('Home offers Watch AIs play beside New game and Random All, and nothing else changes (§3)', () => {
@@ -90,11 +88,13 @@ test.each([2, 3, 4])(
 
     await user.click(radio(new RegExp(`^${count} AIs`)));
     // Make seat 0 different from the default so "as chosen" is not an accident.
+    await user.click(tab(0));
     await user.click(radio(/^Researcher/));
     await user.click(radio(/^Normal/));
-    const chosen = Array.from({ length: count }, (_, seat) => seat);
-    for (const seat of chosen.slice(1)) {
+    // Another seat's choice is untouched by it.
+    for (let seat = 1; seat < count; seat++) {
       await user.click(tab(seat));
+      expect(radio(/^Easy/)).toHaveProperty('checked', true);
     }
     await user.click(button(t('watchSetup.next')));
     expect(heading()).toBe(t('watchOptions.heading'));

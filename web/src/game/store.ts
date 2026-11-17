@@ -105,6 +105,12 @@ export interface GameResults {
     readonly coins: number;
     readonly badges: number;
   }[];
+  /** Each seat's public starting setup (spec §4.1: the starting kit is public). */
+  readonly seats: readonly {
+    readonly seatIndex: number;
+    readonly classId: string;
+    readonly starterSpeciesId?: string;
+  }[];
   readonly winners: readonly string[];
   readonly reason: 'coins' | 'badges' | 'co_winners';
 }
@@ -206,6 +212,16 @@ export function watchOpponentSettings(setup: WatchSetup): OpponentSettings[] {
   }));
 }
 
+/** The same seats, lap target and settings under a new seed: "Watch again" (spec §3). */
+export function rematchConfig(config: GameConfig, seed: GameConfig['seed']): GameConfig {
+  return createGameConfig({
+    seats: config.seats,
+    seed,
+    lapTarget: config.lapTarget,
+    ...(config.socialWindow !== undefined && { socialWindow: config.socialWindow }),
+  });
+}
+
 function humanSeat(state: GameState): number | undefined {
   return state.config.seats.find((seat) => seat.controller === 'human')?.seatIndex;
 }
@@ -242,6 +258,11 @@ function resultsOf(state: GameState): GameResults | null {
         coins: player.coins,
         badges: player.badges,
       })),
+    seats: state.config.seats.map(({ seatIndex, classId, starterSpeciesId }) => ({
+      seatIndex,
+      classId,
+      ...(starterSpeciesId !== undefined && { starterSpeciesId }),
+    })),
     winners: outcome.winners,
     reason: outcome.reason,
   };
