@@ -9,6 +9,7 @@ import {
   createRng,
   eventsVisibleTo,
   engineEventSchema,
+  aiSpeechEventSchema,
   fixtureSchema,
   GAME_PRESETS,
   legalActions,
@@ -22,6 +23,7 @@ import {
   type BallType,
   type CatchOdds,
   type Action,
+  type AiSpeechEvent,
   type ActionRecord,
   type ApplyActionResult,
   type Content,
@@ -131,6 +133,13 @@ export interface GameStore {
   playOpponent(signal: AbortSignal): Promise<boolean>;
   /** Setup saved beside the engine log so a resumed AI decision uses the same personality. */
   getOpponents(): readonly OpponentSettings[];
+  /** Identifies this game to the speech route; changes when a game starts or is restored. */
+  getGameId(): string;
+  /**
+   * Saves one shown table-talk line as an `ai_speech` dialogue event (spec §5.7). Presentation
+   * only: changes no state, revision or view. False when the line does not fit the game.
+   */
+  recordSpeech(event: AiSpeechEvent): boolean;
   /**
    * Replaces the session with a saved game. Applies nothing: dice stay as logged and the
    * pending decision stays pending (spec §3.1, §6.9).
@@ -459,10 +468,11 @@ export function createGameStore(): GameStore {
           return pick.sellUids.every((uid) => sellable.includes(uid));
         },
       ).catch((error: unknown) => {
-        if (signal.aborted || token !== gameToken || session !== snapshot) return null;
+        if (signal.aborted || token !== gameToken || session?.state !== snapshot.state) return null;
         throw error;
       });
-      if (!answer || signal.aborted || token !== gameToken || session !== snapshot) return false;
+      if (!answer || signal.aborted || token !== gameToken || session?.state !== snapshot.state)
+        return false;
       reportOutcome(ids, answer);
       const decision: AiDecision = {
         source: answer.source,
@@ -510,6 +520,30 @@ export function createGameStore(): GameStore {
     },
     getOpponents(): readonly OpponentSettings[] {
       return opponents;
+    },
+    getGameId(): string {
+      return gameToken;
+    },
+    recordSpeech(event: AiSpeechEvent): boolean {
+      const game = session;
+      const parsed = aiSpeechEventSchema.safeParse(event);
+      if (!game || !parsed.success) return false;
+      const seats = game.state.config.seats.map((seat) => seat.seatIndex);
+      const { speakerSeatIndex, addressedSeatIndex } = parsed.data;
+      if (
+        !seats.includes(speakerSeatIndex) ||
+        (addressedSeatIndex !== undefined &&
+          (!seats.includes(addressedSeatIndex) || addressedSeatIndex === speakerSeatIndex))
+      )
+        return false;
+      // Words are not an action: the state, its revision and the views stay as they are, so a line
+      // arriving mid-turn neither restarts a pending step nor discards a pending AI answer.
+      session = {
+        state: game.state,
+        log: { ...game.log, dialogueEvents: [...(game.log.dialogueEvents ?? []), parsed.data] },
+      };
+      for (const listener of listeners) listener();
+      return true;
     },
     restore(game: GameSession, settings: readonly OpponentSettings[] = []): void {
       opponents = settings;
