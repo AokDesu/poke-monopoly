@@ -1,4 +1,4 @@
-import config from '../../content/config.json' with { type: 'json' };
+import { CHAT_TUNING } from '../chat.ts';
 import { billedUsage } from '../jev/usage.ts';
 import { decisionDeadline, resolveJevModel, type JevClient } from '../jev/client.ts';
 import { defaultUsageLedger, type UsageRecorder } from '../jev/spend.ts';
@@ -11,8 +11,8 @@ import {
 /** Spec §5.6: one Jev request has 1,000 ms; the gate never waits longer for a line it may not quote. */
 export const GATE_DEADLINE_MS = 1000;
 
-/** `content/config.json`: the one threshold the table talk gate and the player's chat share (spec §5.3). */
-export const MANIPULATION_THRESHOLD: number = config.aiTalk.manipulationThreshold;
+/** The one threshold the table talk gate and the player's chat share (`CHAT_TUNING`, spec §5.3). */
+export const MANIPULATION_THRESHOLD: number = CHAT_TUNING.manipulationThreshold;
 
 /**
  * `clean`: the line may be quoted. `manipulation`: Jev's Noul is at or above the threshold.

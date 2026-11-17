@@ -178,13 +178,12 @@ describe('Appendix A baseline, copied exactly (spec §4.1, §4.5, §4.6)', () =>
     );
   });
 
-  test('config holds the starting kit, Start income, Lap targets, rarity weights and the talk gate', () => {
+  test('config holds the starting kit, Start income, Lap targets and rarity weights', () => {
     expect(content.config).toEqual({
       startingKit: { coins: 20, starters: 1, pokeBalls: 5, classItems: 1 },
       startIncome: 5,
       lapTargets: { quick: 2, standard: 3 },
       rarityWeights: { common: 50, uncommon: 33, rare: 17 },
-      aiTalk: { manipulationThreshold: 0.5 },
     });
   });
 });

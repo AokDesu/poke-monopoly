@@ -49,11 +49,12 @@ test('fillSlots throws on a slot the line bank does not know', () => {
 });
 
 describe('line bank (§5.7)', () => {
-  test('ships the 12 situations of the core tier', () => {
+  test('ships the 13 situations of the core tier', () => {
     expect(files.map(situationOf)).toEqual(
       [
         'catch_fail',
         'catch_success',
+        'chat_reply',
         'deal_accept',
         'deal_reject',
         'fallback_notice',

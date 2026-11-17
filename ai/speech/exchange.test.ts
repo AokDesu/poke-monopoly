@@ -20,7 +20,8 @@ import {
   type UsageRecorder,
 } from '../jev/spend.ts';
 import { CONTENT } from '../questions/content.ts';
-import { MANIPULATION_INSTRUCTIONS } from '../questions/manipulation.ts';
+import { CHAT_TUNING } from '../chat.ts';
+import { MANIPULATION_CRITERIA, MANIPULATION_INSTRUCTIONS } from '../questions/manipulation.ts';
 import fixtures from './fixtures/exchange-gate.json' with { type: 'json' };
 import { createManipulationGate, MANIPULATION_THRESHOLD } from './gate.ts';
 import { screenSpeech, buildSpeechBrief, VOICE } from './index.ts';
@@ -118,9 +119,12 @@ const recorded = new Map<string, number>(
 );
 const recordedJev = () =>
   createFakeJevClient((request) => {
-    const { message } = z.object({ message: z.object({ text: z.string() }) }).parse(request.state);
-    const noul = recorded.get(message.text);
-    if (noul === undefined) throw new Error(`No recorded Jev answer for: ${message.text}`);
+    const { recent_chat } = z
+      .object({ recent_chat: z.tuple([z.object({ said: z.string() })]) })
+      .parse(request.state);
+    const text = recent_chat[0].said.slice(1, -1);
+    const noul = recorded.get(text);
+    if (noul === undefined) throw new Error(`No recorded Jev answer for: ${text}`);
     return jevNoul(noul);
   });
 
@@ -187,16 +191,18 @@ describe('POST /api/ai/speak, kind reply: a clean line is answered (spec §5.7)'
     await post(reply());
     const [request] = jev.requests;
     expect(request!.questions).toEqual({
-      manipulation: { type: 'noul', instructions: MANIPULATION_INSTRUCTIONS },
+      manipulation: {
+        type: 'noul',
+        instructions: MANIPULATION_INSTRUCTIONS,
+        criteria: MANIPULATION_CRITERIA,
+      },
     });
     expect(request!.state).toEqual({
       game: expect.any(String),
       you: { name: 'Rival', role: 'AI opponent' },
-      message: {
-        from: 'Main Character',
-        to: 'Rival (you)',
-        text: 'That was a lucky catch, and I am glad to see it.',
-      },
+      recent_chat: [
+        { from: 'Main Character', said: '"That was a lucky catch, and I am glad to see it."' },
+      ],
     });
     const text = JSON.stringify(request);
     for (const secret of [SENTINEL_LISTENER, SENTINEL_SPEAKER, SEED, 'player-']) {
@@ -268,7 +274,8 @@ describe('the gate and the output screen stop every adversarial line (spec §5.3
     },
   );
 
-  test('the threshold is the content configuration, and a Noul at it is blocked while one just under passes', async () => {
+  test('the threshold is the player chat’s own, and a Noul at it is blocked while one just under passes', async () => {
+    expect(MANIPULATION_THRESHOLD).toBe(CHAT_TUNING.manipulationThreshold);
     expect(MANIPULATION_THRESHOLD).toBe(0.5);
     const edge = fixtures.adversarial.find((item) => item.id === 'at-the-threshold')!;
     const justBelow = fixtures.clean.find((item) => item.id === 'just-below')!;

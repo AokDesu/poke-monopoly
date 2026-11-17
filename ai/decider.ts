@@ -159,7 +159,7 @@ const toFacts = (request: DecisionRequest): DecideFacts => {
 const rngFor = (request: DecisionRequest) =>
   createPolicyRng(`${request.gameId}:${request.turnKey}:${request.stateRevision}`);
 
-const personalityFor = (id: string) =>
+export const personalityFor = (id: string) =>
   Object.hasOwn(PERSONALITIES, id)
     ? PERSONALITIES[id as keyof typeof PERSONALITIES]
     : PERSONALITIES.greedy;

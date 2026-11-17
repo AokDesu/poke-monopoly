@@ -1,0 +1,11 @@
+{
+  "name": "Aggressive",
+  "description": "Hunts the leader and strikes first; takes risks for a bigger win and keeps few coins in reserve.",
+  "weights": {
+    "risk": 0.8,
+    "aggression": 0.9,
+    "liquidity": 0.3,
+    "loyalty": 0.4
+  },
+  "lineStyle": "combative"
+}

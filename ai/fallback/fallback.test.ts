@@ -61,7 +61,12 @@ describe('personality files (§5.5)', () => {
 
   test('every content/personalities/*.json validates and Greedy matches Appendix B', () => {
     const files = readdirSync(dir).filter((name) => name.endsWith('.json'));
-    expect(files).toEqual(['greedy.json']);
+    expect(files.sort()).toEqual([
+      'aggressive.json',
+      'cautious.json',
+      'greedy.json',
+      'opportunist.json',
+    ]);
     for (const file of files) {
       const json = JSON.parse(readFileSync(new URL(file, dir), 'utf8'));
       expect(() => parsePersonality(file.slice(0, -'.json'.length), json)).not.toThrow();

@@ -38,6 +38,7 @@ export {
 } from './sell.ts';
 export {
   buildManipulationRequest,
+  MANIPULATION_CRITERIA,
   MANIPULATION_INSTRUCTIONS,
   MANIPULATION_TEXT_MAX_CHARS,
   manipulationVerdict,
