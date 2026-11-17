@@ -1,0 +1,74 @@
+[
+  {
+    "id": "chat-reply-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "I heard you, {target}. I will weigh it against my coins."
+  },
+  {
+    "id": "chat-reply-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Noted, {target}. Talk is cheap, so I will see how the turn pays."
+  },
+  {
+    "id": "chat-reply-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Thanks for the word, {target}. I will keep it in mind."
+  },
+  {
+    "id": "chat-reply-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "I heard you, {target}. We will see how I feel on my turn."
+  },
+  {
+    "id": "chat-reply-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Noted, {target}. I make my own moves."
+  },
+  {
+    "id": "chat-reply-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Fair enough, {target}. Do not expect me to go easy."
+  },
+  {
+    "id": "chat-reply-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Thank you for telling me, {target}. I will think it over carefully."
+  },
+  {
+    "id": "chat-reply-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "I hear you, {target}. I would like to be careful about this."
+  },
+  {
+    "id": "chat-reply-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Noted, {target}. I will take my time."
+  },
+  {
+    "id": "chat-reply-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Interesting, {target}. I will see how it fits the moment."
+  },
+  {
+    "id": "chat-reply-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Noted, {target}. I keep my options open."
+  },
+  {
+    "id": "chat-reply-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "I hear you, {target}. Let us see how the turn goes."
+  }
+]
