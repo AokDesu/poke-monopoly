@@ -7,6 +7,11 @@ import {
   decisionResponseSchema,
   type DecisionResponse,
 } from '../engine/contract/decision.ts';
+import {
+  chatReplyRequestSchema,
+  chatReplySchema,
+  type ChatReply,
+} from '../engine/contract/chat-reply.ts';
 import { speakRequestSchema } from '../engine/contract/speech.ts';
 import {
   fallbackAnswer,
@@ -17,6 +22,7 @@ import {
   type Decider,
   type DeciderAnswer,
 } from './decider.ts';
+import { ChatLedger, createChatReplier, incomingMessage, type ChatReplier } from './chat-reply.ts';
 import type { JevClient } from './jev/client.ts';
 import { DecisionJournal } from './jev/decision-journal.ts';
 import { fileDecisionLog, type DecisionLog } from './jev/decision-log.ts';
@@ -45,6 +51,8 @@ export interface AppOptions {
    * (`POST /api/ai/outcome`); none by default (the server below logs to a file).
    */
   decisionLog?: DecisionLog;
+  /** The chat route's replier; defaults to the Jev-backed one over `jevClient` and `usage`. */
+  chatReplier?: ChatReplier;
   /** The speech route's Haiku client (the real one by default), environment and deadline; fakes in tests. */
   speech?: Partial<SpeakerOptions>;
 }
@@ -64,6 +72,7 @@ export const createApp = ({
   jevClient,
   decisionLog,
   speech,
+  chatReplier = createChatReplier({ usage, ...(jevClient && { client: jevClient }) }),
   decider = createOrchestratorDecider({
     usage,
     ...(jevClient && { client: jevClient }),
@@ -71,6 +80,7 @@ export const createApp = ({
 }: AppOptions = {}) => {
   const app = new Hono();
   const journal = new DecisionJournal(decisionLog);
+  const chats = new ChatLedger();
   const speaker = createSpeaker({
     client: createHaikuClient({ usage, ...(speech?.env && { env: speech.env }) }),
     usage,
@@ -108,6 +118,43 @@ export const createApp = ({
       }
       journal.applied(parsed.data, parsed.data);
       return c.body(null, 204);
+    },
+  );
+
+  // A topic chat's reply (spec §4.8, §5.3): one line ID from the bank, as a record only the sender
+  // and the recipient may read. Nothing about a chat is journaled or logged, and a refused message
+  // is removed from every later decision request below.
+  app.post(
+    '/api/ai/chat',
+    bodyLimit({
+      maxSize: MAX_BODY_BYTES,
+      onError: (c) => c.json({ error: 'payload_too_large' }, 413),
+    }),
+    async (c) => {
+      const started = performance.now();
+      let body: unknown;
+      try {
+        body = await c.req.json();
+      } catch {
+        return c.json({ error: 'invalid_json' }, 400);
+      }
+      const parsed = chatReplyRequestSchema.safeParse(body);
+      if (!parsed.success) {
+        const paths = parsed.error.issues.map((issue) => issue.path.join('.'));
+        return c.json({ error: 'invalid_request', paths }, 400);
+      }
+      const request = parsed.data;
+      const message = incomingMessage(request.observation)!;
+      const answer = await chats.reply(request.gameId, message, () =>
+        chatReplier(request, { status: jevStatus(usage) }),
+      );
+      const reply: ChatReply = chatReplySchema.parse({
+        ...answer,
+        visibleToSeats: [answer.fromSeatIndex, answer.toSeatIndex],
+        requestId: crypto.randomUUID(),
+        latencyMs: Math.round(performance.now() - started),
+      });
+      return c.json(reply);
     },
   );
 
@@ -163,7 +210,14 @@ export const createApp = ({
           const paths = parsed.error.issues.map((issue) => issue.path.join('.'));
           return c.json({ error: 'invalid_request', paths }, 400);
         }
-        const request = parsed.data;
+        // A refused chat message never reaches a decision's state (§5.3).
+        const request =
+          parsed.data.decisionPoint === 'shop'
+            ? parsed.data
+            : {
+                ...parsed.data,
+                observation: chats.scrub(parsed.data.gameId, parsed.data.observation),
+              };
         if (request.decisionPoint === 'shop') {
           const answer = decideShop(request);
           // Like every other point, logged once the browser reports it applied (never the speculative one).

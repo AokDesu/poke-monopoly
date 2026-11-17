@@ -24,6 +24,8 @@ export type PolicyFacts = {
   catchSuccessFaces?: Readonly<Partial<Record<BallType, number>>>;
   /** Coins each own sellable Pokémon would fetch in one batch selling all of them (§4.7). */
   saleValue?: Readonly<Record<string, number>>;
+  /** Lost Battle points for each own Pokémon if removed, from `saleFacts` (§5.6). */
+  keepValue?: Readonly<Record<string, number>>;
 };
 
 /**
@@ -34,6 +36,8 @@ export type PolicyChoice = string | { sellUids: readonly string[] };
 
 /** Spec §8: a policy only chooses; the engine stays the sole rules authority (§9). */
 export interface Policy {
+  /** Reporting metadata; policies without a personality are labelled `unassigned`. */
+  readonly personality?: { readonly id: string };
   /** Set when `decide` reads `facts`; the runner skips asking the engine for them otherwise. */
   readonly wantsFacts?: boolean;
   /** May wait, for example on a Jev request (§5.6); the runner awaits every decision. */
@@ -74,11 +78,14 @@ export class RandomPolicy implements Policy {
 }
 
 /**
- * `--policy <name>`; `fallback` plays every seat as Greedy (spec §5.2, §5.5), and `jev` decides
+ * `--policy <name>`; `fallback` plays every seat as Greedy and `fallback-<personality>` as that personality (spec §5.2, §5.5), and `jev` decides
  * every seat's turns through the Jev decision orchestrator (§5.6).
  */
 export const POLICIES: Readonly<Record<string, PolicyFactory>> = {
   random: () => new RandomPolicy(),
   fallback: () => new FallbackPolicy(PERSONALITIES.greedy),
+  'fallback-aggressive': () => new FallbackPolicy(PERSONALITIES.aggressive),
+  'fallback-cautious': () => new FallbackPolicy(PERSONALITIES.cautious),
+  'fallback-opportunist': () => new FallbackPolicy(PERSONALITIES.opportunist),
   jev: createJevPolicy,
 };

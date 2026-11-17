@@ -6,6 +6,7 @@ import {
   legalActions,
   observe,
   oddsForAllBalls,
+  saleFacts,
   saleQuote,
   type GameState,
   type PokemonInstance,
@@ -24,8 +25,8 @@ export interface EvalScenario {
   id: string;
   description: string;
   personality: Personality;
-  /** Engine state with seat 0 active; `keepValue` holds the Sell keep values the engine lacks. */
-  build(): { state: GameState; keepValue?: Readonly<Record<string, number>> };
+  /** Engine state with seat 0 active. */
+  build(): { state: GameState };
   /**
    * Acceptable answers chosen by a teammate: engine action IDs for Strategy and Encounter, and for
    * Sell each Pokémon instance ID's acceptable Noul answers (`true` sells it).
@@ -138,7 +139,7 @@ const withFinalTableRound = (state: GameState): GameState => {
 const sellScenario = (
   id: string,
   description: string,
-  build: () => { state: GameState; keepValue: Record<string, number> },
+  build: () => { state: GameState },
   acceptable: (state: GameState) => Record<string, ('true' | 'false')[]>,
 ): EvalScenario => ({
   id,
@@ -282,27 +283,27 @@ export const SCENARIOS: readonly EvalScenario[] = [
     'Final Table Round: the last Sell Phase, with a caught Pidgey and Psyduck.',
     () => {
       const state = withFinalTableRound(sell([caught(1, 'pidgey'), caught(2, 'psyduck')]));
-      return { state, keepValue: { [starter(state)]: 0, 'caught:0:1': 0, 'caught:0:2': 0 } };
+      return { state };
     },
     (state) => ({ [starter(state)]: ['true'], 'caught:0:1': ['true'], 'caught:0:2': ['true'] }),
   ),
   sellScenario(
     'sell-snorlax-high-sale-low-keep',
-    'Lap 2 of 2: a caught Snorlax sells high now and is worth little to keep.',
+    'Lap 2 of 2: a caught Snorlax sells high now and is worth a medium amount to keep.',
     () => {
       const state = sell([caught(1, 'snorlax')]);
-      return { state, keepValue: { [starter(state)]: 8, 'caught:0:1': 3 } };
+      return { state };
     },
-    (state) => ({ [starter(state)]: ['false'], 'caught:0:1': ['true'] }),
+    (state) => ({ [starter(state)]: ['true', 'false'], 'caught:0:1': ['true'] }),
   ),
   sellScenario(
     'sell-magikarp-low-sale-high-keep',
-    'Lap 2 of 2: a caught Magikarp sells low now but is worth a lot to keep.',
+    'Lap 2 of 2: a caught Magikarp sells low now and adds nothing to the best Battle stat.',
     () => {
       const state = sell([caught(1, 'magikarp')]);
-      return { state, keepValue: { [starter(state)]: 8, 'caught:0:1': 14 } };
+      return { state };
     },
-    (state) => ({ [starter(state)]: ['false'], 'caught:0:1': ['false'] }),
+    (state) => ({ [starter(state)]: ['false'], 'caught:0:1': ['true', 'false'] }),
   ),
   sellScenario(
     'sell-researcher-class-bonus',
@@ -311,13 +312,10 @@ export const SCENARIOS: readonly EvalScenario[] = [
       const state = sell([caught(1, 'growlithe'), caught(2, 'rattata')], {
         classIds: ['researcher', 'rival'],
       });
-      return {
-        state,
-        keepValue: { [starter(state)]: 8, 'caught:0:1': 6, 'caught:0:2': 2 },
-      };
+      return { state };
     },
     (state) => ({
-      [starter(state)]: ['false'],
+      [starter(state)]: ['true', 'false'],
       'caught:0:1': ['true', 'false'],
       'caught:0:2': ['true'],
     }),
@@ -327,31 +325,34 @@ export const SCENARIOS: readonly EvalScenario[] = [
     'A tired caught Eevee sells for less now; keeping it lets it recover.',
     () => {
       const state = sell([caught(1, 'eevee', { tired: true })]);
-      return { state, keepValue: { [starter(state)]: 8, 'caught:0:1': 11 } };
+      return { state };
     },
     (state) => ({ [starter(state)]: ['false'], 'caught:0:1': ['true', 'false'] }),
   ),
   sellScenario(
     'sell-gyarados-early-lap',
-    'A caught Gyarados sells high now; its keep value is medium.',
+    'A caught Gyarados sells high now; its keep value is high (3 Battle points).',
     () => {
       const state = sell([caught(1, 'gyarados')], { progress: [24, 10] });
-      return { state, keepValue: { [starter(state)]: 8, 'caught:0:1': 10 } };
+      return { state };
     },
-    (state) => ({ [starter(state)]: ['false'], 'caught:0:1': ['true'] }),
+    (state) => ({
+      [starter(state)]: ['true', 'false'],
+      'caught:0:1': ['true', 'false'],
+    }),
   ),
 ];
 
 /**
  * The orchestrator's input for a scenario, with every number from the engine (§5.2): catch odds
- * from `oddsForAllBalls`, sale prices and class bonuses from `saleQuote`. Keep values have no
- * engine source yet, so the scenario supplies them as engine inputs.
+ * from `oddsForAllBalls`, sale prices and class bonuses from `saleQuote`. Keep values come from
+ * `saleFacts`.
  */
 export function decideRequest(scenario: EvalScenario): {
   state: GameState;
   request: DecideRequest;
 } {
-  const { state, keepValue = {} } = scenario.build();
+  const { state } = scenario.build();
   const legal = legalActions(state, 0);
   const request: DecideRequest = {
     turnKey: scenario.id,
@@ -379,13 +380,16 @@ export function decideRequest(scenario: EvalScenario): {
       action.kind === 'sell' ? action.payload.pokemonInstanceIds : [],
     );
     const together = saleQuote(state, 0, ids).rows;
+    const keepValue = Object.fromEntries(
+      saleFacts(state, 0).map((row) => [row.instanceId, row.keepValue]),
+    );
     request.facts = {
       sell: {
         pokemon: ids.map((instanceId, index) => {
           const alone = saleQuote(state, 0, [instanceId]).rows[0]!;
           const value = keepValue[instanceId];
           if (value === undefined)
-            throw new RangeError(`${scenario.id}: no keep value for ${instanceId}`);
+            throw new RangeError(`${scenario.id}: no facts for ${instanceId}`);
           return {
             instanceId,
             salePrice: alone.basePrice,

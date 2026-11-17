@@ -96,6 +96,7 @@ Watch path: Home → Watch AIs → choose Quick → choose 2–4 AIs → set eac
 
 - Random All and presets for a quick start.
 - Classes are unique within a game; class and personality are independent.
+- Watch setup: after the mode and the number of AIs (two to four), the player sets each AI's class, Starter, personality and difficulty, whether the AIs talk at the table (AI talk on or off) and the speed the game starts at. Random All fills every AI and keeps the requested number. Choices the browser cannot play stay visible, greyed, with the reason. The setup is kept across a reload, and AI talk and the starting speed are saved with the game.
 
 **Turn order**
 
@@ -352,6 +353,8 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 - Loose talk is not a contract, and the UI must show when something is only words.
 - **Engine interaction (#56 S01):** the engine accepts a topic message only from the active human in the Social window, when the optional `GameConfig.socialWindow` is `true`. With the flag absent or `false` Social offers only Skip. One message spends the turn's whole social interaction (`turnBudgets.socialInteraction`, reset at Start); AI seats never start one (AI table talk, §5.7, is not an engine chat). It keeps the last 3 messages per pair, shows a seat only the messages it sent or received, and changes nothing else. The recipient is private: a seat outside the chat gets no event, no entry in its action feed and no gap in the feed's sequence or revision numbers and no change in the revision it observes and submits, so it cannot tell that a chat happened or whom it went to. The item named in an item message is a content item ID, so the choices never depend on what the target holds. Free text arrives in a later slice.
 
+- **Chat reply (#163):** `POST /api/ai/chat` answers one topic message from the recipient's own observation, so a seat outside the chat has nothing to ask with. The reply is a line ID from the line bank (the one generic `chat_reply` situation for every topic, or `manipulation_refused`), never generated text, returned as a record visible only to the sender and the recipient. Jev answers a manipulation Noul and picks among at most five lines; Jev off, late or not confident, a seeded pick from the bank answers. Topic buttons map to intents in code, so no intent is asked. A message at or above the manipulation threshold is refused and removed from every later decision request, so it never reaches `recent_chat` or the chat effect. Replies change no game state.
+
 **Deal Card**
 
 - **Formats:** one Pokémon ↔ coins, one item the owner chooses to reveal ↔ coins, Pokémon ↔ Pokémon.
@@ -387,6 +390,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 
 - **Privacy:** whether an attack was possible is private information. The promise button does not depend on holding a hostile item, so it does not leak cards.
 - **Attack evidence (S06):** a public voluntary declaration appends one canonical `attack_attempt` (actor→target, source, declaration sequence and global turn) to engine history and its accepted-action events. Declines and ties retain it. Public observations and seat-visible event copies expose that evidence without items or private willingness data, and without the declaration sequence, which counts chats a seat may not see and so stays engine-internal (§6.3). Future `no_attack` consumers use these events; promise settlement is not implemented here.
+- **Engine interaction (#56 S03):** with `socialWindow` on, the active human may offer a promise to one AI in Social, in either direction: "I won't attack you" (the AI accepts or rejects) or "promise not to attack me" (the AI agrees or refuses). While the question is pending only the responding seat may act (a pending decision owned by the responder, as for a PvP response). Either answer spends the turn's one social interaction and never the tactical action. Accepting records the promise with `closesOwnTurnNo = promiser.ownTurnNo + 1`; rejecting records nothing. One promise per directed pair is active at a time, including on its closing turn (no renewal), and none is offered if it would close after the Final Table Round. Only the two parties can see the promise or the question. Settlement, trust and memory follow in a later slice.
 - **Memory UI:** shows evidence from real events, e.g. "Broke a promise on turn 5".
 
 ## 5. AI opponents with Jev (Harness)
@@ -467,7 +471,8 @@ Kept as `skills/jev-questions/SKILL.md`.
   - Never: Event order, opponents' secret items or RNG state. Opponents' Ball counts are not exposed directly in observations but can be inferred from public play (§4.1).
 - **Numbers become named buckets**, e.g. `"win_chance": "low"` or `"coins_vs_you": "far ahead"`. Never send numbers for Jev to compare.
 - **Keep value types apart:** cash, expected sale value, benefit of keeping the team, risk and promises are separate buckets. They are never merged into one coin figure, and badges are never counted as coins.
-  - The keep value bucket (benefit of keeping a Pokémon) is deferred until the engine computes a keep value ([#160](https://github.com/AokDesu/poke-monopoly/issues/160)). Until then Sell questions carry no keep value bucket; none is invented outside the engine.
+  - At the Sell Phase, `saleFacts` computes `keepValue` for each Pokémon: the team's highest battle-ready current-form Battle stat minus that stat with just this Pokémon removed, floored at zero. An empty or all-Tired team has stat zero; tied or weaker reserves have keep value zero. This measures immediate combat contribution in **Battle points, never coins**. It uses current Tired status and current forms (§4.4), with no hypothetical Rescue Starter, recovery, evolution, future sale, Ability/item effects or class bonus. Cash, badges, opponents' secrets and RNG do not enter it.
+  - Sell Nouls always receive a separate `keep_value` bucket from these engine facts: **low** at 0 lost Battle points, **medium** at 1–2 and **high** at 3 or more. Sale coins retain their own `sale_value_now` buckets (low 0–5, medium 6–12, high 13+) and `class_bonus` stays separate. These are presentation thresholds, not changes to sale payments (§4.7).
 - **Wording:** questions and criteria are written **in English**, literally, with boundary cases spelled out in the criteria.
 - **One question = one decision.** Multi-item work is split into one question per item and combined in code.
 - **Size:** state ≤ ~4k tokens per request.
@@ -492,9 +497,10 @@ Every level uses the same observation.
 | Level | How it chooses |
 |---|---|
 | Easy | The engine sends immediate effects only; the AI **samples from Jev's `probabilities`** (seeded and logged) |
-| Normal | The engine adds buckets for distance to Start, Laps remaining and sale opportunity (keep value is deferred until the engine computes it, [#160](https://github.com/AokDesu/poke-monopoly/issues/160)); the AI takes the **argmax** |
+| Normal | The engine adds buckets for distance to Start, Laps remaining, sale opportunity and keep value (§5.4); the AI takes the **argmax** |
 | Hard *(gate G2)* | The engine runs Monte Carlo rollouts from the belief state and sends expected-outcome buckets per option before the argmax. Unknowns are sampled from known information; it never reads the real deck or seed |
 
+- **Sell fallback:** the existing sale desire (relative sale coins, reduced for a ready Ability and an Original Starter) is multiplied by 1 for low keep value, 0.75 for medium and 0.5 for high before applying the personality's sell threshold. A caller without keep facts retains the existing low-keep behavior; it never invents a combat projection. This is a policy preference over separate buckets, not a conversion of Battle points into coins.
 - **Confidence floor:** set per question type and option count, then tuned on the C4 eval set for `jev-1.13.0`.
   - Below the floor (Normal/Hard), the fallback policy chooses between Jev's top two by personality weight.
   - 0.6 is only the starting value for questions with few options.
@@ -506,11 +512,12 @@ Every level uses the same observation.
 
 ### 5.7 Dialogue
 
-- **Files:** `content/lines/en/<situation>.json`, e.g. deal_accept, deal_reject, promise_kept, promise_broken, gym_win, taunt_leader, manipulation_refused, fallback_notice.
+- **Files:** `content/lines/en/<situation>.json`, e.g. deal_accept, deal_reject, promise_kept, promise_broken, gym_win, taunt_leader, manipulation_refused, chat_reply, fallback_notice.
 - **Coverage:** each situation has ≥3 lines per personality per trust bucket, with slots such as `{target}` or `{turn}` filled by the engine.
 - **Selection:** Jev picks the line ID; when unavailable, a seeded random pick is used. In v0, callers append the returned `line_selected` event and its `random_result` to the optional `GameLog.dialogueEvents` array, preserved by save/load. Dialogue uses a separate presentation RNG and does not change command replay. Showing lines during AI turns is later integration work.
 - **Generated speech (Haiku, off unless `HAIKU_ENABLED=true`):** for table talk and chat replies, code chooses the speaker, the addressed seat, the situation or topic and the decision the words must match; Haiku writes one plain-text line of at most 140 characters from the public speech brief (§5.4). The brief carries the seat's own setup (class, personality, difficulty) and one fixed, team-written world card. The output screen rejects a line with a digit, markup or a link, a non-public item name, a species outside the content, an offer or promise, or an echo of the instruction. A rejected, late or missing line is replaced by a line-bank line, or by silence if there is none. Nothing waits for Haiku: the deadline is 1,200 ms per line. Haiku writes chat and table talk only; after-action lines stay in the line bank.
 - Generated lines are labelled “AI-written · only words”, saved as presentation events in the log and never regenerated on replay.
+- Table comments (the Table talk panel, `web/src/board/TableTalk.tsx`): after a public moment in the viewer's own feed (a rare catch, a big sale, a Gym win, a change in who leads, the final table round) one AI seat may say one line to the table, with the same limits as an exchange: at most one per round and 10 per game, none at Fast or Instant speed, none while a watched game is paused or the panel is hidden, never from the seat whose own action is being resolved, and the speaker is a seeded choice, so the same seed and settings choose the same speakers. The line is requested beside the game and shown only if it arrives within the deadline; it is never retried and nothing waits for it. Each shown line is saved as an `ai_speech` dialogue event, so a reloaded or exported game shows the same table talk, and the limits are counted from the saved lines. A Haiku line is labelled “AI-written · only words”; a line-bank line is labelled as the line bank. With Haiku off only a bank line about the table (`taunt_leader`) can be shown: bank lines for catches, sales and Gym wins are written in the first person of the seat that acted. A “Voice off” badge gives the status route's reason (`disabled`, `missing_key` or `budget_exceeded`). The presentation numbers (`TABLE_TALK` in `web/src/game/tableTalk.ts`) are not game rules.
 - AI-to-AI table talk: at most one exchange per round (one turn for every seat) and 10 per game, only after a public moment; none at Fast or Instant speed. It is public table talk, shown in both a normal game and watch mode, while engine chats stay private (§4.8). A line passes the manipulation Noul (§5.3) before the addressed AI's reply prompt may quote it. It is words only: it never enters a Jev state or changes a decision (§4.2).
 
 ## 6. Architecture, data and replay

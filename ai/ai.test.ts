@@ -113,7 +113,7 @@ const requestFor = (json: unknown): DecisionRequest => {
           ? { sell: saleFacts(fixture.state, seat) }
           : {},
     difficulty: 'normal',
-    personalityId: 'cautious',
+    personalityId: 'greedy',
     turnKey: `${seat}:${observation.public.globalTurnNo}`,
   };
 };
@@ -556,8 +556,8 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
     const wire = JSON.stringify(sent);
     for (const row of sell.facts.sell!) expect(wire).not.toContain(`"salePrice":${row.salePrice}`);
     expect(wire).toMatch(/sale_value_now/);
-    // The engine has no keep value yet, so none is sent or made up.
-    expect(wire).not.toMatch(/keep_value/);
+    expect(wire).toMatch(/keep_value/);
+    for (const row of sell.facts.sell!) expect(wire).not.toContain(`"keepValue":${row.keepValue}`);
   });
 
   test('without sale facts, or with partial or foreign rows, a Sell Phase falls back as missing_facts', async () => {
@@ -583,7 +583,10 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
     for (const bad of [
       { ...row, salePrice: -1 },
       { ...row, salePrice: 1.5 },
-      { ...row, keepValue: 3 },
+      { ...row, keepValue: -1 },
+      { ...row, keepValue: 1.5 },
+      { ...row, keepValue: undefined },
+      { ...row, unexpectedField: 3 },
       { instanceId: row.instanceId },
     ]) {
       const response = await decide({ ...sell, facts: { sell: [bad] } });
@@ -598,6 +601,19 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
     expect(priced).toMatchObject({ source: 'fallback', fallbackReason: 'disabled' });
     expect(priced.sellUids.length).toBeGreaterThan(0);
     expect(bare.sellUids).toEqual([]);
+  });
+
+  test('fallback receives engine keep values and holds high Battle contributors (§5.6)', async () => {
+    vi.stubEnv('JEV_ENABLED', 'false');
+    const request = (keepValue: number): DecisionRequest => ({
+      ...sell,
+      personalityId: 'greedy',
+      facts: { sell: sell.facts.sell!.map((row) => ({ ...row, keepValue })) },
+    });
+    const low = await (await decide(request(0), testApp())).json();
+    const high = await (await decide(request(3), testApp())).json();
+    expect(low.sellUids.length).toBeGreaterThan(0);
+    expect(high.sellUids).toEqual([]);
   });
 
   test('an unusable answer falls back with the orchestrator’s reason', async () => {
@@ -1178,5 +1194,87 @@ describe('import boundaries', () => {
     const code =
       "import type { Decider } from '../../../ai/decider.ts';\nexport type D = Decider;\n";
     expect(await importErrors(code)).not.toEqual([]);
+  });
+});
+
+describe('responder decisions (spec §4.8, §5.3, §6 item 2; S06)', () => {
+  /** Seat 0 asks seat 1 for a promise; seat 1 owes the answer while seat 0 stays active. */
+  const pendingGame = () =>
+    act(socialGame(3), 'offer_promise', { targetSeatIndex: 1, direction: 'offer' });
+  const responderRequest = (
+    state: GameState,
+    seat: number,
+    decisionPoint: DecisionRequest['decisionPoint'] = 'promise_response',
+  ): DecisionRequest => {
+    const observation = observe(state, seat);
+    return {
+      gameId: 'game-test-1',
+      seatIndex: seat,
+      decisionPoint,
+      stateRevision: observation.public.stateRevision,
+      observation,
+      enabledActions: legalActions(state, seat).enabled,
+      facts: {},
+      difficulty: 'normal',
+      personalityId: 'cautious',
+      turnKey: `${seat}:1`,
+    };
+  };
+
+  test("promise_response is answered with the responder's own accept or reject", async () => {
+    const state = pendingGame();
+    const request = responderRequest(state, 1);
+    expect(request.enabledActions.map((action) => action.id)).toEqual([
+      'respond:accept',
+      'respond:reject',
+    ]);
+    const response = await decide(request);
+    expect(response.status).toBe(200);
+    const body = decisionResponseSchema.parse(await response.json());
+    expect(body).toMatchObject({ source: 'fallback', fallbackReason: 'auto' });
+    expect(request.enabledActions.map((action) => action.id)).toContain(
+      (body as { choice: string }).choice,
+    );
+  });
+
+  test('only the pending-decision seat is accepted: not the initiator, a bystander or another point', async () => {
+    const state = pendingGame();
+    // The initiator is the active seat but owes nothing; seat 2 never sees the question.
+    expect((await decide(responderRequest(state, 0))).status).toBe(400);
+    expect((await decide(responderRequest(state, 2))).status).toBe(400);
+    // The point must name the question the seat is asked: no deal is pending in the contract yet.
+    expect((await decide(responderRequest(state, 1, 'deal_response'))).status).toBe(400);
+    // A responder point with a non-respond action list is refused.
+    const mixed = responderRequest(state, 1);
+    const strategyActions = strategy.enabledActions;
+    expect((await decide({ ...mixed, enabledActions: strategyActions })).status).toBe(400);
+    // Without a pending question there is nothing to respond to.
+    const idle = socialGame(3);
+    expect(
+      (await decide({ ...responderRequest(pendingGame(), 1), observation: observe(idle, 1) }))
+        .status,
+    ).toBe(400);
+  });
+
+  test('the orchestrator routes both responder points to the auto policy without asking Jev', async () => {
+    const state = pendingGame();
+    const request = responderRequest(state, 1);
+    const ask = vi.fn(async () => ({ ok: false as const, fallbackReason: 'network' as const }));
+    const orchestrator = new Orchestrator({ client: { ask } });
+    for (const decisionPoint of ['promise_response', 'deal_response'] as const) {
+      const decision = await orchestrator.decide({
+        turnKey: 'k',
+        observation: request.observation,
+        legalActions: { enabled: request.enabledActions, disabled: [] },
+        facts: {},
+        difficulty: 'normal',
+        personality: PERSONALITIES.greedy,
+        decisionPoint,
+        rng: createPolicyRng('r'),
+      });
+      expect(decision).toMatchObject({ source: 'auto', requests: 0 });
+      expect(decision.events[0]!.questionId).toBe(decisionPoint);
+    }
+    expect(ask).not.toHaveBeenCalled();
   });
 });

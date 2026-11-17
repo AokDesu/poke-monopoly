@@ -9,7 +9,13 @@ export { createGame } from './setup.ts';
 export * from './observation-buckets.ts';
 export { GAME_PRESETS, LAP_TARGETS, winner, type WinnerResult } from './game-end.ts';
 export { catchOdds, oddsForAllBalls, type BallType, type CatchOdds } from './odds.ts';
-export { saleFacts, saleQuote, type SalePriceFact, type SaleQuote } from './selling.ts';
+export {
+  saleFacts,
+  saleQuote,
+  bucketKeepValue,
+  type SalePriceFact,
+  type SaleQuote,
+} from './selling.ts';
 export {
   actionVisibleTo,
   eventsVisibleTo,
@@ -73,3 +79,5 @@ export {
 
 export { ABILITY_EFFECTS, type AbilityEffect } from './abilities.ts';
 export { itemEffectStatus, type ItemEffectStatus } from './items.ts';
+export { attackTarget } from './attack-facts.ts';
+export { promiseWindowStatus } from './promises.ts';

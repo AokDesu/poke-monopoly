@@ -61,14 +61,19 @@ function probeStaleAndForeign(engine: SimEngine, state: GameState, action: Actio
   const hash = stateHash(state);
   const probe = (label: string, command: unknown) =>
     expectUnchanged(state, hash, label, engine.applyAction(state, command));
-  if (state.stateRevision > 0) {
+  // `action` carries the revision its seat observes, which hidden chats and promises keep below the
+  // global count (§4.8), so the stale probe is relative to it.
+  if (action.stateRevisionBefore > 0) {
     probe('a command on the previous revision', {
       ...action,
-      stateRevisionBefore: state.stateRevision - 1,
+      stateRevisionBefore: action.stateRevisionBefore - 1,
     });
+  }
+  if (state.stateRevision > 0) {
     probe('the last accepted command sent again', log.actions.at(-1)!.action);
   }
   probe('an unknown actor', { ...action, actorId: 'intruder' });
+  // While a question is pending only its responder may act; the active seat is then foreign too.
   for (const seat of state.config.seats) {
     if (seat.seatIndex === pendingDecision(state)?.seatIndex) continue;
     probe(`${seat.actorId} out of turn`, { ...action, actorId: seat.actorId });
@@ -91,8 +96,8 @@ function probeStaleAndForeign(engine: SimEngine, state: GameState, action: Actio
  * an invariant, stale or foreign commands never change the state, and the game finishes within
  * the sim step limit. `playGame` asserts every generated action is an enabled legal action.
  */
-function legalGamesHold(engine: SimEngine) {
-  return fc.property(gamePlan(engine.classIds), (plan) => {
+function legalGamesHold(engine: SimEngine, options: { social?: boolean } = {}) {
+  return fc.property(gamePlan(engine.classIds, options), (plan) => {
     playGame(engine, plan, {
       beforeDecision: (state, action, log) => probeStaleAndForeign(engine, state, action, log),
       afterStep: (step) => checkInvariants(engine, step),
@@ -106,6 +111,12 @@ function legalGamesHold(engine: SimEngine) {
 test(
   '200 random legal games break no invariant, ignore stale or foreign commands and finish (§6.3, §8)',
   () => fc.assert(legalGamesHold(realEngine), PROPERTY_RUNS),
+  PROPERTY_TIMEOUT_MS,
+);
+
+test(
+  'the same holds with the Social window open: promises and the responding seat break nothing (§4.8)',
+  () => fc.assert(legalGamesHold(realEngine, { social: true }), PROPERTY_RUNS),
   PROPERTY_TIMEOUT_MS,
 );
 

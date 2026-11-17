@@ -1,13 +1,21 @@
+import { WATCH_STEPS, type WatchStep } from '../game/setup.ts';
 import { t } from '../i18n/en.ts';
 import { SETUP_STEPS, type SetupStep } from '../screens.ts';
 
-/** Where the player is in setup, as stops along a route; the order is the spec §3 order. */
-export function SetupProgress({ step }: { step: SetupStep }) {
-  const current = SETUP_STEPS.indexOf(step);
+type SetupProgressProps =
+  { step: SetupStep; flow?: undefined } | { step: WatchStep; flow: 'watch' };
+
+/**
+ * Where the player is in setup, as stops along a route; the order is the spec §3 order, and the
+ * watch path (spec §3) has its own steps because it holds no player seat.
+ */
+export function SetupProgress({ step, flow }: SetupProgressProps) {
+  const steps: readonly (SetupStep | WatchStep)[] = flow === 'watch' ? WATCH_STEPS : SETUP_STEPS;
+  const current = steps.indexOf(step);
   return (
     <nav aria-label={t('setup.steps.label')} className="mb-8">
       <ol className="flex flex-wrap items-center gap-x-1 gap-y-2 font-display text-sm">
-        {SETUP_STEPS.map((entry, index) => (
+        {steps.map((entry, index) => (
           <li key={entry} className="flex items-center gap-1">
             {index > 0 && (
               <span

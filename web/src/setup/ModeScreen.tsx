@@ -15,14 +15,22 @@ const MODE_TEXT: Record<ModeId, { name: MessageKey; hint: MessageKey; closed?: M
 interface ModeScreenProps {
   onChoose: (mode: ModeId) => void;
   onBack: () => void;
+  /** The watch path has its own progress steps (spec §3). */
+  flow?: 'watch';
 }
 
 /** Quick or Standard (spec §1, §4.1): the engine's presets say which are open and how long. */
-export function ModeScreen({ onChoose, onBack }: ModeScreenProps) {
+export function ModeScreen({ onChoose, onBack, flow }: ModeScreenProps) {
   const modes = Object.keys(MODES) as ModeId[];
   return (
     <Screen
-      before={<SetupProgress step="mode" />}
+      before={
+        flow === 'watch' ? (
+          <SetupProgress flow="watch" step="mode" />
+        ) : (
+          <SetupProgress step="mode" />
+        )
+      }
       heading={t('mode.heading')}
       body={t('mode.body')}
       actions={

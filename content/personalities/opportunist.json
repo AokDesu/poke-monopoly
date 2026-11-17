@@ -1,0 +1,11 @@
+{
+  "name": "Opportunist",
+  "description": "Reads the table and takes whatever pays right now; a steady friend only while it suits.",
+  "weights": {
+    "risk": 0.6,
+    "aggression": 0.5,
+    "liquidity": 0.7,
+    "loyalty": 0.2
+  },
+  "lineStyle": "sly"
+}

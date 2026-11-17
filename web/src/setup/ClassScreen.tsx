@@ -1,6 +1,13 @@
 import { useId } from 'react';
-import type { ClassOption, SeatChoice } from '../game/setup.ts';
-import { className, classPassive, itemName, speciesName } from '../i18n/names.ts';
+import type { ClassOption, OpponentChoice, SeatChoice } from '../game/setup.ts';
+import { seatLabel } from '../board/labels.ts';
+import {
+  className,
+  classClosedReason,
+  classPassive,
+  itemName,
+  speciesName,
+} from '../i18n/names.ts';
 import { t } from '../i18n/en.ts';
 import { Button } from '../ui/Button.tsx';
 import { ChoiceRadio } from '../ui/Choice.tsx';
@@ -14,6 +21,8 @@ import { StarterPicker } from './StarterPicker.tsx';
 interface ClassScreenProps {
   classes: readonly ClassOption[];
   chosen?: SeatChoice;
+  /** The rivals already set up: one with the chosen class is flagged here, not changed. */
+  rivals?: readonly OpponentChoice[];
   onSelect: (choice: SeatChoice) => void;
   onNext: () => void;
   onBack: () => void;
@@ -24,11 +33,19 @@ interface ClassScreenProps {
  * and later classes appear as soon as the engine implements them. The class card is the choice;
  * a class with several Starters adds a Starter picker, preset to the first.
  */
-export function ClassScreen({ classes, chosen, onSelect, onNext, onBack }: ClassScreenProps) {
+export function ClassScreen({
+  classes,
+  chosen,
+  rivals = [],
+  onSelect,
+  onNext,
+  onBack,
+}: ClassScreenProps) {
   const reasonId = useId();
   const playable = classes.filter((option) => option.playable);
   const closed = classes.filter((option) => !option.playable);
   const chosenClass = playable.find((option) => option.id === chosen?.classId);
+  const repeatedBy = rivals.findIndex((rival) => rival.classId === chosenClass?.id);
 
   const describe = (option: ClassOption) => (
     <span className="mt-1 grid gap-1.5">
@@ -105,6 +122,15 @@ export function ClassScreen({ classes, chosen, onSelect, onNext, onBack }: Class
         </ul>
       </fieldset>
 
+      {chosenClass && repeatedBy !== -1 && (
+        <p role="status" className="panel mt-6 p-5 font-bold text-pretty">
+          {t('class.rivalHas', {
+            rival: seatLabel(repeatedBy + 1, 0),
+            class: className(chosenClass.id),
+          })}
+        </p>
+      )}
+
       {chosenClass && chosenClass.starterSpeciesIds.length > 1 && (
         <StarterPicker
           name="human-starter"
@@ -122,7 +148,7 @@ export function ClassScreen({ classes, chosen, onSelect, onNext, onBack }: Class
       {closed.length > 0 && (
         <>
           <h2 className="mt-12 text-xl">{t('class.closedHeading')}</h2>
-          <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <ul className="mt-4 grid gap-4 sm:grid-cols-2">
             {closed.map((option) => (
               <li key={option.id}>
                 <ChoiceRadio
@@ -130,7 +156,7 @@ export function ClassScreen({ classes, chosen, onSelect, onNext, onBack }: Class
                   value={option.id}
                   checked={false}
                   title={className(option.id)}
-                  disabledReason={t('class.comingLater')}
+                  disabledReason={classClosedReason(option.id)}
                   onSelect={() => {}}
                 />
               </li>

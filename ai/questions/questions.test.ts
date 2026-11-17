@@ -100,7 +100,7 @@ function askEncounter(state: GameState, personality = greedy) {
   );
 }
 
-function asked<State extends object>(decision: Decision<State>) {
+function asked(decision: Decision<object>) {
   if (decision.kind !== 'ask') throw new Error(`Expected a question, got ${decision.kind}`);
   return decision;
 }

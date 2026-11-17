@@ -37,18 +37,20 @@ export function ballItemId(ballType: 'poke' | 'great' | 'ultra'): string {
 }
 
 /**
- * Core classes in content order; stretch classes stay out until after G2 (spec §1).
- * Keep the browser roster at Main Character/Researcher during engine-only issue #55 S01.
- * A later UI slice must remove this guard when the new classes have browser support.
+ * Core classes in content order; stretch classes stay out until after G2 (spec §1). A class is
+ * open when its whole kit works in the browser. Rival's once-per-Lap forced PvP is a Strategy
+ * choice the board has no control for until the PvP screens land (issue #135), so offering the
+ * class would misrepresent its passive. Remove it from this list with that change.
  */
+const NEEDS_PVP_CONTROLS: readonly string[] = ['rival'];
+
 export const classOptions: readonly ClassOption[] = content.classes
   .filter((entry) => !entry.stretch)
   .map((entry) => ({
     id: entry.id,
     starterSpeciesIds: entry.starterSpeciesIds,
     classItemId: entry.classItemId,
-    playable:
-      entry.passive !== undefined && (entry.id === 'main-character' || entry.id === 'researcher'),
+    playable: entry.passive !== undefined && !NEEDS_PVP_CONTROLS.includes(entry.id),
   }));
 
 /**

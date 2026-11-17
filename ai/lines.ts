@@ -1,3 +1,4 @@
+import chatReply from '../content/lines/en/chat_reply.json';
 import catchFail from '../content/lines/en/catch_fail.json';
 import catchSuccess from '../content/lines/en/catch_success.json';
 import dealAccept from '../content/lines/en/deal_accept.json';
@@ -27,6 +28,7 @@ export const LINES = Object.freeze({
   gym_win: parseLines('gym_win', gymWin),
   taunt_leader: parseLines('taunt_leader', tauntLeader),
   manipulation_refused: parseLines('manipulation_refused', manipulationRefused),
+  chat_reply: parseLines('chat_reply', chatReply),
 } satisfies Record<string, Line[]>);
 
 export type Situation = keyof typeof LINES;

@@ -1,5 +1,6 @@
 import {
   GAME_PRESETS,
+  observe,
   pendingDecision,
   type Action,
   type ActionRecord,
@@ -27,10 +28,17 @@ import {
   type PolicyFacts,
   type PolicyFactory,
   type PolicyRng,
+  RandomPolicy,
 } from './policy.ts';
 
 export type SeatSetup = { seatIndex: number; actorId: string; classId: string };
-export type GameSetup = { seed: number; seats: SeatSetup[]; lapTarget: number };
+export type GameSetup = {
+  seed: number;
+  seats: SeatSetup[];
+  lapTarget: number;
+  /** `--social`: seat 0 is a human and the Social window is open (§4.2, §4.8); AI seats unchanged. */
+  social?: boolean;
+};
 export type GameOutcome = { finished: false } | { finished: true; winnerSeats: number[] };
 
 /** The engine seam the runner drives; the real engine and test fakes both implement it. */
@@ -73,6 +81,11 @@ export type SimOptions = {
   lapTarget: number;
   policy: string;
   seedSet: SeedSet;
+  /**
+   * `--social`: seat 0 plays as a human with the random policy, so chat, promises and later Deals
+   * are exercised; the other seats keep `policy`. Absent leaves a run exactly as before.
+   */
+  social?: boolean;
   /** `--save <file>`: where each finished game is written as a save (spec §6.7). */
   save?: string;
 };
@@ -108,7 +121,15 @@ export type SimSummary = {
    * `illegalAppliedActionCount`.
    */
   jev?: DecisionRates;
+  /** `--social` only: what the human seat's offers came to (§4.8 Promise). */
+  social?: SocialSummary;
 } & MetricsSummary;
+
+export type SocialSummary = {
+  promiseOffers: number;
+  promisesAccepted: number;
+  promisesRejected: number;
+};
 
 export type GameFailure = { seed: number; reasons: string[]; reproduce: string };
 
@@ -193,6 +214,13 @@ export async function runSim(
     Object.entries(summary.winners.byClass).map(([classId, wins]) => [classId, round2(wins)]),
   );
   Object.assign(summary, metrics.summary());
+  if (options.social) {
+    summary.social = {
+      promiseOffers: summary.promises.offered,
+      promisesAccepted: summary.promises.accepted,
+      promisesRejected: summary.promises.rejected,
+    };
+  }
   if (policyCounts) {
     summary.policyCounts = policyCounts;
     if ('decisions' in policyCounts) summary.jev = decisionRates(policyCounts);
@@ -257,6 +285,7 @@ export function reproduceCommand(options: SimOptions, seed: number): string {
     `--max-steps ${options.maxSteps}`,
     `--lap-target ${options.lapTarget}`,
     `--policy ${options.policy}`,
+    ...(options.social ? ['--social'] : []),
     ...(options.seedSet === 'eval' ? ['--seed-set eval'] : []),
   ].join(' ');
 }
@@ -301,13 +330,21 @@ async function playGame(
   const policyGame = { seed };
   const deciders: { policy: Policy; rng: PolicyRng }[] = [];
   try {
+    metrics.startGame();
     for (const seat of seats) {
       deciders.push({
-        policy: createPolicy(policyGame),
+        // `--social`: seat 0 is the human, always played by the random policy (§4.8).
+        policy:
+          options.social && seat.seatIndex === 0 ? new RandomPolicy() : createPolicy(policyGame),
         rng: createPolicyRng(`policy:${seed}:${seat.seatIndex}`),
       });
     }
-    let state = engine.createGame({ seed, seats, lapTarget: options.lapTarget });
+    let state = engine.createGame({
+      seed,
+      seats,
+      lapTarget: options.lapTarget,
+      ...(options.social && { social: true }),
+    });
     const game: PlayedGame = {
       seed,
       initialState: state,
@@ -340,7 +377,20 @@ async function playGame(
           record,
         };
         result.violations += checkInvariants(state, record.action, applied).length;
-        metrics.step(state, record.action, automatic.state, automatic.events);
+        const decision = pendingDecision(state);
+        metrics.step(
+          state,
+          record.action,
+          automatic.state,
+          automatic.events,
+          decision
+            ? {
+                seatIndex: decision.seatIndex,
+                legal: engine.legalActions(state, decision.seatIndex),
+                personalityId: deciders[decision.seatIndex]!.policy.personality?.id ?? 'unassigned',
+              }
+            : undefined,
+        );
         game.records.push(record);
         state = automatic.state;
         continue;
@@ -369,7 +419,11 @@ async function playGame(
       result.violations += checkInvariants(state, action, applied).length;
       if ('rejected' in applied) continue;
       if (!enabled) result.illegalApplied++;
-      metrics.step(state, action, applied.state, applied.events);
+      metrics.step(state, action, applied.state, applied.events, {
+        seatIndex,
+        legal,
+        personalityId: decider.policy.personality?.id ?? 'unassigned',
+      });
       game.records.push(applied.record);
       state = applied.state;
     }
@@ -410,11 +464,15 @@ export function resolveChoice(
   };
 }
 
+/** A command from `actorId`, numbered with the revision that seat observes (§4.8). */
 export function command(state: GameState, actorId: string, choice: LegalAction): Action {
+  const seatIndex = state.config.seats.find((seat) => seat.actorId === actorId)!.seatIndex;
+  // Records hidden from a seat (a chat or promise between others) leave no gap in its numbering.
+  const revision = observe(state, seatIndex).public.stateRevision;
   return {
     actorId,
-    actionSeq: state.stateRevision + 1,
-    stateRevisionBefore: state.stateRevision,
+    actionSeq: revision + 1,
+    stateRevisionBefore: revision,
     kind: choice.kind,
     payload: choice.payload,
   } as Action;

@@ -7,6 +7,7 @@ import {
   checkInvariants,
   createGame,
   createGameConfig,
+  createGameLog,
   observe,
   legalActions,
   actionVisibleTo,
@@ -354,3 +355,9 @@ test.each([[], ['unknown'], ['e1', 'e1', 'e3', 'e4', 'e5', 'e6']].map((ids) => (
     expect(() => createGame(state.config, invalid)).toThrow(/Event/);
   },
 );
+
+test('pre-Event 0.18.0 command logs are rejected instead of replaying Event no-ops (§6.8)', () => {
+  const before = landing('e2');
+  before.config.engineVersion = '0.18.0';
+  expect(() => createGameLog(before)).toThrow(/unsupported/i);
+});

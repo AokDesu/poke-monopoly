@@ -1,3 +1,4 @@
+import chatReply from '../../../content/lines/en/chat_reply.json';
 import catchFail from '../../../content/lines/en/catch_fail.json';
 import catchSuccess from '../../../content/lines/en/catch_success.json';
 import dealAccept from '../../../content/lines/en/deal_accept.json';
@@ -14,6 +15,7 @@ import tauntLeader from '../../../content/lines/en/taunt_leader.json';
 const dialogue = Object.fromEntries(
   [
     ...catchFail,
+    ...chatReply,
     ...catchSuccess,
     ...dealAccept,
     ...dealReject,
@@ -48,11 +50,15 @@ export const en = {
   'home.body':
     'Roll the dice around the board, catch Pokémon with Balls, then keep them or sell them at Start. Whoever has the most coins at the end wins.',
   'home.newGame': 'New game',
-  'home.newGameHint': 'Pick a mode, a class and your AI rival, step by step.',
+  'home.newGameHint': 'Pick a mode, a class and one to three AI rivals, step by step.',
   'home.randomAll': 'Random All',
   'home.randomAllHint': 'Pick everything at random, then check it before you start.',
   'home.notEnoughClasses':
     'The game data has too few playable classes for every player, so a game cannot start. Ask the team to check the class file.',
+  'home.watch': 'Watch AIs play',
+  'home.watchHint': 'Set up two to four AIs and watch them play each other. You take no seat.',
+  'home.watchNotEnough':
+    'Watching needs at least two playable classes, one for each AI. Ask the team to check the class file.',
   'home.boardCaption': 'Spaces on the board',
 
   'board.kind.start': 'Start',
@@ -157,9 +163,11 @@ export const en = {
     'This step needs your answers from the earlier steps. Go back to Home and set up a new game.',
   'setup.step.mode': 'Mode',
   'setup.step.class': 'Class',
-  'setup.step.opponents': 'AI rival',
+  'setup.step.opponents': 'AI rivals',
   'setup.step.review': 'Review',
   'setup.step.firstPlayer': 'First roll',
+  'setup.step.ais': 'AIs',
+  'setup.step.options': 'Table',
 
   'mode.heading': 'Choose a mode',
   'mode.body': 'The mode sets how many Laps of the board it takes to end the game.',
@@ -182,19 +190,38 @@ export const en = {
   'class.comingLater': 'Coming later.',
   'class.passive.main-character': 'A bonus on your first catch roll each Lap.',
   'class.passive.researcher': 'A bonus on the first Pokémon you sell at Start each Lap.',
+  'class.passive.fisherman': 'A bonus on catch rolls against Water Pokémon.',
+  'class.passive.bug-catcher':
+    'A bonus on catch rolls against Bug Pokémon, and a bonus when you sell Bug Pokémon at Start.',
+  'class.passive.nurse-joy':
+    'You lose no coins when you lose a PvP battle, and your team recovers from Tired at the start of your turn.',
+  'class.closed.rival':
+    'Coming later. Its once-per-Lap forced battle needs the PvP controls, which are not built yet.',
+  'class.rivalHas':
+    '{rival} already has {class}. You can keep it and change that rival on the next step.',
 
-  'opponents.heading': 'Set up your AI rival',
+  'opponents.heading': 'Set up your AI rivals',
   'opponents.body':
-    'This test version has one AI rival. Choose its class, personality and difficulty. Personality does not depend on class.',
+    'Choose how many AI rivals you play against, then set each rival’s class, Starter, personality and difficulty. A choice changes only that rival. Personality does not depend on class.',
+  'opponents.count': 'Number of AI rivals',
+  'opponents.countOne': '1 AI rival',
+  'opponents.countMany': '{n} AI rivals',
+  'opponents.players': '{n} players in total.',
+  'opponents.countClosed':
+    'Only {open} classes are open and every player needs a different one, so a game has at most {max} AI rivals.',
+  'opponents.editing': 'Rival to set up',
+  'opponents.needsClass': 'Needs a different class',
   'opponents.class': 'Rival class',
-  'opponents.classTaken': 'You chose this class. Classes cannot repeat in one game.',
+  'opponents.classTaken': '{holder} has this class. Classes cannot repeat in one game.',
+  'opponents.fixClass':
+    '{rival} has a class another player has. Choose a different class for it to go on.',
   'opponents.starter': "Rival's Starter",
   'opponents.personality': 'Personality',
   'opponents.personalityClosed': 'Coming later.',
   'opponents.difficulty': 'Difficulty',
   'opponents.difficultyHint': 'Every difficulty sees only what its seat may see.',
   'opponents.noFreeClass':
-    'No class is left for the rival. Go back and choose a different class for yourself.',
+    'No class is left for a rival. Go back and choose a different class for yourself.',
   'opponents.next': 'Review setup',
 
   'personality.greedy': 'Greedy',
@@ -208,7 +235,6 @@ export const en = {
   'difficulty.normalHint': 'Gets more game information and always picks its top option.',
 
   'seat.you': 'You',
-  'seat.ai': 'AI rival',
 
   'review.heading': 'Review your setup',
   'review.body':
@@ -218,6 +244,51 @@ export const en = {
   'review.roll': 'Roll for first player',
   'review.startFailed':
     'A game could not be created from this setup. Go back, change your class or rival, and try again.',
+
+  'watchReview.heading': 'Review the watch setup',
+  'watchReview.body':
+    'Seats follow this list and none of them is yours. Every AI rolls a die; the highest roll goes first, and the rolls, ties included, are the first entries in the log.',
+  'watchReview.seats': 'AIs in seat order',
+  'watchReview.settings': 'Table settings',
+  'watchReview.start': 'Start watching',
+  'watchReview.startFailed':
+    'A game could not be created from this setup. Go back, change an AI, and try again.',
+  'watchReview.talk': 'AI talk',
+  'watchReview.speed': 'Starting speed',
+  'watchReview.on': 'On',
+  'watchReview.off': 'Off',
+
+  'watchOptions.heading': 'Table settings',
+  'watchOptions.body':
+    'Choose whether the AIs talk at the table and how fast the game starts. You can change the speed while you watch.',
+  'watchOptions.talk': 'AI talk',
+  'watchOptions.talkOn': 'Talk on',
+  'watchOptions.talkOnHint':
+    'After a big moment one AI may say a short line to the table. Lines are only words.',
+  'watchOptions.talkOff': 'Talk off',
+  'watchOptions.talkOffHint': 'No lines are asked for and the table talk panel is not shown.',
+  'watchOptions.speed': 'Starting speed',
+  'watchOptions.normalHint': 'A readable pace. AI talk is spoken only at this speed.',
+  'watchOptions.fastHint': 'Short pauses between moves. The AIs do not talk.',
+  'watchOptions.instantHint': 'No pauses. The AIs do not talk.',
+  'watchOptions.next': 'Review setup',
+
+  'watchSetup.heading': 'Set up the AIs',
+  'watchSetup.body':
+    'Choose how many AIs play, then set each AI’s class, Starter, personality and difficulty. A choice changes only that AI. Nobody holds a seat: you watch.',
+  'watchSetup.count': 'Number of AIs',
+  'watchSetup.countMany': '{n} AIs',
+  'watchSetup.seats': '{n} AIs play each other.',
+  'watchSetup.countClosed':
+    'Only {open} classes are open and every AI needs a different one, so a watched game has at most {max} AIs.',
+  'watchSetup.editing': 'AI to set up',
+  'watchSetup.class': 'AI class',
+  'watchSetup.starter': 'AI’s Starter',
+  'watchSetup.noFreeClass':
+    'Fewer than two classes are open, so a watched game cannot start. Ask the team to check the class file.',
+  'watchSetup.randomAll': 'Random All',
+  'watchSetup.randomAllHint': 'Fill every AI at random. The number of AIs stays as it is.',
+  'watchSetup.next': 'Table settings',
 
   'firstPlayer.heading': 'Who goes first?',
   'firstPlayer.body':
@@ -229,7 +300,7 @@ export const en = {
   'firstPlayer.yourTie': 'You tied for the top roll. Re-rolling to decide who goes first.',
   'firstPlayer.rollAgain': 'Roll again',
   'firstPlayer.youStart': 'You go first',
-  'firstPlayer.aiStarts': 'Your AI rival goes first',
+  'firstPlayer.aiStarts': '{name} goes first',
   'firstPlayer.thenSeatOrder': 'Then play follows seat order.',
   'firstPlayer.toBoard': 'Go to the board',
   'firstPlayer.quit': 'Quit this game',
@@ -251,6 +322,8 @@ export const en = {
   'team.nextFormStats': 'Battle {battle} · Base value {base}',
   'team.nextFormAbility': 'Ability: {ability}',
   'team.branchChoice': 'This line branches. You choose one of these forms when it evolves.',
+  'team.branchChoiceWatched':
+    'This line branches. Its trainer chooses one of these forms when it evolves.',
   'species.catchDc': 'Catch DC',
   'starter.facts': 'About your Starter, {name}',
   'starter.rivalFacts': 'About the rival’s Starter, {name}',
@@ -271,6 +344,18 @@ export const en = {
   'results.nameJoin': '{left} and {right}',
   'results.playAgain': 'Play again',
   'results.export': 'Export log',
+  'results.watchAgain': 'Watch again',
+  'results.watchAgainHint': 'Starts a new game with the same AIs and settings. The dice are new.',
+  'results.home': 'Back to Home',
+  'results.seatSetup': '{class} · {setup}',
+  'results.decisionsHeading': 'Who decided each AI’s moves',
+  'results.decisionsBody':
+    'Jev is the AI service. The backup bot decides when Jev is off, slow or unavailable.',
+  'results.decisionsCaption': 'Decisions by Jev and by the backup bot',
+  'results.jev': 'Jev',
+  'results.backup': 'Backup bot',
+  'results.decisionsEarlier':
+    '{count} earlier decisions were made before this game was resumed. Their source was not kept, so they are not counted here.',
 
   'save.off': 'Saving is off. The game still plays.',
   'save.continueHeading': 'Continue this game?',
@@ -282,6 +367,13 @@ export const en = {
   'save.pendingRoll': 'A die result is still waiting. It was not rolled before the save.',
   'save.pendingFinished': 'This game has already finished.',
   'save.pendingWatched': 'A watched game is in progress, turn {turn}.',
+  'save.rivals': 'AI rivals in this game',
+  'save.rivalRow': '{name}: {class}, {personality}, {difficulty}.',
+  'save.rivalSettingsMissing':
+    '{name}: {class}. Its saved personality or difficulty is not available in this build, so it plays as Greedy on Normal.',
+  'save.classClosed': '{class} is not open for new games in this build; this game keeps it.',
+  'save.personalityClosed':
+    '{personality} is not open for new games in this build; this game keeps it.',
   'save.mismatchHeading': 'This save cannot be loaded',
   'save.mismatchNext': 'New game starts a fresh game and removes this save from the browser.',
   'save.unreadable':
@@ -291,6 +383,22 @@ export const en = {
   'watch.stepBusy': 'Wait for the action in progress to finish.',
   'watch.stepFailed': 'The AI decision failed. Retry it before stepping.',
   'watch.stepFinished': 'The game has finished.',
+  'watch.setup': '{personality} personality · {difficulty} difficulty',
+  'watch.heading': 'AIs playing',
+  'watch.playing': 'The AIs are playing. Each move appears under the board.',
+  'watch.paused': 'Paused. Resume to keep playing, or Step to play one action.',
+  'watch.controls': 'Watch controls',
+  'watch.pause': 'Pause',
+  'watch.resume': 'Resume',
+  'watch.step': 'Step',
+  'watch.skip': 'Skip to results',
+  'watch.skipAsk': 'Skip to the results? The rest of the game plays out at once, with no pauses.',
+  'watch.keepWatching': 'Keep watching',
+  'watch.leave': 'Leave',
+  'watch.leaveAsk': 'Leave this game? Save it to continue later, or end it.',
+  'watch.leaveSave': 'Save and continue later',
+  'watch.leaveEnd': 'End game',
+  'watch.leaveSaveOff': 'Saving is off in this browser, so this game cannot be kept.',
 
   'credits.link': 'Credits',
   'credits.heading': '3D model credits',
@@ -424,6 +532,24 @@ export const en = {
   'ai.reason.timeout': 'Jev did not answer in time.',
   'ai.reason.rate_limited': 'Jev is receiving too many requests.',
   'ai.reason.auth': 'The server could not connect to Jev with its current settings.',
+  'talk.heading': 'Table talk',
+  'talk.hide': 'Hide table talk',
+  'talk.show': 'Show table talk',
+  'talk.hidden': 'Table talk is hidden. No new lines are asked for while it is hidden.',
+  'talk.empty':
+    'No table talk yet. An AI may comment after a rare catch, a big sale, a Gym win, a change in the lead or the final round.',
+  'talk.onlyWords': 'Only words: table talk never changes a game number or an AI’s choice.',
+  'talk.aiWritten': 'AI-written · only words',
+  'talk.bank': 'Line bank · only words',
+  'talk.to': 'to {name}',
+  'talk.toYou': 'to you',
+  'talk.voiceOff': 'Voice off',
+  'talk.reason.disabled':
+    'AI-written speech is switched off on this server. Lines come from the line bank, or the table stays quiet.',
+  'talk.reason.missing_key':
+    'AI-written speech is not set up on this server. Lines come from the line bank, or the table stays quiet.',
+  'talk.reason.budget_exceeded':
+    'The AI-written speech spending limit has been reached. Lines come from the line bank, or the table stays quiet.',
   'ai.reason.stub': 'This decision uses the backup policy.',
   'ai.action.roll': '{name} rolled the die.',
   'ai.action.skip': '{name} continued past {phase}.',
@@ -479,9 +605,6 @@ export const en = {
   'gallery.pending.chat': 'Needs the chat panel, which is not built yet.',
   'gallery.pending.eventDeck':
     'The notice is in this catalog, but no screen shows it yet and the board has no Event deck.',
-  'gallery.pending.speech':
-    'Needs the speech writer and the Table talk panel, which are not built yet.',
-  'gallery.pending.watch': 'Needs watch mode, which is not built yet.',
   'gallery.row.onlyLegalAction': 'Only one legal action (e.g. must roll)',
   'gallery.row.shortlistEmpty': 'Shortlist empty after personality filtering',
   'gallery.row.noBall': 'Pokémon found but no Ball',
@@ -519,7 +642,17 @@ export const en = {
   'gallery.example.afterContinue': 'Board after Continue',
   'gallery.example.sellWholeTeam': 'Selling the whole team: preview',
   'gallery.example.afterWholeTeamSale': 'After the whole team was sold',
+  'gallery.example.watchContinue': 'Home screen offering Continue for a watched game',
+  'gallery.example.watchAfterContinue': 'Watch board after Continue, the AI deciding again',
+  'gallery.example.watchAllBackup': 'Every AI in the watched game decided with the backup bot',
   'gallery.example.badgeOneOfTwo': 'One of two rivals timed out',
+  'gallery.example.voiceDisabled': 'Voice off: switched off on the server, a line from the bank',
+  'gallery.example.voiceMissingKey': 'Voice off: no key on the server, a line from the bank',
+  'gallery.example.voiceBudget': 'Voice off: spending limit reached, no line for this moment',
+  'gallery.example.screenBank':
+    'The text failed the screen: the bank line is shown, not labelled AI-written',
+  'gallery.example.screenSilence':
+    'The text failed the screen and the bank has no line: nothing is shown',
   'gallery.example.badgeRateLimited': 'One of two rivals was rate limited',
 } as const satisfies Record<string, string>;
 

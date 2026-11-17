@@ -1,0 +1,279 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Jev state > an empty chat history gives an empty list; Strategy state carries the named hint 1`] = `
+{
+  "questions": {
+    "strategy": {
+      "criteria": {
+        "a1": "Use your Lucky Egg on yourself. Lucky Egg effect: +1 own catch/combat until end of turn; no movement bonus. This uses up the item and your tactical action for this turn. Whether you meet a wild Pokémon this turn is unknown, because your move roll is unknown.",
+        "a2": "Use your Repel on P1, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P1 will learn that you used it on them. How far P1 would roll on their next move is unknown.",
+        "a3": "Use your Repel on P3, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P3 will learn that you used it on them. How far P3 would roll on their next move is unknown.",
+        "a4": "Use your Repel on P4, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P4 will learn that you used it on them. How far P4 would roll on their next move is unknown.",
+        "a5": "Use your Pickpocket on P1, the target. Pickpocket effect: Take up to 5 coins from the target. This uses up the item and your tactical action for this turn. P1 will learn that you used it on them.",
+        "a6": "Use your Pickpocket on P3, the target. Pickpocket effect: Take up to 5 coins from the target. This uses up the item and your tactical action for this turn. P3 will learn that you used it on them.",
+        "a7": "Use your Pickpocket on P4, the target. Pickpocket effect: Take up to 5 coins from the target. This uses up the item and your tactical action for this turn. P4 will learn that you used it on them.",
+        "skip": "Do nothing this phase and keep all your items. Your tactical action for this turn stays unused.",
+      },
+      "instructions": "Pick the ONE action that best fits \`you.personality\` right now. Only the listed actions are allowed. Each option states its effect and what is unknown when you choose it.",
+      "type": "choice",
+    },
+  },
+  "state": {
+    "active_seat_id": 1,
+    "board": [
+      {
+        "kind": "start",
+        "name": "Start",
+        "space_id": 0,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 1,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 2,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 3,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 4,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 5,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 6,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 7,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 8,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 9,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 10,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 11,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 12,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 13,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 14,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 15,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 16,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 17,
+      },
+      {
+        "kind": "gym",
+        "name": "Gym",
+        "space_id": 18,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 19,
+      },
+      {
+        "kind": "shop",
+        "name": "Shop",
+        "space_id": 20,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 21,
+      },
+      {
+        "kind": "event",
+        "name": "Event",
+        "space_id": 22,
+      },
+      {
+        "kind": "wild",
+        "name": "Wild",
+        "space_id": 23,
+      },
+    ],
+    "chat_hint": [
+      "Slightly less likely to target P1 this turn.",
+    ],
+    "final_table_round": false,
+    "opponents": [
+      {
+        "ability_ready": true,
+        "class_id": "main-character",
+        "coins_vs_you": "far behind",
+        "id": "P1",
+        "item_count": "none",
+        "known_items": [],
+        "lap": "1 of 3",
+        "seat_id": 0,
+        "squares_to_start": "far",
+        "team": [
+          {
+            "ability_ready": true,
+            "id": "starter:0",
+            "origin": "original_starter",
+            "species_id": "charmander",
+            "tired": false,
+          },
+        ],
+        "team_count": "one",
+      },
+      {
+        "ability_ready": true,
+        "class_id": "nurse-joy",
+        "coins_vs_you": "far ahead",
+        "id": "P3",
+        "item_count": "one",
+        "known_items": [
+          {
+            "id": "class-item:2",
+            "item_id": "price-shield",
+            "name": "Price Shield",
+          },
+        ],
+        "lap": "1 of 3",
+        "seat_id": 2,
+        "squares_to_start": "far",
+        "team": [
+          {
+            "ability_ready": true,
+            "id": "starter:2",
+            "origin": "original_starter",
+            "species_id": "chansey",
+            "tired": false,
+          },
+        ],
+        "team_count": "one",
+      },
+      {
+        "ability_ready": true,
+        "class_id": "researcher",
+        "coins_vs_you": "level",
+        "id": "P4",
+        "item_count": "one",
+        "known_items": [
+          {
+            "id": "class-item:3",
+            "item_id": "potion",
+            "name": "Potion",
+          },
+        ],
+        "lap": "1 of 3",
+        "seat_id": 3,
+        "squares_to_start": "far",
+        "team": [
+          {
+            "ability_ready": true,
+            "id": "starter:3",
+            "origin": "original_starter",
+            "species_id": "porygon",
+            "tired": false,
+          },
+        ],
+        "team_count": "one",
+      },
+    ],
+    "phase": "strategy",
+    "recent_chat": [
+      {
+        "from": "P1",
+        "said": ""Can we call a truce?"",
+      },
+    ],
+    "you": {
+      "ability_ready": true,
+      "balls": {
+        "great": "none",
+        "poke": "many",
+        "ultra": "none",
+      },
+      "class_id": "rival",
+      "coins_rank": "2nd of 4",
+      "id": "P2",
+      "item_count": "few",
+      "items": [
+        {
+          "id": "class-item:1",
+          "item_id": "lucky-egg",
+          "name": "Lucky Egg",
+        },
+        {
+          "id": "bought:1:1",
+          "item_id": "repel",
+          "name": "Repel",
+        },
+        {
+          "id": "bought:1:2",
+          "item_id": "pickpocket",
+          "name": "Pickpocket",
+        },
+      ],
+      "lap": "1 of 3",
+      "personality": "Greedy: values cash now over long-term team building; avoids fights it may lose.",
+      "private_results": [],
+      "seat_id": 1,
+      "squares_to_start": "far",
+      "team": [
+        {
+          "ability_ready": true,
+          "id": "starter:1",
+          "origin": "original_starter",
+          "species_id": "eevee",
+          "tired": false,
+        },
+      ],
+      "team_count": "one",
+    },
+  },
+}
+`;

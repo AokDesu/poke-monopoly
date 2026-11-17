@@ -1,15 +1,16 @@
-import type { Observation, SeatEvent } from '../../../engine/index.ts';
+import type { SeatEvent } from '../../../engine/index.ts';
 import type { SeatFeedEntry } from '../game/store.ts';
 import { t, type MessageKey } from '../i18n/en.ts';
 import { itemName } from '../i18n/names.ts';
-import { phaseLabel, playerLabel, reasonLabel, seatLabel } from './labels.ts';
+import { ownSeatOf, phaseLabel, playerLabel, reasonLabel, seatLabel } from './labels.ts';
+import type { ViewedObservation } from './labels.ts';
 import { turnMessages } from './turnMessages.ts';
 
 function eventMessage(
   event: SeatEvent,
-  observation: Observation,
+  observation: ViewedObservation,
 ): { key: MessageKey; text: string }[] {
-  const seat = (index: number) => seatLabel(index, observation.own.seatIndex);
+  const seat = (index: number) => seatLabel(index, ownSeatOf(observation));
   const message = (key: MessageKey, values?: Record<string, string | number>) => [
     { key, text: t(key, values) },
   ];
@@ -40,6 +41,9 @@ function eventMessage(
       return [];
     // Chat has its own screen (#57); the flag keeping the Social window closed is off until then.
     case 'chat_sent':
+    case 'promise_offered':
+    case 'promise_accepted':
+    case 'promise_rejected':
       return [];
     case 'random_result':
       if (event.purpose.startsWith('line:')) return [];
@@ -97,12 +101,12 @@ export function EventLog({
   feed,
 }: {
   events: readonly SeatEvent[];
-  observation: Observation;
+  observation: ViewedObservation;
   feed?: readonly SeatFeedEntry[];
 }) {
   const rows = feed
     ? feed.flatMap((entry) => [
-        ...turnMessages(entry),
+        ...turnMessages(entry, ownSeatOf(observation)),
         ...entry.record.events.flatMap((event) => eventMessage(event, observation)),
       ])
     : events.flatMap((event) => eventMessage(event, observation));

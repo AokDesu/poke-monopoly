@@ -512,12 +512,14 @@ test('a chat changes nothing beyond its history and the social budget (§4.8 har
         // Coins, teams, items, Balls, RNG, phase and every other field: identical.
         expect(strip(after)).toEqual(strip(before));
         expect(after.rng).toEqual(before.rng);
-        // The legal set shrinks only by the social budget: chat choices go, nothing else moves.
+        // The legal set shrinks only by the social budget: the social choices go, nothing else moves.
         for (const seat of before.players.map((player) => player.seatIndex)) {
           const without = (state: GameState) => {
             const set = legalActions(state, seat);
             return {
-              enabled: set.enabled.filter((choice) => choice.kind !== 'chat'),
+              enabled: set.enabled.filter(
+                (choice) => choice.kind !== 'chat' && choice.kind !== 'offer_promise',
+              ),
               disabled: set.disabled,
             };
           };

@@ -1,6 +1,8 @@
 import type { Personality } from '../../content/personality-schema.ts';
 import type { LegalAction, LegalActions, Observation } from '../../engine/index.ts';
+import { bucketKeepValue } from '../../engine/index.ts';
 import type { Policy, PolicyChoice, PolicyFacts, PolicyRng } from '../../sim/policy.ts';
+import { chatScoreShift } from '../chat.ts';
 import type { FallbackReason } from '../jev/client.ts';
 
 /**
@@ -79,11 +81,22 @@ function strategyScore(option: LegalAction, { observation, personality }: Contex
   // Strategy until Stream B integrates them.
   if (option.kind === 'declare_pvp' || option.kind === 'activate_ability') return -1;
   if (option.kind !== 'use_item') return 0;
-  const { risk, aggression, liquidity } = personality.weights;
-  const { holdItem } = FALLBACK_TUNING;
   const { itemInstanceId, targetSeatIndex } = option.payload;
   const item = observation.own.items.find((entry) => entry.instanceId === itemInstanceId);
-  switch (item?.itemId) {
+  // Spec §5.3: a chat shifts this turn's target and item weights by one bounded bucket.
+  const chat = chatScoreShift(observation, { itemId: item?.itemId, targetSeatIndex });
+  return chat + baseStrategyScore(item?.itemId, targetSeatIndex, observation, personality);
+}
+
+function baseStrategyScore(
+  itemId: string | undefined,
+  targetSeatIndex: number | undefined,
+  observation: Observation,
+  personality: Personality,
+): number {
+  const { risk, aggression, liquidity } = personality.weights;
+  const { holdItem } = FALLBACK_TUNING;
+  switch (itemId) {
     case 'lucky-egg':
       return wildAhead(observation) - holdItem * (1 - risk);
     case 'pickpocket':
@@ -106,7 +119,8 @@ function encounterScore(option: LegalAction, { personality, facts }: Context): n
 
 /**
  * Sale desire in [0, 1]: sale value as a share of the team's best, less what a ready Ability or
- * an Original Starter holds back. Without engine sale values nothing is worth selling.
+ * an Original Starter holds back, then reduced by the engine's separate keep bucket.
+ * Without engine sale values nothing is worth selling.
  */
 export function saleDesire(observation: Observation, instanceId: string, facts: PolicyFacts) {
   const team = you(observation).team;
@@ -117,7 +131,14 @@ export function saleDesire(observation: Observation, instanceId: string, facts: 
   const kept =
     FALLBACK_TUNING.keepFeature *
     (Number(pokemon.abilityReady) + Number(pokemon.origin === 'original_starter'));
-  return ((values[instanceId] ?? 0) / best) * (1 - kept);
+  const keep = bucketKeepValue(facts.keepValue?.[instanceId] ?? 0);
+  const battleKeep =
+    keep === 'high'
+      ? 2 * FALLBACK_TUNING.keepFeature
+      : keep === 'medium'
+        ? FALLBACK_TUNING.keepFeature
+        : 0;
+  return ((values[instanceId] ?? 0) / best) * (1 - kept) * (1 - battleKeep);
 }
 
 /**
