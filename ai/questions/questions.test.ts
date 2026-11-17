@@ -160,6 +160,26 @@ test('round trip returns the original engine action ID for every option (spec §
   expect(actionIdFor({ kind: 'autoApply', actionId: 'skip' }, 'skip')).toBeUndefined();
 });
 
+test('temporary S06 capability filter keeps engine PvP legal but preserves only item/skip Strategy options until Stream B integration', () => {
+  const state = strategy(2, ['repel', 'pickpocket']);
+  const enabled = legalActions(state, 0).enabled;
+  const declarations = enabled.filter((action) => action.kind === 'declare_pvp');
+  expect(declarations).toHaveLength(1);
+  const decision = asked(askStrategy(state));
+  const offered = Object.values(decision.options);
+  expect(offered).toEqual(
+    enabled.filter((action) => action.kind !== 'declare_pvp').map((action) => action.id),
+  );
+  expect(offered).toContain('skip');
+  expect(
+    enabled
+      .filter((action) => action.kind === 'use_item')
+      .every((action) => offered.includes(action.id)),
+  ).toBe(true);
+  expect(declarations.every((action) => !offered.includes(action.id))).toBe(true);
+  expect(legalActions(state, 0).enabled).toEqual(enabled);
+});
+
 test('Strategy criteria never mention Price Shield while the engine defers it (spec §4.6)', () => {
   const state = strategy(4, ['repel', 'pickpocket']);
   give(state, 1, 'pickpocket', 'secret');
@@ -171,7 +191,9 @@ test('Strategy criteria never mention Price Shield while the engine defers it (s
 describe('spec §3.1 decisions you never made', () => {
   test('one enabled action is applied automatically and builds no question', () => {
     const state = strategy(2, []);
-    expect(legalActions(state, 0).enabled).toHaveLength(1);
+    expect(
+      legalActions(state, 0).enabled.filter((action) => action.kind !== 'declare_pvp'),
+    ).toHaveLength(1);
     expect(askStrategy(state)).toEqual({ kind: 'autoApply', actionId: 'skip' });
     const noBall = encounter('eevee', { poke: 0, great: 0, ultra: 0 });
     expect(askEncounter(noBall)).toEqual({ kind: 'autoApply', actionId: 'release' });

@@ -81,6 +81,11 @@ export function useCatchClassBonus(content: Content, player: Player): void {
   if (passive === 'lap_first_catch_bonus') player.catchBonusUsedLap = player.creditedLap;
 }
 
+/** Nurse Joy's passive also means she loses no coins on a PvP loss (§4.4, Appendix A). */
+export function protectsPvpCoinLoss(content: Content, classId: string): boolean {
+  return content.classes.find((entry) => entry.id === classId)?.passive === 'turn_start_team_heal';
+}
+
 /** Nurse Joy heals the whole team only as its owner's turn starts (§4.2 step 1). */
 export function startTurnClassPassive(state: GameState, player: Player): EngineEvent[] {
   if (

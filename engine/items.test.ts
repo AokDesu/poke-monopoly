@@ -10,6 +10,7 @@ import {
   fixtureSchema,
   itemEffectStatus,
   legalActions,
+  pendingDecision,
   replay,
   type GameState,
 } from './index.ts';
@@ -72,7 +73,7 @@ function pendingMoveDie(state: GameState): number {
 
 function command(state: GameState, kind: string, payload = {}) {
   return applyAction(state, {
-    actorId: state.players[state.activeSeatIndex]!.actorId,
+    actorId: pendingDecision(state)?.actorId ?? state.players[state.activeSeatIndex]!.actorId,
     actionSeq: state.stateRevision + 1,
     stateRevisionBefore: state.stateRevision,
     kind,
@@ -141,7 +142,7 @@ test('a second item use in the same turn is disabled with ALREADY_USED_THIS_TURN
   const used = accepted(state, 'use_item', { itemInstanceId: 'bought:0:1', targetSeatIndex: 1 });
   const choices = legalActions(used.state, 0);
   expect(choices.enabled).toEqual([{ id: 'skip', kind: 'skip', payload: {} }]);
-  expect(choices.disabled).toEqual([
+  expect(choices.disabled.filter((choice) => choice.kind === 'use_item')).toEqual([
     {
       id: 'use-item:bought:0:2:seat-1',
       kind: 'use_item',
@@ -237,12 +238,10 @@ test('a second Repel on a target that still has one pending is NO_VALID_TARGET (
     (current) => current.activeSeatIndex === 1 && current.phase.kind === 'strategy',
   );
   const choices = legalActions(state, 1);
-  expect(choices.enabled.map((choice) => choice.id)).toEqual([
-    'use-item:class-item:1',
-    'use-item:bought:1:1:seat-0',
-    'skip',
-  ]);
-  expect(choices.disabled).toEqual([
+  expect(
+    choices.enabled.filter((choice) => choice.kind !== 'declare_pvp').map((choice) => choice.id),
+  ).toEqual(['use-item:class-item:1', 'use-item:bought:1:1:seat-0', 'skip']);
+  expect(choices.disabled.filter((choice) => choice.kind === 'use_item')).toEqual([
     {
       id: 'use-item:bought:1:1:seat-2',
       kind: 'use_item',
@@ -357,7 +356,10 @@ test('1,000 random legal actions with items keep coins nonnegative, transfers ba
             state = start(seed + ++games);
             log = createGameLog(state);
           }
-          const choices = legalActions(state, state.activeSeatIndex).enabled;
+          const choices = legalActions(
+            state,
+            pendingDecision(state)?.seatIndex ?? state.activeSeatIndex,
+          ).enabled;
           // A sole choice or pending roll advances automatically; otherwise pick at random.
           const step =
             choices.length > 1
@@ -413,16 +415,16 @@ test.each([
   ['repel', 'active'],
   ['pickpocket', 'active'],
   ['potion', 'partial'],
-  ['price-shield', 'planned'],
-  ['sticky-web', 'planned'],
-  ['battle-ticket', 'planned'],
+  ['price-shield', 'active'],
+  ['sticky-web', 'active'],
+  ['battle-ticket', 'active'],
 ] as const)(
   '%s is %s: the claimed support matches whether Strategy offers it as a choice (Appendix A)',
   (itemId, status) => {
     expect(itemEffectStatus({ id: itemId, name: itemId, kind: 'utility', price: 1 })).toBe(status);
     const { enabled, disabled } = legalActions(strategy(itemId), 0);
     const choices = [...enabled, ...disabled].filter((choice) => choice.kind === 'use_item');
-    expect(choices.length > 0).toBe(status !== 'planned');
+    expect(choices.length).toBeGreaterThan(0);
   },
 );
 

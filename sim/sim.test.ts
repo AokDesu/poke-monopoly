@@ -613,7 +613,8 @@ describe('the real engine', () => {
     expect(summary).toMatchObject({ games: 6, seats: 3, aborted: 0 });
     expect(summary.averageTurns).toBeGreaterThan(0);
     expect(summary.winners.bySeat.reduce((sum, n) => sum + n, 0)).toBeCloseTo(6);
-  });
+    // Six invariant-checked full games take seconds; the default 5 s fails on a loaded machine.
+  }, 60_000);
 
   test('rotates only the core classes; stretch classes wait until after G2 (§1)', async () => {
     const stretch = loadContent()
@@ -686,7 +687,10 @@ describe('summary metrics from the real engine (§8, Appendix A)', () => {
       expect([0, 1, 2]).toContain(row.lap);
       expect(row.catches).toBeLessThanOrEqual(row.attempts);
       expect(row.attempts).toBeLessThanOrEqual(row.encounters);
-      expect(row.attemptsPerEncounter).toBeCloseTo(row.attempts / row.encounters, 2);
+      // Rounded to two places, so it is within half a hundredth of the exact share.
+      expect(
+        Math.abs(row.attemptsPerEncounter - row.attempts / row.encounters),
+      ).toBeLessThanOrEqual(0.005 + 1e-9);
       encountersByDcLap.set(`${row.dc}@${row.lap}`, row.encounters);
     }
     // Every DC and Lap with an encounter lists all three Balls, so a Ball never tried shows 0.

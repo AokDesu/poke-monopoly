@@ -9,7 +9,8 @@ import {
   int,
   legalActions,
   observe,
-  type EngineEvent,
+  pendingDecision,
+  type SeatEvent,
   type GameState,
   type Observation,
 } from '../../engine/index.ts';
@@ -79,12 +80,13 @@ function game(index: number): GameState {
 function step(state: GameState, pick: (n: number) => number) {
   const automatic = advanceAutomatically(state);
   if (automatic.records.length === 1) return automatic;
-  const enabled = legalActions(state, state.activeSeatIndex).enabled;
+  const seatIndex = pendingDecision(state)!.seatIndex;
+  const enabled = legalActions(state, seatIndex).enabled;
   const choice = enabled[pick(enabled.length)]!;
   // A seat numbers its own feed: chats it took no part in leave no gap (§4.8).
-  const revision = observe(state, state.activeSeatIndex).public.stateRevision;
+  const revision = observe(state, seatIndex).public.stateRevision;
   const result = applyAction(state, {
-    actorId: state.players.find((player) => player.seatIndex === state.activeSeatIndex)!.actorId,
+    actorId: pendingDecision(state)!.actorId,
     actionSeq: revision + 1,
     stateRevisionBefore: revision,
     kind: choice.kind,
@@ -96,7 +98,7 @@ function step(state: GameState, pick: (n: number) => number) {
 
 const brief = (
   observation: Observation,
-  events: readonly EngineEvent[],
+  events: readonly SeatEvent[],
   situation: Situation,
   addressedSeat?: number,
 ) =>
@@ -150,7 +152,7 @@ describe('speech brief (§4.1, §4.8, §5.4, §8)', () => {
         choices = draw.rng;
         return draw.value;
       };
-      const feeds = new Map<number, EngineEvent[]>(state.players.map((p) => [p.seatIndex, []]));
+      const feeds = new Map<number, SeatEvent[]>(state.players.map((p) => [p.seatIndex, []]));
       for (let move = 1; move <= 60; move++) {
         const before = state;
         const result = step(before, pick);
@@ -230,7 +232,7 @@ describe('speech brief (§4.1, §4.8, §5.4, §8)', () => {
     const state = game(2);
     const observation = observe(state, 0);
     const pokemon = observation.public.players[1]!.team[0]!;
-    const feed: EngineEvent[] = [
+    const feed: SeatEvent[] = [
       { kind: 'hostile_item_used', userSeatIndex: 1, targetSeatIndex: 0, itemId: 'repel' },
       { kind: 'chat_sent', fromSeatIndex: 1, toSeatIndex: 0, topic: 'trade' },
       { kind: 'uid_created', instanceId: 'SENTINEL-item', entity: 'item', ownerId: 'player-0' },
@@ -238,7 +240,7 @@ describe('speech brief (§4.1, §4.8, §5.4, §8)', () => {
       { kind: 'random_result', purpose: 'shuffle:events', result: DECK, drawCounter: 1 },
     ];
     expect(brief(observation, feed, 'game_start').recent_events).toEqual([]);
-    const told: EngineEvent[] = [
+    const told: SeatEvent[] = [
       {
         kind: 'uid_created',
         instanceId: pokemon.instanceId,

@@ -1,3 +1,5 @@
+import { ABILITY_EFFECTS, abilityEffectOf } from './abilities.ts';
+import { pendingDecision } from './decisions.ts';
 import { applyAction, legalActions } from './contract/stubs.ts';
 import {
   actionSchema,
@@ -9,7 +11,7 @@ import {
 } from './contract/schema.ts';
 import { canonicalJson, stateHash } from './state-hash.ts';
 import { pendingRollPurpose } from './turns.ts';
-import { actorRevision } from './visibility.ts';
+import { actorRevision, publicRevision } from './visibility.ts';
 import { nextEvolutionForms } from './forms.ts';
 
 /** Spec §8 engine invariants, plus the §6.5 Lap credit rules that issue #14 names. */
@@ -27,6 +29,8 @@ export type InvariantId =
   | 'credited-lap-pays-once'
   | 'replay-reproduces-state'
   | 'game-can-finish'
+  | 'pvp-turn-ownership'
+  | 'attack-attempt-logged'
   | 'deals-atomic'
   | 'move-debuff-until-next-move'
   | 'tired-and-nurse-joy-useful'
@@ -125,11 +129,19 @@ function checkEvolutionFields({ before, result }: Step): string[] {
           current.evolutionStage === previous.evolutionStage)
       )
         continue;
-      // Preserve all UID-bound fields, including future status/cooldown metadata.
+      // Preserve all UID-bound fields, including future status/cooldown metadata. A status change
+      // logged in the same action (Dragon Rush's post-reward Tired, D13) is checked elsewhere.
+      const statusLogged = eventsOf(result.events, 'status_changed').some(
+        (event) => event.instanceId === previous.instanceId,
+      );
       const retained = (pokemon: typeof previous) => {
         const fields: Partial<typeof previous> = { ...pokemon };
         delete fields.speciesId;
         delete fields.evolutionStage;
+        if (statusLogged) {
+          delete fields.tired;
+          delete fields.tiredExpiresOwnTurnNo;
+        }
         return fields;
       };
       if (
@@ -471,9 +483,13 @@ function checkStartPaymentOrder({ before, result }: Step): string[] {
 
 function checkForcedMovementIncome({ before, parsed, result }: Step): string[] {
   if (!accepted(result)) return [];
-  // Start income is paid only while the engine resolves the payee's own move roll.
+  // Start income is paid only while the payee's own Move phase resolves: its die, a kept or
+  // rerolled die (D11) or a fixed move (C.5). Displacement happens outside Move (D9).
   const ownMoveRoll =
-    parsed?.kind === 'dice_result' && pendingRollPurpose(before)?.startsWith('move:') === true;
+    before.phase.kind === 'move' &&
+    (parsed?.kind === 'dice_result'
+      ? pendingRollPurpose(before)?.startsWith('move:') === true
+      : parsed?.kind === 'roll' || parsed?.kind === 'skip');
   const mover = before.players.find((player) => player.seatIndex === before.activeSeatIndex);
   return startIncome(result.events)
     .filter(
@@ -515,10 +531,241 @@ function checkGameCanFinish({ result }: Step): string[] {
     state.players.some((player) => player.seatIndex === state.activeSeatIndex);
   if (!seated) return [`active seat ${state.activeSeatIndex} is not a configured player`];
   if (pendingRollPurpose(state)) return [];
-  if (legalActions(state, state.activeSeatIndex).enabled.length === 0) {
-    return [`seat ${state.activeSeatIndex} has no enabled choice in phase ${state.phase.kind}`];
+  const decision = pendingDecision(state);
+  if (!decision || legalActions(state, decision.seatIndex).enabled.length === 0) {
+    return [`no pending seat has an enabled choice in phase ${state.phase.kind}`];
   }
   return [];
+}
+
+function checkPvpOwnership({ before, parsed, result }: Step): string[] {
+  if (!('accepted' in result) || (before.phase.kind !== 'pvp' && parsed?.kind !== 'declare_pvp'))
+    return [];
+  const after = result.state;
+  const errors: string[] = [];
+  if (
+    after.activeSeatIndex !== before.activeSeatIndex ||
+    after.globalTurnNo !== before.globalTurnNo ||
+    before.players.some(
+      (player) =>
+        after.players.find((entry) => entry.actorId === player.actorId)?.ownTurnNo !==
+        player.ownTurnNo,
+    )
+  ) {
+    errors.push('PvP advanced or transferred the challenger’s turn');
+  }
+  const expected = {
+    ...before.turnBudgets,
+    tacticalAction: before.turnBudgets.tacticalAction - (parsed?.kind === 'declare_pvp' ? 1 : 0),
+    // The active challenger's own window activation spends its pokemonAbility (C.3).
+    pokemonAbility:
+      before.turnBudgets.pokemonAbility -
+      (parsed?.kind === 'activate_ability' &&
+      before.players.find((player) => player.actorId === parsed.actorId)?.seatIndex ===
+        before.activeSeatIndex
+        ? 1
+        : 0),
+  };
+  if (canonicalJson(after.turnBudgets) !== canonicalJson(expected))
+    errors.push('PvP changed unexpected turn budgets');
+  return errors;
+}
+
+function checkAttackEvidence({ before, parsed, result }: Step): string[] {
+  if (!('accepted' in result)) return [];
+  const history = result.state.attackHistory ?? [];
+  const prior = before.attackHistory ?? [];
+  const attempts = eventsOf(result.events, 'attack_attempt');
+  const errors: string[] = [];
+  if (canonicalJson(history) !== canonicalJson([...prior, ...attempts]))
+    errors.push('Attack history does not match the accepted attempt events');
+  const expected = expectedAttempt(before, parsed);
+  if (expected) {
+    if (attempts.length !== 1 || canonicalJson(attempts[0]) !== canonicalJson(expected))
+      errors.push('Declaration lacks exactly one directed attack attempt');
+  } else if (attempts.length) errors.push('Attack attempt recorded without a declaration');
+  return errors;
+}
+
+const HOSTILE_ITEMS = ['repel', 'pickpocket', 'sticky-web', 'battle-ticket'];
+
+/** The one attempt a PvP declaration or hostile item use must record (§4.4, §4.6, D6). */
+function expectedAttempt(before: GameState, parsed: Step['parsed']) {
+  if (!parsed) return;
+  const actor = before.players.find((player) => player.actorId === parsed.actorId);
+  let source: 'pvp_declaration' | 'hostile_item' | 'hostile_ability' | undefined;
+  let prefix = '';
+  let targetSeatIndex: number | undefined;
+  if (parsed.kind === 'declare_pvp') {
+    [source, prefix, targetSeatIndex] = ['pvp_declaration', 'pvp', parsed.payload.targetSeatIndex];
+  } else if (parsed.kind === 'use_item') {
+    const item = actor?.items.find((entry) => entry.instanceId === parsed.payload.itemInstanceId);
+    if (item && HOSTILE_ITEMS.includes(item.itemId)) {
+      [source, prefix, targetSeatIndex] = [
+        'hostile_item',
+        'hostile',
+        parsed.payload.targetSeatIndex,
+      ];
+    }
+  }
+  if (parsed.kind === 'activate_ability') {
+    const pokemon = actor?.team.find((entry) => entry.instanceId === parsed.payload.instanceId);
+    const effect = pokemon && abilityEffectOf(before, pokemon);
+    if (effect && ABILITY_EFFECTS[effect].hostile) {
+      [source, prefix, targetSeatIndex] = [
+        'hostile_ability',
+        'ability',
+        parsed.payload.targetSeatIndex,
+      ];
+    }
+  }
+  if (!source) return;
+  return {
+    kind: 'attack_attempt',
+    // The ID a seat sees skips chats; the internal sequence counts every record (§4.8, §6.3).
+    attackId: `${prefix}:${publicRevision(before) + 1}`,
+    actorId: parsed.actorId,
+    targetId: before.players.find((player) => player.seatIndex === targetSeatIndex)?.actorId,
+    source,
+    actionSeq: before.stateRevision + 1,
+    globalTurnNo: before.globalTurnNo,
+  };
+}
+
+/**
+ * §8 replay/resume: the RNG advances by exactly the draws an accepted action logs, numbered in
+ * order, so no die is ever re-rolled silently; and a saved copy of the state re-asks the same seat.
+ */
+function checkResumeCreatesNothing({ before, result }: Step): string[] {
+  if (!('accepted' in result)) return [];
+  const errors: string[] = [];
+  const draws = eventsOf(result.events, 'random_result').filter(
+    (event) => event.drawCounter !== undefined,
+  );
+  const expected = draws.map((_, index) => before.rng.cursor + index + 1);
+  if (
+    result.state.rng.cursor !== before.rng.cursor + draws.length ||
+    canonicalJson(draws.map((event) => event.drawCounter)) !== canonicalJson(expected)
+  ) {
+    errors.push('RNG advanced without a matching logged draw');
+  }
+  const saved = JSON.parse(JSON.stringify(result.state)) as GameState;
+  if (canonicalJson(pendingDecision(saved)) !== canonicalJson(pendingDecision(result.state))) {
+    errors.push('A saved state asks a different seat');
+  }
+  return errors;
+}
+
+/** §4.5/§8: a Rescue Starter is worth 0, untradeable and never resold in its own Sell Phase. */
+function checkRescueNoCoinLoop({ before, result }: Step): string[] {
+  if (!('accepted' in result)) return [];
+  const errors: string[] = [];
+  const events = result.events;
+  const created = new Set(
+    eventsOf(events, 'uid_created')
+      .filter((event) => event.entity === 'pokemon')
+      .map((event) => event.instanceId),
+  );
+  const rescues = new Set(
+    before.players.flatMap((player) =>
+      player.team.filter((pokemon) => pokemon.origin === 'rescue_starter').map((p) => p.instanceId),
+    ),
+  );
+  events.forEach((event, index) => {
+    if (event.kind !== 'uid_destroyed' || event.entity !== 'pokemon') return;
+    if (created.has(event.instanceId)) errors.push('A Rescue Starter was resold in its own phase');
+    const payment = events[index - 1];
+    if (
+      rescues.has(event.instanceId) &&
+      payment?.kind === 'coin_transfer' &&
+      payment.amount !== 0
+    ) {
+      errors.push('A Rescue Starter sold for coins');
+    }
+  });
+  for (const player of result.state.players) {
+    if (
+      player.team.some(
+        (pokemon) => pokemon.origin === 'rescue_starter' && pokemon.tradeable !== false,
+      )
+    ) {
+      errors.push('A Rescue Starter is tradeable');
+    }
+  }
+  return errors;
+}
+
+/** §8: a pending slow lasts until its owner's next actual move, never clearing at Start (D8). */
+function checkMoveDebuffs({ before, parsed, result }: Step): string[] {
+  if (!('accepted' in result)) return [];
+  const errors: string[] = [];
+  const ownMove =
+    before.phase.kind === 'move' &&
+    (parsed?.kind === 'dice_result' || parsed?.kind === 'roll' || parsed?.kind === 'skip');
+  for (const player of before.players) {
+    const after = result.state.players.find((entry) => entry.actorId === player.actorId);
+    const was = player.pendingSlows ?? [];
+    const now = after?.pendingSlows ?? [];
+    const cleared = was.filter((slow) => !now.includes(slow));
+    const moved = after && after.routeProgress !== player.routeProgress;
+    if (cleared.length && !(ownMove && player.seatIndex === before.activeSeatIndex && moved))
+      errors.push(`${player.actorId}'s pending slow cleared without its actual move`);
+    if (ownMove && player.seatIndex === before.activeSeatIndex && moved && now.length)
+      errors.push(`${player.actorId}'s actual move did not clear its pending slows`);
+  }
+  return errors;
+}
+
+/** §4.5: an instance fires once per Lap; only a qualifying owner Start credit makes it ready. */
+function checkAbilityPerInstanceLap({ before, result }: Step): string[] {
+  if (!('accepted' in result)) return [];
+  const errors: string[] = [];
+  const activations = eventsOf(result.events, 'ability_activated');
+  const resets = eventsOf(result.events, 'abilities_reset');
+  const paid = new Set(
+    startIncome(result.events).map((event) =>
+      event.destination.kind === 'player' ? event.destination.actorId : '',
+    ),
+  );
+  for (const owner of before.players) {
+    const after = result.state.players.find((player) => player.actorId === owner.actorId);
+    for (const previous of owner.team) {
+      const current = after?.team.find((pokemon) => pokemon.instanceId === previous.instanceId);
+      const fired = activations.filter((event) => event.instanceId === previous.instanceId);
+      if (fired.length > 1) errors.push('An instance activated twice in one action');
+      if (fired.length && !previous.abilityReady)
+        errors.push('An instance activated while not ready');
+      if (!current) continue;
+      const reset = resets.some(
+        (event) =>
+          event.ownerId === owner.actorId && event.instanceIds.includes(previous.instanceId),
+      );
+      if (!previous.abilityReady && current.abilityReady && (!reset || !paid.has(owner.actorId)))
+        errors.push('An instance became ready without a qualifying Start credit');
+      if (fired.length && current.abilityReady && !reset)
+        errors.push('An activation did not spend its instance readiness');
+    }
+  }
+  return errors;
+}
+
+/** §4.5: each player activates at most one Ability per globalTurnNo, reactions included. */
+function checkAbilityPerPlayerTurn({ before, result }: Step): string[] {
+  if (!('accepted' in result)) return [];
+  const errors: string[] = [];
+  const activations = eventsOf(result.events, 'ability_activated');
+  for (const owner of before.players) {
+    const after = result.state.players.find((player) => player.actorId === owner.actorId);
+    const fired = activations.filter((event) => event.ownerId === owner.actorId);
+    if (fired.length > 1) errors.push('A player activated twice in one action');
+    if (fired.length && owner.abilityUsedGlobalTurnNo === before.globalTurnNo)
+      errors.push('A player activated twice in one globalTurnNo');
+    if (fired.length && after?.abilityUsedGlobalTurnNo !== before.globalTurnNo)
+      errors.push('An activation did not spend the player allowance');
+    if (!fired.length && after && after.abilityUsedGlobalTurnNo !== owner.abilityUsedGlobalTurnNo)
+      errors.push('A player allowance changed without an activation');
+  }
+  return errors;
 }
 
 const S8_COINS = 'Coins never go negative, and every transfer has a source.';
@@ -534,6 +781,22 @@ const S8_BATTLE =
 
 /** Every spec §8 invariant; pending ones switch on when their rules land. */
 export const INVARIANTS: readonly InvariantDefinition[] = [
+  {
+    id: 'pvp-turn-ownership',
+    status: 'active',
+    section: '§8',
+    specLine:
+      'PvP responses, dice and reward choices preserve the challenger’s active seat, global turn and every own-turn counter.',
+    check: checkPvpOwnership,
+  },
+  {
+    id: 'attack-attempt-logged',
+    status: 'active',
+    section: '§8',
+    specLine:
+      'Every PvP declaration records exactly one directed attack attempt; accepting, declining, rolling and rewarding add none.',
+    check: checkAttackEvidence,
+  },
   {
     id: 'coins-non-negative',
     status: 'active',
@@ -622,7 +885,8 @@ export const INVARIANTS: readonly InvariantDefinition[] = [
   { id: 'deals-atomic', status: 'pending', section: '§8', specLine: S8_REJECTED },
   {
     id: 'move-debuff-until-next-move',
-    status: 'pending',
+    status: 'active',
+    check: checkMoveDebuffs,
     section: '§8',
     specLine: 'Move debuffs last until the next move.',
   },
@@ -639,14 +903,27 @@ export const INVARIANTS: readonly InvariantDefinition[] = [
     section: '§8',
     specLine: 'Promises close on the correct `ownTurnNo`.',
   },
-  { id: 'resume-creates-nothing', status: 'pending', section: '§8', specLine: S8_REPLAY },
+  {
+    id: 'resume-creates-nothing',
+    status: 'active',
+    check: checkResumeCreatesNothing,
+    section: '§8',
+    specLine: S8_REPLAY,
+  },
   {
     id: 'ability-once-per-instance-per-lap',
-    status: 'pending',
+    status: 'active',
+    check: checkAbilityPerInstanceLap,
     section: '§8',
     specLine: S8_ABILITIES,
   },
-  { id: 'ability-once-per-player-turn', status: 'pending', section: '§8', specLine: S8_ABILITIES },
+  {
+    id: 'ability-once-per-player-turn',
+    status: 'active',
+    check: checkAbilityPerPlayerTurn,
+    section: '§8',
+    specLine: S8_ABILITIES,
+  },
   {
     id: 'evolution-keeps-cooldowns',
     status: 'active',
@@ -656,7 +933,8 @@ export const INVARIANTS: readonly InvariantDefinition[] = [
   },
   {
     id: 'rescue-starter-no-coin-loop',
-    status: 'pending',
+    status: 'active',
+    check: checkRescueNoCoinLoop,
     section: '§8',
     specLine: 'Rescue Starters cannot create a coin loop.',
   },

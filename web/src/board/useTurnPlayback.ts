@@ -155,7 +155,8 @@ export function useTurnPlayback(
         : STEP_MS[speed];
     const timer = setTimeout(() => {
       if (store.advance({ human: true })) return;
-      if (view.observation.public.activeSeatIndex !== view.seatIndex) setRequested(position!);
+      if (view.seatIndex === undefined || view.legalActions.enabled.length === 0)
+        setRequested(position!);
     }, pause);
     return () => clearTimeout(timer);
   }, [store, view, speed, lineSequence, failed, thinking, held, stepping, retry, finished]);

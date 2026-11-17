@@ -11,6 +11,7 @@ import {
   fixtureSchema,
   legalActions,
   observe,
+  pendingDecision,
   resume,
   verifyReplay,
   serialize,
@@ -56,11 +57,12 @@ function step(game: Game): Game {
     };
   }
   const { state } = game;
-  const choices = legalActions(state, state.activeSeatIndex).enabled;
+  const seatIndex = pendingDecision(state)?.seatIndex ?? state.activeSeatIndex;
+  const choices = legalActions(state, seatIndex).enabled;
   const choice = choices[(state.stateRevision * 7 + 3) % choices.length]!;
-  const observed = observe(state, state.activeSeatIndex).public.stateRevision;
+  const observed = observe(state, seatIndex).public.stateRevision;
   const result = applyAction(state, {
-    actorId: state.config.seats.find((seat) => seat.seatIndex === state.activeSeatIndex)!.actorId,
+    actorId: pendingDecision(state)!.actorId,
     actionSeq: observed + 1,
     stateRevisionBefore: observed,
     kind: choice.kind,

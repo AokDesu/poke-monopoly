@@ -197,7 +197,9 @@ function startedGame(): { state: GameState; log: GameLog } {
 function advanceOrRelease(state: GameState) {
   // Encounter, Sell, Shop and item use (Rival's Lucky Egg) are real decisions; these
   // turn-flow scenarios decline all four.
-  if (!['encounter', 'sell', 'shop', 'strategy'].includes(state.phase.kind)) {
+  // A Gym entry is skipped like Strategy.
+  const gymEntry = state.phase.kind === 'gym' && state.phase.battle.step === 'entry';
+  if (!gymEntry && !['encounter', 'sell', 'shop', 'strategy'].includes(state.phase.kind)) {
     return advanceAutomatically(state);
   }
   const result = applyAction(state, {
@@ -208,7 +210,7 @@ function advanceOrRelease(state: GameState) {
       ? { kind: 'release' as const, payload: {} }
       : state.phase.kind === 'shop'
         ? { kind: 'skip_shop' as const, payload: {} }
-        : state.phase.kind === 'strategy'
+        : state.phase.kind === 'strategy' || gymEntry
           ? { kind: 'skip' as const, payload: {} }
           : { kind: 'sell' as const, payload: { pokemonInstanceIds: [] } }),
   });
@@ -366,7 +368,15 @@ test('reserved dice results require an outstanding roll and its exact purpose (Â
   });
   expect(forged).toEqual({ rejected: true, reason: 'illegal_action', state });
   let move = state;
-  for (let step = 0; step < 3; step++) move = advanceAutomatically(move).state;
+  for (let step = 0; step < 2; step++) move = advanceAutomatically(move).state;
+  // Strategy now includes targeted PvP, so skipping it is an explicit decision.
+  move = applyAction(move, {
+    actorId: move.players[move.activeSeatIndex]!.actorId,
+    kind: 'skip',
+    payload: {},
+    actionSeq: move.stateRevision + 1,
+    stateRevisionBefore: move.stateRevision,
+  }).state;
   expect(move.phase.kind).toBe('move');
   const movePurpose = 'move:2:1';
   expect(

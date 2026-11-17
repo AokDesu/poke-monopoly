@@ -46,9 +46,16 @@ const FORM_IDS = content.evolutions.forms.map((form) => form.id);
 const ALL_IDS = [...SPECIES_IDS, ...FORM_IDS];
 
 // Independent checklist (Appendix A), not derived from the engine: which items the engine applies.
-const PLANNED_ITEMS = ['price-shield', 'sticky-web', 'battle-ticket'];
+const PLANNED_ITEMS: string[] = [];
 const PARTIAL_ITEMS = ['potion'];
-const ACTIVE_UTILITY = ['lucky-egg', 'repel', 'pickpocket'];
+const ACTIVE_UTILITY = [
+  'lucky-egg',
+  'repel',
+  'pickpocket',
+  'price-shield',
+  'sticky-web',
+  'battle-ticket',
+];
 
 function scenario(input: unknown): GameState {
   const state = fixtureSchema.parse(input).state;

@@ -11,10 +11,12 @@ import {
   fixtureSchema,
   int,
   legalActions,
+  pendingDecision,
   observe,
   RNG_VERSION,
   shuffle,
   type ActionRecord,
+  type EngineEvent,
   type GameState,
 } from './index.ts';
 import fixture from './fixtures/start-of-game-2p.json';
@@ -22,6 +24,15 @@ import fixture from './fixtures/start-of-game-2p.json';
 /** A record as a seat's feed shows it, numbered as in the full log (no hidden records before it). */
 const seatRecord = (before: GameState, record: ActionRecord, seatIndex: number) =>
   actionVisibleTo(before, record, seatIndex, record.action.stateRevisionBefore)!;
+
+/** What a seat sees of events it may see: an attack attempt loses its internal `actionSeq` (§6.3). */
+const asSeen = (events: EngineEvent[]) =>
+  events.map((event) => {
+    if (event.kind !== 'attack_attempt') return event;
+    const seen: Partial<typeof event> = { ...event };
+    delete seen.actionSeq;
+    return seen;
+  });
 
 /** Seat 0 in Strategy holding one secret item; seat 1 (Rival) holds its public Lucky Egg. */
 function strategy(itemId: string): GameState {
@@ -45,7 +56,7 @@ function strategy(itemId: string): GameState {
 
 function accepted(state: GameState, kind: string, payload = {}) {
   const result = applyAction(state, {
-    actorId: state.players[state.activeSeatIndex]!.actorId,
+    actorId: pendingDecision(state)?.actorId ?? state.players[state.activeSeatIndex]!.actorId,
     actionSeq: state.stateRevision + 1,
     stateRevisionBefore: state.stateRevision,
     kind,
@@ -61,9 +72,9 @@ test("a used secret item's uid_destroyed is visible only to its owner (§4.1, §
     itemInstanceId: 'SENTINEL-0',
     targetSeatIndex: 1,
   });
-  expect(eventsVisibleTo(before, events, 0)).toEqual(events);
+  expect(eventsVisibleTo(before, events, 0)).toEqual(asSeen(events));
   expect(eventsVisibleTo(before, events, 1)).toEqual(
-    events.filter((event) => event.kind !== 'uid_destroyed'),
+    asSeen(events.filter((event) => event.kind !== 'uid_destroyed')),
   );
 });
 
@@ -197,10 +208,13 @@ function othersSecrets(states: GameState[], seat: number): string[] {
 function step(state: GameState, pick: (n: number) => number) {
   const automatic = advanceAutomatically(state);
   if (automatic.records.length === 1) return automatic;
-  const enabled = legalActions(state, state.activeSeatIndex).enabled;
+  const enabled = legalActions(
+    state,
+    pendingDecision(state)?.seatIndex ?? state.activeSeatIndex,
+  ).enabled;
   const choice = enabled[pick(enabled.length)]!;
   const result = applyAction(state, {
-    actorId: state.players.find((player) => player.seatIndex === state.activeSeatIndex)!.actorId,
+    actorId: pendingDecision(state)!.actorId,
     actionSeq: state.stateRevision + 1,
     stateRevisionBefore: state.stateRevision,
     kind: choice.kind,
@@ -270,7 +284,20 @@ test('500 random mid-game states never show a seat another seat’s secrets, RNG
   expect(itemEvents).toEqual(new Set(['uid_created', 'uid_destroyed', 'hostile_item_used']));
   // Random play reached these record kinds; shuffle and event_draw are checked above.
   expect(actionKinds).toEqual(
-    new Set(['roll', 'dice_result', 'skip', 'catch', 'release', 'buy', 'skip_shop', 'use_item']),
+    new Set([
+      'roll',
+      'dice_result',
+      'skip',
+      'catch',
+      'release',
+      'buy',
+      'skip_shop',
+      'use_item',
+      'declare_pvp',
+      'respond_pvp',
+      'choose_reward',
+      'challenge_gym',
+    ]),
   );
 });
 
@@ -321,7 +348,7 @@ test('a use_item record hides a secret item ID from non-owners and the target fr
     itemInstanceId: 'SENTINEL-0',
     targetSeatIndex: 1,
   });
-  expect(seatRecord(before, record, 0)).toEqual(record);
+  expect(seatRecord(before, record, 0)).toEqual({ ...record, events: asSeen(record.events) });
   expect(seatRecord(before, record, 1).action.payload).toEqual({ targetSeatIndex: 1 });
   expect(seatRecord(before, record, 2).action.payload).toEqual({});
   // A public class item's ID is public, as its uid_destroyed is.
