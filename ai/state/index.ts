@@ -1,5 +1,6 @@
 import { summarizeObservation } from '../../engine/index.ts';
 import type { Observation } from '../../engine/index.ts';
+import { recentChat } from '../chat.ts';
 import { assertNoComparableNumbers, assertStateTokenBudget } from './guards.ts';
 
 export {
@@ -113,9 +114,11 @@ export function buildJevState(observation: Observation, extras: SocialExtras = {
     item_id: entry.itemId,
     name: entry.name,
   });
+  const recent = recentChat(observation);
   const state = {
     phase: observation.public.phase.kind,
     active_seat_id: observation.public.activeSeatIndex,
+    ...(recent.length > 0 && { recent_chat: recent }),
     final_table_round: observation.public.finalTableRound !== null,
     board: observation.public.board.map((space) => ({
       space_id: space.position,
