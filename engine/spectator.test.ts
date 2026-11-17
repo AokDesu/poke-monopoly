@@ -461,7 +461,7 @@ function abilityStrategy(effect: 'vine_pull' | 'lucky_splash'): GameState {
   return state;
 }
 
-test('a hostile Ability target and protection stay private in the spectator feed, even with two seats (D6)', () => {
+test('a hostile Ability’s target and protection stay private in the spectator feed, even with two seats (D6)', () => {
   const before = abilityStrategy('vine_pull');
   before.players[1]!.armedShield = { scope: 'price', visibility: 'secret' };
   const result = applyAction(before, {
@@ -475,7 +475,15 @@ test('a hostile Ability target and protection stay private in the spectator feed
   expect(result.events.map((event) => event.kind)).toContain('protection_applied');
   const seen = actionVisibleToSpectator(before, result.record, 0)!;
   expect(seen.action.payload).not.toHaveProperty('targetSeatIndex');
-  expect(seen.events).toEqual([]);
+  // The use is public; the block and the attempt are not (§4.1, C.3).
+  expect(seen.events).toEqual([
+    {
+      kind: 'ability_activated',
+      ownerId: 'player-0',
+      instanceId: 'starter:0',
+      effect: 'vine_pull',
+    },
+  ]);
   expect(observeSpectator(result.state).public.attackHistory).toEqual([]);
 });
 

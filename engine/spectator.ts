@@ -1,4 +1,4 @@
-import { ABILITY_EFFECTS, pendingChanceRollPurpose } from './abilities.ts';
+import { pendingChanceRollPurpose } from './abilities.ts';
 import { observe } from './contract/stubs.ts';
 import type { ActionRecord, EngineEvent, GameState, Observation } from './contract/schema.ts';
 import {
@@ -56,7 +56,7 @@ function publicEvent(before: GameState, event: EngineEvent): boolean {
     case 'attack_attempt':
       return event.source === 'pvp_declaration';
     case 'ability_activated':
-      return !ABILITY_EFFECTS[event.effect].hostile;
+      return true;
     case 'shield_armed':
       return event.visibility === 'public';
     case 'protection_applied':
@@ -86,7 +86,11 @@ function publicEvent(before: GameState, event: EngineEvent): boolean {
 export function eventsVisibleToSpectator(before: GameState, events: EngineEvent[]): SeatEvent[] {
   return structuredClone(events)
     .filter((event) => publicEvent(before, event))
-    .map((event) => (event.kind === 'attack_attempt' ? seatAttackAttempt(event) : event));
+    .map((event) => {
+      // The use of a hostile Ability is public; its target is not (§4.1, C.3).
+      if (event.kind === 'ability_activated') delete event.targetId;
+      return event.kind === 'attack_attempt' ? seatAttackAttempt(event) : event;
+    });
 }
 
 /**
