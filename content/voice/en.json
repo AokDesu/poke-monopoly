@@ -21,6 +21,7 @@
     "promise_broken": "A trainer just broke a promise made earlier at the table.",
     "gym_win": "A trainer just won a gym battle.",
     "taunt_leader": "A trainer is teasing the player who is currently in the lead.",
-    "manipulation_refused": "A trainer just refused a pushy attempt to sway their choice."
+    "manipulation_refused": "A trainer just refused a pushy attempt to sway their choice.",
+    "chat_reply": "Another trainer just spoke to you at the table, and you answer in words only."
   }
 }

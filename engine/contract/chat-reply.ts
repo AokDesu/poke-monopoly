@@ -75,15 +75,8 @@ export const chatReplySchema = z
     /** The seat that sent the topic and the one that replied, in that order. */
     visibleToSeats: z.tuple([count, count]),
     topic: chatTopicSchema,
-    /** `manipulation_refused` when the message was refused; otherwise `chat_reply_<topic>`. */
-    situation: z.enum([
-      'chat_reply_truce',
-      'chat_reply_trade',
-      'chat_reply_point_leader',
-      'chat_reply_use_item',
-      'chat_reply_hold_item',
-      'manipulation_refused',
-    ]),
+    /** `manipulation_refused` when the message was refused; otherwise `chat_reply`. */
+    situation: z.enum(['chat_reply', 'manipulation_refused']),
     lineId: id,
     refused: z.boolean(),
     source: z.enum(['jev', 'fallback']),

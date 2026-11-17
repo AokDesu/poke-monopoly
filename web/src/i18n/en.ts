@@ -1,8 +1,4 @@
-import chatReplyTruce from '../../../content/lines/en/chat_reply_truce.json';
-import chatReplyTrade from '../../../content/lines/en/chat_reply_trade.json';
-import chatReplyPointLeader from '../../../content/lines/en/chat_reply_point_leader.json';
-import chatReplyUseItem from '../../../content/lines/en/chat_reply_use_item.json';
-import chatReplyHoldItem from '../../../content/lines/en/chat_reply_hold_item.json';
+import chatReply from '../../../content/lines/en/chat_reply.json';
 import catchFail from '../../../content/lines/en/catch_fail.json';
 import catchSuccess from '../../../content/lines/en/catch_success.json';
 import dealAccept from '../../../content/lines/en/deal_accept.json';
@@ -19,11 +15,7 @@ import tauntLeader from '../../../content/lines/en/taunt_leader.json';
 const dialogue = Object.fromEntries(
   [
     ...catchFail,
-    ...chatReplyTruce,
-    ...chatReplyTrade,
-    ...chatReplyPointLeader,
-    ...chatReplyUseItem,
-    ...chatReplyHoldItem,
+    ...chatReply,
     ...catchSuccess,
     ...dealAccept,
     ...dealReject,

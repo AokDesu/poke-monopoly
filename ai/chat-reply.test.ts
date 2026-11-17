@@ -145,7 +145,7 @@ describe('POST /api/ai/chat', () => {
     const state = chat(game(3), topic);
     for (const personalityId of PERSONALITY_IDS) {
       const request = chatRequest(state, 1, personalityId);
-      const situation = `chat_reply_${topic}` as const;
+      const situation = 'chat_reply' as const;
       const allowed = LINES[situation].filter((line) => line.personality === personalityId);
       expect(allowed.length).toBeGreaterThanOrEqual(3);
 
@@ -206,7 +206,7 @@ describe('POST /api/ai/chat', () => {
     const reply = chatReplySchema.parse(await response.json());
     expect(reply.source).toBe('fallback');
     expect(reply.refused).toBe(false);
-    expect(LINES.chat_reply_trade.map((line) => line.id)).toContain(reply.lineId);
+    expect(LINES.chat_reply.map((line) => line.id)).toContain(reply.lineId);
   });
 
   test('a repeated request gets the same reply and one Jev call', async () => {

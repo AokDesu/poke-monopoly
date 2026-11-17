@@ -1,8 +1,4 @@
-import chatReplyTruce from '../content/lines/en/chat_reply_truce.json';
-import chatReplyTrade from '../content/lines/en/chat_reply_trade.json';
-import chatReplyPointLeader from '../content/lines/en/chat_reply_point_leader.json';
-import chatReplyUseItem from '../content/lines/en/chat_reply_use_item.json';
-import chatReplyHoldItem from '../content/lines/en/chat_reply_hold_item.json';
+import chatReply from '../content/lines/en/chat_reply.json';
 import catchFail from '../content/lines/en/catch_fail.json';
 import catchSuccess from '../content/lines/en/catch_success.json';
 import dealAccept from '../content/lines/en/deal_accept.json';
@@ -32,11 +28,7 @@ export const LINES = Object.freeze({
   gym_win: parseLines('gym_win', gymWin),
   taunt_leader: parseLines('taunt_leader', tauntLeader),
   manipulation_refused: parseLines('manipulation_refused', manipulationRefused),
-  chat_reply_truce: parseLines('chat_reply_truce', chatReplyTruce),
-  chat_reply_trade: parseLines('chat_reply_trade', chatReplyTrade),
-  chat_reply_point_leader: parseLines('chat_reply_point_leader', chatReplyPointLeader),
-  chat_reply_use_item: parseLines('chat_reply_use_item', chatReplyUseItem),
-  chat_reply_hold_item: parseLines('chat_reply_hold_item', chatReplyHoldItem),
+  chat_reply: parseLines('chat_reply', chatReply),
 } satisfies Record<string, Line[]>);
 
 export type Situation = keyof typeof LINES;

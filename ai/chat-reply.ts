@@ -19,16 +19,11 @@ import { confidenceFloor } from './orchestrator.ts';
 import { LINES, selectLine, type Situation } from './lines.ts';
 import { actorName, personalState } from './questions/decision.ts';
 
-/** Spec §4.8, §5.3: the reply situation for each topic, and the refusal situation. */
+/** Spec §4.8, §5.3: the one reply situation, and the refusal situation. */
 export type ReplySituation = ChatReply['situation'];
 
-const REPLY_SITUATION = {
-  truce: 'chat_reply_truce',
-  trade: 'chat_reply_trade',
-  point_leader: 'chat_reply_point_leader',
-  use_item: 'chat_reply_use_item',
-  hold_item: 'chat_reply_hold_item',
-} as const satisfies Record<ChatMessage['topic'], Situation>;
+/** One generic situation for every topic; Haiku gives topic-specific wording and the bank is its fallback. */
+const REPLY_SITUATION = 'chat_reply' as const satisfies Situation;
 
 /** What a replier decides: no telemetry, which the route adds. */
 export type ChatReplyAnswer = Pick<
@@ -142,9 +137,7 @@ function answerFor(
   pick: { refused: boolean; lineId?: string },
   meta: { source: 'jev' } | { source: 'fallback'; fallbackReason: ChatReplyFallbackReason },
 ): ChatReplyAnswer {
-  const situation: Situation = pick.refused
-    ? 'manipulation_refused'
-    : REPLY_SITUATION[message.topic];
+  const situation: Situation = pick.refused ? 'manipulation_refused' : REPLY_SITUATION;
   const lineId =
     pick.lineId ??
     // Seeded by the message, so a repeat request picks the same line; presentation RNG only.
@@ -200,12 +193,10 @@ export const createChatReplier = ({
     if (status.backupOnly) return fallback(status.reason ?? 'disabled');
 
     const personality = personalityFor(request.personalityId);
-    const candidates = LINES[REPLY_SITUATION[message.topic]]
-      .filter(
-        (line) =>
-          line.personality === personalityIdFor(request.personalityId) && line.trust === 'neutral',
-      )
-      .slice(0, CHAT_TUNING.replyLineLimit);
+    const candidates = LINES[REPLY_SITUATION].filter(
+      (line) =>
+        line.personality === personalityIdFor(request.personalityId) && line.trust === 'neutral',
+    ).slice(0, CHAT_TUNING.replyLineLimit);
     if (candidates.length === 0) return fallback('invalid_choice');
     const sender = actorName(observation, message.fromSeatIndex);
     const options: Record<string, string> = {};
