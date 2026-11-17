@@ -1,0 +1,1060 @@
+{
+  "id": "c5-policy-plan",
+  "version": 1,
+  "status": "planned",
+  "note": "Pre-registered design. No game in the evaluation ranges below has been run. Frozen when the seed ledger opens its first evaluation range; until then changes need a PR that says why. Prose and interpretation rules: docs/experiments/c5-policy-plan.md.",
+  "spec": ["§8 Simulation", "§9 Sim limits", "§10 C5"],
+  "epic": "AokDesu/poke-monopoly#61",
+  "ticket": "A61-4",
+  "game": {
+    "lapTarget": 2,
+    "maxSteps": 5000,
+    "classPool": ["main-character", "rival", "fisherman", "nurse-joy", "bug-catcher", "researcher"],
+    "seatCounts": [2, 3, 4],
+    "seedSet": "eval",
+    "tuneSeedsBelow": 1000000,
+    "evalSeedsFrom": 1000000,
+    "keysAndServices": "none: policy-only, JEV_ENABLED=false, HAIKU_ENABLED=false, no server key in the environment"
+  },
+  "baseline": {
+    "policy": "random",
+    "role": "The control arm plays the focal seat with this policy. Each exploit policy must fall back to it, with the same per-seat seeded RNG, for every choice it does not specify, so one rule is the only difference between arms.",
+    "background": "fallback personality policy, one of greedy, aggressive, cautious, opportunist, on every non-focal seat of a block; the same in both arms"
+  },
+  "arms": [
+    {
+      "id": "control",
+      "focalSeatPolicy": "baseline"
+    },
+    {
+      "id": "treatment",
+      "focalSeatPolicy": "exploit policy of the cell"
+    }
+  ],
+  "pairing": {
+    "unit": "matched seed block",
+    "sharedAcrossArms": [
+      "game seed",
+      "seat count",
+      "focal seat",
+      "class in every seat",
+      "starter species",
+      "background personality",
+      "controller per seat",
+      "social window",
+      "lapTarget",
+      "maxSteps"
+    ],
+    "differsAcrossArms": ["the policy that decides the focal seat"],
+    "honesty": "The two arms share their initial state and per-seat policy RNG keys; their trajectories diverge once the focal seat chooses differently and the game RNG stream is then consumed differently. Record that, never assume equal dice."
+  },
+  "policies": [
+    {
+      "id": "always-pvp",
+      "label": "Always PvP",
+      "spec": "§4.4–4.5; §8 Critic",
+      "socialWindow": false,
+      "focalBehaviour": "Declares or accepts a legal voluntary PvP challenge whenever one is enabled.",
+      "upstream": ["A61-1"]
+    },
+    {
+      "id": "force-weak-target",
+      "label": "Force weak targets",
+      "spec": "§4.4–4.5; §8 Critic",
+      "socialWindow": false,
+      "focalBehaviour": "Uses an enabled Rival, Battle Ticket or Challenge force against the weakest public-information target; otherwise baseline.",
+      "upstream": ["A61-1"]
+    },
+    {
+      "id": "sell-all",
+      "label": "Sell everything every Start",
+      "spec": "§4.7; §8 Critic",
+      "socialWindow": false,
+      "focalBehaviour": "At every Start Sell Phase sells every enabled sellable Pokemon in one atomic batch.",
+      "upstream": ["A61-2"]
+    },
+    {
+      "id": "keep-to-evolve",
+      "label": "Keep everything to evolve",
+      "spec": "§4.5, §4.7; §8 Critic",
+      "socialWindow": false,
+      "focalBehaviour": "Declines discretionary sales and takes enabled evolution rewards; the engine's mandatory final sale still happens.",
+      "upstream": ["A61-2"]
+    },
+    {
+      "id": "immediate-ability",
+      "label": "Use Abilities immediately",
+      "spec": "§4.5, Appendix C; §8 Critic",
+      "socialWindow": false,
+      "focalBehaviour": "Uses an Ability at the earliest enabled timing opportunity, never past cooldown or action budgets.",
+      "upstream": ["A61-1"]
+    },
+    {
+      "id": "ultra-only",
+      "label": "Buy only Ultra Balls",
+      "spec": "§4.2–4.3, Appendix A; §8 Critic",
+      "socialWindow": false,
+      "focalBehaviour": "Buys only Ultra Balls in discretionary Shop purchases; skips the Shop if none are offered.",
+      "upstream": ["A61-2"]
+    },
+    {
+      "id": "never-negotiate",
+      "label": "Never negotiate",
+      "spec": "§4.8; §8 Critic",
+      "socialWindow": true,
+      "focalBehaviour": "Skips Social and rejects every enabled deal or promise response; baseline elsewhere.",
+      "upstream": [
+        "A61-2",
+        "AokDesu/poke-monopoly#164 (Deal Cards)",
+        "AokDesu/poke-monopoly#198 (promise settlement)"
+      ]
+    }
+  ],
+  "design": {
+    "policies": 7,
+    "seatCounts": 3,
+    "blocksPerCell": 24,
+    "arms": 2,
+    "cells": 21,
+    "pairs": 504,
+    "physicalGames": 1008,
+    "pairsPerCell": 24,
+    "gamesPerCell": 48,
+    "note": "1,008 is physical games, not pairs. Tuning runs are separate and excluded."
+  },
+  "schedule": {
+    "note": "Same 24-row schedule for every policy at one seat count. A block uses seed = the cell seedFirst + block. Class in seat i is classPool[(seed + i) % 6], the sim seat rotation. focalClass is that class at focalSeat.",
+    "seats2": [
+      {
+        "block": 0,
+        "seedOffset": 0,
+        "focalSeat": 0,
+        "focalClass": "main-character",
+        "backgroundPersonality": "greedy"
+      },
+      {
+        "block": 1,
+        "seedOffset": 1,
+        "focalSeat": 0,
+        "focalClass": "rival",
+        "backgroundPersonality": "aggressive"
+      },
+      {
+        "block": 2,
+        "seedOffset": 2,
+        "focalSeat": 0,
+        "focalClass": "fisherman",
+        "backgroundPersonality": "cautious"
+      },
+      {
+        "block": 3,
+        "seedOffset": 3,
+        "focalSeat": 0,
+        "focalClass": "nurse-joy",
+        "backgroundPersonality": "opportunist"
+      },
+      {
+        "block": 4,
+        "seedOffset": 4,
+        "focalSeat": 0,
+        "focalClass": "bug-catcher",
+        "backgroundPersonality": "greedy"
+      },
+      {
+        "block": 5,
+        "seedOffset": 5,
+        "focalSeat": 0,
+        "focalClass": "researcher",
+        "backgroundPersonality": "aggressive"
+      },
+      {
+        "block": 6,
+        "seedOffset": 6,
+        "focalSeat": 1,
+        "focalClass": "rival",
+        "backgroundPersonality": "cautious"
+      },
+      {
+        "block": 7,
+        "seedOffset": 7,
+        "focalSeat": 1,
+        "focalClass": "fisherman",
+        "backgroundPersonality": "opportunist"
+      },
+      {
+        "block": 8,
+        "seedOffset": 8,
+        "focalSeat": 1,
+        "focalClass": "nurse-joy",
+        "backgroundPersonality": "greedy"
+      },
+      {
+        "block": 9,
+        "seedOffset": 9,
+        "focalSeat": 1,
+        "focalClass": "bug-catcher",
+        "backgroundPersonality": "aggressive"
+      },
+      {
+        "block": 10,
+        "seedOffset": 10,
+        "focalSeat": 1,
+        "focalClass": "researcher",
+        "backgroundPersonality": "cautious"
+      },
+      {
+        "block": 11,
+        "seedOffset": 11,
+        "focalSeat": 1,
+        "focalClass": "main-character",
+        "backgroundPersonality": "opportunist"
+      },
+      {
+        "block": 12,
+        "seedOffset": 12,
+        "focalSeat": 0,
+        "focalClass": "main-character",
+        "backgroundPersonality": "cautious"
+      },
+      {
+        "block": 13,
+        "seedOffset": 13,
+        "focalSeat": 0,
+        "focalClass": "rival",
+        "backgroundPersonality": "opportunist"
+      },
+      {
+        "block": 14,
+        "seedOffset": 14,
+        "focalSeat": 0,
+        "focalClass": "fisherman",
+        "backgroundPersonality": "greedy"
+      },
+      {
+        "block": 15,
+        "seedOffset": 15,
+        "focalSeat": 0,
+        "focalClass": "nurse-joy",
+        "backgroundPersonality": "aggressive"
+      },
+      {
+        "block": 16,
+        "seedOffset": 16,
+        "focalSeat": 0,
+        "focalClass": "bug-catcher",
+        "backgroundPersonality": "cautious"
+      },
+      {
+        "block": 17,
+        "seedOffset": 17,
+        "focalSeat": 0,
+        "focalClass": "researcher",
+        "backgroundPersonality": "opportunist"
+      },
+      {
+        "block": 18,
+        "seedOffset": 18,
+        "focalSeat": 1,
+        "focalClass": "rival",
+        "backgroundPersonality": "greedy"
+      },
+      {
+        "block": 19,
+        "seedOffset": 19,
+        "focalSeat": 1,
+        "focalClass": "fisherman",
+        "backgroundPersonality": "aggressive"
+      },
+      {
+        "block": 20,
+        "seedOffset": 20,
+        "focalSeat": 1,
+        "focalClass": "nurse-joy",
+        "backgroundPersonality": "cautious"
+      },
+      {
+        "block": 21,
+        "seedOffset": 21,
+        "focalSeat": 1,
+        "focalClass": "bug-catcher",
+        "backgroundPersonality": "opportunist"
+      },
+      {
+        "block": 22,
+        "seedOffset": 22,
+        "focalSeat": 1,
+        "focalClass": "researcher",
+        "backgroundPersonality": "greedy"
+      },
+      {
+        "block": 23,
+        "seedOffset": 23,
+        "focalSeat": 1,
+        "focalClass": "main-character",
+        "backgroundPersonality": "aggressive"
+      }
+    ],
+    "seats3": [
+      {
+        "block": 0,
+        "seedOffset": 0,
+        "focalSeat": 0,
+        "focalClass": "main-character",
+        "backgroundPersonality": "greedy"
+      },
+      {
+        "block": 1,
+        "seedOffset": 1,
+        "focalSeat": 1,
+        "focalClass": "fisherman",
+        "backgroundPersonality": "greedy"
+      },
+      {
+        "block": 2,
+        "seedOffset": 2,
+        "focalSeat": 2,
+        "focalClass": "bug-catcher",
+        "backgroundPersonality": "greedy"
+      },
+      {
+        "block": 3,
+        "seedOffset": 3,
+        "focalSeat": 0,
+        "focalClass": "nurse-joy",
+        "backgroundPersonality": "greedy"
+      },
+      {
+        "block": 4,
+        "seedOffset": 4,
+        "focalSeat": 1,
+        "focalClass": "researcher",
+        "backgroundPersonality": "greedy"
+      },
+      {
+        "block": 5,
+        "seedOffset": 5,
+        "focalSeat": 2,
+        "focalClass": "rival",
+        "backgroundPersonality": "greedy"
+      },
+      {
+        "block": 6,
+        "seedOffset": 6,
+        "focalSeat": 1,
+        "focalClass": "rival",
+        "backgroundPersonality": "aggressive"
+      },
+      {
+        "block": 7,
+        "seedOffset": 7,
+        "focalSeat": 2,
+        "focalClass": "nurse-joy",
+        "backgroundPersonality": "aggressive"
+      },
+      {
+        "block": 8,
+        "seedOffset": 8,
+        "focalSeat": 0,
+        "focalClass": "fisherman",
+        "backgroundPersonality": "aggressive"
+      },
+      {
+        "block": 9,
+        "seedOffset": 9,
+        "focalSeat": 1,
+        "focalClass": "bug-catcher",
+        "backgroundPersonality": "aggressive"
+      },
+      {
+        "block": 10,
+        "seedOffset": 10,
+        "focalSeat": 2,
+        "focalClass": "main-character",
+        "backgroundPersonality": "aggressive"
+      },
+      {
+        "block": 11,
+        "seedOffset": 11,
+        "focalSeat": 0,
+        "focalClass": "researcher",
+        "backgroundPersonality": "aggressive"
+      },
+      {
+        "block": 12,
+        "seedOffset": 12,
+        "focalSeat": 2,
+        "focalClass": "fisherman",
+        "backgroundPersonality": "cautious"
+      },
+      {
+        "block": 13,
+        "seedOffset": 13,
+        "focalSeat": 0,
+        "focalClass": "rival",
+        "backgroundPersonality": "cautious"
+      },
+      {
+        "block": 14,
+        "seedOffset": 14,
+        "focalSeat": 1,
+        "focalClass": "nurse-joy",
+        "backgroundPersonality": "cautious"
+      },
+      {
+        "block": 15,
+        "seedOffset": 15,
+        "focalSeat": 2,
+        "focalClass": "researcher",
+        "backgroundPersonality": "cautious"
+      },
+      {
+        "block": 16,
+        "seedOffset": 16,
+        "focalSeat": 0,
+        "focalClass": "bug-catcher",
+        "backgroundPersonality": "cautious"
+      },
+      {
+        "block": 17,
+        "seedOffset": 17,
+        "focalSeat": 1,
+        "focalClass": "main-character",
+        "backgroundPersonality": "cautious"
+      },
+      {
+        "block": 18,
+        "seedOffset": 18,
+        "focalSeat": 0,
+        "focalClass": "main-character",
+        "backgroundPersonality": "opportunist"
+      },
+      {
+        "block": 19,
+        "seedOffset": 19,
+        "focalSeat": 1,
+        "focalClass": "fisherman",
+        "backgroundPersonality": "opportunist"
+      },
+      {
+        "block": 20,
+        "seedOffset": 20,
+        "focalSeat": 2,
+        "focalClass": "bug-catcher",
+        "backgroundPersonality": "opportunist"
+      },
+      {
+        "block": 21,
+        "seedOffset": 21,
+        "focalSeat": 0,
+        "focalClass": "nurse-joy",
+        "backgroundPersonality": "opportunist"
+      },
+      {
+        "block": 22,
+        "seedOffset": 22,
+        "focalSeat": 1,
+        "focalClass": "researcher",
+        "backgroundPersonality": "opportunist"
+      },
+      {
+        "block": 23,
+        "seedOffset": 23,
+        "focalSeat": 2,
+        "focalClass": "rival",
+        "backgroundPersonality": "opportunist"
+      }
+    ],
+    "seats4": [
+      {
+        "block": 0,
+        "seedOffset": 0,
+        "focalSeat": 0,
+        "focalClass": "main-character",
+        "backgroundPersonality": "greedy"
+      },
+      {
+        "block": 1,
+        "seedOffset": 1,
+        "focalSeat": 0,
+        "focalClass": "rival",
+        "backgroundPersonality": "aggressive"
+      },
+      {
+        "block": 2,
+        "seedOffset": 2,
+        "focalSeat": 0,
+        "focalClass": "fisherman",
+        "backgroundPersonality": "cautious"
+      },
+      {
+        "block": 3,
+        "seedOffset": 3,
+        "focalSeat": 0,
+        "focalClass": "nurse-joy",
+        "backgroundPersonality": "opportunist"
+      },
+      {
+        "block": 4,
+        "seedOffset": 4,
+        "focalSeat": 0,
+        "focalClass": "bug-catcher",
+        "backgroundPersonality": "greedy"
+      },
+      {
+        "block": 5,
+        "seedOffset": 5,
+        "focalSeat": 0,
+        "focalClass": "researcher",
+        "backgroundPersonality": "aggressive"
+      },
+      {
+        "block": 6,
+        "seedOffset": 6,
+        "focalSeat": 1,
+        "focalClass": "rival",
+        "backgroundPersonality": "cautious"
+      },
+      {
+        "block": 7,
+        "seedOffset": 7,
+        "focalSeat": 1,
+        "focalClass": "fisherman",
+        "backgroundPersonality": "opportunist"
+      },
+      {
+        "block": 8,
+        "seedOffset": 8,
+        "focalSeat": 1,
+        "focalClass": "nurse-joy",
+        "backgroundPersonality": "greedy"
+      },
+      {
+        "block": 9,
+        "seedOffset": 9,
+        "focalSeat": 1,
+        "focalClass": "bug-catcher",
+        "backgroundPersonality": "aggressive"
+      },
+      {
+        "block": 10,
+        "seedOffset": 10,
+        "focalSeat": 1,
+        "focalClass": "researcher",
+        "backgroundPersonality": "cautious"
+      },
+      {
+        "block": 11,
+        "seedOffset": 11,
+        "focalSeat": 1,
+        "focalClass": "main-character",
+        "backgroundPersonality": "opportunist"
+      },
+      {
+        "block": 12,
+        "seedOffset": 12,
+        "focalSeat": 2,
+        "focalClass": "fisherman",
+        "backgroundPersonality": "greedy"
+      },
+      {
+        "block": 13,
+        "seedOffset": 13,
+        "focalSeat": 2,
+        "focalClass": "nurse-joy",
+        "backgroundPersonality": "aggressive"
+      },
+      {
+        "block": 14,
+        "seedOffset": 14,
+        "focalSeat": 2,
+        "focalClass": "bug-catcher",
+        "backgroundPersonality": "cautious"
+      },
+      {
+        "block": 15,
+        "seedOffset": 15,
+        "focalSeat": 2,
+        "focalClass": "researcher",
+        "backgroundPersonality": "opportunist"
+      },
+      {
+        "block": 16,
+        "seedOffset": 16,
+        "focalSeat": 2,
+        "focalClass": "main-character",
+        "backgroundPersonality": "greedy"
+      },
+      {
+        "block": 17,
+        "seedOffset": 17,
+        "focalSeat": 2,
+        "focalClass": "rival",
+        "backgroundPersonality": "aggressive"
+      },
+      {
+        "block": 18,
+        "seedOffset": 18,
+        "focalSeat": 3,
+        "focalClass": "nurse-joy",
+        "backgroundPersonality": "cautious"
+      },
+      {
+        "block": 19,
+        "seedOffset": 19,
+        "focalSeat": 3,
+        "focalClass": "bug-catcher",
+        "backgroundPersonality": "opportunist"
+      },
+      {
+        "block": 20,
+        "seedOffset": 20,
+        "focalSeat": 3,
+        "focalClass": "researcher",
+        "backgroundPersonality": "greedy"
+      },
+      {
+        "block": 21,
+        "seedOffset": 21,
+        "focalSeat": 3,
+        "focalClass": "main-character",
+        "backgroundPersonality": "aggressive"
+      },
+      {
+        "block": 22,
+        "seedOffset": 22,
+        "focalSeat": 3,
+        "focalClass": "rival",
+        "backgroundPersonality": "cautious"
+      },
+      {
+        "block": 23,
+        "seedOffset": 23,
+        "focalSeat": 3,
+        "focalClass": "fisherman",
+        "backgroundPersonality": "opportunist"
+      }
+    ]
+  },
+  "cells": [
+    {
+      "policy": "always-pvp",
+      "seats": 2,
+      "social": false,
+      "seedFirst": 1100004,
+      "seedLast": 1100027,
+      "blocks": 24,
+      "games": 48
+    },
+    {
+      "policy": "always-pvp",
+      "seats": 3,
+      "social": false,
+      "seedFirst": 1100028,
+      "seedLast": 1100051,
+      "blocks": 24,
+      "games": 48
+    },
+    {
+      "policy": "always-pvp",
+      "seats": 4,
+      "social": false,
+      "seedFirst": 1100052,
+      "seedLast": 1100075,
+      "blocks": 24,
+      "games": 48
+    },
+    {
+      "policy": "force-weak-target",
+      "seats": 2,
+      "social": false,
+      "seedFirst": 1100076,
+      "seedLast": 1100099,
+      "blocks": 24,
+      "games": 48
+    },
+    {
+      "policy": "force-weak-target",
+      "seats": 3,
+      "social": false,
+      "seedFirst": 1100100,
+      "seedLast": 1100123,
+      "blocks": 24,
+      "games": 48
+    },
+    {
+      "policy": "force-weak-target",
+      "seats": 4,
+      "social": false,
+      "seedFirst": 1100124,
+      "seedLast": 1100147,
+      "blocks": 24,
+      "games": 48
+    },
+    {
+      "policy": "sell-all",
+      "seats": 2,
+      "social": false,
+      "seedFirst": 1100148,
+      "seedLast": 1100171,
+      "blocks": 24,
+      "games": 48
+    },
+    {
+      "policy": "sell-all",
+      "seats": 3,
+      "social": false,
+      "seedFirst": 1100172,
+      "seedLast": 1100195,
+      "blocks": 24,
+      "games": 48
+    },
+    {
+      "policy": "sell-all",
+      "seats": 4,
+      "social": false,
+      "seedFirst": 1100196,
+      "seedLast": 1100219,
+      "blocks": 24,
+      "games": 48
+    },
+    {
+      "policy": "keep-to-evolve",
+      "seats": 2,
+      "social": false,
+      "seedFirst": 1100220,
+      "seedLast": 1100243,
+      "blocks": 24,
+      "games": 48
+    },
+    {
+      "policy": "keep-to-evolve",
+      "seats": 3,
+      "social": false,
+      "seedFirst": 1100244,
+      "seedLast": 1100267,
+      "blocks": 24,
+      "games": 48
+    },
+    {
+      "policy": "keep-to-evolve",
+      "seats": 4,
+      "social": false,
+      "seedFirst": 1100268,
+      "seedLast": 1100291,
+      "blocks": 24,
+      "games": 48
+    },
+    {
+      "policy": "immediate-ability",
+      "seats": 2,
+      "social": false,
+      "seedFirst": 1100292,
+      "seedLast": 1100315,
+      "blocks": 24,
+      "games": 48
+    },
+    {
+      "policy": "immediate-ability",
+      "seats": 3,
+      "social": false,
+      "seedFirst": 1100316,
+      "seedLast": 1100339,
+      "blocks": 24,
+      "games": 48
+    },
+    {
+      "policy": "immediate-ability",
+      "seats": 4,
+      "social": false,
+      "seedFirst": 1100340,
+      "seedLast": 1100363,
+      "blocks": 24,
+      "games": 48
+    },
+    {
+      "policy": "ultra-only",
+      "seats": 2,
+      "social": false,
+      "seedFirst": 1100364,
+      "seedLast": 1100387,
+      "blocks": 24,
+      "games": 48
+    },
+    {
+      "policy": "ultra-only",
+      "seats": 3,
+      "social": false,
+      "seedFirst": 1100388,
+      "seedLast": 1100411,
+      "blocks": 24,
+      "games": 48
+    },
+    {
+      "policy": "ultra-only",
+      "seats": 4,
+      "social": false,
+      "seedFirst": 1100412,
+      "seedLast": 1100435,
+      "blocks": 24,
+      "games": 48
+    },
+    {
+      "policy": "never-negotiate",
+      "seats": 2,
+      "social": true,
+      "seedFirst": 1100436,
+      "seedLast": 1100459,
+      "blocks": 24,
+      "games": 48
+    },
+    {
+      "policy": "never-negotiate",
+      "seats": 3,
+      "social": true,
+      "seedFirst": 1100460,
+      "seedLast": 1100483,
+      "blocks": 24,
+      "games": 48
+    },
+    {
+      "policy": "never-negotiate",
+      "seats": 4,
+      "social": true,
+      "seedFirst": 1100484,
+      "seedLast": 1100507,
+      "blocks": 24,
+      "games": 48
+    }
+  ],
+  "achievedBalance": {
+    "note": "Counts of the 24 blocks of one cell. 24 does not divide into every crossing, so the shortfall is published rather than hidden.",
+    "seats2": {
+      "focalSeat": {
+        "0": 12,
+        "1": 12
+      },
+      "focalClass": {
+        "main-character": 4,
+        "rival": 4,
+        "fisherman": 4,
+        "nurse-joy": 4,
+        "bug-catcher": 4,
+        "researcher": 4
+      },
+      "backgroundPersonality": {
+        "greedy": 6,
+        "aggressive": 6,
+        "cautious": 6,
+        "opportunist": 6
+      },
+      "seatByClass": "12 combinations, 2 each",
+      "seatByPersonality": "8 combinations, 3 each",
+      "classByPersonality": "24 combinations, 1 each"
+    },
+    "seats3": {
+      "focalSeat": {
+        "0": 8,
+        "1": 8,
+        "2": 8
+      },
+      "focalClass": {
+        "main-character": 4,
+        "fisherman": 4,
+        "bug-catcher": 4,
+        "nurse-joy": 4,
+        "researcher": 4,
+        "rival": 4
+      },
+      "backgroundPersonality": {
+        "greedy": 6,
+        "aggressive": 6,
+        "cautious": 6,
+        "opportunist": 6
+      },
+      "seatByClass": "18 combinations: 12 once, 6 twice",
+      "seatByPersonality": "12 combinations, 2 each",
+      "classByPersonality": "24 combinations, 1 each"
+    },
+    "seats4": {
+      "focalSeat": {
+        "0": 6,
+        "1": 6,
+        "2": 6,
+        "3": 6
+      },
+      "focalClass": {
+        "main-character": 4,
+        "rival": 4,
+        "fisherman": 4,
+        "nurse-joy": 4,
+        "bug-catcher": 4,
+        "researcher": 4
+      },
+      "backgroundPersonality": {
+        "greedy": 6,
+        "aggressive": 6,
+        "cautious": 6,
+        "opportunist": 6
+      },
+      "seatByClass": "24 combinations, 1 each",
+      "seatByPersonality": "16 combinations: 8 once, 8 twice",
+      "classByPersonality": "closest attainable; publish the actual table"
+    }
+  },
+  "social": {
+    "intent": "Window on for the never-negotiate cells only, in both arms, so offers and responses can exist; off for the other six policies so negotiation does not confound them.",
+    "humanSeat": 0,
+    "humanSeatPolicy": "the arm's per-seat policy: the focal policy when the focal seat is 0, the baseline otherwise",
+    "vacuityRule": "A never-negotiate cell reports its enabled offer and response opportunities per arm. If the control arm has none, the cell is labelled vacuous and supports no conclusion."
+  },
+  "seedLedger": [
+    {
+      "id": "tune",
+      "role": "tuning and smoke; excluded from the 1,008",
+      "first": 100000,
+      "last": 199999,
+      "partition": "tune",
+      "status": "open"
+    },
+    {
+      "id": "c4-published",
+      "role": "C4 300-game report (docs/c4-300-game-report.md); published, no longer unseen",
+      "first": 1000002,
+      "last": 1000101,
+      "partition": "eval",
+      "status": "consumed",
+      "usedBy": "docs/c4-300-game-report.md"
+    },
+    {
+      "id": "c5-held-out",
+      "role": "the 1,008 evaluation games",
+      "first": 1100004,
+      "last": 1100507,
+      "partition": "eval",
+      "status": "unopened",
+      "opened": null,
+      "openedBy": null
+    },
+    {
+      "id": "c5-contingency",
+      "role": "one replacement set if a defect fix after opening c5-held-out forces a re-evaluation; same layout",
+      "first": 1200004,
+      "last": 1200507,
+      "partition": "eval",
+      "status": "unopened",
+      "opened": null,
+      "openedBy": null
+    },
+    {
+      "id": "withheld-below-c5",
+      "role": "1,000,000 to 1,099,999, which holds the C4 range: no C5 evaluation seeds",
+      "first": 1000000,
+      "last": 1099999,
+      "partition": "eval",
+      "status": "withheld"
+    },
+    {
+      "id": "alignment-gap",
+      "role": "1,100,000 to 1,100,003: skipped so every cell starts at a multiple of 6 and keeps the class rotation",
+      "first": 1100000,
+      "last": 1100003,
+      "partition": "eval",
+      "status": "withheld"
+    }
+  ],
+  "analysis": {
+    "primaryMetric": "focal seat win credit: 1/k for k co-winners, 0 for a loss",
+    "primaryEstimate": "mean over complete pairs of (treatment win credit - control win credit), per policy and seat count",
+    "uncertainty": {
+      "method": "paired block bootstrap",
+      "resample": "pairs within one cell",
+      "resamples": 10000,
+      "level": 0.95,
+      "interval": "percentile",
+      "analysisRngSeed": 610004,
+      "owner": "sim/analysis/paired.ts (A61-3) fixes the exact implementation; any other documented paired method must be named before opening c5-held-out"
+    },
+    "secondary": [
+      "tie rate per arm",
+      "focal final coins difference",
+      "win/tie/loss counts per arm",
+      "focal-class, focal-seat and background-personality strata, counts only"
+    ],
+    "missing": "An abort, max-step stop or checker failure makes its pair incomplete. Report planned, complete and missing pairs per cell and every failing seed; never replace, retry or drop a seed.",
+    "forbidden": [
+      "no universal pass threshold",
+      "no tuning on c5-held-out results",
+      "no Jev or Hard claim",
+      "no pooling across seat counts as the primary result"
+    ]
+  },
+  "tables": {
+    "gameRow": [
+      "gameId",
+      "cell.policy",
+      "cell.seats",
+      "block",
+      "arm",
+      "seed",
+      "seatClasses",
+      "seatPolicies",
+      "focalSeat",
+      "focalClass",
+      "backgroundPersonality",
+      "socialWindow",
+      "lapTarget",
+      "maxSteps",
+      "finished",
+      "abortReason",
+      "turns",
+      "steps",
+      "winners",
+      "focalWinCredit",
+      "finalCoins",
+      "illegalAppliedActionCount",
+      "invariantFailures",
+      "focalOpportunities",
+      "focalUses",
+      "hostility",
+      "promises",
+      "mainSha",
+      "engineVersion",
+      "contentVersion",
+      "manifestSha256"
+    ],
+    "pairRow": [
+      "cell.policy",
+      "cell.seats",
+      "block",
+      "seed",
+      "controlGameId",
+      "treatmentGameId",
+      "complete",
+      "winCreditDifference",
+      "coinDifference",
+      "controlWinners",
+      "treatmentWinners"
+    ],
+    "resultRow": [
+      "policy",
+      "seats",
+      "pairsPlanned",
+      "pairsComplete",
+      "pairsMissing",
+      "meanWinCreditDifference",
+      "ciLow",
+      "ciHigh",
+      "resamples",
+      "analysisRngSeed",
+      "controlTieRate",
+      "treatmentTieRate",
+      "focalWinCreditControl",
+      "focalWinCreditTreatment",
+      "opportunitiesControl",
+      "opportunitiesTreatment",
+      "vacuous",
+      "failingSeeds"
+    ],
+    "note": "Planned fields. A61-5 owns the game row and A61-3 the pair and result types; reconcile this list with them before the ledger opens."
+  }
+}
