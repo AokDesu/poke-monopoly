@@ -56,3 +56,11 @@
     transition: none;
   }
 }
+.team-details dd ul li + li {
+  margin-top: 0.3rem;
+}
+.next-form-facts {
+  display: block;
+  color: var(--color-ink-soft);
+  font-size: 0.78rem;
+}

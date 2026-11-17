@@ -1,5 +1,15 @@
+import { pendingGymChoices, recordGymCommand, recordGymRoll } from '../gym.ts';
 import { pendingDecision } from '../decisions.ts';
-import { pvpChoices, pendingPvpChoices, recordPvpCommand, recordPvpRoll } from '../pvp.ts';
+import { abilityChoices, activateAbility, recordChanceRoll } from '../abilities.ts';
+import { closeGymWindow } from '../gym.ts';
+import { actorRevision, attackVisibleTo, seatAttackAttempt } from '../visibility.ts';
+import {
+  closePvpWindow,
+  pvpChoices,
+  pendingPvpChoices,
+  recordPvpCommand,
+  recordPvpRoll,
+} from '../pvp.ts';
 import { positionOf } from './position.ts';
 import { actionSchema } from './schema.ts';
 import { d6, shuffle, RNG_VERSION } from '../rng.ts';
@@ -24,6 +34,7 @@ import {
   responseChoices,
 } from '../promises.ts';
 import type {
+  Action,
   GameState,
   Observation,
   LegalActions,
@@ -51,13 +62,20 @@ export function observe(state: GameState, seatIndex: number): Observation {
         knownItems: player.items
           .filter((item) => item.visibility === 'public')
           .map((item) => ({ ...item, visibility: 'public' as const })),
+        ...(player.armedShield?.visibility === 'public' ? { armedShield: player.armedShield } : {}),
         badges: player.badges,
         abilityReady: player.abilityUsedGlobalTurnNo !== state.globalTurnNo,
       })),
       globalTurnNo: state.globalTurnNo,
-      stateRevision: state.stateRevision,
+      stateRevision: actorRevision(state, ownPlayer.actorId),
       activeSeatIndex: state.activeSeatIndex,
-      ...(state.attackHistory ? { attackHistory: state.attackHistory } : {}),
+      ...(state.attackHistory
+        ? {
+            attackHistory: state.attackHistory
+              .filter((attempt) => attackVisibleTo(attempt, ownPlayer.actorId))
+              .map(seatAttackAttempt),
+          }
+        : {}),
       phase: state.phase,
       lapTarget: state.config.lapTarget,
       finalTableRound: state.finalTableRound,
@@ -65,6 +83,7 @@ export function observe(state: GameState, seatIndex: number): Observation {
     own: {
       seatIndex,
       items: ownPlayer.items,
+      ...(ownPlayer.armedShield ? { armedShield: ownPlayer.armedShield } : {}),
       balls: ownPlayer.balls,
       privateResults: ownPlayer.privateResults,
       // Only conversations this seat is part of; the key exists only when the Social window is on.
@@ -107,8 +126,14 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   if (state.phase.kind === 'first_player_roll' && !state.phase.awaitingResult) {
     result.enabled.push({ id: 'roll', kind: 'roll', payload: {} });
   }
+  if (state.config.engineVersion === ENGINE_VERSION) {
+    result.enabled.push(...abilityChoices(state, seatIndex));
+  }
   if (state.config.engineVersion === ENGINE_VERSION && state.phase.kind === 'pvp') {
     pendingPvpChoices(state, result);
+  }
+  if (state.config.engineVersion === ENGINE_VERSION && state.phase.kind === 'gym') {
+    pendingGymChoices(state, result);
   }
   if (state.phase.kind === 'strategy') {
     if (state.config.engineVersion === ENGINE_VERSION) itemChoices(state, seatIndex, result);
@@ -124,7 +149,18 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
     if (state.config.engineVersion === ENGINE_VERSION) pvpChoices(state, result);
   }
   if (state.phase.kind === 'move' && !state.phase.awaitingResult) {
-    result.enabled.push({ id: 'roll', kind: 'roll', payload: {} });
+    result.enabled.push(
+      state.phase.rolled === undefined
+        ? { id: 'roll', kind: 'roll', payload: {} }
+        : { id: 'keep-die', kind: 'skip', payload: {} },
+    );
+  }
+  if (
+    state.phase.kind === 'encounter' &&
+    state.phase.face !== undefined &&
+    !state.phase.rerolling
+  ) {
+    result.enabled.push({ id: 'keep-die', kind: 'skip', payload: {} });
   }
   if (
     state.config.engineVersion === ENGINE_VERSION &&
@@ -201,15 +237,25 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   return result;
 }
 
+/** An activation inside a battle window closes that window (D4 steps 5–6, D5 step 2). */
+function recordActivation(next: GameState, action: Action) {
+  const inWindow =
+    (next.phase.kind === 'pvp' && next.phase.battle.step.endsWith('_window')) ||
+    (next.phase.kind === 'gym' && next.phase.battle.step === 'window');
+  const events = activateAbility(next, action);
+  return inWindow ? [...events, ...closePvpWindow(next), ...closeGymWindow(next)] : events;
+}
+
 /** Immutable command executor; implemented gameplay scope is documented in docs/engine-contract.md. */
 export function applyAction(state: GameState, input: unknown): ApplyActionResult {
   const parsed = actionSchema.safeParse(input);
   if (!parsed.success) return { rejected: true, reason: 'malformed_action', state };
   const action = parsed.data;
-  if (action.stateRevisionBefore !== state.stateRevision) {
+  const revision = actorRevision(state, action.actorId);
+  if (action.stateRevisionBefore !== revision) {
     return { rejected: true, reason: 'stale_revision', state };
   }
-  if (action.actionSeq !== state.stateRevision + 1) {
+  if (action.actionSeq !== revision + 1) {
     return { rejected: true, reason: 'invalid_sequence', state };
   }
   // A finished game accepts nothing more, including engine-generated records.
@@ -222,14 +268,16 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       return { rejected: true, reason: 'illegal_action', state };
     }
     const pendingPurpose = pendingRollPurpose(state);
-    if (state.phase.kind === 'pvp' && !pendingPurpose) {
+    if ((state.phase.kind === 'pvp' || state.phase.kind === 'gym') && !pendingPurpose) {
       return { rejected: true, reason: 'illegal_action', state };
     }
     if (
       (action.payload.purpose.startsWith('first-player:') ||
         action.payload.purpose.startsWith('move:') ||
         action.payload.purpose.startsWith('catch:') ||
-        action.payload.purpose.startsWith('pvp:')) &&
+        action.payload.purpose.startsWith('pvp:') ||
+        action.payload.purpose.startsWith('gym:') ||
+        action.payload.purpose.startsWith('ability:')) &&
       action.payload.purpose !== pendingPurpose
     ) {
       return { rejected: true, reason: 'illegal_action', state };
@@ -245,7 +293,7 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       return { rejected: true, reason: 'illegal_action', state };
     }
     const next = structuredClone(state);
-    next.stateRevision = action.actionSeq;
+    next.stateRevision = state.stateRevision + 1;
     next.rng = draw.rng;
     const events = [
       ...draw.events,
@@ -253,6 +301,8 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       ...recordMoveRoll(next, draw.value),
       ...recordCatchRoll(next, draw.value),
       ...recordPvpRoll(next, draw.value),
+      ...recordGymRoll(next, draw.value),
+      ...recordChanceRoll(next, draw.value),
     ];
     return {
       accepted: true,
@@ -261,7 +311,7 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       record: { action, events: structuredClone(events) },
     };
   }
-  if (state.phase.kind === 'pvp' && action.actorId === 'engine') {
+  if ((state.phase.kind === 'pvp' || state.phase.kind === 'gym') && action.actorId === 'engine') {
     return { rejected: true, reason: 'illegal_action', state };
   }
   if (action.actorId === 'engine' && action.kind === 'shuffle') {
@@ -273,7 +323,7 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       return { rejected: true, reason: 'illegal_action', state };
     }
     const next = structuredClone(state);
-    next.stateRevision = action.actionSeq;
+    next.stateRevision = state.stateRevision + 1;
     next.rng = { ...draw.rng };
     next.eventDeck.drawPile = draw.value;
     return {
@@ -288,7 +338,7 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       return { rejected: true, reason: 'illegal_action', state };
     }
     const next = structuredClone(state);
-    next.stateRevision = action.actionSeq;
+    next.stateRevision = state.stateRevision + 1;
     next.eventDeck.drawPile.shift();
     next.eventDeck.discardPile.push(action.payload.eventId);
     return { accepted: true, state: next, events: [], record: { action, events: [] } };
@@ -329,7 +379,7 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
     return { rejected: true, reason: 'illegal_action', state };
   }
   const next = structuredClone(state);
-  next.stateRevision = action.actionSeq;
+  next.stateRevision = state.stateRevision + 1;
   if (next.phase.kind === 'first_player_roll' && action.kind === 'roll') {
     next.phase.awaitingResult = true;
   }
@@ -344,15 +394,19 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
             ? recordSale(next, saleIds)
             : next.config.engineVersion !== ENGINE_VERSION
               ? recordTurnCommand(next, action.kind)
-              : action.kind === 'declare_pvp' || next.phase.kind === 'pvp'
-                ? recordPvpCommand(next, action)
-                : next.phase.kind === 'encounter'
-                  ? confirmCatch(next, action)
-                  : next.phase.kind === 'shop'
-                    ? confirmShop(next, action)
-                    : action.kind === 'use_item'
-                      ? useItem(next, action)
-                      : recordTurnCommand(next, action.kind);
+              : action.kind === 'activate_ability'
+                ? recordActivation(next, action)
+                : next.phase.kind === 'gym'
+                  ? recordGymCommand(next, action)
+                  : action.kind === 'declare_pvp' || next.phase.kind === 'pvp'
+                    ? recordPvpCommand(next, action)
+                    : next.phase.kind === 'encounter'
+                      ? confirmCatch(next, action)
+                      : next.phase.kind === 'shop'
+                        ? confirmShop(next, action)
+                        : action.kind === 'use_item'
+                          ? useItem(next, action)
+                          : recordTurnCommand(next, action.kind);
   return {
     accepted: true,
     state: next,

@@ -105,14 +105,16 @@ export interface SaveSummary {
   readonly phase: string;
   readonly waiting: 'finished' | 'engine_result' | 'decision';
   readonly seatIndex: number;
-  readonly humanSeat: number;
+  /** Absent in a watched game, where no seat is human. */
+  readonly humanSeat?: number;
+  readonly turn: number;
   /** Multi-choice AI decision: the page must ask again and must not start a turn. */
   readonly aiDecision: boolean;
 }
 
 export function summarize(game: SavedGame, resumed: Resumed): SaveSummary {
-  const humanSeat =
-    game.state.config.seats.find((seat) => seat.controller === 'human')?.seatIndex ?? 0;
+  const humanSeat = game.state.config.seats.find((seat) => seat.controller === 'human')?.seatIndex;
+  const shared = { turn: game.state.globalTurnNo, ...(humanSeat !== undefined && { humanSeat }) };
   const waiting = resumed.waitingFor;
   if (waiting.kind === 'decision') {
     const seat = game.state.config.seats.find((entry) => entry.seatIndex === waiting.seatIndex);
@@ -120,7 +122,7 @@ export function summarize(game: SavedGame, resumed: Resumed): SaveSummary {
       phase: waiting.phase,
       waiting: 'decision',
       seatIndex: waiting.seatIndex,
-      humanSeat,
+      ...shared,
       aiDecision: seat?.controller === 'ai' && waiting.legalActions.enabled.length > 1,
     };
   }
@@ -128,7 +130,7 @@ export function summarize(game: SavedGame, resumed: Resumed): SaveSummary {
     phase: game.state.phase.kind,
     waiting: waiting.kind,
     seatIndex: game.state.activeSeatIndex,
-    humanSeat,
+    ...shared,
     aiDecision: false,
   };
 }

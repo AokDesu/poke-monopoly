@@ -15,9 +15,24 @@ import {
   observe,
   RNG_VERSION,
   shuffle,
+  type ActionRecord,
+  type EngineEvent,
   type GameState,
 } from './index.ts';
 import fixture from './fixtures/start-of-game-2p.json';
+
+/** A record as a seat's feed shows it, numbered as in the full log (no hidden records before it). */
+const seatRecord = (before: GameState, record: ActionRecord, seatIndex: number) =>
+  actionVisibleTo(before, record, seatIndex, record.action.stateRevisionBefore)!;
+
+/** What a seat sees of events it may see: an attack attempt loses its internal `actionSeq` (§6.3). */
+const asSeen = (events: EngineEvent[]) =>
+  events.map((event) => {
+    if (event.kind !== 'attack_attempt') return event;
+    const seen: Partial<typeof event> = { ...event };
+    delete seen.actionSeq;
+    return seen;
+  });
 
 /** Seat 0 in Strategy holding one secret item; seat 1 (Rival) holds its public Lucky Egg. */
 function strategy(itemId: string): GameState {
@@ -57,9 +72,9 @@ test("a used secret item's uid_destroyed is visible only to its owner (§4.1, §
     itemInstanceId: 'SENTINEL-0',
     targetSeatIndex: 1,
   });
-  expect(eventsVisibleTo(before, events, 0)).toEqual(events);
+  expect(eventsVisibleTo(before, events, 0)).toEqual(asSeen(events));
   expect(eventsVisibleTo(before, events, 1)).toEqual(
-    events.filter((event) => event.kind !== 'uid_destroyed'),
+    asSeen(events.filter((event) => event.kind !== 'uid_destroyed')),
   );
 });
 
@@ -245,9 +260,9 @@ test('500 random mid-game states never show a seat another seat’s secrets, RNG
           if (event.kind !== 'hostile_item_used') continue;
           expect([event.userSeatIndex, event.targetSeatIndex]).toContain(seat);
         }
-        const seatRecord = actionVisibleTo(before, record, seat);
-        expect(seatRecord.events).toEqual(visible);
-        const seenRecord = JSON.stringify(seatRecord);
+        const seatView = seatRecord(before, record, seat);
+        expect(seatView.events).toEqual(visible);
+        const seenRecord = JSON.stringify(seatView);
         for (const secret of secrets) expect(seenRecord).not.toContain(secret);
         for (const hidden of [SEED, ...DECK]) expect(seenRecord).not.toContain(hidden);
         const actor = before.players.find((entry) => entry.actorId === record.action.actorId);
@@ -281,6 +296,7 @@ test('500 random mid-game states never show a seat another seat’s secrets, RNG
       'declare_pvp',
       'respond_pvp',
       'choose_reward',
+      'challenge_gym',
     ]),
   );
 });
@@ -319,8 +335,8 @@ test('a buy record hides which offer was bought from everyone but the buyer (§4
   if (before.phase.kind !== 'shop') throw new Error('expected Shop');
   const offer = before.phase.offers.find((entry) => entry.kind === 'utility')!;
   const { record } = accepted(before, 'buy', { offerId: offer.id });
-  expect(actionVisibleTo(before, record, 0)).toEqual(record);
-  const seen = actionVisibleTo(before, record, 1);
+  expect(seatRecord(before, record, 0)).toEqual(record);
+  const seen = seatRecord(before, record, 1);
   expect(seen.action).toMatchObject({ kind: 'buy', payload: {} });
   expect(seen.action.payload).not.toHaveProperty('offerId');
   expect(seen.events).toEqual(eventsVisibleTo(before, record.events, 1));
@@ -332,16 +348,16 @@ test('a use_item record hides a secret item ID from non-owners and the target fr
     itemInstanceId: 'SENTINEL-0',
     targetSeatIndex: 1,
   });
-  expect(actionVisibleTo(before, record, 0)).toEqual(record);
-  expect(actionVisibleTo(before, record, 1).action.payload).toEqual({ targetSeatIndex: 1 });
-  expect(actionVisibleTo(before, record, 2).action.payload).toEqual({});
+  expect(seatRecord(before, record, 0)).toEqual({ ...record, events: asSeen(record.events) });
+  expect(seatRecord(before, record, 1).action.payload).toEqual({ targetSeatIndex: 1 });
+  expect(seatRecord(before, record, 2).action.payload).toEqual({});
   // A public class item's ID is public, as its uid_destroyed is.
   const egg = strategy('repel');
   egg.activeSeatIndex = 1;
   egg.players[1]!.ownTurnNo = 1;
   const eggId = egg.players[1]!.items[0]!.instanceId;
   const used = accepted(egg, 'use_item', { itemInstanceId: eggId });
-  expect(actionVisibleTo(egg, used.record, 0).action.payload).toEqual({ itemInstanceId: eggId });
+  expect(seatRecord(egg, used.record, 0).action.payload).toEqual({ itemInstanceId: eggId });
 });
 
 test('shuffle and event_draw records hide the deck order and drawn card from every seat (§4.1, §4.6, §5.4)', () => {
@@ -367,19 +383,17 @@ test('shuffle and event_draw records hide the deck order and drawn card from eve
     events: [],
   };
   for (const seat of [0, 1]) {
-    expect(actionVisibleTo(before, shuffled.record, seat)).toMatchObject({
+    expect(seatRecord(before, shuffled.record, seat)).toMatchObject({
       action: { kind: 'shuffle', payload: { deckId: 'events' } },
       events: [],
     });
-    expect(actionVisibleTo(before, shuffled.record, seat).action.payload).not.toHaveProperty(
-      'order',
-    );
-    expect(actionVisibleTo(shuffled.state, draw, seat).action.payload).toEqual({});
+    expect(seatRecord(before, shuffled.record, seat).action.payload).not.toHaveProperty('order');
+    expect(seatRecord(shuffled.state, draw, seat).action.payload).toEqual({});
   }
 });
 
 test('action record visibility rejects an unknown seat like the other read seams (§5.4)', () => {
   const before = strategy('repel');
   const { record } = accepted(before, 'skip');
-  expect(() => actionVisibleTo(before, record, 2)).toThrow(RangeError);
+  expect(() => seatRecord(before, record, 2)).toThrow(RangeError);
 });

@@ -110,7 +110,9 @@ const evolutionsSchema = engineEvolutionsSchema.extend({
   forms: engineEvolutionsSchema.shape.forms.superRefine(uniqueIds('form')),
 });
 
-const eventsSchema = z.array(z.strictObject({ id, text: id })).superRefine(uniqueIds('event'));
+const eventsSchema = z
+  .array(contentSchema.shape.events.unwrap().element.extend({ text: id }))
+  .superRefine(uniqueIds('event'));
 
 const configSchema = z.strictObject({
   startingKit: z.strictObject({
@@ -227,6 +229,7 @@ export function toEngineContent(content: ParsedContent): Content {
   return contentSchema.parse({
     board: content.board,
     evolutions: content.evolutions,
+    events: content.events.map(({ id }) => ({ id })),
     species: content.species.map((row) => engineFields(contentSchema.shape.species.element, row)),
     classes: content.classes.map((row) => engineFields(contentSchema.shape.classes.element, row)),
     items: content.items.map((row) =>

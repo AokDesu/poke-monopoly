@@ -1,4 +1,10 @@
-import type { Action, BallType, EngineEvent, GameState } from '../engine/index.ts';
+import {
+  ABILITY_EFFECTS,
+  type Action,
+  type BallType,
+  type EngineEvent,
+  type GameState,
+} from '../engine/index.ts';
 
 const BALL_TYPES: readonly BallType[] = ['poke', 'great', 'ultra'];
 
@@ -34,10 +40,21 @@ export type ShopSummary = { purchases: Record<string, number> };
  */
 export type SalesByLap = Record<string, { sold: number; coins: number }>;
 
+/**
+ * Trigger evidence (§8: every bonus must have a real chance to trigger): Ability activations by
+ * effect primitive, class passives that changed a number, and battles by kind.
+ */
+export type FeatureSummary = {
+  primitives: Record<string, number>;
+  classPassives: Record<string, number>;
+  battles: { pvp: number; forced: number; gym: number };
+};
+
 export type MetricsSummary = {
   catching: CatchingSummary;
   shop: ShopSummary;
   salesByLap: SalesByLap;
+  features: FeatureSummary;
 };
 
 export type MetricsCollector = {
@@ -51,6 +68,7 @@ export function emptyMetricsSummary(): MetricsSummary {
     catching: { encounters: 0, attempts: 0, catches: 0, releases: 0, byBallDcLap: [] },
     shop: { purchases: {} },
     salesByLap: {},
+    features: { primitives: {}, classPassives: {}, battles: { pvp: 0, forced: 0, gym: 0 } },
   };
 }
 
@@ -85,6 +103,7 @@ export function createMetrics(): MetricsCollector {
         lap.sold++;
         lap.coins += event.amount;
       }
+      countFeatures(total.features, before, action, after, events);
       if (action.kind === 'release') catching.releases++;
       if (action.kind === 'catch' && encounter) {
         catching.attempts++;
@@ -129,9 +148,56 @@ export function createMetrics(): MetricsCollector {
         catching: { ...total.catching, byBallDcLap: rows },
         shop: { purchases: sortedKeys(total.shop.purchases) },
         salesByLap: total.salesByLap,
+        features: {
+          primitives: sortedKeys(total.features.primitives),
+          classPassives: sortedKeys(total.features.classPassives),
+          battles: total.features.battles,
+        },
       };
     },
   };
+}
+
+function countFeatures(
+  features: FeatureSummary,
+  before: GameState,
+  action: Action,
+  after: GameState,
+  events: readonly EngineEvent[],
+): void {
+  const passiveOf = (actorId: string) => {
+    const classId = before.players.find((player) => player.actorId === actorId)?.classId;
+    return before.content.classes.find((entry) => entry.id === classId)?.passive;
+  };
+  const passive = (id: string | undefined) => {
+    if (id) features.classPassives[id] = (features.classPassives[id] ?? 0) + 1;
+  };
+  for (const event of events) {
+    if (event.kind === 'ability_activated') {
+      const { primitive } = ABILITY_EFFECTS[event.effect];
+      features.primitives[primitive] = (features.primitives[primitive] ?? 0) + 1;
+    }
+    if (event.kind === 'pvp_confirmed') {
+      features.battles.pvp++;
+      if (after.phase.kind === 'pvp' && after.phase.battle.forced) features.battles.forced++;
+      for (const side of [event.snapshot.attacker, event.snapshot.defender]) {
+        if (side.classBonus > 0) passive(passiveOf(before.players[side.seatIndex]!.actorId));
+      }
+    }
+    if (event.kind === 'gym_confirmed') features.battles.gym++;
+    // A sale's class bonus is paid by the bank to the seller (§4.7).
+    if (event.kind === 'coin_transfer' && event.sale && event.sale.classBonus > 0) {
+      if (event.destination.kind === 'player') passive(passiveOf(event.destination.actorId));
+    }
+    if (event.kind === 'status_changed' && event.reason === 'nurse_joy')
+      passive(passiveOf(event.ownerId));
+    if (event.kind === 'protection_applied' && event.protection === 'nurse_joy') {
+      passive(passiveOf(event.targetId));
+    }
+  }
+  if (action.kind === 'catch' && after.phase.kind === 'encounter' && after.phase.catchRoll) {
+    if (after.phase.catchRoll.classBonus > 0) passive(passiveOf(action.actorId));
+  }
 }
 
 function sortedKeys<T>(record: Record<string, T>): Record<string, T> {

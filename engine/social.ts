@@ -74,10 +74,22 @@ export function validChat(state: GameState, seatIndex: number, payload: ChatPayl
   );
 }
 
+/**
+ * Marks the record being applied as unseen by every seat outside the conversation, so each of those
+ * seats' own feed and revision skip it (§4.8). The full record stays in the engine's replay log.
+ */
+export function hideFromBystanders(next: GameState, seatA: number, seatB: number): void {
+  for (const player of next.players) {
+    if (player.seatIndex === seatA || player.seatIndex === seatB) continue;
+    player.unseenRecords = (player.unseenRecords ?? 0) + 1;
+  }
+}
+
 /** Spends the social interaction and keeps the message. Changes nothing else (§4.8 hard line). */
 export function recordChat(next: GameState, payload: ChatPayload): EngineEvent[] {
   const fromSeatIndex = next.activeSeatIndex;
   next.turnBudgets.socialInteraction = (next.turnBudgets.socialInteraction ?? 0) - 1;
+  next.chatsSent = (next.chatsSent ?? 0) + 1;
   const message: ChatMessage = {
     fromSeatIndex,
     toSeatIndex: payload.targetSeatIndex,
@@ -97,6 +109,7 @@ export function recordChat(next: GameState, payload: ChatPayload): EngineEvent[]
     chats.push(pair);
   }
   pair.messages = [...pair.messages, message].slice(-CHAT_HISTORY_PER_PAIR);
+  hideFromBystanders(next, fromSeatIndex, payload.targetSeatIndex);
   return [
     {
       kind: 'chat_sent',

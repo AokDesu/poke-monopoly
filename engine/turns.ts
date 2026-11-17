@@ -1,4 +1,6 @@
+import { openGym, pendingGymRollPurpose } from './gym.ts';
 import { pendingPvpRollPurpose } from './pvp.ts';
+import { canReroll, pendingChanceRollPurpose, resetAbilities } from './abilities.ts';
 import type { GameState, EngineEvent, Player } from './contract/schema.ts';
 import { expireStatuses } from './status.ts';
 import { startTurnClassPassive } from './classes.ts';
@@ -6,7 +8,7 @@ import { ENGINE_VERSION } from './versions.ts';
 import { drawEncounter } from './catching.ts';
 import { finishGame } from './game-end.ts';
 import { openShop } from './shop.ts';
-import { slowedSteps } from './items.ts';
+import { slowedSteps } from './slows.ts';
 import { positionOf } from './contract/position.ts';
 
 /** Internal transitions operate only on the executor's detached next snapshot. */
@@ -30,21 +32,38 @@ export function firstPlayerRollPurpose(state: GameState): string {
 }
 
 export function pendingRollPurpose(state: GameState): string | undefined {
+  const chance = pendingChanceRollPurpose(state);
+  if (chance) return chance;
+  const gym = pendingGymRollPurpose(state);
+  if (gym) return gym;
   const pvp = pendingPvpRollPurpose(state);
   if (pvp) return pvp;
   if (state.phase.kind === 'encounter' && state.phase.catchRoll) {
-    return `catch:${state.activeSeatIndex}:${state.globalTurnNo}`;
+    const purpose = `catch:${state.activeSeatIndex}:${state.globalTurnNo}`;
+    if (state.phase.rerolling) return `${purpose}:reroll`;
+    if (state.phase.face === undefined) return purpose;
   }
   if (state.phase.kind === 'first_player_roll' && state.phase.awaitingResult) {
     return firstPlayerRollPurpose(state);
   }
   if (state.phase.kind === 'move' && state.phase.awaitingResult) {
-    return `move:${state.activeSeatIndex}:${state.globalTurnNo}`;
+    const purpose = `move:${state.activeSeatIndex}:${state.globalTurnNo}`;
+    return state.phase.rerolling ? `${purpose}:reroll` : purpose;
   }
 }
 
 export function recordMoveRoll(next: GameState, value: number): EngineEvent[] {
   if (next.phase.kind !== 'move' || !next.phase.awaitingResult) return [];
+  // C.3 move order: an eligible A window follows the die before slows and movement (D11).
+  if (!next.phase.rerolling && canReroll(next, next.activeSeatIndex)) {
+    next.phase = { kind: 'move', rolled: value };
+    return [];
+  }
+  return applyMove(next, value);
+}
+
+/** Owner movement by `value` before slows: Start credit, Sell, then Resolve (§4.2, §4.7). */
+function applyMove(next: GameState, value: number): EngineEvent[] {
   const player = next.players.find((entry) => entry.seatIndex === next.activeSeatIndex)!;
   const previousMilestone = Math.floor(player.routeProgress / 24);
   player.routeProgress += slowedSteps(player, value);
@@ -63,6 +82,8 @@ export function recordMoveRoll(next: GameState, value: number): EngineEvent[] {
         amount: 5,
         reason: 'start_income',
       },
+      // §4.7 step 1: +5, creditedLap +1, reset Abilities, then Sell.
+      ...resetAbilities(player),
       ...announceFinalTableRound(next, player),
       { kind: 'phase_changed', from: 'move', to: 'sell' },
     ];
@@ -82,10 +103,17 @@ export function recordTurnCommand(next: GameState, kind: string): EngineEvent[] 
   // Historical contract fixtures retain their illustrative choices and no gameplay effects.
   if (next.config.engineVersion !== ENGINE_VERSION) return [];
   if (kind === 'roll' && next.phase.kind === 'move') {
+    // A replaceRoll Ability draws no die; pending slows still apply to its steps (D8).
+    const fixed = next.turnEffects?.fixedMove;
+    if (fixed !== undefined) return applyMove(next, fixed);
     next.phase.awaitingResult = true;
     return [];
   }
   if (kind !== 'skip') return [];
+  // Keeping Porygon's revealed move die moves by it (D11).
+  if (next.phase.kind === 'move' && next.phase.rolled !== undefined) {
+    return applyMove(next, next.phase.rolled);
+  }
   const from = next.phase.kind;
   switch (from) {
     case 'start':
@@ -131,9 +159,11 @@ function resolveDestination(next: GameState): EngineEvent[] {
         { kind: 'space_resolved', seatIndex: player.seatIndex, position },
         ...drawEncounter(next),
       ];
-    case 'event':
     case 'gym':
-      // Events arrive in cycle 4 and Gyms in cycle 3; until then landing is a logged no-op.
+      openGym(next, position);
+      return [{ kind: 'space_resolved', seatIndex: player.seatIndex, position }];
+    case 'event':
+      // Events remain explicit placeholders until their own slice.
       return [
         { kind: 'space_resolved', seatIndex: player.seatIndex, position, effect: 'none_yet' },
       ];

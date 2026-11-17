@@ -1,15 +1,8 @@
 import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
-import { SPECIES_MODELS } from '../game/models.ts';
+import { MEADOW_STARTERS, SPECIES_MODELS } from '../game/models.ts';
 import { FittedModel } from '../ui/three/Model.tsx';
 import { Scenery } from '../ui/three/Scenery.tsx';
-
-const STARTERS = [
-  { id: 'bulbasaur', x: -1.4, z: 0.6 },
-  { id: 'charmander', x: 1.4, z: -0.4 },
-  { id: 'squirtle', x: 0.3, z: 1.5 },
-  { id: 'porygon', x: -0.7, z: -1.4 },
-] as const;
 
 /** Decorative diorama only: no game state, tokens, labels or animation live in WebGL. */
 export default function StarterMeadow() {
@@ -37,7 +30,7 @@ export default function StarterMeadow() {
         <Scenery startX={0} startZ={0} />
       </group>
       <Suspense fallback={null}>
-        {STARTERS.map(({ id, x, z }) => (
+        {MEADOW_STARTERS.map(({ id, x, z }) => (
           <FittedModel
             key={id}
             file={SPECIES_MODELS[id]!.file}

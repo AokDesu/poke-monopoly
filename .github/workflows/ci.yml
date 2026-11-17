@@ -16,7 +16,7 @@ permissions:
 jobs:
   ci:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -34,10 +34,10 @@ jobs:
             exit 1
           fi
 
-      - name: Guard - no committed Jev key
+      - name: Guard - no committed Jev or Haiku key
         run: |
-          if git grep -nE 'TYPESAFE_API_KEY[[:space:]]*[=][[:space:]]*["'\'']?[A-Za-z0-9_-]'; then
-            echo "::error::A tracked file sets TYPESAFE_API_KEY to a value. Remove it and rotate the key."
+          if git grep -nE '(TYPESAFE|ANTHROPIC)_API_KEY[[:space:]]*[=][[:space:]]*["'\'']?[A-Za-z0-9_-]'; then
+            echo "::error::A tracked file sets TYPESAFE_API_KEY or ANTHROPIC_API_KEY to a value. Remove it and rotate the key."
             exit 1
           fi
 
@@ -46,5 +46,8 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm test
-      - run: npm run sim -- --games 100 --seed 1
+      # §7/§8 (#55 S16): 100 games at each seat count, every §8 checker on every action.
+      - run: npm run sim -- --games 100 --seed 1 --seats 2
+      - run: npm run sim -- --games 100 --seed 1 --seats 3
+      - run: npm run sim -- --games 100 --seed 1 --seats 4
       - run: npm run eval:jev -- --offline

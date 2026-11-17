@@ -12,12 +12,28 @@ const REASONS: Record<string, MessageKey> = {
   timeout: 'ai.reason.timeout',
   rate_limited: 'ai.reason.rate_limited',
   auth: 'ai.reason.auth',
-  stub: 'ai.reason.stub',
+};
+
+const NOTES: Record<string, MessageKey> = {
   not_an_option: 'ai.backupInvalidAnswer',
   invalid_choice: 'ai.backupInvalidAnswer',
   revision_mismatch: 'ai.backupRevisionMismatch',
   low_confidence: 'ai.backupLowConfidence',
 };
+
+const UNAVAILABLE = new Set([
+  'disabled',
+  'missing_key',
+  'budget_exceeded',
+  'timeout',
+  'network',
+  'rate_limited',
+  'server_error',
+  'auth',
+]);
+
+const isBackup = (decision: AiDecision | undefined) =>
+  decision?.source === 'fallback' && UNAVAILABLE.has(decision.fallbackReason ?? '');
 
 export function AiTurn({ view, playback }: { view: SeatView; playback: TurnPlayback }) {
   const game = view.observation.public;
@@ -27,13 +43,16 @@ export function AiTurn({ view, playback }: { view: SeatView; playback: TurnPlayb
   const opponents = game.players.filter((player) => player.seatIndex !== view.seatIndex);
   const allBackup =
     playback.status?.backupOnly ||
-    (opponents.length > 0 &&
-      opponents.every((player) => latest.get(player.seatIndex)?.source === 'fallback'));
+    (opponents.length > 0 && opponents.every((player) => isBackup(latest.get(player.seatIndex))));
   const decision = latest.get(game.activeSeatIndex);
   const backup =
-    game.activeSeatIndex !== view.seatIndex &&
-    (playback.status?.backupOnly || decision?.source === 'fallback');
+    game.activeSeatIndex !== view.seatIndex && (playback.status?.backupOnly || isBackup(decision));
   const reason = playback.status?.backupOnly ? playback.status.reason : decision?.fallbackReason;
+  const note =
+    game.activeSeatIndex !== view.seatIndex &&
+    !backup &&
+    decision?.source === 'fallback' &&
+    NOTES[decision.fallbackReason ?? ''];
   return (
     <div className="ai-playback">
       <label className="ai-speed">
@@ -60,6 +79,11 @@ export function AiTurn({ view, playback }: { view: SeatView; playback: TurnPlayb
           <span>{seatLabel(game.activeSeatIndex, view.seatIndex)}</span>
           <p>{t(REASONS[reason ?? ''] ?? 'ai.backupUnavailable')}</p>
         </div>
+      )}
+      {note && (
+        <p className="ai-turn-note" data-ai-seat={game.activeSeatIndex}>
+          {t(note)}
+        </p>
       )}
       {playback.statusUnavailable && <p className="ai-status-note">{t('ai.statusUnavailable')}</p>}
       {playback.thinking && (

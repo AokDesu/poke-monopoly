@@ -1,15 +1,18 @@
 import { useEffect, useId, useRef } from 'react';
 import type { BallType, CatchOdds, LegalActions, Observation } from '../../../engine/index.ts';
-import { content } from '../game/content.ts';
 import { t } from '../i18n/en.ts';
+import { speciesName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
 import { BallIcon } from '../ui/icons.tsx';
+import { SpeciesFacts } from '../ui/SpeciesFacts.tsx';
 
 export interface EncounterDialogProps {
   observation: Observation;
   legalActions: LegalActions;
   catchOdds: readonly ({ ballType: BallType } & CatchOdds)[];
   onChoose: (id: string) => void;
+  /** Dev gallery only: show the same dialog in the page flow instead of as a modal. */
+  inline?: boolean;
 }
 
 /** A catch is a protected decision: native modal focus stays here until a legal choice is made. */
@@ -18,23 +21,26 @@ export function EncounterDialog({
   legalActions,
   catchOdds,
   onChoose,
+  inline = false,
 }: EncounterDialogProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const headingId = useId();
   const bodyId = useId();
   useEffect(() => {
+    if (inline) return;
     const element = dialog.current!;
     element.showModal();
     return () => element.close();
-  }, []);
+  }, [inline]);
   const phase = observation.public.phase;
   if (phase.kind !== 'encounter') return null;
-  const pokemon = content.species.find((species) => species.id === phase.pokemon.speciesId)!.name;
+  const pokemon = speciesName(phase.pokemon.speciesId);
   const release = legalActions.enabled.find((choice) => choice.kind === 'release');
   const disabledCatch = legalActions.disabled.find((choice) => choice.kind === 'catch');
   return (
     <dialog
       ref={dialog}
+      open={inline || undefined}
       className="encounter-dialog panel"
       aria-labelledby={headingId}
       aria-describedby={bodyId}
@@ -45,6 +51,9 @@ export function EncounterDialog({
       </div>
       <h2 id={headingId}>{t('encounter.heading', { pokemon })}</h2>
       <p id={bodyId}>{t(catchOdds.length === 0 ? 'encounter.noBall' : 'encounter.body')}</p>
+      <section aria-label={t('encounter.facts')}>
+        <SpeciesFacts speciesId={phase.pokemon.speciesId} showCatchDc />
+      </section>
       <div className="encounter-choices">
         {catchOdds.map(({ ballType, percent }) => {
           const choice = legalActions.enabled.find(

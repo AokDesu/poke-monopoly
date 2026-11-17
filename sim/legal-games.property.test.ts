@@ -61,11 +61,15 @@ function probeStaleAndForeign(engine: SimEngine, state: GameState, action: Actio
   const hash = stateHash(state);
   const probe = (label: string, command: unknown) =>
     expectUnchanged(state, hash, label, engine.applyAction(state, command));
-  if (state.stateRevision > 0) {
+  // `action` carries the revision its seat observes, which hidden chats and promises keep below the
+  // global count (§4.8), so the stale probe is relative to it.
+  if (action.stateRevisionBefore > 0) {
     probe('a command on the previous revision', {
       ...action,
-      stateRevisionBefore: state.stateRevision - 1,
+      stateRevisionBefore: action.stateRevisionBefore - 1,
     });
+  }
+  if (state.stateRevision > 0) {
     probe('the last accepted command sent again', log.actions.at(-1)!.action);
   }
   probe('an unknown actor', { ...action, actorId: 'intruder' });

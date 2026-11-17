@@ -75,8 +75,9 @@ function wildAhead(observation: Observation): number {
 }
 
 function strategyScore(option: LegalAction, { observation, personality }: Context): number {
-  // Temporary S06 limitation (#55): AI seats never declare PvP until Stream B integrates it.
-  if (option.kind === 'declare_pvp') return -1;
+  // Temporary #55 limitation (S06, S10): AI seats never declare PvP or activate an Ability in
+  // Strategy until Stream B integrates them.
+  if (option.kind === 'declare_pvp' || option.kind === 'activate_ability') return -1;
   if (option.kind !== 'use_item') return 0;
   const { risk, aggression, liquidity } = personality.weights;
   const { holdItem } = FALLBACK_TUNING;

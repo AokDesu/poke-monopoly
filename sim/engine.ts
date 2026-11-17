@@ -86,8 +86,8 @@ function facts(state: GameState, seatIndex: number): PolicyFacts {
   );
   const result = applyAction(state, {
     actorId,
-    actionSeq: state.stateRevision + 1,
-    stateRevisionBefore: state.stateRevision,
+    actionSeq: observe(state, seatIndex).public.stateRevision + 1,
+    stateRevisionBefore: observe(state, seatIndex).public.stateRevision,
     kind: 'sell',
     payload: { pokemonInstanceIds: ids },
   });

@@ -1,10 +1,11 @@
 import type { Observation } from '../../../engine/index.ts';
-import { currentForm, speciesType } from '../game/content.ts';
+import { ballItemId, currentForm, speciesType } from '../game/content.ts';
 import { t } from '../i18n/en.ts';
 import { className, itemName } from '../i18n/names.ts';
 import { BallIcon } from '../ui/icons.tsx';
 import { TypeOrb } from '../ui/TypeOrb.tsx';
 import { seatLabel, tagLabel } from './labels.ts';
+import { ItemFacts } from './ItemFacts.tsx';
 import { TeamDetails } from './TeamDetails.tsx';
 
 interface PlayerPanelProps {
@@ -109,6 +110,9 @@ export function PlayerPanel({ player, observation }: PlayerPanelProps) {
                   <span>{t(`board.ball.${ball}`)}</span>
                 </dt>
                 <dd aria-label={t(`board.ball.${ball}`)}>{observation.own.balls[ball]}</dd>
+                <dd className="pouch-facts">
+                  <ItemFacts itemId={ballItemId(ball)} />
+                </dd>
               </div>
             ))}
           </dl>
@@ -120,7 +124,10 @@ export function PlayerPanel({ player, observation }: PlayerPanelProps) {
               observation.own.items.map((item) => (
                 <li key={item.instanceId}>
                   <span className="item-capsule" aria-hidden="true" />
-                  <span>{itemName(item.itemId)}</span>
+                  <div className="item-entry">
+                    <strong>{itemName(item.itemId)}</strong>
+                    <ItemFacts itemId={item.itemId} />
+                  </div>
                 </li>
               ))
             )}

@@ -154,9 +154,48 @@ export interface OrchestratorOptions {
   usage?: UsageRecorder;
   /** The game ID on each usage line; defaults to a random UUID. */
   gameId?: string;
+  /**
+   * The game's token budget and per-turn request counts. Pass the same one to every orchestrator
+   * of a game that may be dropped and made again, so the limits survive; defaults to a new one.
+   */
+  quota?: GameQuota;
 }
 
 const SAMPLE_RANGE = 2 ** 32;
+
+/** How many AI turns of one game a quota tracks; a game has far fewer, so this only bounds abuse. */
+export const MAX_TRACKED_TURNS = 2_000;
+
+/**
+ * Spec §5.6, §9: a game's lifetime accounting, apart from the `Orchestrator` that spends it, so a
+ * server may drop an idle orchestrator without handing the game a fresh budget or restarting its
+ * decision numbers. Small, and meant to be kept for as long as the server runs. Requests are
+ * counted per `turnKey` and stay counted: returning to an earlier turn adds to its count. Past
+ * `MAX_TRACKED_TURNS` turns a new turn is refused, never given a fresh count.
+ */
+export class GameQuota {
+  readonly meter = new UsageMeter();
+  readonly #requests = new Map<string, number>();
+  #decisions = 0;
+
+  /** Jev requests already made for this AI turn; infinite for a turn this quota may not track. */
+  requests(turnKey: string): number {
+    const count = this.#requests.get(turnKey);
+    if (count !== undefined) return count;
+    return this.#requests.size >= MAX_TRACKED_TURNS ? Infinity : 0;
+  }
+
+  /** Counts one request for this AI turn; synchronous, so concurrent decisions cannot overshoot. */
+  reserve(turnKey: string): void {
+    const count = this.requests(turnKey);
+    if (count !== Infinity) this.#requests.set(turnKey, count + 1);
+  }
+
+  /** The next decision's number in the usage log; it never restarts, whoever asks. */
+  nextDecision(): number {
+    return this.#decisions++;
+  }
+}
 
 /** One decision's place in the usage log; `finished` resolves to its time in ms once it returns. */
 type DecisionLog = { turnKey: string; decision: number; finished: Promise<number> };
@@ -170,14 +209,13 @@ type Asked = Answered | { fallbackReason: OrchestratorFallbackReason; requests: 
  * request counter per AI turn. Every unusable answer falls back at once; nothing is retried.
  */
 export class Orchestrator {
-  readonly usage = new UsageMeter();
+  readonly usage: UsageMeter;
+  readonly #quota: GameQuota;
   readonly #client: JevClient;
   readonly #config: OrchestratorConfig;
   readonly #decisionMs: number;
   readonly #usage: UsageRecorder | undefined;
   readonly #gameId: string;
-  #turn = { key: '', requests: 0 };
-  #decisions = 0;
 
   constructor({
     client,
@@ -185,7 +223,10 @@ export class Orchestrator {
     decisionMs,
     usage,
     gameId,
+    quota = new GameQuota(),
   }: OrchestratorOptions) {
+    this.#quota = quota;
+    this.usage = quota.meter;
     this.#client = client;
     this.#config = config;
     this.#decisionMs = decisionMs ?? DECISION_DEADLINE_MS;
@@ -194,11 +235,10 @@ export class Orchestrator {
   }
 
   async decide(request: DecideRequest): Promise<OrchestratorDecision> {
-    if (this.#turn.key !== request.turnKey) this.#turn = { key: request.turnKey, requests: 0 };
     const started = performance.now();
     let finish: (ms: number) => void = () => {};
     const finished = new Promise<number>((resolve) => (finish = resolve));
-    const log = { turnKey: request.turnKey, decision: this.#decisions++, finished };
+    const log = { turnKey: request.turnKey, decision: this.#quota.nextDecision(), finished };
     try {
       const { phase } = request.observation.public;
       if (phase.kind === 'strategy' || phase.kind === 'encounter') {
@@ -223,7 +263,11 @@ export class Orchestrator {
       decision = buildStrategyQuestion(observation, enabled, personality);
     } else {
       if (!facts.encounter && enabled.length > 1) {
-        return policyDecision(request, 'fallback', this.#blocked() ?? 'missing_facts');
+        return policyDecision(
+          request,
+          'fallback',
+          this.#blocked(request.turnKey) ?? 'missing_facts',
+        );
       }
       decision = buildEncounterQuestion(
         observation,
@@ -233,7 +277,7 @@ export class Orchestrator {
       );
     }
     if (decision.kind !== 'ask') return policyDecision(request, 'auto', null);
-    const blocked = this.#blocked();
+    const blocked = this.#blocked(request.turnKey);
     if (blocked) return policyDecision(request, 'fallback', blocked);
     const asked = await this.#askAll(request, [decision], log);
     if (!('results' in asked)) return this.#fellBack(request, asked.fallbackReason, asked);
@@ -300,11 +344,11 @@ export class Orchestrator {
     const sales = legalActions.enabled.filter((action) => action.kind === 'sell');
     if (sales.length === 0) return policyDecision(request, 'auto', null);
     if (!facts.sell) {
-      return policyDecision(request, 'fallback', this.#blocked() ?? 'missing_facts');
+      return policyDecision(request, 'fallback', this.#blocked(request.turnKey) ?? 'missing_facts');
     }
-    const blocked = this.#blocked();
+    const blocked = this.#blocked(request.turnKey);
     if (blocked) return policyDecision(request, 'fallback', blocked);
-    const left = this.#config.requestsPerTurn - this.#turn.requests;
+    const left = this.#config.requestsPerTurn - this.#quota.requests(request.turnKey);
     const { requests, fallbackIds } = buildSellQuestions(
       observation,
       facts.sell,
@@ -349,11 +393,11 @@ export class Orchestrator {
    * A reason no request may go out now: the kill switch, the spend cap or daily budget, the game's
    * token budget or the turn limit.
    */
-  #blocked(): OrchestratorFallbackReason | undefined {
+  #blocked(turnKey: string): OrchestratorFallbackReason | undefined {
     if (!jevEnabled()) return 'disabled';
     if (this.#usage?.budgetExceeded()) return 'budget_exceeded';
     if (this.usage.totals().inputTokens >= this.#config.inputTokensPerGame) return 'token_budget';
-    if (this.#turn.requests >= this.#config.requestsPerTurn) return 'request_limit';
+    if (this.#quota.requests(turnKey) >= this.#config.requestsPerTurn) return 'request_limit';
     return undefined;
   }
 
@@ -375,10 +419,10 @@ export class Orchestrator {
     let requests = 0;
     try {
       for (const { state, questions } of asks) {
-        if (this.#turn.requests >= this.#config.requestsPerTurn) {
+        if (this.#quota.requests(request.turnKey) >= this.#config.requestsPerTurn) {
           return { fallbackReason: 'request_limit', requests };
         }
-        this.#turn.requests++;
+        this.#quota.reserve(request.turnKey);
         requests++;
         const call = this.#client.ask({ state, questions }, { decisionSignal: deadline.signal });
         // A late or unusable answer still counts its tokens against the game's budget.

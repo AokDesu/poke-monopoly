@@ -1,17 +1,22 @@
 import {
   actionVisibleTo,
+  actionVisibleToSpectator,
   advanceAutomatically,
   applyAction,
   createGame,
   createGameConfig,
   createGameLog,
+  createRng,
   eventsVisibleTo,
   engineEventSchema,
   fixtureSchema,
   GAME_PRESETS,
   legalActions,
   observe,
+  observeSpectator,
   oddsForAllBalls,
+  pendingDecision,
+  saleFacts,
   saleQuote,
   winner,
   type SaleQuote,
@@ -27,9 +32,11 @@ import {
   type GameState,
   type LegalActions,
   type Observation,
+  type SpectatorObservation,
   type SeatActionRecord,
+  type SeatEvent,
 } from '../../../engine/index.ts';
-import { requestOpponent, type AiDecision } from './ai.ts';
+import { reportOutcome, requestOpponent, type AiDecision } from './ai.ts';
 import type { DifficultyId, GameSetup, PersonalityId } from './setup.ts';
 
 /**
@@ -75,9 +82,21 @@ export interface SeatView {
   readonly opponents: readonly OpponentSettings[];
 }
 
+/**
+ * What a watcher with no seat may read: the public view and the feed of records every seat may
+ * see (engine contract: spectator projection, issue #169). It names no seat: `seatIndex` is absent.
+ */
+export interface SpectatorView {
+  readonly seatIndex?: undefined;
+  readonly observation: SpectatorObservation;
+  readonly feed: readonly SeatFeedEntry[];
+  readonly opponents: readonly OpponentSettings[];
+}
+
 /** Finished standings. Coins, badges and the engine's winner only — never a team size. */
 export interface GameResults {
-  readonly humanSeat: number;
+  /** Absent when no seat is human. */
+  readonly humanSeat?: number;
   readonly standings: readonly {
     readonly actorId: string;
     readonly seatIndex: number;
@@ -95,6 +114,8 @@ export interface GameStore {
   getSession(): GameSession | null;
   /** The human seat's view, or null without a game or a human seat. Stable between changes. */
   getView(): SeatView | null;
+  /** The watcher's view, or null without a game or when a seat is human. Stable between changes. */
+  getSpectatorView(): SpectatorView | null;
   /** Creates the game and its log together (engine contract: `createGameLog(createGame(...))`). */
   start(config: GameConfig, content: Content, opponents?: readonly OpponentSettings[]): void;
   /** Rejected commands change nothing and notify no one. */
@@ -149,11 +170,30 @@ function humanSeat(state: GameState): number | undefined {
   return state.config.seats.find((seat) => seat.controller === 'human')?.seatIndex;
 }
 
+/** The public state this viewer sees: the human seat's, or the spectator's when no seat is human. */
+function publicOf(state: GameState, seatIndex: number | undefined) {
+  return seatIndex === undefined
+    ? observeSpectator(state).public
+    : observe(state, seatIndex).public;
+}
+
+/** One record as this viewer may see it, or null for a chat it was not part of (spec §4.8). */
+function recordFor(
+  state: GameState,
+  record: ActionRecord,
+  seatIndex: number | undefined,
+  shown: number,
+): SeatActionRecord | null {
+  return seatIndex === undefined
+    ? actionVisibleToSpectator(state, record, shown)
+    : actionVisibleTo(state, record, seatIndex, shown);
+}
+
 function resultsOf(state: GameState): GameResults | null {
   if (state.phase.kind !== 'finished') return null;
   const outcome = winner(state);
   return {
-    humanSeat: humanSeat(state) ?? 0,
+    ...(humanSeat(state) !== undefined && { humanSeat: humanSeat(state) }),
     standings: [...state.players]
       .sort((a, b) => a.seatIndex - b.seatIndex)
       .map((player) => ({
@@ -168,15 +208,14 @@ function resultsOf(state: GameState): GameResults | null {
 }
 
 /** Rebuilds the seat-filtered feed from the log. Recorded dice are applied, never re-rolled. */
-function feedFrom(log: GameLog, seatIndex: number): SeatFeedEntry[] {
+function feedFrom(log: GameLog, seatIndex: number | undefined): SeatFeedEntry[] {
   let cursor = log.initialState;
   const feed: SeatFeedEntry[] = [];
   for (const record of log.actions) {
-    const { phase, activeSeatIndex, globalTurnNo } = observe(cursor, seatIndex).public;
-    feed.push({
-      before: { phase, activeSeatIndex, globalTurnNo },
-      record: actionVisibleTo(cursor, record, seatIndex),
-    });
+    const { phase, activeSeatIndex, globalTurnNo } = publicOf(cursor, seatIndex);
+    // A chat between two other seats is absent from this seat's feed, not redacted (spec §4.8).
+    const visible = recordFor(cursor, record, seatIndex, feed.length);
+    if (visible) feed.push({ before: { phase, activeSeatIndex, globalTurnNo }, record: visible });
     const applied = applyAction(cursor, record.action);
     if (!('accepted' in applied)) throw new Error('Save log does not replay');
     cursor = applied.state;
@@ -187,6 +226,8 @@ function feedFrom(log: GameLog, seatIndex: number): SeatFeedEntry[] {
 export function createGameStore(): GameStore {
   let session: GameSession | null = null;
   let view: SeatView | null = null;
+  let spectatorView: SpectatorView | null = null;
+  let shownFeed: readonly SeatFeedEntry[] = [];
   let results: GameResults | null = null;
   let opponents: readonly OpponentSettings[] = [];
   let gameToken = '';
@@ -194,7 +235,12 @@ export function createGameStore(): GameStore {
 
   const publish = (next: GameSession, feed: readonly SeatFeedEntry[]) => {
     session = next;
+    shownFeed = feed;
     view = viewOf(next.state, feed);
+    spectatorView =
+      humanSeat(next.state) === undefined
+        ? { observation: observeSpectator(next.state), feed, opponents }
+        : null;
     results = resultsOf(next.state);
     for (const listener of listeners) listener();
   };
@@ -223,14 +269,18 @@ export function createGameStore(): GameStore {
     decision?: AiDecision,
   ) => {
     const seatIndex = humanSeat(before);
-    let feed = view?.feed ?? [];
-    if (seatIndex !== undefined && records.length > 0) {
-      const { phase, activeSeatIndex, globalTurnNo, players } = observe(before, seatIndex).public;
+    let feed = shownFeed;
+    if (records.length > 0) {
+      const { phase, activeSeatIndex, globalTurnNo, players } = publicOf(before, seatIndex);
       // Each step applies one record (engine contract: `advanceAutomatically` does not loop).
+      let shown = feed.length;
       feed = [
         ...feed,
-        ...records.map((record) => {
-          const visible = actionVisibleTo(before, record, seatIndex);
+        ...records.flatMap((record): SeatFeedEntry[] => {
+          const visible = recordFor(before, record, seatIndex, shown);
+          // A chat between two other seats is absent from this seat's feed (spec §4.8).
+          if (!visible) return [];
+          shown++;
           const sale = visible.events.find(
             (event) => event.kind === 'coin_transfer' && event.reason === 'pokemon_sale',
           );
@@ -243,21 +293,23 @@ export function createGameStore(): GameStore {
                   .find((player) => player.seatIndex === activeSeatIndex)
                   ?.team.find((entry) => entry.instanceId === sold.instanceId)
               : undefined;
-          return {
-            before: { phase, activeSeatIndex, globalTurnNo },
-            record: visible,
-            ...(decision && {
-              decision,
-              lineContext: {
-                ...(pokemon && { pokemonSpeciesId: pokemon.speciesId }),
-                ...(sale?.kind === 'coin_transfer' && { coins: sale.amount }),
-                ...(visible.action.kind === 'use_item' &&
-                  visible.action.payload.targetSeatIndex !== undefined && {
-                    targetSeatIndex: visible.action.payload.targetSeatIndex,
-                  }),
-              },
-            }),
-          };
+          return [
+            {
+              before: { phase, activeSeatIndex, globalTurnNo },
+              record: visible,
+              ...(decision && {
+                decision,
+                lineContext: {
+                  ...(pokemon && { pokemonSpeciesId: pokemon.speciesId }),
+                  ...(sale?.kind === 'coin_transfer' && { coins: sale.amount }),
+                  ...(visible.action.kind === 'use_item' &&
+                    visible.action.payload.targetSeatIndex !== undefined && {
+                      targetSeatIndex: visible.action.payload.targetSeatIndex,
+                    }),
+                },
+              }),
+            },
+          ];
         }),
       ];
     }
@@ -273,10 +325,15 @@ export function createGameStore(): GameStore {
     dialogueEvents: EngineEvent[] = [],
   ): ApplyActionResult => {
     const { state, log } = current();
+    // A seat submits the revision it observed; it skips chats it was not part of (spec §4.8).
+    const seat = state.players.find((player) => player.actorId === command.actorId);
+    const revision = seat
+      ? observe(state, seat.seatIndex).public.stateRevision
+      : state.stateRevision;
     const result = applyAction(state, {
       ...command,
-      actionSeq: state.stateRevision + 1,
-      stateRevisionBefore: state.stateRevision,
+      actionSeq: revision + 1,
+      stateRevisionBefore: revision,
     });
     if ('accepted' in result) {
       commit(
@@ -309,11 +366,14 @@ export function createGameStore(): GameStore {
     getView(): SeatView | null {
       return view;
     },
+    getSpectatorView(): SpectatorView | null {
+      return spectatorView;
+    },
     start(config: GameConfig, content: Content, settings: readonly OpponentSettings[] = []): void {
       const state = createGame(config, content);
       gameToken = crypto.randomUUID();
       opponents = settings;
-      view = null;
+      shownFeed = [];
       commit({ state, log: createGameLog(state) }, state, []);
     },
     submit,
@@ -336,11 +396,13 @@ export function createGameStore(): GameStore {
     },
     advance({ human = false } = {}): boolean {
       const { state, log } = current();
-      const active = state.config.seats.find((seat) => seat.seatIndex === state.activeSeatIndex);
+      const owner = state.config.seats.find(
+        (seat) => seat.seatIndex === pendingDecision(state)?.seatIndex,
+      );
       if (
         !human &&
-        active?.controller === 'human' &&
-        legalActions(state, active.seatIndex).enabled.length > 0
+        owner?.controller === 'human' &&
+        legalActions(state, owner.seatIndex).enabled.length > 0
       ) {
         return false;
       }
@@ -357,30 +419,53 @@ export function createGameStore(): GameStore {
       const snapshot = current();
       const token = gameToken;
       const { state } = snapshot;
-      const seatIndex = state.activeSeatIndex;
-      if (state.config.seats.find((seat) => seat.seatIndex === seatIndex)?.controller !== 'ai') {
+      const seatIndex = pendingDecision(state)?.seatIndex;
+      if (
+        seatIndex === undefined ||
+        state.config.seats.find((seat) => seat.seatIndex === seatIndex)?.controller !== 'ai'
+      ) {
         return false;
       }
       const enabledActions = legalActions(state, seatIndex).enabled;
       if (enabledActions.length <= 1) return false;
       const decisionPoint = state.phase.kind;
-      if (!['strategy', 'encounter', 'sell', 'shop'].includes(decisionPoint)) {
-        throw new Error('Unsupported opponent decision point');
+      if (
+        !['strategy', 'encounter', 'sell', 'shop'].includes(decisionPoint) ||
+        (state.phase.kind === 'encounter' && state.phase.catchRoll)
+      ) {
+        // Temporary #55 boundary: the decision API has no Gym, battle, Ability-window or reroll
+        // questions yet (Stream B). Take the engine's first listed choice so play continues.
+        const choice = enabledActions[0]!;
+        const actorId = state.players.find((player) => player.seatIndex === seatIndex)!.actorId;
+        const result = submit({ actorId, kind: choice.kind, payload: choice.payload } as Command, {
+          source: 'fallback',
+          fallbackReason: 'unsupported_decision_point',
+        });
+        if ('rejected' in result) throw new Error('Opponent action was rejected');
+        return true;
       }
       const settings = opponents.find((opponent) => opponent.seatIndex === seatIndex);
+      const observation = observe(state, seatIndex);
+      const ids = {
+        gameId: gameToken,
+        seatIndex,
+        decisionPoint,
+        stateRevision: observation.public.stateRevision,
+        turnKey: `${state.globalTurnNo}:${seatIndex}`,
+      };
       const answer = await requestOpponent(
         JSON.stringify({
-          gameId: gameToken,
-          seatIndex,
-          decisionPoint,
-          stateRevision: state.stateRevision,
-          observation: observe(state, seatIndex),
+          ...ids,
+          observation,
           enabledActions,
           facts:
-            decisionPoint === 'encounter' ? { catchOdds: oddsForAllBalls(state, seatIndex) } : {},
+            decisionPoint === 'encounter'
+              ? { catchOdds: oddsForAllBalls(state, seatIndex) }
+              : decisionPoint === 'sell'
+                ? { sell: saleFacts(state, seatIndex) }
+                : {},
           difficulty: settings?.difficulty ?? 'normal',
           personalityId: settings?.personality ?? 'greedy',
-          turnKey: `${state.globalTurnNo}:${seatIndex}`,
         }),
         signal,
         (pick) => {
@@ -397,6 +482,7 @@ export function createGameStore(): GameStore {
         throw error;
       });
       if (!answer || signal.aborted || token !== gameToken || session !== snapshot) return false;
+      reportOutcome(ids, answer);
       const decision: AiDecision = {
         source: answer.source,
         fallbackReason: answer.fallbackReason,
@@ -447,8 +533,7 @@ export function createGameStore(): GameStore {
     restore(game: GameSession, settings: readonly OpponentSettings[] = []): void {
       opponents = settings;
       gameToken = crypto.randomUUID();
-      const seat = humanSeat(game.state);
-      publish(game, seat === undefined ? [] : feedFrom(game.log, seat));
+      publish(game, feedFrom(game.log, humanSeat(game.state)));
     },
     getResults(): GameResults | null {
       return results;
@@ -456,6 +541,8 @@ export function createGameStore(): GameStore {
     clear(): void {
       session = null;
       view = null;
+      spectatorView = null;
+      shownFeed = [];
       results = null;
       opponents = [];
       gameToken = '';
@@ -471,11 +558,32 @@ export function createGameStore(): GameStore {
  */
 export function projectBoardFixture(input: unknown): {
   observation: Observation;
-  events: EngineEvent[];
+  events: SeatEvent[];
 } {
   const fixture = fixtureSchema.parse(input);
   return {
     observation: observe(fixture.state, 0),
     events: fixture.log.flatMap((record) => eventsVisibleTo(fixture.state, record.events, 0)),
   };
+}
+
+/**
+ * Dev gallery adapter (issue #53): a store resting on a fixture snapshot, so a screen can be
+ * shown in a state that is hard to reach by playing. Config, content and RNG are normalised to
+ * the current engine; every command and quote still runs through `applyAction`. `edit` adjusts
+ * the snapshot's data (coins, items, seats) before it is sealed into the log.
+ */
+export function createFixtureStore(
+  input: unknown,
+  content: Content,
+  edit?: (state: GameState) => void,
+): GameStore {
+  const { state } = fixtureSchema.parse(input);
+  edit?.(state);
+  state.config = createGameConfig({ seats: state.config.seats, seed: 3, lapTarget: 3 });
+  state.content = structuredClone(content);
+  state.rng = createRng(3);
+  const store = createGameStore();
+  store.restore({ state, log: createGameLog(state) });
+  return store;
 }

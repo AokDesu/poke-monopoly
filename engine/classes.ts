@@ -10,7 +10,7 @@ import type {
 
 export type ClassBonusHook =
   | { kind: 'catch'; player: Player; speciesTags: readonly string[] }
-  | { kind: 'combat' }
+  | { kind: 'combat'; battle: 'pvp' | 'gym' }
   | {
       kind: 'sale';
       pokemon: PokemonInstance;
@@ -42,7 +42,8 @@ export function classBonus(content: Content, classId: string, hook: ClassBonusHo
         ? 2
         : 0;
     case 'combat_bonus':
-      return hook.kind === 'combat' ? 1 : 0;
+      // D14: the Rival's +1 applies to both PvP roles, never at a Gym.
+      return hook.kind === 'combat' && hook.battle === 'pvp' ? 1 : 0;
     case 'turn_start_team_heal':
     case undefined:
       return 0;
@@ -78,6 +79,11 @@ function lapSaleBonusTarget(
 export function useCatchClassBonus(content: Content, player: Player): void {
   const passive = content.classes.find((entry) => entry.id === player.classId)?.passive;
   if (passive === 'lap_first_catch_bonus') player.catchBonusUsedLap = player.creditedLap;
+}
+
+/** Nurse Joy's passive also means she loses no coins on a PvP loss (§4.4, Appendix A). */
+export function protectsPvpCoinLoss(content: Content, classId: string): boolean {
+  return content.classes.find((entry) => entry.id === classId)?.passive === 'turn_start_team_heal';
 }
 
 /** Nurse Joy heals the whole team only as its owner's turn starts (§4.2 step 1). */

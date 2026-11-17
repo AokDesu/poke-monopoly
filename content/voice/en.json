@@ -1,0 +1,26 @@
+{
+  "world": "The game is set in a lively harbor town and the countryside around it. Trainers walk a looping road, pass the town square to collect their pay, and catch wild creatures in the tall grass. Friends tease one another, but nobody here is cruel. Talk is friendly, short and plain, and it stays about the game at the table.",
+  "classHints": {
+    "main-character": "A hopeful newcomer on a first big journey, curious and brave, quick to cheer a good moment.",
+    "rival": "A confident challenger who loves a contest and likes to stay a step ahead of the others.",
+    "fisherman": "A patient angler who loves the water, speaks slowly and calmly, and trusts steady luck.",
+    "nurse-joy": "A caring healer who watches over everyone's creatures and speaks warmly and gently.",
+    "bug-catcher": "A cheerful hunter of small crawling creatures, eager and easily delighted.",
+    "researcher": "A careful scholar who notes every detail, speaks precisely and wants to understand how things work.",
+    "team-rocket": "A sly schemer who enjoys bold plans and keeps every word polite at the table.",
+    "collector": "A proud gatherer of rare finds who admires fine things and speaks like a connoisseur."
+  },
+  "topics": {
+    "game_start": "The game is just starting and everyone has taken a seat.",
+    "catch_success": "A wild creature was just caught.",
+    "catch_fail": "A catch attempt just failed.",
+    "sold_pokemon": "A creature was just sold at Start.",
+    "deal_accept": "A deal between two trainers was just accepted.",
+    "deal_reject": "A deal between two trainers was just turned down.",
+    "promise_kept": "A trainer just kept a promise made earlier at the table.",
+    "promise_broken": "A trainer just broke a promise made earlier at the table.",
+    "gym_win": "A trainer just won a gym battle.",
+    "taunt_leader": "A trainer is teasing the player who is currently in the lead.",
+    "manipulation_refused": "A trainer just refused a pushy attempt to sway their choice."
+  }
+}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { AiStatus } from '../../../engine/contract/decision.ts';
-import type { GameStore, SeatView } from '../game/store.ts';
+import type { GameStore, SeatView, SpectatorView } from '../game/store.ts';
 import { AI_DECISION_MS } from '../game/ai.ts';
 import { en, t, type MessageKey } from '../i18n/en.ts';
 import { content } from '../game/content.ts';
@@ -23,10 +23,20 @@ export interface TurnPlayback {
   line: { text: string; sequence: number; name: string } | null;
   skipLine(): void;
   retry(): void;
+  paused: boolean;
+  setPaused(paused: boolean): void;
+  /** Plays exactly one action while paused. Does nothing while `stepBlocked` names a reason. */
+  step(): void;
+  stepBlocked: string | null;
+  /** Runs at the instant pace until the game finishes. */
+  skipToEnd(): void;
 }
 
 /** UI-only timing. Changing speed or skipping a line never cancels or reissues an AI decision. */
-export function useTurnPlayback(store: GameStore, view: SeatView | null): TurnPlayback {
+export function useTurnPlayback(
+  store: GameStore,
+  view: SeatView | SpectatorView | null,
+): TurnPlayback {
   const [speed, setSpeed] = useState<TurnSpeed>('normal');
   const [failure, setFailure] = useState<number | null>(null);
   const [retry, setRetry] = useState(0);
@@ -34,8 +44,11 @@ export function useTurnPlayback(store: GameStore, view: SeatView | null): TurnPl
   const [dismissed, setDismissed] = useState(-1);
   const [status, setStatus] = useState<AiStatus | null>(null);
   const [statusUnavailable, setStatusUnavailable] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [stepFrom, setStepFrom] = useState<number | null>(null);
   const game = view?.observation.public;
-  const revision = game?.stateRevision;
+  // Actions in the log, not the seat's revision: a chat this viewer cannot see still moves it.
+  const position = store.getSession()?.log.actions.length;
   const last = view?.feed.at(-1);
   const lineId = last?.decision?.lineId;
   const lineKey = `ai.line.${lineId}` as MessageKey;
@@ -48,10 +61,9 @@ export function useTurnPlayback(store: GameStore, view: SeatView | null): TurnPl
   const text = template
     ? t(lineKey, {
         turn: last!.before.globalTurnNo,
-        target:
-          last?.lineContext?.targetSeatIndex !== undefined
-            ? seatLabel(last.lineContext.targetSeatIndex, view!.seatIndex)
-            : t('seat.you'),
+        ...(last?.lineContext?.targetSeatIndex !== undefined
+          ? { target: seatLabel(last.lineContext.targetSeatIndex, view!.seatIndex) }
+          : view?.seatIndex !== undefined && { target: t('seat.you') }),
         ...(pokemon && { pokemon: pokemon.name }),
         ...(last?.lineContext?.coins !== undefined && { coins: last.lineContext.coins }),
       })
@@ -70,8 +82,21 @@ export function useTurnPlayback(store: GameStore, view: SeatView | null): TurnPl
         }
       : null;
   const lineSequence = line?.sequence;
-  const failed = failure === revision;
-  const thinking = requested === revision && !failed;
+  const failed = failure === position;
+  const thinking = requested === position && !failed;
+  const finished = game?.phase.kind === 'finished';
+  // A step runs until the next action lands, then the game holds again.
+  const stepping = stepFrom === position;
+  const held = paused && !stepping;
+  const stepBlocked = !paused
+    ? t('watch.stepWhileRunning')
+    : finished
+      ? t('watch.stepFinished')
+      : failed
+        ? t('watch.stepFailed')
+        : thinking || stepping
+          ? t('watch.stepBusy')
+          : null;
 
   useEffect(() => {
     if (!game) return;
@@ -120,33 +145,27 @@ export function useTurnPlayback(store: GameStore, view: SeatView | null): TurnPl
   }, [lineSequence, speed]);
 
   useEffect(() => {
-    if (
-      !view ||
-      game?.phase.kind === 'finished' ||
-      failed ||
-      thinking ||
-      lineSequence !== undefined
-    )
-      return;
+    if (!view || finished || held || failed || thinking || lineSequence !== undefined) return;
     // Only rival steps get the readable AI pace. The human's own automatic steps
     // (rolls, phase handoffs) run on their own short pause (review on #127).
-    const pause =
-      view.observation.public.activeSeatIndex === view.seatIndex
+    const pause = stepping
+      ? 0
+      : view.observation.public.activeSeatIndex === view.seatIndex
         ? HUMAN_STEP_MS[speed]
         : STEP_MS[speed];
     const timer = setTimeout(() => {
       if (store.advance({ human: true })) return;
-      if (view.observation.public.activeSeatIndex !== view.seatIndex)
-        setRequested(view.observation.public.stateRevision);
+      if (view.seatIndex === undefined || view.legalActions.enabled.length === 0)
+        setRequested(position!);
     }, pause);
     return () => clearTimeout(timer);
-  }, [store, view, speed, lineSequence, failed, thinking, retry, game?.phase.kind]);
+  }, [store, view, speed, lineSequence, failed, thinking, held, stepping, retry, finished]);
 
   useEffect(() => {
-    if (!view || requested !== view.observation.public.stateRevision) return;
+    if (!view || requested !== position) return;
     const controller = new AbortController();
     void store.playOpponent(controller.signal).catch(() => {
-      if (!controller.signal.aborted) setFailure(view.observation.public.stateRevision);
+      if (!controller.signal.aborted) setFailure(position!);
     });
     return () => controller.abort();
   }, [store, view, requested, retry]);
@@ -168,6 +187,19 @@ export function useTurnPlayback(store: GameStore, view: SeatView | null): TurnPl
     retry: () => {
       setFailure(null);
       setRetry((value) => value + 1);
+    },
+    paused,
+    setPaused,
+    stepBlocked,
+    step: () => {
+      if (stepBlocked || position === undefined) return;
+      if (line) setDismissed(line.sequence);
+      setStepFrom(position);
+    },
+    skipToEnd: () => {
+      if (last) setDismissed(last.record.action.actionSeq);
+      setSpeed('instant');
+      setPaused(false);
     },
   };
 }

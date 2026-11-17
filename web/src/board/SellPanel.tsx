@@ -12,12 +12,18 @@ export function SellPanel({
   observation,
   quoteSale,
   onSell,
+  inline = false,
+  initialSelection = [],
 }: {
   observation: Observation;
   quoteSale: (ids: string[]) => SaleQuote;
   onSell: (ids: string[]) => void;
+  /** Dev gallery only: show the same panel in the page flow instead of as a modal. */
+  inline?: boolean;
+  /** Dev gallery only: Pokémon already ticked when the panel opens. */
+  initialSelection?: readonly string[];
 }) {
-  const [selected, setSelected] = useState<string[]>([]);
+  const [selected, setSelected] = useState<string[]>([...initialSelection]);
   const dialog = useRef<HTMLDialogElement>(null);
   const headingId = useId();
   const totalId = useId();
@@ -28,6 +34,7 @@ export function SellPanel({
   // A Sell decision is protected like a catch: focus moves in and stays until the
   // player chooses to sell a selection or to keep the whole team (§3.1, §4.7).
   useEffect(() => {
+    if (inline) return;
     const element = dialog.current!;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     element.showModal();
@@ -36,10 +43,11 @@ export function SellPanel({
       element.close();
       if (previous?.isConnected) previous.focus();
     };
-  }, []);
+  }, [inline]);
   return (
     <dialog
       ref={dialog}
+      open={inline || undefined}
       className="sell-dialog panel"
       aria-labelledby={headingId}
       onCancel={(event) => event.preventDefault()}

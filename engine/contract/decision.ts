@@ -8,6 +8,12 @@ const id = z.string().min(1);
 const count = z.int().nonnegative();
 
 export const decisionPointSchema = z.enum(['strategy', 'encounter', 'sell']);
+/**
+ * An outcome may also name the Shop, which has no Jev question (spec §5.3) but whose decision the
+ * log still records, as a non-Jev decision (§6 item 8). A request names it through the Shop's own
+ * additive schema.
+ */
+export const outcomeDecisionPointSchema = z.enum([...decisionPointSchema.options, 'shop']);
 export const difficultySchema = z.enum(['easy', 'normal', 'hard']);
 
 // `legalActionSchema` strips unknown top-level keys; the strict outer shape rejects them instead.
@@ -27,6 +33,23 @@ export const decisionFactsSchema = z.strictObject({
         percent: z.int().min(0).max(100),
       }),
     )
+    .optional(),
+  /**
+   * The Sell Phase's engine prices, one row per Pokémon on the team (spec §4.7, §5.4): `saleFacts`
+   * from the engine, never client arithmetic. ai/ turns them into named buckets for Jev's Sell
+   * Nouls and into the fallback policy's sale values; missing or partial rows are not used.
+   */
+  sell: z
+    .array(
+      z.strictObject({
+        instanceId: id,
+        salePrice: count,
+        classBonusAlone: count,
+        classBonusTogether: count,
+        saleValue: count,
+      }),
+    )
+    .max(64)
     .optional(),
 });
 
@@ -83,6 +106,16 @@ export const decisionFallbackReasonSchema = z.enum([
   'not_an_option',
   'decider_error',
   'stub',
+  // The orchestrator's own reasons (spec §5.6, §9), beyond the client's failures above.
+  'invalid_choice',
+  'revision_mismatch',
+  'low_confidence',
+  'request_limit',
+  'token_budget',
+  'missing_facts',
+  // No Jev question was asked (one legal action, or a phase with none such as the Shop), so the
+  // fallback policy chose. It is not a fallback in the §5.6 metrics.
+  'auto',
 ]);
 
 const telemetry = {
@@ -105,11 +138,46 @@ export const decisionResponseSchema = z
     },
   );
 
-/** `GET /api/ai/status`, for the "Backup bot mode" badge (spec §9 kill switch and spend cap). */
+/**
+ * `POST /api/ai/outcome` (spec §6.8): what the browser actually applied for one decision, which is
+ * the server's answer only when that arrived in time. IDs only; it names the decision by the
+ * request's own identifiers and carries the answer and the reason the browser used.
+ */
+const outcomeBase = {
+  gameId: id,
+  seatIndex: count,
+  turnKey: id,
+  stateRevision: count,
+  decisionPoint: outcomeDecisionPointSchema,
+  source: z.enum(['jev', 'fallback']),
+  fallbackReason: decisionFallbackReasonSchema.optional(),
+};
+export const decisionOutcomeSchema = z
+  .union([
+    z.strictObject({ choice: id, ...outcomeBase }),
+    z.strictObject({ sellUids: z.array(id), ...outcomeBase }),
+  ])
+  .refine((outcome) => (outcome.source === 'fallback') === (outcome.fallbackReason !== undefined), {
+    message: 'A fallback names its reason; a Jev answer has none',
+  });
+
+const statusReason = z.enum(['disabled', 'budget_exceeded', 'missing_key']);
+
+/** The speech writer's state for the "Voice off" badge (spec §9 Haiku kill switch and caps). */
+export const speechStatusSchema = z.strictObject({
+  enabled: z.boolean(),
+  reason: statusReason.nullable(),
+});
+
+/**
+ * `GET /api/ai/status`, for the "Backup bot mode" and "Voice off" badges (spec §9 kill switches
+ * and spend caps).
+ */
 export const aiStatusSchema = z.strictObject({
   jevEnabled: z.boolean(),
   backupOnly: z.boolean(),
-  reason: z.enum(['disabled', 'budget_exceeded', 'missing_key']).nullable(),
+  reason: statusReason.nullable(),
+  speech: speechStatusSchema,
 });
 
 export type DecisionPoint = z.infer<typeof decisionPointSchema>;
@@ -118,4 +186,8 @@ export type DecisionFacts = z.infer<typeof decisionFactsSchema>;
 export type DecisionRequest = z.infer<typeof decisionRequestSchema>;
 export type DecisionFallbackReason = z.infer<typeof decisionFallbackReasonSchema>;
 export type DecisionResponse = z.infer<typeof decisionResponseSchema>;
+export type DecisionOutcome = z.infer<typeof decisionOutcomeSchema>;
 export type AiStatus = z.infer<typeof aiStatusSchema>;
+/** The Jev half of the status, which the decider needs; the speech half is the Haiku client's. */
+export type JevStatus = Omit<AiStatus, 'speech'>;
+export type SpeechStatus = z.infer<typeof speechStatusSchema>;

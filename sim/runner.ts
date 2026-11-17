@@ -1,5 +1,6 @@
 import {
   GAME_PRESETS,
+  observe,
   pendingDecision,
   type Action,
   type ActionRecord,
@@ -449,11 +450,15 @@ export function resolveChoice(
   };
 }
 
+/** A command from `actorId`, numbered with the revision that seat observes (§4.8). */
 export function command(state: GameState, actorId: string, choice: LegalAction): Action {
+  const seatIndex = state.config.seats.find((seat) => seat.actorId === actorId)!.seatIndex;
+  // Records hidden from a seat (a chat or promise between others) leave no gap in its numbering.
+  const revision = observe(state, seatIndex).public.stateRevision;
   return {
     actorId,
-    actionSeq: state.stateRevision + 1,
-    stateRevisionBefore: state.stateRevision,
+    actionSeq: revision + 1,
+    stateRevisionBefore: revision,
     kind: choice.kind,
     payload: choice.payload,
   } as Action;

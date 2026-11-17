@@ -122,10 +122,12 @@ export function playGame(engine: SimEngine, plan: GamePlan, options: PlayOptions
     if (legal.enabled.length === 0) fail(`seat ${seatIndex} has no enabled action`);
     const choice = legal.enabled[(plan.choices[decision++] ?? 0) % legal.enabled.length]!;
     const actorId = state.config.seats.find((seat) => seat.seatIndex === seatIndex)!.actorId;
+    // The seat numbers its command with the revision it observes (hidden records leave no gap, §4.8).
+    const revision = engine.observe(state, seatIndex).public.stateRevision;
     const action = {
       actorId,
-      actionSeq: state.stateRevision + 1,
-      stateRevisionBefore: state.stateRevision,
+      actionSeq: revision + 1,
+      stateRevisionBefore: revision,
       kind: choice.kind,
       payload: choice.payload,
     } as Action;

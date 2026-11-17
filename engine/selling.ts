@@ -1,5 +1,6 @@
 import { effectiveForm } from './forms.ts';
 import { classBonus } from './classes.ts';
+import { publicRevision } from './visibility.ts';
 import type {
   Content,
   EngineEvent,
@@ -66,6 +67,41 @@ export function saleQuote(state: GameState, seatIndex: number, ids: string[]): S
   };
 }
 
+/** One sellable Pokémon's engine-computed prices for an AI seat's Sell decision (§4.7, §5.2). */
+export interface SalePriceFact {
+  instanceId: string;
+  /** Coins from selling it now: its sale basis after the tired adjustment, before any class bonus. */
+  salePrice: number;
+  /** Class bonus coins it gets when it is the only Pokémon sold in this phase; 0 when none. */
+  classBonusAlone: number;
+  /** Class bonus coins it gets when every Pokémon of the team is sold in one batch. */
+  classBonusTogether: number;
+  /** Coins it fetches in one batch selling the whole team: `salePrice` plus `classBonusTogether`. */
+  saleValue: number;
+}
+
+/**
+ * Read-only prices for every Pokémon the active seat can sell, in team order, from `saleQuote`
+ * (so the same numbers the Sell UI shows). A batch is priced as a whole (§4.7), so each row's
+ * class bonus is quoted alone and together with the rest of the team.
+ */
+export function saleFacts(state: GameState, seatIndex: number): SalePriceFact[] {
+  const player = state.players.find((entry) => entry.seatIndex === seatIndex);
+  if (!player) throw new RangeError('Sale quotes require the active seat in Sell');
+  const ids = player.team.map((entry) => entry.instanceId);
+  const together = saleQuote(state, seatIndex, ids).rows;
+  return together.map((row) => {
+    const alone = saleQuote(state, seatIndex, [row.instanceId]).rows[0]!;
+    return {
+      instanceId: row.instanceId,
+      salePrice: alone.basePrice,
+      classBonusAlone: alone.classBonus,
+      classBonusTogether: row.classBonus,
+      saleValue: row.basePrice + row.classBonus,
+    };
+  });
+}
+
 /** Validate the complete selection before the executor clones or changes anything. */
 export function validSale(state: GameState, ids: string[]): boolean {
   if (state.phase.kind !== 'sell' || new Set(ids).size !== ids.length) return false;
@@ -112,7 +148,7 @@ export function recordSale(next: GameState, ids: string[]): EngineEvent[] {
   if (player.team.length === 0) {
     const seat = next.config.seats.find((entry) => entry.seatIndex === player.seatIndex)!;
     const definition = next.content.classes.find((entry) => entry.id === player.classId)!;
-    const prefix = `rescue:${player.seatIndex}:${next.stateRevision}`;
+    const prefix = `rescue:${player.seatIndex}:${publicRevision(next)}`;
     let instanceId = prefix;
     for (let suffix = 1; occupied.has(instanceId); suffix++) instanceId = `${prefix}:${suffix}`;
     player.team.push({

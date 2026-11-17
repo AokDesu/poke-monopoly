@@ -22,8 +22,8 @@ function resolvingAt(position: number): GameState {
   return state;
 }
 
-test.each([2, 8, 14, 17, 22, 6, 12, 18])(
-  'landing on Event/Gym square %i is a logged no-op until cycles 3–4 (§4.1, §10 C2)',
+test.each([2, 8, 14, 17, 22])(
+  'landing on Event square %i is a logged no-op until cycle 4 (§4.1, §10 C2)',
   (position) => {
     const state = resolvingAt(position);
     const result = advanceAutomatically(state);

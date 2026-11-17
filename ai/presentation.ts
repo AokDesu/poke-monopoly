@@ -4,6 +4,18 @@ import type { DeciderAnswer } from './decider.ts';
 import { DECISION_DEADLINE_MS } from './jev/client.ts';
 import { LINES, selectLine } from './lines.ts';
 
+/** Spec §3: the backup-bot notice speaks only while Jev is unavailable, never for normal-play fallbacks. */
+const UNAVAILABLE = new Set([
+  'disabled',
+  'missing_key',
+  'budget_exceeded',
+  'timeout',
+  'network',
+  'rate_limited',
+  'server_error',
+  'auth',
+]);
+
 /** Additive HTTP headers: existing strict decision JSON and all action selection stay unchanged. */
 export function presentationHeaders(
   request: Pick<DecisionRequest, 'gameId' | 'turnKey' | 'stateRevision' | 'personalityId'>,
@@ -13,6 +25,7 @@ export function presentationHeaders(
   // Separate, reproducible presentation RNG; never read or advance gameplay randomness.
   if (
     answer.source === 'fallback' &&
+    UNAVAILABLE.has(answer.fallbackReason) &&
     LINES.fallback_notice.some((line) => line.personality === request.personalityId)
   ) {
     const selection = selectLine(

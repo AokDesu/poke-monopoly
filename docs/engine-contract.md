@@ -12,11 +12,12 @@ Issues #3, #11, #20, #21, #22, #23, #24, #25, #29, #30, #31, #32, #33, #34, #35 
 | `Player.routeProgress` | Signed whole number of squares travelled; `positionOf(p)` is `((p % 24) + 24) % 24`. |
 | `Player.creditedLap` | Monotonic count of paid owner Start crossings; increments by 1 per payment and determines the Lap target. |
 | `Player.highestRewardedMilestone` | Highest route milestone already paid, initially 0. Unlike the paid count, it can skip indices after forced forward movement. Optional only for historical contract snapshots; new games always include it. |
-| `GameState.stateRevision` | Number of accepted actions so far, initially 0. |
-| `Action.actionSeq` | Starts at 1 and advances by exactly 1 for **every accepted action**, including engine-generated dice results, shuffles and event draws. |
-| `Action.stateRevisionBefore` | Revision the actor saw; any value different from the current revision is stale. |
+| `GameState.stateRevision` | Global count of accepted actions so far, initially 0. The engine, its replay log, saves, resume and replay use it. Never sent to a seat. |
+| `Observation.public.stateRevision` | The seat's revision: the accepted actions that seat can see. It equals the global revision unless a chat or promise record between two other seats was hidden from it (`GameState.stateRevision` minus `Player.unseenRecords`). |
+| `Action.actionSeq` | The actor's observed revision plus 1. For engine-generated dice results, shuffles and event draws, and for any seat that has missed nothing, that is the global revision plus 1. |
+| `Action.stateRevisionBefore` | Revision the actor observed. `applyAction` compares it with that actor's current observed revision: a chat hidden from the actor never makes it stale, and any record the actor can see does. |
 
-**Approved clarification (2026-10-07):** accepted actions, rather than turns or only player commands, determine both sequence and revision. The next accepted record has `actionSeq = stateRevisionBefore + 1`; the resulting revision equals its sequence. Rejection advances neither counter and changes no state. `actorId` is the configured player ID, or the reserved ID `engine` for generated records; `kind` discriminates `payload`. Do not configure a player with actor ID `engine`.
+**Approved clarification (2026-10-07):** accepted actions, rather than turns or only player commands, determine both sequence and revision. The next accepted record has `actionSeq = stateRevisionBefore + 1`, and every accepted record raises the global revision by exactly 1. Rejection advances neither counter and changes no state. **Seat-relative revision (#56 S01, #143):** before, a seat observed and submitted the global revision. Now `observe` gives each seat its own revision (see the table), a seat submits `actionSeq = observed + 1` and `stateRevisionBefore = observed`, and `applyAction` checks both against that actor's observed revision. Engine records use the global revision. A record then keeps the numbers its actor submitted. The global revision in state, the replay log, saves, resume and replay counts every record as before. With the Social window off, or before any chat is hidden from a seat, the two revisions are equal, so nothing changes. Details: [Social window](#social-window-and-chat-messages-issue-56-s01). `actorId` is the configured player ID, or the reserved ID `engine` for generated records; `kind` discriminates `payload`. Do not configure a player with actor ID `engine`.
 
 `GameConfig` records seats, seed, Lap target and engine/content/RNG versions. A seat may also specify `starterSpeciesId` to choose among its class's Starter alternatives. `GameState` embeds configuration and minimal content, players, active seat, phase, current budgets, optional Final Table Round target, private RNG cursor/state and private Event draw/discard piles. It contains **no nested log**. A fixture's separate `log` contains `{ action, events }` records. `EngineEvent` covers random results, sourced coin transfers (bank or player endpoints), UID creation/destruction, resolved spaces, phase changes and the Final Table Round announcement. Pokémon and utility items each have `instanceId`; Balls use counted `poke`, `great`, `ultra` pouch entries. Pokémon record starter origin, evolution stage, tired status and ability readiness. New Rescue Starters also carry `tradeable: false`; historical instances may omit that field; items record public/secret visibility. Final Table Round records the triggering seat and target own-turn count; game end is described below.
 
@@ -29,11 +30,11 @@ Issue #11 adds pure RNG and version/header contracts (spec §4.6, §6.8, §8):
 - Every consumed draw returns `{ kind: 'random_result', purpose, result, drawCounter }`. Counters start at 1 and equal the resulting cursor. Dice/integers record their value; weighted picks record the selected entry index; Fisher-Yates shuffle records each swap's selected index in descending position order. Empty/singleton shuffles consume no draws. Invalid inputs throw `RangeError` without changing state. The historical issue #3 event schema allows omitted `drawCounter` for its unchanged illustrative fixtures; the new `RandomResultEvent` type always requires it.
 - `createGameConfig(input)` stamps `ENGINE_VERSION`, existing `CONTENT_VERSION` and `RNG_VERSION`. `createLogHeader(config)` returns a detached header, preserving the supplied config's versions rather than replacing historical stamps. [engine/contract/schema.ts](../engine/contract/schema.ts) owns the `gameConfigSchema` and `logHeaderSchema` fields and validation, including header seed/version equality with the initial config. These helpers preserve historical stamps; the command-log executor below additionally checks that it supports the stamped engine and RNG versions.
 
-- `applyAction(state, action: unknown): ApplyActionResult` validates untrusted command shape, current revision, next sequence, active configured actor and exact enabled choice (kind **and** payload), or complete Sell-batch validity for current-version sales. Rejection is `{ rejected: true, state, reason }` with the original state reference; reasons are `malformed_action`, `stale_revision`, `invalid_sequence`, `wrong_actor`, or `illegal_action`, checked in that order before player-choice membership. Acceptance is `{ accepted: true, state, events, record }` with a detached snapshot, resulting revision equal to the action sequence, and a separate `{ action, events }` record. The reserved engine identity takes the generated-record path after revision/sequence validation. Callers must retain the returned state and append the returned record to their separate log; no log is nested in state.
+- `applyAction(state, action: unknown): ApplyActionResult` validates untrusted command shape, current revision, next sequence, active configured actor and exact enabled choice (kind **and** payload), or complete Sell-batch validity for current-version sales. Rejection is `{ rejected: true, state, reason }` with the original state reference; reasons are `malformed_action`, `stale_revision`, `invalid_sequence`, `wrong_actor`, or `illegal_action`, checked in that order before player-choice membership. Acceptance is `{ accepted: true, state, events, record }` with a detached snapshot, a resulting global revision one higher than before (the submitted sequence and revision are checked against the actor's observed revision, see [Social window](#social-window-and-chat-messages-issue-56-s01)), and a separate `{ action, events }` record. The reserved engine identity takes the generated-record path after revision/sequence validation. Callers must retain the returned state and append the returned record to their separate log; no log is nested in state.
 - `legalActions(state, seatIndex): LegalActions` returns stable-ID `{ id, kind, payload }` choices and disabled choices with `reasonCode`/English `reasonText`. Current-version games expose roll during first-player selection and Move, and skip during Start, Social, Strategy, Resolve and End. Pending dice results expose no player choice. Current-version Strategy adds `use_item` choices for held Lucky Eggs, Repels and Pickpockets as described below, and targeted Potion choices described in S03 below; historical contract fixtures retain their illustrative untargeted item choices. Current-version Sell exposes valid single-instance `sell` choices and an empty `sell` batch (`id: "finish-sell"`). Any distinct subset of owned instance IDs can be submitted as one atomic batch, without enumerating every subset in the choices. `finish_sell` remains accepted as an empty-batch compatibility alias. Either command finishes Sell and enters Resolve. Historical fixtures retain illustrative Sell choices. Current-version Encounter and Shop execute catching and purchases as described below; historical Encounter and Shop choices remain illustrative. Other budget spending, cooldowns, other full-hand checks, combat, Gym, Abilities and deal/promise execution remain deferred; chat is described in the Social window section below and is off unless `GameConfig.socialWindow` is true. Other phases return empty lists; out-of-turn seats receive only a disabled skip. IDs describe the same choice across repeated calls; records must still carry the current revision when submitted.
 - `observe(state, seatIndex): Observation` explicitly projects public board, players' coins/positions/teams, utility-item counts, publicly visible utility items, Lap and ability readiness, phase and counters; `own` contains only that seat's utility items, Ball pouch and peek results. Opponents' Ball counts are not exposed directly (approved §4.1 rule, issue #37), but they can be inferred from public play: the public starting kit, the Ball type in a public catch roll and public Shop purchase prices. Opponent secrets, the seed, RNG cursor/state/version and Event order never appear. Returned observations are detached copies. Unknown seats throw `RangeError` in all four read seams. Streams B/C should consume observations, not snapshots/logs; Jev's named buckets remain stream B's responsibility (§5.4).
-- `eventsVisibleTo(before, events, seatIndex): EngineEvent[]` returns detached copies of the events of one accepted action that the seat may see, in order; `before` is the state the action was applied to. The visibility rule hides an item's `uid_created` from everyone but its owner (items created during play are bought and secret), a secret item's `uid_destroyed` from everyone but its owner, `hostile_item_used` from everyone but its user and target, and every `shuffle:` `random_result` from all seats, since the draws reveal deck order. Other events are public. Pass a seat only its filtered events; `applyAction` still returns, and logs record, the full list.
-- `actionVisibleTo(before, record, seatIndex): SeatActionRecord` returns a detached, seat-safe copy of one accepted `ActionRecord`; `before` is the state it was applied to. Its events are `eventsVisibleTo`'s, and its payload drops what the seat may not see: another seat's `buy.offerId`, another seat's secret `use_item.itemInstanceId`, a hostile item's `targetSeatIndex` for seats other than the user and target, every seat's `shuffle.order` and `event_draw.eventId`, and all of a `chat` payload for seats other than its sender and recipient. A dropped field is absent, not blanked.
+- `eventsVisibleTo(before, events, seatIndex): EngineEvent[]` returns detached copies of the events of one accepted action that the seat may see, in order; `before` is the state the action was applied to. The visibility rule hides an item's `uid_created` from everyone but its owner (items created during play are bought and secret), a secret item's `uid_destroyed` from everyone but its owner, `hostile_item_used` from everyone but its user and target, and every `shuffle:` `random_result` from all seats, since the draws reveal deck order. A `chat_sent` reaches only its sender and recipient ([Social window](#social-window-and-chat-messages-issue-56-s01)). Issue #55 adds feature rules, each owned by its section: attack attempts, `protection_applied` and secret `shield_armed` ([S07](#price-shield-and-nurse-joy-protection-issue-55-s07)), hostile `ability_activated` ([S12](#fixed-movement-slows-and-displacement-issue-55-s12)), and `ball_gained` plus the Lucky Splash die ([S13](#gainball-peek-and-the-event-deck-issue-55-s13)). Other events are public. Pass a seat only its filtered events; `applyAction` still returns, and logs record, the full list.
+- `actionVisibleTo(before, record, seatIndex, shownBefore): SeatActionRecord | null` returns a detached, seat-safe copy of one accepted `ActionRecord`, or `null` when the seat must not know the action happened; `before` is the state it was applied to and `shownBefore` is how many records that seat's feed already holds. Its events are `eventsVisibleTo`'s, and its payload drops what the seat may not see: another seat's `buy.offerId`, another seat's secret `use_item.itemInstanceId`, a hostile item's `targetSeatIndex` for seats other than the user and target, and every seat's `shuffle.order` and `event_draw.eventId`, plus the issue #55 drops in those sections (a hostile Ability's `activate_ability.targetSeatIndex`, the Lucky Splash `dice_result.value`). A dropped field is absent, not blanked. A `chat` between two other seats returns `null` (see [Social window](#social-window-and-chat-messages-issue-56-s01)). The copy's `actionSeq` and `stateRevisionBefore` are numbered within the seat's own feed (`shownBefore + 1` and `shownBefore`), so a record the seat never sees leaves no gap. Callers pass the feed's current length and skip `null`s; the unnumbered, unfiltered record stays in the replay log.
 
 **Raw records and logs never go to a seat (issue #37, captain 2026-10-17).** `applyAction`'s `record`, `advanceAutomatically`'s `records` and the command log are full-information engine data for replay and audit. Never send them, or any part of them, to a seat, `ai/` or a seat's UI. Consumers use `observe`, `legalActions`, `eventsVisibleTo` and `actionVisibleTo` only.
 
@@ -63,7 +64,7 @@ The current engine stamp is owned by `ENGINE_VERSION` in [engine/versions.ts](..
 
 Spec: §4.1, §4.2 steps 4–5, §4.7, §6.5, §8. A Move uses the existing player `roll` command followed by its verified engine `dice_result`; no extra unlogged movement command or RNG draw is introduced. The result adds the d6 to the active player's signed route progress. `positionOf` projects the visible square, including negative progress. A rejected, duplicate or stale roll result never moves or pays.
 
-For a new positive Start milestone actually crossed or landed on by owner movement, the executor pays Start income from the bank, increments the paid-lap count once, and records the milestone in `highestRewardedMilestone`. The logged `coin_transfer` has bank source, player destination and reason `start_income`; it precedes `phase_changed` from Move to Sell. Sell retains `destinationPosition`; issue #24 implements its atomic sale/empty-sale commit and Rescue Starter below. Resolve's sole skip dispatches on the destination space type and emits `space_resolved`, entering Encounter on Wild, Shop on Shop squares and End elsewhere. Wild and Shop spaces work as described below; Event and Gym spaces are logged no-ops (issue #34 below); other space effects remain deferred. Ability reset remains a stub, and real push/pull effects and slowing remain deferred. See [Game end](#game-end-issue-25) for final settlement.
+For a new positive Start milestone actually crossed or landed on by owner movement, the executor pays Start income from the bank, increments the paid-lap count once, and records the milestone in `highestRewardedMilestone`. The logged `coin_transfer` has bank source, player destination and reason `start_income`; it precedes `phase_changed` from Move to Sell. Sell retains `destinationPosition`; issue #24 implements its atomic sale/empty-sale commit and Rescue Starter below. Resolve's sole skip dispatches on the destination space type and emits `space_resolved`, entering Encounter on Wild, Shop on Shop squares, the Gym flow on Gym squares and End elsewhere. Wild, Shop and [Gym](#gym-issue-55-s09) spaces work as described below; Event spaces are logged no-ops (issue #34 below). Ability reset is in [Ability lifecycle](#ability-lifecycle-and-windows-issue-55-s10); pushback and slowing are in [Fixed movement](#fixed-movement-slows-and-displacement-issue-55-s12). See [Game end](#game-end-issue-25) for final settlement.
 
 The watermark is separate from `creditedLap` so forced forward movement that skipped an unpaid milestone cannot make a later paid milestone pay twice after pushback. New games initialize both to zero. Historical contract-only snapshots may omit the watermark; their paid count is used as the fallback watermark. Old executable engine stamps are rejected by setup and replay rather than silently executing new movement rules. The engine version advances as recorded in [engine/versions.ts](../engine/versions.ts); the command-log format and RNG version are unchanged.
 
@@ -75,7 +76,7 @@ Spec: §3.1, §4.5, §4.7 steps 1–2, §8. `sell` carries `{ pokemonInstanceIds
 
 Sale pricing follows [spec §4.7 step 2](SPEC-v1.0-PokeMonopoly.md#47-selling-at-start-laps-and-game-end), using the current species definition's `base` for Base Sale. The class sale bonus (issue #30 below) is added after the tired adjustment. Each sold instance emits a bank-to-owner `coin_transfer` (reason `pokemon_sale`, including zero-value rescue sales) carrying `sale: { basePrice, classBonus }`, followed by `uid_destroyed` (reason `sold`). The selected team members are removed together.
 
-If the resulting team is empty, the same commit grants exactly one class base Starter with `origin: "rescue_starter"`, stage 0, fresh status/readiness and `tradeable: false`. It uses the configured Starter selection when a class has alternatives. Its UID derives deterministically from seat and accepted-action revision, with a suffix when needed to avoid any existing Pokémon/item UID or a UID destroyed in that batch. Creation emits `uid_created` after the destructions. The phase then changes to Resolve; destination resolution remains the next action. A second sale in that phase is consequently impossible. Later-phase rescue sales still pay zero and can replace the rescue only once per commit, without a coin loop.
+If the resulting team is empty, the same commit grants exactly one class base Starter with `origin: "rescue_starter"`, stage 0, fresh status/readiness and `tradeable: false`. It uses the configured Starter selection when a class has alternatives. Its UID derives deterministically from seat and accepted-action revision (not counting chats, see [Social window](#social-window-and-chat-messages-issue-56-s01)), with a suffix when needed to avoid any existing Pokémon/item UID or a UID destroyed in that batch. Creation emits `uid_created` after the destructions. The phase then changes to Resolve; destination resolution remains the next action. A second sale in that phase is consequently impossible. Later-phase rescue sales still pay zero and can replace the rescue only once per commit, without a coin loop.
 
 `origin` is the persistent rescue flag: future evolution must preserve it and the trading restriction while changing form/stage. This issue reads the existing tired flag and evolved form data but does not itself implement Tired application (added by S03 below), evolution, trading, UI or a Jev Sell decision. Final liquidation is described in [Game end](#game-end-issue-25). The engine version advances as recorded in [engine/versions.ts](../engine/versions.ts) because accepted commands now execute sales; command-log and RNG versions are unchanged. Historical illustrative 0.0.0 fixtures remain unchanged, and prior executable versions are rejected by setup/replay.
 
@@ -88,6 +89,13 @@ Unknown/inactive seats, other phases, duplicate/foreign/unknown UIDs and unsafe 
 balances throw `RangeError` without mutation. Quotes neither commit nor consume a bonus;
 the subsequent `sell` command still validates through `applyAction`. This additive API
 changes no rule, existing function behavior, version stamp or save format.
+
+Issue #150 adds the read-only `saleFacts(state, seatIndex): SalePriceFact[]` on top of `saleQuote`: for
+every Pokémon on the active seat's team, in team order, `{ instanceId, salePrice, classBonusAlone,
+classBonusTogether, saleValue }`, where the bonus is quoted selling it alone and selling the whole team
+in one batch (§4.7), and `saleValue` (`salePrice + classBonusTogether`) is what that batch pays for it.
+The browser sends it to `/api/ai/decide` as `facts.sell`, so AI seats get the same engine prices the
+Sell UI shows. Same errors and no-mutation guarantee as `saleQuote`; no rule, version or save change.
 
 ## Game end (issue #25)
 
@@ -117,7 +125,7 @@ Content names the passive `lap_first_catch_bonus`; the engine gives +1 `classBon
 
 Spec: §1, §4.1, §10 C2. `GAME_PRESETS` exports `quick` (`lapTarget: 2`, `enabled: true`) and `standard` (`lapTarget: 3`, `enabled: false`); `LAP_TARGETS` derives from it. `enabled` only tells setup which presets to offer: `createGame` still accepts any positive `config.lapTarget`. The sim plays real games at `--lap-target <n>` (default 2, Quick), so `--lap-target 3` runs Standard.
 
-Resolve on an Event (2, 8, 14, 17, 22) or Gym (6, 12, 18) space emits `space_resolved` with `effect: "none_yet"`, then enters End. It changes no coins, items, Pokémon, budgets or RNG. Start and Shop resolutions keep the event without `effect`. Event cards and Gym battles replace this in cycles 4 and 3. The engine version advances as recorded in [engine/versions.ts](../engine/versions.ts) because accepted commands emit the new field; prior executable versions are rejected by setup/replay. Command-log and RNG versions are unchanged.
+Resolve on an Event (2, 8, 14, 17, 22) space emits `space_resolved` with `effect: "none_yet"`, then enters End. It changes no coins, items, Pokémon, budgets or RNG. Start and Shop resolutions keep the event without `effect`. Event cards replace this in cycle 4; Gym squares resolve since #55 S09 ([Gym](#gym-issue-55-s09)). The engine version advances as recorded in [engine/versions.ts](../engine/versions.ts) because accepted commands emit the new field; prior executable versions are rejected by setup/replay. Command-log and RNG versions are unchanged.
 
 ## Command log and replay (issue #20)
 
@@ -141,7 +149,7 @@ Spec: §4.3, §4.5 Rescue Starter, §4.7, §6.1, §8, Appendix A Classes. Conten
 
 Spec: §3.1, §6.7, §6.8, §6.9, §8. A save is the text `serialize({ state, log })` returns: a strict object with `saveVersion: "save-v1"`, the `engineVersion`, `contentVersion` and `rngVersion` stamps, the current `state` and the command `log` as sibling keys. The log carries the initial config, seed, stamps, revision-zero state and every accepted record with its `random_result` events, so the dice are never re-rolled. No log is nested inside `state`, and the schema admits no other field, so no key or token can be saved. The schema also requires the top-level stamps to equal the log header, `state.config` to equal `initialConfig`, and `state.stateRevision` to equal the number of logged actions. The engine only builds and reads the text; storage belongs to the caller (the browser for stream C, files for the sim).
 
-`deserialize(text)` refuses another `saveVersion`, `engineVersion`, `contentVersion` or `rngVersion` before the full schema check, with a message naming both versions (for example "This save was made with engine version 0.11.0; this game runs engine version 0.15.0. Old saves cannot be loaded yet."); migrating old saves is a later issue. Any other schema failure throws `Invalid save: <path>: <message>; ...`.
+`deserialize(text)` refuses another `saveVersion`, `engineVersion`, `contentVersion` or `rngVersion` before the full schema check, with a message naming both versions (for example "This save was made with engine version 0.11.0; this game runs engine version 0.18.0. Old saves cannot be loaded yet."); migrating old saves is a later issue. Any other schema failure throws `Invalid save: <path>: <message>; ...`.
 
 `resume(game)` returns `{ state, lastAction, waitingFor }` from the saved snapshot without applying anything: `lastAction` is the last committed record (so a dice result taken before the save is shown again), and `waitingFor` is `{ kind: "decision", seatIndex, actorId, phase, legalActions }`, `{ kind: "engine_result", purpose }` for a die still to be generated, or `{ kind: "finished" }`. A request pending when the browser closed is not in the save; the caller asks again for `waitingFor` from the same state and never starts a new turn. A sole enabled choice is still reported as a decision; the caller applies it with `advanceAutomatically` as during play.
 
@@ -165,11 +173,11 @@ Disabled reasons for catch and Shop use `NO_BALL` / `No Ball`, `NOT_ENOUGH_COINS
 
 Spec: §3.1, §4.1, §4.6, Appendix A. Resolve's skip on Shop squares 4, 10, 15 and 20 logs `space_resolved`, then enters `phase.offers`: every Ball (`offer-poke`/`-great`/`-ultra` at the content prices 1/2/3) followed by 2 distinct utility items drawn from this cycle's pool (Lucky Egg, Repel, Pickpocket). The items are drawn without replacement as two counted `shop:item` random events over the pool entries present in content, in content order; content must contain at least two of them, and `createGame` rejects content that does not. The minimal executable fixture adds Pickpocket at its Appendix A price of 3. Utility offer IDs are `offer-<itemId>`. Item effects are described below.
 
-The player accepts at most one `buy { offerId }` or `skip_shop` (`id: "skip-shop"`, always enabled); either enters End, so a second purchase or a refresh is impossible. A purchase pays the price to the bank with a player-to-bank `coin_transfer` (reason `shop_purchase`). A Ball adds one to the counted pouch. A utility item adds a secret item instance `bought:<seatIndex>:<revision>` and emits `uid_created` after the payment. Offers are disabled with `ITEMS_FULL` / `Items full` for utility items while 4 items are held (approved §3.1 row; Balls stay buyable), otherwise with `NOT_ENOUGH_COINS` / `Not enough coins` when unaffordable; disabled offers are rejected as `illegal_action`. With 0 coins `skip_shop` is the sole choice and advances automatically. Class Shop discounts remain deferred. The engine version advances as recorded in [engine/versions.ts](../engine/versions.ts) because Resolve and Shop commands now change state; historical `0.0.0` Shop fixtures keep their illustrative `skip` choice.
+The player accepts at most one `buy { offerId }` or `skip_shop` (`id: "skip-shop"`, always enabled); either enters End, so a second purchase or a refresh is impossible. A purchase pays the price to the bank with a player-to-bank `coin_transfer` (reason `shop_purchase`). A Ball adds one to the counted pouch. A utility item adds a secret item instance `bought:<seatIndex>:<revision>` (revision not counting chats) and emits `uid_created` after the payment. Offers are disabled with `ITEMS_FULL` / `Items full` for utility items while 4 items are held (approved §3.1 row; Balls stay buyable), otherwise with `NOT_ENOUGH_COINS` / `Not enough coins` when unaffordable; disabled offers are rejected as `illegal_action`. With 0 coins `skip_shop` is the sole choice and advances automatically. Class Shop discounts remain deferred. The engine version advances as recorded in [engine/versions.ts](../engine/versions.ts) because Resolve and Shop commands now change state; historical `0.0.0` Shop fixtures keep their illustrative `skip` choice.
 
 ## Utility items (issue #31)
 
-Spec: §4.1, §4.2, §4.3, §4.6, Appendix A, §8. Current-version Strategy lists, before its `skip`, one `use_item` choice per held usable item: Lucky Egg as `use-item:<instanceId>` with payload `{ itemInstanceId }`, and Repel/Pickpocket once per opponent as `use-item:<instanceId>:seat-<n>` with payload `{ itemInstanceId, targetSeatIndex }`. Hostile items never list the user and ignore board distance. A held Potion uses the targeted S03 choices below; Price Shield exposes no choice yet. Using an item spends the turn's `tacticalAction`, removes that instance and logs `uid_destroyed` (reason `used`) after any effect event; a Repel or Pickpocket also logs `hostile_item_used { userSeatIndex, targetSeatIndex, itemId }` just before it, seen only by the user and target (spec §4.1, §4.4); the phase stays in Strategy, so the remaining choice is `skip`. With the budget spent every item choice is disabled with `ALREADY_USED_THIS_TURN` / `Tactical action already used this turn`; otherwise a Pickpocket target with 0 coins and a Repel target with a Repel still pending are disabled with `NO_VALID_TARGET` / `Target has no coins` or `Target is already slowed`. Disabled, self-targeted and untargeted hostile uses are rejected as `illegal_action`.
+Spec: §4.1, §4.2, §4.3, §4.6, Appendix A, §8. Current-version Strategy lists, before its `skip`, one `use_item` choice per held usable item: Lucky Egg as `use-item:<instanceId>` with payload `{ itemInstanceId }`, and Repel/Pickpocket once per opponent as `use-item:<instanceId>:seat-<n>` with payload `{ itemInstanceId, targetSeatIndex }`. Hostile items never list the user and ignore board distance. A held Potion uses the targeted S03 choices below; Price Shield arms protection (S07), Battle Ticket forces PvP (S08) and Sticky Web applies its slow (S12). Using an item spends the turn's `tacticalAction`, removes that instance and logs `uid_destroyed` (reason `used`) after any effect event; a Repel or Pickpocket also logs `hostile_item_used { userSeatIndex, targetSeatIndex, itemId }` just before it, seen only by the user and target (spec §4.1, §4.4); the phase stays in Strategy, so the remaining choice is `skip`. With the budget spent every item choice is disabled with `ALREADY_USED_THIS_TURN` / `Tactical action already used this turn`; otherwise a Pickpocket target with 0 coins and a Repel target with a Repel still pending are disabled with `NO_VALID_TARGET` / `Target has no coins` or `Target is already slowed`. Disabled, self-targeted and untargeted hostile uses are rejected as `illegal_action`.
 
 - **Lucky Egg** sets `GameState.turnEffects.itemBonus = 1`; the catch item hook snapshots it into `phase.catchRoll.itemBonus`, and the [shared combat snapshot](#shared-combat-arithmetic-issue-55-s05) reads it for its owner. The next turn start clears `turnEffects`, and movement ignores it.
 - **Repel** appends `'repel'` to the target's `Player.pendingSlows`. The target's next move result adds `max(1, d6 − 2)` squares, and that actual move clears its pending slows. The die value and its logged random event are unchanged.
@@ -177,9 +185,25 @@ Spec: §4.1, §4.2, §4.3, §4.6, Appendix A, §8. Current-version Strategy list
 
 Both new state fields are optional and absent when no effect is active. `observe` does not project them yet. The engine version advances as recorded in [engine/versions.ts](../engine/versions.ts) because Strategy commands now change state; command-log and RNG versions are unchanged. AI item selection and the remaining items stay deferred.
 
+`itemEffectStatus(contentItem)` ([engine/items.ts](../engine/items.ts), exported from the engine) tells screens how much of an item's Appendix A effect this engine applies, so a card never claims more: `active` for every Ball and for Lucky Egg, Repel, Pickpocket, Price Shield, Sticky Web and Battle Ticket; `partial` for Potion, which clears Tired only because combat debuffs are not tracked yet; `planned` is reserved for utility effects that have no Strategy choice or effect, and none of the current catalogue is in that category. It is a read-only classification: it draws no randomness and changes no rule or number, and its test holds it to whether Strategy offers a choice for the held item. Whoever implements one of the planned effects moves it to `active` there.
+
 ## Invariant checker (issue #14)
 
 Spec: §1 (hard gates), §6.5, §8. `checkInvariants(before, action, result)` in [engine/invariants.ts](../engine/invariants.ts) takes the state and untrusted action passed to `applyAction` plus its result, and returns `Violation[]` (`{ invariant, message }`); an empty array means every active invariant held. It is pure, deterministic and imports only `engine/` modules. `INVARIANTS` registers every spec §8 invariant by ID with its section, the exact spec line, and `active` or `pending` status; pending invariants switch on when their rules land. Active this cycle: non-negative coins, sourced `coin_transfer` events that account for every coin change, Start income (reason `start_income`) paid only by the bank to a player, paid laps (`creditedLap`) and the rewarded-milestone watermark (`highestRewardedMilestone`) that never decrease with `creditedLap` never above the watermark, one Start income per new milestone crossed in that step with a matching `creditedLap` +1 and watermark (the §6.5 rule that a push, pull or re-crossed milestone pays nothing), payment before the Sell Phase and destination resolution only from Resolve after it, Start income only while the engine resolves the payee's own move roll (forced movement never pays), unique instance IDs across teams, items and a historical encounter's Pokémon, a logged `uid_created` or `uid_destroyed` for every team or item instance that appears or vanishes (an instance ID is created at the catch, per issue #23, so a wild encounter's Pokémon is never in the lifecycle sets), unchanged state hash after a rejected or stale action, exactly 1 Ball per catch and none per release, step replay that reproduces the logged state and events, and an unfinished game whose active seat always has an enabled choice or awaits the engine's dice result. `createInvariantChecker(applyActionFn)` builds the same checker against another engine function, which tests use to model a deliberately broken engine. `npm run sim` (issue #13) calls it after every action; see [sim/README.md](../sim/README.md). Current-version catches spend their Ball (issue #23) and pass the checker; the fixture sweep skips catch choices only in fixtures whose `engineVersion` differs from the current engine version, because historical fixtures record no catch effects and their catch spends no Ball.
+
+## Spectator projection (issue #169)
+
+Spec: §4.1, §4.8, §5.4, §6, §8. A watcher of a game it holds no seat in, such as one whose seats are all `controller: 'ai'`, sees the public view only: coins, positions, teams, item counts and public items, Lap, ability readiness, phase and counters. Never a Ball pouch, a secret item, a peek result, a chat, the seed, the RNG state or the Event order. A spectator is not a seat; `observe`, `legalActions`, `eventsVisibleTo` and `actionVisibleTo` still throw `RangeError` for any seat that does not exist, and none of them changed. Import the functions below from [engine/spectator.ts](../engine/spectator.ts) (re-exported by `engine/index.ts`); they are pure and return detached copies.
+
+- `observeSpectator(state): SpectatorObservation` returns `{ public }`, the public fields of `observe` with no `own` and with attack history restricted to public PvP declarations. Hostile item/Ability attempts remain private to their actor and target, even when one is seat 0; secret shields, pending decision queries and legal Ability choices are never included. Public battle phases and public shields remain visible. Its `stateRevision` is the count of records in the spectator's feed, `GameState.stateRevision` minus `chatsSent` and `promiseRecords`, so a chat or promise record leaves no gap. A spectator submits nothing; there is no spectator `legalActions`.
+- `eventsVisibleToSpectator(before, events): SeatEvent[]` keeps only events every seat may see, and none that a pair of seats shares. It drops `chat_sent` and `hostile_item_used` even in a two-seat game, where both seats are party to them, so a hostile item use shows only its already-public effects, such as Pickpocket's `coin_transfer`. It also drops every `shuffle:` `random_result`, an item's `uid_created`, and a secret item's `uid_destroyed`. It also drops Lucky Splash's `random_result` and Ball gain, hostile Ability uses and their protection events, and secret shield arming. Public battle, displacement, readiness, non-hostile Ability and public protection events are kept. Public PvP attack attempts omit the internal global `actionSeq`, as seat events do. The filter is an allowlist: an event kind added later stays hidden from spectators until it is listed in `publicEvent`.
+- `actionVisibleToSpectator(before, record, shownBefore): SeatActionRecord | null` returns the record for the spectator's feed, or `null` for a `chat`, which is absent, not redacted. The copy is numbered after the records already shown (`actionSeq = shownBefore + 1`, `stateRevisionBefore = shownBefore`), so a hidden chat leaves no gap in sequence or revision, and a game where a chat was skipped gives an identical feed. Its payload drops `buy.offerId`, a secret `use_item.itemInstanceId`, every `use_item.targetSeatIndex`, `shuffle.order`, `event_draw.eventId`, hostile Ability targets and Lucky Splash's `dice_result.value`; the `auto` flag is dropped in a Social window, as for a seat. Raw records and logs still never go to a watcher: this copy is the only form it may receive.
+
+`resume(game).waitingFor` and the invariant checker read configured seats, not controllers, so a save with no human seat resumes unchanged: `waitingFor` is `finished`, an `engine_result`, or a `decision` naming the active AI seat. `sim` is unchanged.
+
+**Table talk (`ai_speech`).** `aiSpeechEventSchema` describes one generated line: `speakerSeatIndex`, optional `addressedSeatIndex`, `source` (`haiku` or `bank`), optional `lineId`, `text` (1 to 280 characters, the chat free-text limit) and `globalTurnNo`. It is a presentation event, not an `EngineEvent`: it may appear only in `GameLog.dialogueEvents`, and an `ActionRecord`, a fixture log or any other place rejects it. The speaker and addressee must be configured seats and differ. It is not an action, spends no budget and changes neither state nor revision; command replay ignores it, so a log reaches the same state hash with or without it, and `serialize` and `deserialize` keep it. Public table talk is not filtered per seat; engine chats stay private (§4.8).
+
+**Hidden-information test (issue #169):** [engine/spectator.test.ts](../engine/spectator.test.ts) plays 25 seeded all-AI games of 2, 3 and 4 seats with sentinel secrets in every seat: secret items, Ball pouches, peek results, a chat record and the Event deck, plus a sentinel seed and the real RNG state. Across 1,500 sampled states and every accepted action, no spectator view, event or record contains a sentinel, an `own`, `balls`, `chats` or RNG key, a shuffle draw or a bought item; a twin state differing only in its secrets gives an identical view.
 
 ## Dialogue log events (issue #42)
 
@@ -226,30 +250,6 @@ Statuses, expiry and events round-trip through saves, observations and command r
 The combined engine stamp advances to 0.14.0; older executable saves are refused rather than migrated.
 No battle, Event or Ability Tired source is introduced by this slice.
 
-## Social window and chat messages (issue #56 S01)
-
-Spec: §4.2, §4.8 Chat, §5.4, §9.
-
-**Flag.** `GameConfig.socialWindow` is optional. Absent or `false`, Social offers only `skip` to every seat, a `chat` command is rejected as `illegal_action`, no budget key exists and `observe` has no `own.chats`: behaviour is exactly as before, so the browser keeps skipping Social. Stream C turns the flag on together with the chat screen (#57); this slice does not.
-
-**Command.** `chat` has the payload `{ targetSeatIndex, topic, leaderSeatIndex?, itemId? }`, with `topic` one of `truce`, `trade`, `point_leader`, `use_item`, `hold_item`. Free text is not part of this slice. It is accepted only from the active **human** seat in Social while the flag is on and the turn's social interaction is unspent. AI seats are never offered one (§4.2: the human starts conversations). Validity is decided by `validChat` in [engine/social.ts](../engine/social.ts) over exactly the set `legalActions` enumerates (id `chat:seat-<target>:<topic>[:seat-<leader>|:<itemId>]`):
-
-| Topic | Extra fields | Allowed values |
-| --- | --- | --- |
-| `truce`, `trade` | none | any other seat as target |
-| `point_leader` | `leaderSeatIndex` | a seat that is neither the speaker nor the target (so none in a 2-seat game); words only, it is not checked against who actually leads |
-| `use_item`, `hold_item` | `itemId` | a content utility item ID, never an instance ID and never a Ball |
-
-**Budget.** `turnBudgets.socialInteraction` is `1` at Start when the flag is on, and `0` after one message. One message uses the whole §4.2 interaction (one opponent, one conversation per human turn); afterwards only `skip` is offered. It is absent when the flag is off. The reply and counteroffer that complete an interaction belong to later slices.
-
-**What the engine stores.** `GameState.chats` holds the last 3 messages per unordered pair (`seats` low to high), each `{ fromSeatIndex, toSeatIndex, topic, leaderSeatIndex?, itemId?, globalTurnNo }`. The key is absent until a first message. An accepted chat emits one `chat_sent` event and changes nothing else.
-
-**The hard line (§4.8).** A chat changes no coins, teams, items, Balls, RNG, dice, phase or legality: the only differences between the states before and after are `chats`, `turnBudgets.socialInteraction` and `stateRevision`, and the legal set shrinks only by the chat choices. Asking about an item cannot reveal a holding: the item choices come from content, so `legalActions`, events and state do not depend on what the target holds.
-
-**Visibility.** `observe(state, seat).own.chats` lists only the messages that seat sent or received (oldest first; present only when the flag is on). `chat_sent` reaches only its sender and recipient. `actionVisibleTo` strips every `chat` payload field for any other seat, but the record itself still exists in the sequence, so a third seat can see that some seat took a `chat` action, not what or to whom. Nothing about chat reaches `ai/` until stream B's slices read `own.chats` through `observe`.
-
-**Versioning.** The stamp advances to 0.15.0 because the action union, events, state and observation gain fields; saves of 0.14.0 are refused rather than migrated. Chats round-trip through saves and command replay. Tests: [engine/social.test.ts](../engine/social.test.ts).
-
 ## Shared combat arithmetic (issue #55 S05)
 
 Spec: §3 board odds, §4.3, §4.4, §4.6, §5.2, §6.1/6.8, §8, Appendix A Rival/Lucky Egg.
@@ -284,8 +284,8 @@ enumerates all six faces through `resolveGym`. Both return `totalOutcomes` and `
 `loss` records with `outcomes`, exact `probability`, and independently rounded whole-number
 `percent`. Gym's tie record is always zero. Displayed and resolved odds use the same snapshot.
 
-Content registers Rival's `combat_bonus` passive; the engine supplies +1 for attack, defence
-and Gym, without granting the later once-per-Lap forced challenge. Lucky Egg's existing
+Content registers Rival's `combat_bonus` passive; the engine supplies +1 for PvP attack and
+defence only, never at a Gym (spec Appendix C D14), without granting the later once-per-Lap forced challenge. Lucky Egg's existing
 Strategy use/cost/expiry stays in the item executor and turn driver; its turn effect now
 feeds combat as well as catching and never benefits a different seat. Rescue Starter teams
 retain trainer passives pending S00, matching S01's unresolved-interpretation boundary.
@@ -293,10 +293,15 @@ S00 still decides the activation/confirmation sequence. This slice exposes no la
 or reroll operation: S11's approved Porygon path must preserve the confirmed snapshot while
 replacing only the permitted own die. It adds no primitive names or Ability bindings.
 
-Engine/content stamps advance to 0.15.0/1.2.0 for the new combat contract and registered
+Engine/content stamps advance to 0.16.0/1.2.0 for the new combat contract and registered
 passive; prior executable saves/logs reject through the existing version checks. Historical
 illustrative fixtures, RNG version and command-log format are unchanged. PvP/Gym phases,
 rewards, Gym entry choice and UI/AI integration belong to later slices.
+
+## Ability and battle timing contract (issue #55 S00)
+
+Spec: §4.2, §4.4–§4.6, §6.1, §8, Appendix A timing, Appendix C. [Spec Appendix C](SPEC-v1.0-PokeMonopoly.md#appendix-c--ability-and-battle-timing-contract) is the contract that the Ability, combat, Gym and protection slices (S05–S14) implement: the core Starter Ability to primitive-operation mapping, the timing windows, the PvP and Gym decision order, activation costs, shields, slows and the worked acceptance cases AC-1 to AC-5. Its decisions D1–D14 are approved (D1–D13 in the S00 review, D14 recorded at the reviewer's suggestion). The sections below record each slice's implementation.
+
 ## Evolution and exclusive reward helpers (issue #55 S04)
 
 Spec: §4.4 Battle Reward/Gym, §4.5, §4.7, §6.1/6.8, §8, Appendix A.
@@ -329,26 +334,26 @@ shield consumption and Ability primitive mapping are deferred; no S00 choice is 
 The §8 one-stage/same-UID, evolution preservation and exclusive reward invariant checkers are
 active, with adversarial mutation coverage. The engine stamp advances to 0.15.0 for the new
 state/events; content/RNG versions and the command-log format remain unchanged.
-## Ability and battle timing contract (issue #55 S00)
-
-Spec: §4.2, §4.4–§4.6, §6.1, §8, Appendix A timing, Appendix C. [Spec Appendix C](SPEC-v1.0-PokeMonopoly.md#appendix-c--ability-and-battle-timing-contract) proposes the contract that the Ability, combat, Gym and protection slices (S05–S14) implement: the core Starter Ability to primitive-operation mapping, the timing windows, the PvP and Gym decision order, activation costs, shields, slows and the worked acceptance cases AC-1 to AC-5. Its decisions D1–D13 await Stream A team approval. The contract is not implemented: engine behaviour and the engine, content, RNG and command-log versions are unchanged.
-
 
 ## Voluntary PvP and decision ownership (issue #55 S06)
 
 Spec: §4.2, §4.4, §4.8 (attack evidence), §6.1/6.3/6.4/6.8/6.9, §8;
-Appendix C.3 proposed D3/D4. S06 implements that proposed order for voluntary challenges;
-Ability activations, reactions, rerolls and protection remain later slices.
+Appendix C.3 D3/D4. S06 implements that order for voluntary challenges; later #55 slices add
+protection (S07), forced sources (S08), Ability windows (S10) and rerolls (S11).
 
 In Strategy, `declare_pvp { targetSeatIndex }` is legal against any other seat at any
 board distance if both teams have a non-Tired member and the challenger has a tactical
 action. Declaration spends that action immediately, leaving other budgets untouched.
 It appends one public `attack_attempt` to `attackHistory` and the accepted action events:
 `{ attackId, actorId, targetId, source: 'pvp_declaration', actionSeq, globalTurnNo }`.
-The stable attack/battle/reward ID is `pvp:<declaration actionSeq>`. The canonical evidence
-survives declines and ties; later `no_attack` consumers need not infer attacks from dice,
-coin transfers or final outcomes. Observations and seat-visible event copies expose public
-declarations; no private item or willingness state is added. This slice adds no promises.
+The stable attack/battle/reward ID is `pvp:<public revision>`, where the public revision is
+`publicRevision` after the declaration: the accepted-record count without chats (§6.3), so a
+chat a seat was not part of never shifts an ID that seat sees. `actionSeq` is the global
+sequence of the declaring record. It is engine-internal: it counts hidden chats, so
+`observe(...).public.attackHistory` and seat-visible event copies (`SeatEvent`) drop it. The
+canonical evidence survives declines and ties; later `no_attack` consumers need not infer
+attacks from dice, coin transfers or final outcomes. Observations and seat-visible event copies
+expose public declarations; no private item or willingness state is added. This slice adds no promises.
 
 `pendingDecision(state)` returns `{ seatIndex, actorId }`, distinct from active turn
 ownership. It returns the defender for `respond_pvp { accept }`, the winner for
@@ -361,12 +366,12 @@ are still recorded as actions owned by their actual deciding seat.
 
 A decline costs no coins, rolls nothing and returns to the challenger's Strategy. On
 acceptance, `pvp_response` precedes `pvp_confirmed`. Appendix C only offers Ability windows
-when a ready eligible Ability exists; no such executable Ability exists in S06. Thus the
-attacker and defender windows close in that order without extra prompts, then S05's
-`pvpSnapshot` freezes all combat terms. S10 can insert its windows before that snapshot.
+when a ready eligible Ability exists; S10 opens them in attacker-then-defender order, and
+without one the windows close without extra prompts. S05's `pvpSnapshot` then freezes all
+combat terms.
 The pending phase retains the confirmation and then the attacker's face. The engine draws
 one die per accepted `dice_result`, attacker first, with purposes
-`pvp:<declaration actionSeq>:attacker_roll` and `pvp:<declaration actionSeq>:defender_roll`.
+`<battleId>:attacker_roll` and `<battleId>:defender_roll`.
 Dice with the wrong pending purpose or face reject; other generated actions cannot
 interleave into pending PvP. S05's `resolvePvp` supplies totals, outcome and reward seat in
 `pvp_resolved`. A tie returns directly to Strategy. On a win S04's resolver offers only
@@ -380,7 +385,7 @@ Throughout PvP the active seat, global turn and every own-turn counter stay fixe
 Continuation returns to Strategy with the action spent, so neither a second item nor a
 second PvP is legal. End/next-seat advancement remains exclusively in the turn driver.
 
-The combined engine stamp is 0.16.0, one step beyond the dependency branches' 0.15.0.
+The engine stamp advances to 0.17.0, one step beyond S05's 0.16.0.
 Historical illustrative fixtures and RNG/log/save format versions remain unchanged.
 The browser event formatter only recognizes the new event variants for type compatibility;
 PvP UI and AI integration are outside this slice.
@@ -391,15 +396,291 @@ PvP UI and AI integration are outside this slice.
 AI seats temporarily do not declare PvP; the Jev Strategy filter, fallback penalty and
 removal condition are specified in [spec §5.3](SPEC-v1.0-PokeMonopoly.md#53-decision-points--questions).
 
+## Price Shield and Nurse Joy protection (issue #55 S07)
+
+Spec: §4.4, §4.6, §4.8 (attack evidence only), §6.1, §8; Appendix A Nurse Joy/Price Shield;
+Appendix C.4 D6/D7 and D10 (approved in the S00 review).
+
+`player.armedShield` holds at most one `{ scope, visibility }`: `price` (Price Shield) or
+`battle_coin_loss` (Shell Guard, S14). Using Price Shield in Strategy spends the tactical
+action, destroys the item UID and emits `shield_armed`; it is disabled with "A shield is already
+armed" while any shield is armed. `engine/protection.ts` owns the shared hooks:
+
+- `declareHostileAction` records one `attack_attempt` (`source: 'hostile_item' | 'hostile_ability'`,
+  `attackId` `hostile:<public revision>` or `ability:<public revision>`), then, against an armed `price`
+  shield, consumes it, emits `protection_applied` and reports the whole action blocked. The
+  caller keeps every cost spent and applies no effect.
+- `applyCoinLossProtection` handles a coin loss of `pvp_coin_loss` or `gym_coin_loss`. Nurse
+  Joy's class passive (`turn_start_team_heal`) covers PvP losses first and consumes nothing; then
+  `battle_coin_loss` covers PvP and Gym, and `price` covers PvP only. A zero-coin loss consumes
+  nothing. PvP's `choose_reward { kind: 'coins' }` applies it before S04's resolver and sets the
+  request's `coinLossBlocked`, so a protected loser pays 0 and the winner receives 0.
+
+Visibility: hostile item attempts and their `protection_applied` are filtered to user and target in
+`eventsVisibleTo` and in `observe().public.attackHistory`; PvP declarations and coin-loss blocks
+stay public. A secret shield's `shield_armed` is the owner's alone and `observe` shows another
+seat's `armedShield` only when public; `own.armedShield` always shows the seat's own shield.
+
+## Forced PvP (issue #55 S08)
+
+Spec: §4.2, §4.4 (forced PvP, attack counting), §4.6 (Battle Ticket), §8; Appendix A Rival/Battle
+Ticket; Appendix C.1 `forceChallenge`, C.3 D4, C.4 D6.
+
+`pvpDisabledReason` is the one legality check for every PvP source: an unspent tactical action
+and a battle-ready member on both teams. A forced battle has `battle.forced: true` and starts at
+confirmation, skipping `respond_pvp`; the phase never names its source, so a secret Battle
+Ticket stays secret from third seats.
+
+- **Rival:** `declare_pvp { targetSeatIndex, force: 'rival' }` (choice ID
+  `declare-pvp:<seat>:rival`) is offered while `forcePvpUsedLap !== creditedLap`, records a public
+  `pvp_declaration` attempt and sets `forcePvpUsedLap`. A shield protects only the coin loss.
+- **Battle Ticket:** `use_item` with a target seat; it emits `hostile_item_used` and one private
+  `hostile_item` attempt. An armed Price Shield blocks it whole; otherwise the ticket UID is
+  destroyed and the forced battle begins.
+- **forcePvP Ability:** `forceChallenge(next, attacker, defender)` in `engine/pvp.ts` is the
+  adapter an Ability activation calls (S10/S14). It records a `hostile_ability` attempt, spends the
+  tactical action, and begins the forced battle unless a Price Shield blocks it.
+
+## Gym (issue #55 S09)
+
+Spec: §4.2 Resolve, §4.4 Gym/Battle Reward, §4.7 winner, §6.1, §8; Appendix C.3 D5, C.4 D7, D14.
+
+Resolving a Gym square replaces the C2 `none_yet` placeholder with phase
+`{ kind: 'gym', battle: { battleId: 'gym:<public revision>', position, step } }`; Event squares stay
+placeholders. Steps:
+
+1. `entry` — the active seat chooses `challenge_gym` or `skip` (to End). Without a battle-ready
+   member the challenge is disabled with "No battle-ready Pokémon" and the automatic driver
+   applies the single `skip`.
+2. `roll` — `gym_confirmed` carries S05's `gymSnapshot` (DC 5/7/9 by square; no Rival bonus). The
+   engine owes one `dice_result` with purpose `gym:<revision>:challenger_roll`.
+3. Win (`total >= dc`): `gym_resolved`, `badge_awarded` (badges +1), then step `reward`, where the
+   winner owns `choose_reward` over S04's Gym request (6 coins from the bank or one evolution).
+   Loss: `gym_resolved`, then `min(3, coins)` to the bank (`coin_transfer` reason `gym_loss`),
+   unless `applyCoinLossProtection` finds an armed `battle_coin_loss` shield. Price Shield and
+   Nurse Joy cover only PvP.
+
+Every step serializes; the phase then returns to End. Reward choice IDs are shared with PvP via
+`pendingRewardChoices`. A Gym reached after a Start-crossing Sell resolves only after that Sell and
+any Rescue Starter, so it uses the resulting team.
+
+## Ability lifecycle and windows (issue #55 S10)
+
+Spec: §4.2, §4.4 snapshots, §4.5, §4.7 step 1, §6.1/6.4/6.8/6.9, §8; Appendix C.1, C.3 D3/D4/D5,
+C.6 D10.
+
+Content binds a species' Ability to an engine effect with `ability.effect` (an
+`abilityEffectIdSchema` value); fallback evolved forms inherit it through `effectiveForm`.
+`ABILITY_EFFECTS` in `engine/abilities.ts` owns each effect's primitive, operation, timing and
+hostility. Content 1.3.0 binds Chansey `heal_pulse` and Squirtle `shell_guard`; later slices bind
+the rest.
+
+Windows (`currentWindow`): Strategy (S and C timings, active seat), Encounter before a Ball is
+confirmed (B, active seat), PvP `attacker_window` (B) then `defender_window` (B or R), and the Gym
+`window` (B). A battle window is entered only when its owner has an eligible activation; otherwise
+the engine continues to the snapshot. `pendingDecision` names the window owner, and its choices are
+the `activate_ability` options plus `pass-window` (`skip`), which spends nothing. One activation or
+a pass closes that window; windows never reopen.
+
+`activate_ability { instanceId, targetSeatIndex?, targetPokemonInstanceId?, scope? }` is legal only
+when listed. It sets the instance's `abilityReady = false`, sets `abilityUsedGlobalTurnNo`, spends
+`pokemonAbility` only when the owner is the active seat, and emits `ability_activated`. Costs stay
+spent whatever the effect does. `heal_pulse` clears the chosen own UID's Tired; `shell_guard` arms a
+public `battle_coin_loss` shield (illegal while any shield is armed).
+
+A qualifying owner Start credit emits `abilities_reset` after the income transfer and before the
+Sell phase change; the player's per-`globalTurnNo` allowance is untouched. The
+`ability-once-per-instance-per-lap` and `ability-once-per-player-turn` invariant checkers are
+active; `evolution-keeps-cooldowns` still guards evolution.
+
+## Roll modifiers and Porygon's reroll (issue #55 S11)
+
+Spec: §4.3, §4.4, §4.5, §6.1/6.8, §8; Appendix C.1 `rollBonus`, C.2, C.3, D2, D11, D13.
+
+Content 1.3.0 also binds Charmander `blaze`, Eevee `adaptability`, Gyarados `intimidate`, Porygon
+`calculate` and Dratini `dragon_rush`; evolved fallback forms inherit them.
+
+- Battle-scoped terms live in the pending battle's `modifiers` (`{ abilityBonus, debuffs }` per
+  PvP side, or one set at a Gym) and are frozen into the snapshot at confirmation. Blaze is
+  `abilityBonus +1`, Dragon Rush `+2` plus an `afterResolution` entry, Intimidate adds `debuffs 1`
+  to the opponent after `declareHostileAction` (a `hostile_ability` attempt; a Price Shield blocks
+  it). Intimidate is offered only in PvP windows; Blaze and Dragon Rush only in battle windows.
+- Adaptability records `player.rollEffects` `{ scope, n: 1, globalTurnNo }`; combat snapshots
+  (`sideModifiers`) and `catchSnapshot` add the entries for the current `globalTurnNo`, so
+  `catchOdds`, `pvpOdds` and `gymOdds` agree with the real roll. It is offered in every B window,
+  with both scopes.
+- `afterResolution` entries apply `status_changed` Tired (reason `dragon_rush`) when the battle
+  leaves: after a tie, a Gym loss, or the reward, attacker's first.
+
+Porygon's A window (`calculate`) opens only when the die's owner has an eligible ready Calculate:
+
+| Die | Pending decision | Keep | Reroll die purpose |
+|---|---|---|---|
+| Move | `move { rolled }` | `keep-die` moves by `rolled` | `move:<seat>:<turn>:reroll` |
+| Catch | `encounter { catchRoll, face }` | `keep-die` resolves `face` | `catch:<seat>:<turn>:reroll` |
+| PvP | `battle.step: 'reroll'`, `side` | `keep-die` | `<battleId>:<side>_reroll` |
+| Gym | `battle.step: 'reroll'`, `face` | `keep-die` | `<battleId>:challenger_reroll` |
+
+Rerolling is `activate_ability` on the Calculate instance and spends its normal costs; the new
+logged die replaces the old one, even when worse, and no Ball, catch budget or first-catch bonus is
+spent again. In PvP the attacker's window comes before the defender's, both after both dice. No
+outcome, reward, slow or movement applies before the decision. Start income may therefore be paid
+by the keep-die command too; `forced-movement-no-start-income` treats any accepted Move-phase
+command of the active seat as its own move.
+
+## Fixed movement, slows and displacement (issue #55 S12)
+
+Spec: §4.2 movement, §4.5, §4.6 slows, §4.7, §6.1/6.5, §8; Appendix C.1 `fixedMove`/`moveDebuff`,
+C.5 D8/D9.
+
+`engine/slows.ts` owns the slow table: `repel` (`minus` 2), `string_shot` (`minus` 1) and
+`sticky_web` (`cap` 2). `player.pendingSlows` holds their IDs; `hasSlowKind` forbids a second slow
+of a pending kind (items are greyed out with "Target is already slowed"; String Shot is not offered
+against such a target). `slowedSteps(player, v)` returns `max(1, min(v − minus, cap))` and clears
+every pending slow; only the owner's own Move calls it.
+
+- **Sticky Web** is a hostile item like Repel: a private `hostile_item` attempt, blocked whole by an
+  armed Price Shield.
+- **Quick Flight** (`quick_flight`, S window) sets `turnEffects.fixedMove = 3`. Move's `roll` then
+  draws no die and moves by the slowed fixed steps through the same owner-movement path, so a
+  qualifying Start credit pays once, resets Abilities and opens Sell before the destination. The
+  allowance for the `globalTurnNo` stays spent even when the reset makes the instance ready again.
+- **Vine Pull** (`vine_pull`) and **String Shot** (`string_shot`) are hostile Abilities against any
+  opponent: `declareHostileAction` records the attempt and a Price Shield blocks the effect. Vine
+  Pull changes the target's `routeProgress` by −2 at once and emits public `player_displaced`
+  `{ targetId, from, to }`; no income, Lap credit, Ability reset, Sell or Resolve follows, and pending
+  slows stay. Progress may go below 0; recrossing an old milestone pays nothing (§6.5).
+
+Hostile Ability uses (`ability_activated` with a hostile effect, its attempt and any block) are
+visible only to the user and target, and another seat's copy of the `activate_ability` record drops
+`targetSeatIndex`, as for hostile items. The `move-debuff-until-next-move` checker is active: a
+pending slow may disappear only on its owner's actual move, and that move clears all of them.
+`forced-movement-no-start-income` counts a fixed-move `roll` as the owner's own move.
+
+## gainBall, peek and the Event deck (issue #55 S13)
+
+Spec: §4.5 primitives, §4.6 deck, §5.4 privacy, §6.1/6.8, §8; Appendix C.1 `gainBall`/`peek`.
+
+- **Lucky Splash** (`lucky_splash`, S window; content binds Magikarp) enters phase
+  `{ kind: 'chance_roll', rollId: 'ability:<public revision>', seatIndex }`. The engine owes one
+  `dice_result` with purpose `<rollId>:chance`; faces 5–6 add one Great Ball and emit
+  `ball_gained` (visible only to the owner), 1–4 change nothing. The die reveals the gain, so
+  `eventsVisibleTo` hides its `random_result` and `actionVisibleTo` drops its `dice_result.value`
+  for every seat but the owner; other seats still see the public `ability_activated`. The log
+  and replay keep the full record. Either way the phase returns to
+  Strategy and the activation costs stay spent. With the allowance spent, Porygon cannot reroll it.
+- **Event deck:** `content.events` (IDs only; `toEngineContent` drops the text) is optional for
+  historical fixtures. `createGame` still leaves the deck empty and draws no RNG. `track` (the
+  `peek` adapter) is offered when the draw pile, discard pile or content has cards. With an empty
+  draw pile it first shuffles the discard pile (or every content Event when there is none) through
+  the logged `shuffle:events` RNG seam, whose results no seat sees. It then appends
+  `{ kind: 'peek', eventId }` to the owner's `privateResults` without drawing or reordering.
+  Other seats' observations, legal actions, event copies and action records never carry the card
+  or the order. Event squares remain C4 placeholders; C4 owns draws and effects on this deck.
+
+## Core Starter bindings and primitive coverage (issue #55 S14)
+
+Spec: §4.4, §4.5, §6.1, §8; Appendix A core classes/Abilities/evolution; Appendix C.1/C.2.
+
+Content 1.3.0 binds `ability.effect` for Bulbasaur `vine_pull`, Charmander `blaze`, Squirtle
+`shell_guard`, Eevee `adaptability`, Magikarp `lucky_splash`, Gyarados `intimidate`, Chansey
+`heal_pulse`, Caterpie `string_shot`, Porygon `calculate`, Pidgey `quick_flight` and Dratini
+`dragon_rush`. Fallback forms (Ivysaur/Venusaur, Charmeleon/Charizard, Wartortle/Blastoise,
+Vaporeon/Jolteon/Flareon, Metapod/Butterfree, Dragonair/Dragonite) inherit through
+`effectiveForm`; Gyarados has its own definition, so Magikarp's evolution changes the Ability but
+keeps the spent readiness. `challenge` (forcePvP: a forced, hostile PvP declaration that also
+spends the tactical action) and `track` (peek) are executable but unbound; C4 content binds them.
+
+`engine/starter-abilities.test.ts` is the coverage ledger: a table reaches each form's legal window
+(S, B attacker, R defender or A reroll) and checks an observable effect, the effect table maps to
+exactly the eight §4.5 primitives with every one exercised, authored timings equal the engine's,
+and an actually caught Dratini becomes Tired after Dragon Rush (not battle-ready, ×0.8 sale) and
+recovers by expiry or Potion (Nurse Joy and Chansey recovery are covered in the S03/S10 tests).
+
+## Mixed-seat completion and Streams B/C handoff (issue #55 S15)
+
+Spec: §4.2 social window, §4.4 attack counting, §4.8 evidence only, §5.2/5.3/5.6,
+§6.1/6.4/6.9, §8.
+
+- `decisionPoint(state)` names the pending decision: `first_player_roll`, `turn_step`, `strategy`,
+  `move`, `encounter`, `sell`, `shop`, `pvp_response`, `ability_window`, `reroll`, `reward` or
+  `gym_entry`; `null` while the engine owes a die or the game is over. It complements
+  `pendingDecision`, which names the deciding seat.
+- `socialTargets(state)` lists the opponents a human seat may talk to in its own Social phase and
+  is empty for AI seats, so there is no AI↔AI conversation. Leaving Social spends no budget.
+- `sim/mixed-seats.test.ts` plays one scripted human with 1, 2 and 3 AI seats to the end. At every
+  new decision point an AI answer is first injected as a timeout, error, invalid or stale command
+  (each leaves the state hash unchanged), then `FallbackPolicy` answers from the engine's options.
+  Games end with equal own turns, the coin/badge winner rule and an exact replay. A four-seat test
+  records a declined PvP and a hostile item for all 12 ordered pairs: declarations are public,
+  hostile item attempts reach only user and target.
+
+Not yet integrated (Streams B/C): the decision wire schema (`engine/contract/decision.ts`) still
+accepts only `strategy`, `encounter` and `sell`; Jev Strategy and Encounter questions filter out
+`declare_pvp` and `activate_ability`; the fallback policy scores both −1 in Strategy and scores
+other new points evenly. The browser lists the human's choices at the new points in a generic
+panel, and for an AI seat takes the engine's first listed choice, logged as a fallback with reason
+`unsupported_decision_point`. The Shop still offers only Lucky Egg, Repel and Pickpocket (§4.6 C2
+scope), so Battle Ticket and bought Price Shields or Sticky Webs are not yet reachable in play.
+
+## Invariant ledger and the 2/3/4-seat gate (issue #55 S16)
+
+Spec: §6.1/6.8/6.9, §7 CI, §8.
+
+Every §8 checker owned by this epic is active, each with a counterexample test:
+`pvp-turn-ownership` and `attack-attempt-logged` (S06; hostile items and Abilities S07–S14),
+`battle-reward-coins-or-evolution`, `evolution-one-stage-same-uid`, `evolution-keeps-cooldowns`
+(S04; a status change logged with the evolution is allowed), `tired-and-nurse-joy-useful` (S03),
+`ability-once-per-instance-per-lap` and `ability-once-per-player-turn` (S10),
+`move-debuff-until-next-move` (S12), and from S16 `resume-creates-nothing` (the RNG cursor advances
+exactly by the action's logged, consecutively numbered draws, and a saved copy re-asks the same
+seat) and `rescue-starter-no-coin-loop` (a Rescue Starter never sells for coins, is never resold in
+the phase that created it and stays untradeable). `deals-atomic` and `promise-closes-on-own-turn`
+stay pending: they belong to the conversation and deal work, not this epic.
+
+CI runs `npm run sim -- --games 100 --seed 1` at `--seats 2`, `3` and `4`, each checking every
+active invariant after every action and failing on any abort, illegal applied action or invariant
+failure (job timeout 15 minutes). The sim summary's `features` counts Ability primitives, class
+passives and battles; `sim/features.test.ts` requires all six core class passives, the five Ability
+primitives real content reaches in random play (`fixedMove`, `moveDebuff`, `rollBonus`, `shield`,
+`gainBall`) and PvP, forced PvP and Gym battles. `heal` (rare in random play), `peek` and `forcePvP`
+(unbound until C4) have their trigger evidence in the engine scenario tables. Replay and resume at
+pending decisions are covered per slice (S06 PvP steps, S10 defender window, S11 rerolls, S13
+peek) and by the 200-game replay property test.
+
+## Social window and chat messages (issue #56 S01)
+
+Spec: §4.2, §4.8 Chat, §5.4, §9.
+
+**Flag.** `GameConfig.socialWindow` is optional. Absent or `false`, Social offers only `skip` to every seat, a `chat` command is rejected as `illegal_action`, no budget key exists and `observe` has no `own.chats`: behaviour is exactly as before, so the browser keeps skipping Social. Stream C turns the flag on together with the chat screen (#57); this slice does not.
+
+**Command.** `chat` has the payload `{ targetSeatIndex, topic, leaderSeatIndex?, itemId? }`, with `topic` one of `truce`, `trade`, `point_leader`, `use_item`, `hold_item`. Free text is not part of this slice. It is accepted only from the active **human** seat in Social while the flag is on and the turn's social interaction is unspent. AI seats are never offered one (§4.2: the human starts conversations). Validity is decided by `validChat` in [engine/social.ts](../engine/social.ts) over exactly the set `legalActions` enumerates (id `chat:seat-<target>:<topic>[:seat-<leader>|:<itemId>]`):
+
+| Topic | Extra fields | Allowed values |
+| --- | --- | --- |
+| `truce`, `trade` | none | any other seat as target |
+| `point_leader` | `leaderSeatIndex` | a seat that is neither the speaker nor the target (so none in a 2-seat game); words only, it is not checked against who actually leads |
+| `use_item`, `hold_item` | `itemId` | a content utility item ID, never an instance ID and never a Ball |
+
+**Budget.** `turnBudgets.socialInteraction` is `1` at Start when the flag is on, and `0` after one message. One message uses the whole §4.2 interaction (one opponent, one conversation per human turn); afterwards only `skip` is offered. It is absent when the flag is off. The reply and counteroffer that complete an interaction belong to later slices.
+
+**What the engine stores.** `GameState.chats` holds the last 3 messages per unordered pair (`seats` low to high), each `{ fromSeatIndex, toSeatIndex, topic, leaderSeatIndex?, itemId?, globalTurnNo }`. The key is absent until a first message. `GameState.chatsSent` counts accepted chats (absent until a first one). An accepted chat emits one `chat_sent` event and changes nothing else.
+
+**The hard line (§4.8).** A chat changes no coins, teams, items, Balls, RNG, dice, phase or legality: the only differences between the states before and after are `chats`, `turnBudgets.socialInteraction`, `stateRevision`, `chatsSent` and the bystanders' `unseenRecords`, and the legal set shrinks only by the chat choices. Asking about an item cannot reveal a holding: the item choices come from content, so `legalActions`, events and state do not depend on what the target holds.
+
+**Visibility.** The recipient of a chat is private (spec owner decision, #143). `observe(state, seat).own.chats` lists only the messages that seat sent or received (oldest first; present only when the flag is on). `chat_sent` reaches only its sender and recipient. For every other seat `actionVisibleTo` returns `null`: the record is absent from its feed, not redacted. Redaction would still show the speaker and that a chat happened, and in a three-seat game "a chat happened and it was not to me" names the recipient. The seat-facing feed also renumbers: `actionSeq` and `stateRevisionBefore` count the seat's own visible records, so skipping the chat leaves no gap, and a bystander's feed is identical whether the speaker chatted to someone else or skipped. For the same reason, while the window is on, another seat's Social-window record reaches a seat without its `auto` marker, since a sole-choice Skip would show that the chat budget was spent. The full record stays in the engine's replay log and saves, which are never sent to a seat. The observed revision is seat-relative too: `observe(state, seat).public.stateRevision` is the global `stateRevision` minus the records that seat may not see (`Player.unseenRecords`, raised for every seat outside an accepted chat; absent when zero), so it always equals the length of the seat's feed and a bystander's observation is identical whether the speaker chatted elsewhere or skipped. `applyAction` checks a seat's `stateRevisionBefore` and `actionSeq` against that seat's observed revision (`actorRevision` in [engine/visibility.ts](../engine/visibility.ts)): a hidden chat between other seats does not make its answer stale, while any record it can see still does. Engine-generated records, and every seat that has missed nothing, use the global revision, so flag-off games are numbered exactly as before. Every engine ID a seat can observe that embeds a revision uses the revision without chats (`publicRevision` in [engine/revision.ts](../engine/revision.ts)), never `GameState.stateRevision`: instance IDs (`caught:`, `rescue:`, `bought:`), PvP and Gym `battleId`s (`pvp:`, `gym:`) and the dice purposes built on them, the Lucky Splash `rollId` and hostile `attackId`s (`hostile:`, `ability:`). A later catch, purchase, battle, roll or attack therefore does not reveal a chat either ([engine/hidden-chat-ids.test.ts](../engine/hidden-chat-ids.test.ts)). An `attack_attempt`'s `actionSeq` stays global and engine-internal; seats never receive it. Consumers submit exactly the revision they observed; the logged record keeps the numbers its actor submitted, and `GameState.stateRevision` still counts every accepted record, so replay, saves and determinism are unchanged. Nothing about chat reaches `ai/` until stream B's slices read `own.chats` through `observe`.
+
+**Versioning.** This slice advanced the stamp to 0.16.0 because the action union, events, state and observation gain fields; issue #55 S05 claimed the same 0.16.0 in parallel, so the merged engine is stamped 0.17.0 and refuses saves of 0.16.0 and earlier rather than migrating them. Chats round-trip through saves and command replay. Tests: [engine/social.test.ts](../engine/social.test.ts).
+
 ## Promise responses as pending decisions (issue #56 S03)
 
-Spec: §4.2, §4.8 Promise, §6, §8. This builds on #147's pending-decision ownership ("Voluntary PvP and decision ownership" above); there is no second mechanism. Stream A's PvP and Deal Cards (S05) add their own response kinds the same way.
+Spec: §4.2, §4.8 Promise, §6, §8. This builds on the pending-decision ownership of "Voluntary PvP and decision ownership" (issue #55 S06, shipped in #152); there is no second mechanism. Stream A's PvP and Deal Cards (S05) add their own response kinds the same way.
 
 ### How a promise response registers
 
 `GameState.pendingResponse` is optional and absent unless a seat owes an answer to a question another seat asked. It is a discriminated union on `kind`; today there is one, `promise_offer { initiatorSeatIndex, responderSeatIndex, direction }`. `initiatorSeatIndex` is the seat whose turn it is (it stays `activeSeatIndex` throughout); `responderSeatIndex` owes the next command.
 
-`pendingDecision(state)` ([engine/decisions.ts](../engine/decisions.ts)) is extended by one line: while `pendingResponse` exists it returns the responder instead of the active seat (it still returns `null` for a pending engine die or a finished game, and a promise question cannot coexist with a PvP phase, since it is asked only in Social). Everything #147 already routes through it follows, with no further change:
+`pendingDecision(state)` ([engine/decisions.ts](../engine/decisions.ts)) is extended by one line: while `pendingResponse` exists it returns the responder instead of the active seat (it still returns `null` for a pending engine die or a finished game, and a promise question cannot coexist with a PvP phase, since it is asked only in Social). Everything #152 already routes through it follows, with no further change:
 
 | Place | Behaviour while a promise question is pending |
 | --- | --- |
@@ -437,10 +718,10 @@ Choice IDs are `offer-promise:seat-<n>:offer|ask`. The choices depend on seats, 
 - *No renewal.* The promiser's closing turn still counts as active, so the same pair cannot be re-offered then. Once it has closed, a new promise is a fresh one, not a renewal; §4.8's "max +2 per pair per game" trust cap presumes more than one over a game. This is this slice's reading of "no renewal"; stream B's settlement slice (S07) may tighten it.
 - *Not past game end.* Once `finalTableRound` is announced, nobody plays an own turn above `targetOwnTurnNo`, so a promise whose `closesOwnTurnNo` exceeds it would outlive the game and is not offered. Before the round is announced the game end is unknown, so an offer is allowed; such a promise is later `closed_by_game_end` (S07).
 
-**Visibility.** `promise_offered` reaches only the initiator and responder, `promise_accepted` and `promise_rejected` only the promiser and recipient (the same two seats). `observe(state, seat).own.promises` lists only the promises that seat made or received (present with the flag on), and `own.pendingResponse` exists only for the initiator and the responder. For any other seat, `actionVisibleTo` strips the payloads of `offer_promise` and `respond`; as for `chat`, the record itself stays in the sequence, so a third seat can see that some seat sent an `offer_promise` and that another `respond`ed, not the target, the direction or the answer.
+**Visibility.** `promise_offered` reaches only the initiator and responder, `promise_accepted` and `promise_rejected` only the promiser and recipient (the same two seats). `observe(state, seat).own.promises` lists only the promises that seat made or received (present with the flag on), and `own.pendingResponse` exists only for the initiator and the responder. For every other seat the two records are hidden exactly like a chat (§4.8, "Social window and chat messages" above): `actionVisibleTo` returns `null` for `offer_promise` and `respond` unless the seat is the initiator or the responder, so the records are absent from a bystander's feed, not redacted. Redaction would leave the responder's actor ID on the `respond` record, naming the conversation partner in a three-seat game. Each accepted record raises `Player.unseenRecords` for every seat outside the pair (`hideFromBystanders` in [engine/social.ts](../engine/social.ts), shared with chat) and `GameState.promiseRecords` (the counterpart of `chatsSent`), which `publicRevision` subtracts: a bystander's feed, `observe(...).public.stateRevision`, `actorRevision` and every engine ID that embeds a revision are identical whether the pair made a promise or the active seat skipped. Spectators never see either record. The full records, with their real numbers, stay in the replay log and saves.
 
 **Not in this slice.** Settling promises at End, breaches, trust and memory (S07, which also activates the `promise-closes-on-own-turn` invariant), Deal Cards and the Deal response (S05), and the AI's Jev decisions for `respond` (the `ai/` layer). `GameState.promises` therefore keeps every promise, closed ones included, for S07.
 
 **Sim.** `npm run sim -- --games <n> --seed <n> --social` plays seat 0 as a `human` with the random policy and `socialWindow` on; the other seats keep `--policy`. The summary gains `social { promiseOffers, promisesAccepted, promisesRejected }` only with the flag, so a run without it is byte-for-byte unchanged.
 
-**Versioning.** The stamp advances to 0.17.0: the action union, events, state and observation gain fields. Saves of 0.16.0 are refused rather than migrated. Tests: [engine/promises.test.ts](../engine/promises.test.ts), the `--social` cases in [sim/sim.test.ts](../sim/sim.test.ts) and the social property in [sim/legal-games.property.test.ts](../sim/legal-games.property.test.ts).
+**Versioning.** The stamp advances to 0.18.0: the action union, events, state and observation gain fields. Saves of 0.17.0 and earlier are refused rather than migrated. Tests: [engine/promises.test.ts](../engine/promises.test.ts), the `--social` cases in [sim/sim.test.ts](../sim/sim.test.ts) and the social property in [sim/legal-games.property.test.ts](../sim/legal-games.property.test.ts).

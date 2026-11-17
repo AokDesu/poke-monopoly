@@ -6,7 +6,7 @@ import type {
   NoAttackPromise,
   PendingResponse,
 } from './contract/schema.ts';
-import { socialOpen } from './social.ts';
+import { hideFromBystanders, socialOpen } from './social.ts';
 
 type Direction = 'offer' | 'ask';
 
@@ -108,6 +108,8 @@ export function offerPromise(
     responderSeatIndex: payload.targetSeatIndex,
     direction: payload.direction,
   };
+  hideFromBystanders(next, next.activeSeatIndex, payload.targetSeatIndex);
+  next.promiseRecords = (next.promiseRecords ?? 0) + 1;
   return [
     {
       kind: 'promise_offered',
@@ -132,6 +134,8 @@ export function answerPromise(next: GameState, answer: 'accept' | 'reject'): Eng
     pending.responderSeatIndex,
     pending.direction,
   );
+  hideFromBystanders(next, pending.initiatorSeatIndex, pending.responderSeatIndex);
+  next.promiseRecords = (next.promiseRecords ?? 0) + 1;
   if (answer === 'reject')
     return [{ kind: 'promise_rejected', promiserSeatIndex, recipientSeatIndex }];
   const closes = closesOwnTurnNo(next, promiserSeatIndex);

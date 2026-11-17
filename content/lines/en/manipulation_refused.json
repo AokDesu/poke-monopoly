@@ -1,0 +1,74 @@
+[
+  {
+    "id": "manipulation-refused-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "I will not break the rules, {target}, whatever the offer."
+  },
+  {
+    "id": "manipulation-refused-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "I do not give out hidden information. Not for any price."
+  },
+  {
+    "id": "manipulation-refused-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "No, {target}. That request is refused."
+  },
+  {
+    "id": "manipulation-refused-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "No, {target}. I do not play that way."
+  },
+  {
+    "id": "manipulation-refused-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "I will not break the rules, and I will not reveal hidden information."
+  },
+  {
+    "id": "manipulation-refused-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "That request is refused, {target}. The answer is no."
+  },
+  {
+    "id": "manipulation-refused-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "I cannot do that, {target}. It would break the rules."
+  },
+  {
+    "id": "manipulation-refused-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "I will not share hidden information. That is not safe."
+  },
+  {
+    "id": "manipulation-refused-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Sorry, {target}. That request goes too far, so I refuse."
+  },
+  {
+    "id": "manipulation-refused-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "I see what you ask, {target}. I refuse."
+  },
+  {
+    "id": "manipulation-refused-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "No, {target}. Breaking the rules gains me nothing."
+  },
+  {
+    "id": "manipulation-refused-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "I do not reveal hidden information, whatever the reason."
+  }
+]

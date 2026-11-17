@@ -93,7 +93,6 @@ test('landing exactly on Start pays once, while setup and a move before Start pa
 test.each([
   { progress: 18, position: 0, space: 'start', effect: {} },
   { progress: 20, position: 2, space: 'event', effect: { effect: 'none_yet' } },
-  { progress: 24, position: 6, space: 'gym', effect: { effect: 'none_yet' } },
 ])(
   'the $space destination logs resolution without gameplay effects (§4.2)',
   ({ progress, position, effect }) => {

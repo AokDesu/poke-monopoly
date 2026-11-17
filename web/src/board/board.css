@@ -320,6 +320,10 @@
   font-size: clamp(1rem, 1.8vw, 1.45rem);
   font-weight: 600;
 }
+.meadow-names {
+  font-size: 0.75rem;
+  color: var(--color-ink-soft);
+}
 .route-instruction {
   color: #315332;
   font-size: 0.8rem;
@@ -679,6 +683,9 @@
   .meadow-caption svg {
     width: 20px;
   }
+  .meadow-names {
+    font-size: 0.6rem;
+  }
   .route-instruction {
     font-size: 0.6rem;
   }
@@ -694,4 +701,23 @@
     width: 1rem;
     height: 1rem;
   }
+}
+.item-list > li {
+  align-items: flex-start;
+}
+.item-list .item-capsule {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+.item-entry {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.ball-pouch > div {
+  flex-wrap: wrap;
+}
+.ball-pouch .pouch-facts {
+  flex-basis: 100%;
+  font-weight: 400;
 }

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { parsePersonality, type Personality } from '../content/personality-schema.ts';
 import { toEngineContent } from '../content/schema.ts';
 import {
+  applyAction,
   createGame,
   createGameConfig,
   fixtureSchema,
@@ -16,6 +17,7 @@ import {
   type Observation,
 } from '../engine/index.ts';
 import encounterFixture from '../engine/fixtures/encounter-with-balls.json';
+import startFixture from '../engine/fixtures/start-of-game-2p.json';
 import sellFixture from '../engine/fixtures/sell-phase-three-pokemon.json';
 import strategyFixture from '../engine/fixtures/strategy-with-items.json';
 import { realEngine } from '../sim/engine.ts';
@@ -32,11 +34,14 @@ import {
   type JevResult,
 } from './jev/client.ts';
 import { createChaosJevClient, createFakeJevClient } from './jev/fake.ts';
+import { usageReport } from './jev/usage-report.ts';
 import { openUsageLedger, SPEND_CONFIG, SpendLedger, type UsageLine } from './jev/spend.ts';
 import {
   confidenceFloor,
   decisionRates,
   DecisionStats,
+  GameQuota,
+  MAX_TRACKED_TURNS,
   Orchestrator,
   ORCHESTRATOR_CONFIG,
   type DecideRequest,
@@ -119,6 +124,54 @@ function answered(
 const confidentRelease = (request: JevRequest) =>
   answered(request, () => ({ poke_ball: 0.05, great_ball: 0.05, release: 0.9 }));
 
+/** Seat 0 (human) in its Social window with the window open; seats 1 and 2 are AIs. */
+function socialGame(seats: 2 | 3): GameState {
+  const scenario = fixtureSchema.parse(startFixture).state;
+  const content = structuredClone(scenario.content);
+  content.classes.push({
+    id: 'team-rocket',
+    name: 'Team Rocket',
+    starterSpeciesIds: ['eevee'],
+    classItemId: 'pickpocket',
+  });
+  const state = createGame(
+    createGameConfig({
+      seats: [
+        ...scenario.config.seats,
+        { actorId: 'player-2', seatIndex: 2, classId: 'team-rocket', controller: 'ai' as const },
+      ].slice(0, seats),
+      seed: 4,
+      lapTarget: 3,
+      socialWindow: true,
+    }),
+    content,
+  );
+  state.phase = { kind: 'social' };
+  state.globalTurnNo = 1;
+  state.players[0]!.ownTurnNo = 1;
+  state.turnBudgets = {
+    tacticalAction: 1,
+    catchAttempt: 1,
+    pokemonAbility: 1,
+    socialInteraction: 1,
+  };
+  return state;
+}
+
+/** The active seat's command, numbered with the revision that seat observes. */
+function act(state: GameState, kind: string, payload: object = {}): GameState {
+  const revision = observe(state, state.activeSeatIndex).public.stateRevision;
+  const result = applyAction(state, {
+    actorId: state.players[state.activeSeatIndex]!.actorId,
+    actionSeq: revision + 1,
+    stateRevisionBefore: revision,
+    kind,
+    payload,
+  });
+  if ('rejected' in result) throw new Error(result.reason);
+  return result.state;
+}
+
 const fallbackChoice = (request: DecideRequest) =>
   new FallbackPolicy(request.personality).decide(
     request.observation,
@@ -184,6 +237,35 @@ describe('unusable answers fall back with their reason (§3.1, §5.6, §9)', () 
     expect(decision).toMatchObject({ source: 'fallback', fallbackReason: 'revision_mismatch' });
     expect(decision.choice).toBe(fallbackChoice(request));
   });
+
+  test.each([2, 3] as const)(
+    '%i seats: an answer for the observed revision outlives a hidden chat, not a visible record (§4.8)',
+    async (seats) => {
+      const seat = seats - 1;
+      const before = socialGame(seats);
+      const observed = observe(before, seat).public.stateRevision;
+      const request = (live: GameState) =>
+        encounterRequest({
+          observation: {
+            ...encounter.observation,
+            public: { ...encounter.observation.public, stateRevision: observed },
+          },
+          currentRevision: () => observe(live, seat).public.stateRevision,
+        });
+      const decide = (live: GameState) =>
+        new Orchestrator({ client: createFakeJevClient(confidentRelease) }).decide(request(live));
+      // The human chats seat 1: hidden from seat 2 in a 3-seat game, seen by seat 1 in a 2-seat one.
+      const chatted = act(before, 'chat', { targetSeatIndex: 1, topic: 'truce' });
+      const afterChat = await decide(chatted);
+      if (seats === 3) expect(afterChat).toMatchObject({ source: 'jev', fallbackReason: null });
+      else expect(afterChat).toMatchObject({ fallbackReason: 'revision_mismatch' });
+      // A record every seat sees always makes the old answer stale.
+      expect(await decide(act(chatted, 'skip'))).toMatchObject({
+        source: 'fallback',
+        fallbackReason: 'revision_mismatch',
+      });
+    },
+  );
 
   test('JEV_ENABLED=false sends no request', async () => {
     vi.stubEnv('JEV_ENABLED', 'false');
@@ -444,6 +526,65 @@ describe('request budget per AI turn (§5.3, §9)', () => {
     expect(next).toMatchObject({ source: 'jev', requests: 1 });
   });
 
+  test('returning to an earlier turn keeps its count (A,A,A,B,A)', async () => {
+    const client = createFakeJevClient(confidentRelease);
+    const orchestrator = new Orchestrator({ client });
+    for (const turnKey of ['A', 'A', 'A', 'B']) {
+      await orchestrator.decide(encounterRequest({ turnKey }));
+    }
+    const back = await orchestrator.decide(encounterRequest({ turnKey: 'A' }));
+    expect(back).toMatchObject({ fallbackReason: 'request_limit', requests: 0 });
+    expect(client.requests).toHaveLength(4);
+  });
+
+  test('a shared GameQuota carries the limits to a new orchestrator for the same game', async () => {
+    const quota = new GameQuota();
+    const client = createFakeJevClient((request) =>
+      answered(request, () => ({ poke_ball: 0.05, great_ball: 0.05, release: 0.9 }), {
+        inputTokens: 400_000,
+      }),
+    );
+    for (let i = 0; i < 2; i++) {
+      await new Orchestrator({ client, quota }).decide(encounterRequest({ turnKey: `t${i}` }));
+    }
+    const fresh = new Orchestrator({ client, quota });
+    expect(fresh.usage.totals().inputTokens).toBe(800_000);
+    expect(await fresh.decide(encounterRequest({ turnKey: 't9' }))).toMatchObject({
+      fallbackReason: 'token_budget',
+    });
+    // Without the shared quota, the same game would start over.
+    expect(
+      await new Orchestrator({ client }).decide(encounterRequest({ turnKey: 't9' })),
+    ).toMatchObject({
+      source: 'jev',
+    });
+  });
+
+  test('decision numbers continue across orchestrators of one game: no duplicate rows, every duration kept', async () => {
+    const lines: UsageLine[] = [];
+    const usage = new SpendLedger({ append: (line) => lines.push(line) });
+    const quota = new GameQuota();
+    const client = createFakeJevClient(confidentRelease);
+    // The same turn, decided by an orchestrator that was dropped and made again in between.
+    await new Orchestrator({ client, usage, quota, gameId: 'g' }).decide(encounterRequest());
+    await new Orchestrator({ client, usage, quota, gameId: 'g' }).decide(encounterRequest());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(lines.map((line) => line.decision)).toEqual([0, 1]);
+    expect(usageReport(lines).turnMs?.p50).toBe(lines[0]!.decisionMs + lines[1]!.decisionMs);
+    // Without one quota the second orchestrator would number from zero again, and the report
+    // would keep one duration for the two decisions.
+    expect(quota.nextDecision()).toBe(2);
+  });
+
+  test('a quota refuses a turn beyond the turns it tracks instead of counting it afresh', () => {
+    const quota = new GameQuota();
+    for (let turn = 0; turn < MAX_TRACKED_TURNS; turn++) quota.reserve(`t${turn}`);
+    expect(quota.requests('t0')).toBe(1);
+    expect(quota.requests('new-turn')).toBe(Infinity);
+    quota.reserve('new-turn');
+    expect(quota.requests('new-turn')).toBe(Infinity);
+  });
+
   test('a decision with one legal action asks nothing and uses no request', async () => {
     const client = createFakeJevClient(confidentRelease);
     const only = { enabled: encounter.legalActions.enabled.slice(-1), disabled: [] };
@@ -533,11 +674,26 @@ describe('Sell Phase Nouls (§5.3)', () => {
     expect(decision).toMatchObject({ choice: 'finish-sell', source: 'jev', fallbackReason: null });
   });
 
-  test('without engine sale facts the Sell Phase falls back', async () => {
+  test('without engine sale facts the Sell Phase falls back without asking, and keeps the team', async () => {
     const client = createFakeJevClient(confidentRelease);
     const decision = await new Orchestrator({ client }).decide(sellRequest({ facts: {} }));
-    expect(decision).toMatchObject({ source: 'fallback', fallbackReason: 'missing_facts' });
+    expect(decision).toMatchObject({
+      choice: 'finish-sell',
+      source: 'fallback',
+      fallbackReason: 'missing_facts',
+    });
     expect(client.requests).toHaveLength(0);
+  });
+
+  test('with sale facts and Jev down, the fallback policy sells from the engine prices', async () => {
+    const client = createFakeJevClient(() => ({ ok: false, fallbackReason: 'timeout' }));
+    const saleValue = { 'pokemon-0': 14, 'pokemon-2': 16, 'pokemon-3': 14 };
+    const decision = await new Orchestrator({ client }).decide(
+      sellRequest({ facts: { sell: sellFacts, policy: { saleValue } } }),
+    );
+    expect(client.requests).toHaveLength(1);
+    expect(decision).toMatchObject({ source: 'fallback', fallbackReason: 'timeout' });
+    expect(decision.choice).not.toBe('finish-sell');
   });
 });
 

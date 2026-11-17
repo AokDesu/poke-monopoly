@@ -34,7 +34,7 @@ test('the prepared fallback uses the existing server policy without calling the 
   const app = createApp({ decider });
   const fallback = await post(app, '/api/ai/fallback');
   expect(fallback.status).toBe(200);
-  expect(await fallback.json()).toMatchObject({ choice: 'catch:poke', source: 'fallback' });
+  expect(await fallback.json()).toMatchObject({ choice: 'catch:great', source: 'fallback' });
   expect(decider).not.toHaveBeenCalled();
   expect(fallback.headers.get('x-ai-decision-ms')).toBe(String(DECISION_DEADLINE_MS));
   expect(
@@ -59,4 +59,22 @@ test('decide adds a bank notice only to fallback responses and leaves its decisi
   );
   expect(await jev.json()).toMatchObject({ choice: 'release', source: 'jev' });
   expect(jev.headers.get('x-ai-line-id')).toBeNull();
+});
+
+test('normal-play fallbacks (auto, invalid choice, low confidence, missing facts, shop stub) carry no backup-bot notice', async () => {
+  for (const fallbackReason of [
+    'auto',
+    'invalid_choice',
+    'low_confidence',
+    'missing_facts',
+    'stub',
+  ] as const) {
+    const app = createApp({
+      decider: async () => ({ choice: 'release', source: 'fallback', fallbackReason }),
+    });
+    const response = await post(app, '/api/ai/decide');
+    expect(await response.json()).toMatchObject({ choice: 'release', fallbackReason });
+    expect(response.headers.get('x-ai-line-id')).toBeNull();
+    expect(response.headers.get('x-ai-dialogue-events')).toBeNull();
+  }
 });

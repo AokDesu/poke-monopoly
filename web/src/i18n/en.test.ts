@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { expect, test } from 'vitest';
 import { classOptions } from '../game/content.ts';
 import { DIFFICULTIES, PERSONALITIES } from '../game/setup.ts';
@@ -277,4 +279,59 @@ test('read-only team inspection covers form paths, instance identity and status 
     'team.rescueRestriction',
   ];
   for (const key of keys) expect(t(key).trim(), key).not.toBe('');
+});
+
+test('content screens: species facts, evolution hints, item facts and status labels have English text', () => {
+  const keys: MessageKey[] = [
+    'board.habitatNames',
+    'encounter.facts',
+    'species.catchDc',
+    'starter.facts',
+    'starter.rivalFacts',
+    'team.baseValue',
+    'team.baseValueNote',
+    'team.nextFormStats',
+    'team.nextFormAbility',
+    'team.branchChoice',
+    'item.kind.ball',
+    'item.kind.utility',
+    'item.price',
+    'item.priceOne',
+    'item.ball.effect',
+    'item.effect.planned',
+    'item.status.partial',
+    'item.status.planned',
+  ];
+  for (const key of keys) expect(t(key).trim(), key).not.toBe('');
+  // Every tag a species can carry has its label, so no form shows the generic "Other".
+  for (const tag of [
+    'bug',
+    'cute',
+    'flying',
+    'water',
+    'normal',
+    'fire',
+    'fighting',
+    'dragon',
+    'grass',
+    'electric',
+  ]) {
+    expect(Object.hasOwn(en, `board.tag.${tag}`), tag).toBe(true);
+  }
+  expect(t('item.ball.effect', { bonus: 2 })).toContain('+2');
+});
+
+test('every line-bank line renders through the dialogue catalogue with its slots filled', () => {
+  const dir = resolve(import.meta.dirname, '../../../content/lines/en');
+  const lines = readdirSync(dir)
+    .filter((name) => name.endsWith('.json'))
+    .flatMap((name) => JSON.parse(readFileSync(join(dir, name), 'utf8')) as { id: string }[]);
+  expect(lines.length).toBeGreaterThanOrEqual(12 * 4 * 3);
+  for (const { id } of lines) {
+    const key = `ai.line.${id}` as MessageKey;
+    expect(Object.hasOwn(en, key), key).toBe(true);
+    const text = t(key, { target: 'Ash', turn: 4, pokemon: 'Pidgey', coins: 12 });
+    expect(text, key).not.toMatch(/[{}]/);
+    expect(text.trim(), key).not.toBe('');
+  }
 });

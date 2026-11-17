@@ -10,7 +10,10 @@ import {
   createGameConfig,
   createGameLog,
   deserialize,
+  actionVisibleToSpectator,
   eventsVisibleTo,
+  eventsVisibleToSpectator,
+  observeSpectator,
   fixtureSchema,
   legalActions,
   observe,
@@ -18,13 +21,16 @@ import {
   resume,
   serialize,
   verifyReplay,
+  type ActionRecord,
   type GameState,
+  type SeatActionRecord,
 } from './index.ts';
 import { promiseActive } from './promises.ts';
+import { publicRevision } from './revision.ts';
 import fixture from './fixtures/start-of-game-2p.json';
 
 /** Seat 0 (human) in Social with its one interaction, having played `ownTurnNo` 1; the rest are AIs. */
-function social(options: { seats?: 2 | 3; seed?: number } = {}) {
+function social(options: { seats?: 2 | 3 | 4; seed?: number } = {}) {
   const { seats = 2, seed = 4 } = options;
   const scenario = fixtureSchema.parse(fixture).state;
   const content = structuredClone(scenario.content);
@@ -34,9 +40,16 @@ function social(options: { seats?: 2 | 3; seed?: number } = {}) {
     starterSpeciesIds: ['eevee'],
     classItemId: 'pickpocket',
   });
+  content.classes.push({
+    id: 'gym-trainer',
+    name: 'Gym Trainer',
+    starterSpeciesIds: ['eevee'],
+    classItemId: 'pickpocket',
+  });
   const seatList = [
     ...scenario.config.seats,
     { actorId: 'player-2', seatIndex: 2, classId: 'team-rocket', controller: 'ai' as const },
+    { actorId: 'player-3', seatIndex: 3, classId: 'gym-trainer', controller: 'ai' as const },
   ].slice(0, seats);
   const state = createGame(
     createGameConfig({ seats: seatList, seed, lapTarget: 3, socialWindow: true }),
@@ -56,10 +69,13 @@ function social(options: { seats?: 2 | 3; seed?: number } = {}) {
 
 /** A command from `seat` (default: whoever the engine says acts) on the current revision. */
 function command(state: GameState, kind: string, payload: object = {}, seat?: number) {
+  const actor = seat ?? pendingDecision(state)!.seatIndex;
+  // A seat numbers its command with the revision it observes (hidden records leave no gap, §4.8).
+  const revision = observe(state, actor).public.stateRevision;
   return applyAction(state, {
-    actorId: state.players[seat ?? pendingDecision(state)!.seatIndex]!.actorId,
-    actionSeq: state.stateRevision + 1,
-    stateRevisionBefore: state.stateRevision,
+    actorId: state.players[actor]!.actorId,
+    actionSeq: revision + 1,
+    stateRevisionBefore: revision,
     kind,
     payload,
   });
@@ -231,6 +247,9 @@ test('an answer changes nothing but the promise, the pending record and the budg
           delete copy.promises;
           delete copy.pendingResponse;
           delete copy.turnBudgets.socialInteraction;
+          // The hidden-record counters only keep the bystander's numbering (§4.8).
+          delete copy.promiseRecords;
+          for (const player of copy.players) delete player.unseenRecords;
           copy.stateRevision = 0;
           return copy;
         };
@@ -334,15 +353,18 @@ test('a promise is visible to its two parties only (§4.8 Privacy, §5.4)', () =
   expect(eventsVisibleTo(before, offered.events, 2)).toEqual([]);
   expect(eventsVisibleTo(pending, answered.events, 2)).toEqual([]);
   expect(observe(state, 2).own.promises).toEqual([]);
-  const seenOffer = actionVisibleTo(before, offered.record, 2);
-  const seenAnswer = actionVisibleTo(pending, answered.record, 2);
-  expect(seenOffer.action.payload).toEqual({});
-  expect(seenAnswer.action.payload).toEqual({});
-  expect(actionVisibleTo(before, offered.record, 1).action).toEqual(offered.record.action);
-  expect(actionVisibleTo(pending, answered.record, 0).action).toEqual(answered.record.action);
-  expect(
-    JSON.stringify([observe(pending, 2), observe(state, 2), seenOffer, seenAnswer]),
-  ).not.toMatch(/promise_|accept|pendingResponse|closesOwnTurnNo|"promises":\[\{/);
+  // Both records are absent for the bystander, not redacted (§4.8, like a chat).
+  expect(actionVisibleTo(before, offered.record, 2, 0)).toBeNull();
+  expect(actionVisibleTo(pending, answered.record, 2, 0)).toBeNull();
+  expect(actionVisibleTo(before, offered.record, 1, 0)?.action).toMatchObject(
+    offered.record.action,
+  );
+  expect(actionVisibleTo(pending, answered.record, 0, 1)?.action).toMatchObject(
+    answered.record.action,
+  );
+  expect(JSON.stringify([observe(pending, 2), observe(state, 2)])).not.toMatch(
+    /promise_|accept|pendingResponse|closesOwnTurnNo|"promises":\[\{/,
+  );
 });
 
 test('resume during a pending offer waits for the responder, and replay is deterministic (§6.8, §6.9)', () => {
@@ -430,4 +452,131 @@ test('"an unfinished game always has a seat with an enabled choice" follows the 
     record: { action: skip as never, events: [] },
   };
   expect(checkInvariants(pending, skip, fake).map((v) => v.invariant)).toContain('game-can-finish');
+});
+
+/** Plays `steps` from `initial`, each by the seat that owes the next command, and builds every feed. */
+function playFeeds(initial: GameState, steps: Array<[string, object]>) {
+  let state = initial;
+  const full: ActionRecord[] = [];
+  const feeds = new Map<number, SeatActionRecord[]>(
+    initial.players.map((player) => [player.seatIndex, []]),
+  );
+  for (const [kind, payload] of steps) {
+    const result = accepted(state, kind, payload);
+    full.push(result.record);
+    for (const [seat, feed] of feeds) {
+      const visible = actionVisibleTo(state, result.record, seat, feed.length);
+      if (visible) feed.push(visible);
+    }
+    state = result.state;
+  }
+  return { state, full, feeds };
+}
+
+test.each([3, 4] as const)(
+  'a bystander in a %i-seat game cannot tell whether a promise was made or with whom (§4.8)',
+  (seats) => {
+    const rest: Array<[string, object]> = [
+      ['skip', {}],
+      ['skip', {}],
+    ];
+    type Variant = { steps: Array<[string, object]>; parties: number[] };
+    const variants: Variant[] = [{ steps: rest, parties: [] }];
+    for (const target of [1, 2]) {
+      for (const direction of ['offer', 'ask'] as const) {
+        for (const choice of ['accept', 'reject'] as const) {
+          variants.push({
+            steps: [
+              ['offer_promise', { targetSeatIndex: target, direction }],
+              ['respond', { answer: choice }],
+              ...rest,
+            ],
+            parties: [0, target],
+          });
+        }
+      }
+    }
+    const played = variants.map((variant) => playFeeds(social({ seats }), variant.steps));
+    // The internal log keeps every record, promise included, with its real sequence numbers.
+    expect(played[1]!.full.map((record) => record.action.kind)).toEqual([
+      'offer_promise',
+      'respond',
+      'skip',
+      'skip',
+    ]);
+    expect(played[1]!.full.map((record) => record.action.actionSeq)).toEqual([1, 2, 3, 4]);
+    expect(played[1]!.full[1]!.action.actorId).toBe(played[1]!.state.players[1]!.actorId);
+    for (const [index, variant] of variants.entries()) {
+      for (let seat = 0; seat < seats; seat++) {
+        const feed = played[index]!.feeds.get(seat)!;
+        if (seat !== 0 && !variant.parties.includes(seat)) {
+          // A seat outside the pair has the feed of a game where nobody promised anything.
+          expect(feed).toEqual(played[0]!.feeds.get(seat));
+          expect(feed.map((record) => record.action.actionSeq)).toEqual([1, 2]);
+          expect(feed.map((record) => record.action.stateRevisionBefore)).toEqual([0, 1]);
+          expect(feed.map((record) => record.action.kind)).toEqual(['skip', 'skip']);
+          expect(JSON.stringify(feed)).not.toMatch(/promise|respond|accept|reject|targetSeatIndex/);
+          expect(observe(played[index]!.state, seat)).toEqual(observe(played[0]!.state, seat));
+        } else if (variant.parties.includes(seat) || seat === 0) {
+          if (index === 0) continue;
+          // Both parties see the question and the answer, numbered without a gap.
+          expect(feed.map((record) => record.action.kind)).toEqual([
+            'offer_promise',
+            'respond',
+            'skip',
+            'skip',
+          ]);
+          expect(feed.map((record) => record.action.actionSeq)).toEqual([1, 2, 3, 4]);
+        }
+      }
+    }
+  },
+);
+
+test.each([3, 4] as const)(
+  'in a %i-seat game a bystander acts on its own revision after a hidden promise (§4.8)',
+  (seats) => {
+    const plain = social({ seats });
+    const promised = answer(offer(social({ seats })).state, 'accept').state;
+    // Two records the bystander never saw: global revision runs ahead of its own.
+    expect(promised.stateRevision).toBe(plain.stateRevision + 2);
+    expect(observe(promised, 2).public.stateRevision).toBe(plain.stateRevision);
+    expect(observe(promised, 2)).toEqual(observe(plain, 2));
+    expect(publicRevision(promised)).toBe(plain.stateRevision);
+    // Its next command, numbered from what it observed, is accepted; the pair's old numbers are stale.
+    const stale = applyAction(promised, {
+      actorId: promised.players[2]!.actorId,
+      actionSeq: promised.stateRevision + 1,
+      stateRevisionBefore: promised.stateRevision,
+      kind: 'skip',
+      payload: {},
+    });
+    expect(stale).toMatchObject({ rejected: true });
+    // A spectator learns nothing either.
+    const spectated = observeSpectator(promised);
+    expect(spectated).toEqual(observeSpectator(plain));
+    expect(JSON.stringify(spectated)).not.toMatch(/promise|pendingResponse/);
+    const offered = offer(social({ seats }));
+    expect(actionVisibleToSpectator(plain, offered.record, 0)).toBeNull();
+    expect(
+      actionVisibleToSpectator(offered.state, answer(offered.state, 'reject').record, 0),
+    ).toBeNull();
+    expect(eventsVisibleToSpectator(plain, offered.events)).toEqual([]);
+  },
+);
+
+test('a seat outside the pair is unaffected while the question is pending, and after it (§4.8)', () => {
+  const plain = social({ seats: 4 });
+  const pending = offer(social({ seats: 4 }), 1, 'ask').state;
+  for (const seat of [2, 3]) {
+    expect(observe(pending, seat)).toEqual(observe(plain, seat));
+    expect(legalActions(pending, seat).enabled).toEqual([]);
+  }
+  const skipped = accepted(plain, 'skip');
+  const accepted3 = accepted(answer(pending, 'accept').state, 'skip');
+  // After the same next move, a bystander's view is identical with or without the promise.
+  expect(observe(accepted3.state, 3).public.stateRevision).toBe(
+    observe(skipped.state, 3).public.stateRevision,
+  );
+  expect(observe(accepted3.state, 3).public).toEqual(observe(skipped.state, 3).public);
 });

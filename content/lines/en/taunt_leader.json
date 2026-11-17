@@ -1,0 +1,74 @@
+[
+  {
+    "id": "taunt-leader-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "{target} has the most coins. That is where the money is."
+  },
+  {
+    "id": "taunt-leader-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "You lead, {target}. Those coins look good from here."
+  },
+  {
+    "id": "taunt-leader-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Out in front, {target}? Your coins are tempting."
+  },
+  {
+    "id": "taunt-leader-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "You are in front, {target}. I am not impressed."
+  },
+  {
+    "id": "taunt-leader-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{target} leads. Let us see how long that lasts."
+  },
+  {
+    "id": "taunt-leader-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "You lead, {target}. I want that spot."
+  },
+  {
+    "id": "taunt-leader-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "{target} is in front. I will watch that closely."
+  },
+  {
+    "id": "taunt-leader-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "You lead, {target}. I will keep an eye on you."
+  },
+  {
+    "id": "taunt-leader-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "The lead is yours for now, {target}."
+  },
+  {
+    "id": "taunt-leader-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "{target} is in front. That gives the rest of us a reason to act."
+  },
+  {
+    "id": "taunt-leader-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "You lead, {target}. A lead can be caught."
+  },
+  {
+    "id": "taunt-leader-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Out in front, {target}. Leaders attract attention."
+  }
+]
