@@ -31,6 +31,7 @@ import {
   offerPromise,
   promiseOfferChoices,
   promisesOf,
+  trustOf,
   responseChoices,
 } from '../promises.ts';
 import type {
@@ -90,6 +91,7 @@ export function observe(state: GameState, seatIndex: number): Observation {
       ...(state.config.socialWindow === true && {
         chats: chatsOf(state, seatIndex),
         promises: promisesOf(state, seatIndex),
+        trust: trustOf(state, seatIndex),
       }),
       // A question is its two parties' alone (§4.8): a third seat never learns one was asked.
       ...(state.pendingResponse &&

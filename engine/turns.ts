@@ -10,6 +10,7 @@ import { finishGame } from './game-end.ts';
 import { openShop } from './shop.ts';
 import { slowedSteps } from './slows.ts';
 import { positionOf } from './contract/position.ts';
+import { noteAttackChances, settleDuePromises } from './promises.ts';
 
 /** Internal transitions operate only on the executor's detached next snapshot. */
 function startTurn(next: GameState, seatIndex: number): EngineEvent[] {
@@ -121,6 +122,7 @@ export function recordTurnCommand(next: GameState, kind: string): EngineEvent[] 
       break;
     case 'social':
       next.phase = { kind: 'strategy' };
+      noteAttackChances(next);
       break;
     case 'strategy':
       next.phase = { kind: 'move' };
@@ -132,14 +134,21 @@ export function recordTurnCommand(next: GameState, kind: string): EngineEvent[] 
       const expired = expireStatuses(
         next.players.find((player) => player.seatIndex === next.activeSeatIndex)!,
       );
+      // §4.2 step 7: close expired effects, then settle the promises this turn's end makes due.
+      const settled = settleDuePromises(next);
       const round = next.finalTableRound;
       if (round && next.players.every((player) => player.ownTurnNo >= round.targetOwnTurnNo)) {
-        return [...expired, ...finishGame(next)];
+        return [...expired, ...settled, ...finishGame(next)];
       }
       const seats = [...next.config.seats].sort((a, b) => a.seatIndex - b.seatIndex);
       const current = seats.findIndex((seat) => seat.seatIndex === next.activeSeatIndex);
       const healed = startTurn(next, seats[(current + 1) % seats.length]!.seatIndex);
-      return [...expired, ...healed, { kind: 'phase_changed', from, to: next.phase.kind }];
+      return [
+        ...expired,
+        ...settled,
+        ...healed,
+        { kind: 'phase_changed', from, to: next.phase.kind },
+      ];
     }
     default:
       return [];

@@ -15,7 +15,7 @@ import type {
 } from './contract/schema.ts';
 
 // Hostile items cannot target the user and ignore board distance (§4.6).
-const HOSTILE = ['repel', 'sticky-web', 'pickpocket', 'battle-ticket'];
+export const HOSTILE = ['repel', 'sticky-web', 'pickpocket', 'battle-ticket'];
 
 /**
  * How much of an item's authored effect (Appendix A) this engine applies, so screens never claim

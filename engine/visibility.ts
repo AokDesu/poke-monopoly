@@ -49,7 +49,11 @@ function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): bo
   if (event.kind === 'promise_offered') {
     return event.initiatorSeatIndex === seatIndex || event.responderSeatIndex === seatIndex;
   }
-  if (event.kind === 'promise_accepted' || event.kind === 'promise_rejected') {
+  if (
+    event.kind === 'promise_accepted' ||
+    event.kind === 'promise_rejected' ||
+    event.kind === 'promise_closed'
+  ) {
     return event.promiserSeatIndex === seatIndex || event.recipientSeatIndex === seatIndex;
   }
   const observerId = before.players.find((player) => player.seatIndex === seatIndex)?.actorId;

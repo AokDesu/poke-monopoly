@@ -125,11 +125,32 @@ export type SimSummary = {
   social?: SocialSummary;
 } & MetricsSummary;
 
-export type SocialSummary = {
+/**
+ * What the human seat's promise offers came to (§4.8, §8). `breachOpportunity` is the share of promises closed by
+ * their own rule (not by game end) whose promiser had a public chance to attack: broken or kept with a chance,
+ * over those plus kept without one; `null` when none closed that way. A low value means promises are only
+ * background decoration.
+ */
+export type SocialCounts = {
   promiseOffers: number;
   promisesAccepted: number;
   promisesRejected: number;
+  promisesBroken: number;
+  promisesKeptWithChance: number;
+  promisesKeptWithoutChance: number;
+  promisesClosedByGameEnd: number;
 };
+export type SocialSummary = SocialCounts & { breachOpportunity: number | null };
+
+const noSocial = (): SocialCounts => ({
+  promiseOffers: 0,
+  promisesAccepted: 0,
+  promisesRejected: 0,
+  promisesBroken: 0,
+  promisesKeptWithChance: 0,
+  promisesKeptWithoutChance: 0,
+  promisesClosedByGameEnd: 0,
+});
 
 export type GameFailure = { seed: number; reasons: string[]; reproduce: string };
 
@@ -152,7 +173,7 @@ type GameResult = {
   illegalApplied: number;
   violations: number;
   policyCounts: Record<string, number>;
-  social: SocialSummary;
+  social: SocialCounts;
 };
 
 export async function runSim(
@@ -172,7 +193,7 @@ export async function runSim(
   let finalCoins = 0;
   const metrics = createMetrics();
   let policyCounts: Record<string, number> | undefined;
-  const social: SocialSummary = { promiseOffers: 0, promisesAccepted: 0, promisesRejected: 0 };
+  const social = noSocial();
   for (let g = 0; g < options.games; g++) {
     // Game g of seed s uses seed s + g, so `--games 1 --seed <s + g>` replays it alone.
     const seed = options.seed + g;
@@ -182,7 +203,7 @@ export async function runSim(
       policyCounts ??= {};
       policyCounts[key] = (policyCounts[key] ?? 0) + n;
     }
-    for (const key of Object.keys(social) as (keyof SocialSummary)[])
+    for (const key of Object.keys(social) as (keyof SocialCounts)[])
       social[key] += game.social[key];
     if (game.game) onGame(game.game);
     summary.illegalAppliedActionCount += game.illegalApplied;
@@ -218,7 +239,16 @@ export async function runSim(
     Object.entries(summary.winners.byClass).map(([classId, wins]) => [classId, round2(wins)]),
   );
   Object.assign(summary, metrics.summary());
-  if (options.social) summary.social = social;
+  if (options.social) {
+    const settled =
+      social.promisesBroken + social.promisesKeptWithChance + social.promisesKeptWithoutChance;
+    summary.social = {
+      ...social,
+      breachOpportunity: settled
+        ? (social.promisesBroken + social.promisesKeptWithChance) / settled
+        : null,
+    };
+  }
   if (policyCounts) {
     summary.policyCounts = policyCounts;
     if ('decisions' in policyCounts) summary.jev = decisionRates(policyCounts);
@@ -304,6 +334,27 @@ export function seatSetup(classIds: readonly string[], seats: number, seed: numb
   }));
 }
 
+/** Tallies the promise events of one accepted step into the game's `--social` counts (§4.8). */
+function countSocial(social: SocialCounts, events: readonly EngineEvent[], state: GameState): void {
+  for (const event of events) {
+    if (event.kind === 'promise_offered') social.promiseOffers++;
+    if (event.kind === 'promise_accepted') social.promisesAccepted++;
+    if (event.kind === 'promise_rejected') social.promisesRejected++;
+    if (event.kind !== 'promise_closed') continue;
+    // The pair's event hides whether there was a chance; the sim reads the engine's own record.
+    const outcome = state.promises?.find(
+      (promise) =>
+        promise.promiserSeatIndex === event.promiserSeatIndex &&
+        promise.recipientSeatIndex === event.recipientSeatIndex &&
+        promise.settled?.globalTurnNo === event.globalTurnNo,
+    )?.settled?.outcome;
+    if (outcome === 'broken') social.promisesBroken++;
+    if (outcome === 'kept_with_chance') social.promisesKeptWithChance++;
+    if (outcome === 'kept_without_chance') social.promisesKeptWithoutChance++;
+    if (outcome === 'closed_by_game_end') social.promisesClosedByGameEnd++;
+  }
+}
+
 async function playGame(
   engine: SimEngine,
   options: SimOptions,
@@ -323,7 +374,7 @@ async function playGame(
     illegalApplied: 0,
     violations: 0,
     policyCounts: {},
-    social: { promiseOffers: 0, promisesAccepted: 0, promisesRejected: 0 },
+    social: noSocial(),
   };
   // Every seat of one game gets the same `PolicyGame`, so a policy can share per-game state.
   const policyGame = { seed };
@@ -376,6 +427,8 @@ async function playGame(
         };
         result.violations += checkInvariants(state, record.action, applied).length;
         metrics.step(state, record.action, automatic.state, automatic.events);
+        // The End skip settles promises and is a lone choice, so the engine advances it itself.
+        countSocial(result.social, automatic.events, automatic.state);
         game.records.push(record);
         state = automatic.state;
         continue;
@@ -405,11 +458,7 @@ async function playGame(
       if ('rejected' in applied) continue;
       if (!enabled) result.illegalApplied++;
       metrics.step(state, action, applied.state, applied.events);
-      for (const event of applied.events) {
-        if (event.kind === 'promise_offered') result.social.promiseOffers++;
-        if (event.kind === 'promise_accepted') result.social.promisesAccepted++;
-        if (event.kind === 'promise_rejected') result.social.promisesRejected++;
-      }
+      countSocial(result.social, applied.events, applied.state);
       game.records.push(applied.record);
       state = applied.state;
     }

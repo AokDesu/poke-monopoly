@@ -870,6 +870,19 @@ describe('--social: seat 0 plays as a human with the random policy (#56 S03, §4
     expect(promisesAccepted).toBeGreaterThan(0);
     expect(promisesRejected).toBeGreaterThan(0);
     expect(promisesAccepted + promisesRejected).toBe(promiseOffers);
+    // Every accepted promise ends in exactly one of the four outcomes, or is still open when a run aborts.
+    const { social } = summary;
+    const settled =
+      social!.promisesBroken +
+      social!.promisesKeptWithChance +
+      social!.promisesKeptWithoutChance +
+      social!.promisesClosedByGameEnd;
+    expect(settled).toBe(promisesAccepted);
+    const byRule =
+      social!.promisesBroken + social!.promisesKeptWithChance + social!.promisesKeptWithoutChance;
+    expect(social!.breachOpportunity).toBe(
+      byRule ? (social!.promisesBroken + social!.promisesKeptWithChance) / byRule : null,
+    );
   }, 60_000);
 
   test('a run without it has no social summary, no human seat and no Social window', async () => {

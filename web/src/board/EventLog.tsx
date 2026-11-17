@@ -39,6 +39,7 @@ function eventMessage(
     case 'promise_offered':
     case 'promise_accepted':
     case 'promise_rejected':
+    case 'promise_closed':
       return [];
     case 'random_result':
       if (event.purpose.startsWith('line:')) return [];
