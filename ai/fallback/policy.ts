@@ -1,6 +1,7 @@
 import type { Personality } from '../../content/personality-schema.ts';
 import type { LegalAction, LegalActions, Observation } from '../../engine/index.ts';
 import type { Policy, PolicyChoice, PolicyFacts, PolicyRng } from '../../sim/policy.ts';
+import { chatScoreShift } from '../chat.ts';
 import type { FallbackReason } from '../jev/client.ts';
 
 /**
@@ -75,12 +76,26 @@ function wildAhead(observation: Observation): number {
 }
 
 function strategyScore(option: LegalAction, { observation, personality }: Context): number {
+  // Temporary #55 limitation (S06, S10): AI seats never declare PvP or activate an Ability in
+  // Strategy until Stream B integrates them.
+  if (option.kind === 'declare_pvp' || option.kind === 'activate_ability') return -1;
   if (option.kind !== 'use_item') return 0;
-  const { risk, aggression, liquidity } = personality.weights;
-  const { holdItem } = FALLBACK_TUNING;
   const { itemInstanceId, targetSeatIndex } = option.payload;
   const item = observation.own.items.find((entry) => entry.instanceId === itemInstanceId);
-  switch (item?.itemId) {
+  // Spec §5.3: a chat shifts this turn's target and item weights by one bounded bucket.
+  const chat = chatScoreShift(observation, { itemId: item?.itemId, targetSeatIndex });
+  return chat + baseStrategyScore(item?.itemId, targetSeatIndex, observation, personality);
+}
+
+function baseStrategyScore(
+  itemId: string | undefined,
+  targetSeatIndex: number | undefined,
+  observation: Observation,
+  personality: Personality,
+): number {
+  const { risk, aggression, liquidity } = personality.weights;
+  const { holdItem } = FALLBACK_TUNING;
+  switch (itemId) {
     case 'lucky-egg':
       return wildAhead(observation) - holdItem * (1 - risk);
     case 'pickpocket':

@@ -1,5 +1,7 @@
 import {
   GAME_PRESETS,
+  observe,
+  pendingDecision,
   type Action,
   type ActionRecord,
   type ApplyActionResult,
@@ -26,10 +28,17 @@ import {
   type PolicyFacts,
   type PolicyFactory,
   type PolicyRng,
+  RandomPolicy,
 } from './policy.ts';
 
 export type SeatSetup = { seatIndex: number; actorId: string; classId: string };
-export type GameSetup = { seed: number; seats: SeatSetup[]; lapTarget: number };
+export type GameSetup = {
+  seed: number;
+  seats: SeatSetup[];
+  lapTarget: number;
+  /** `--social`: seat 0 is a human and the Social window is open (§4.2, §4.8); AI seats unchanged. */
+  social?: boolean;
+};
 export type GameOutcome = { finished: false } | { finished: true; winnerSeats: number[] };
 
 /** The engine seam the runner drives; the real engine and test fakes both implement it. */
@@ -72,6 +81,11 @@ export type SimOptions = {
   lapTarget: number;
   policy: string;
   seedSet: SeedSet;
+  /**
+   * `--social`: seat 0 plays as a human with the random policy, so chat, promises and later Deals
+   * are exercised; the other seats keep `policy`. Absent leaves a run exactly as before.
+   */
+  social?: boolean;
   /** `--save <file>`: where each finished game is written as a save (spec §6.7). */
   save?: string;
 };
@@ -107,7 +121,15 @@ export type SimSummary = {
    * `illegalAppliedActionCount`.
    */
   jev?: DecisionRates;
+  /** `--social` only: what the human seat's offers came to (§4.8 Promise). */
+  social?: SocialSummary;
 } & MetricsSummary;
+
+export type SocialSummary = {
+  promiseOffers: number;
+  promisesAccepted: number;
+  promisesRejected: number;
+};
 
 export type GameFailure = { seed: number; reasons: string[]; reproduce: string };
 
@@ -130,6 +152,7 @@ type GameResult = {
   illegalApplied: number;
   violations: number;
   policyCounts: Record<string, number>;
+  social: SocialSummary;
 };
 
 export async function runSim(
@@ -149,6 +172,7 @@ export async function runSim(
   let finalCoins = 0;
   const metrics = createMetrics();
   let policyCounts: Record<string, number> | undefined;
+  const social: SocialSummary = { promiseOffers: 0, promisesAccepted: 0, promisesRejected: 0 };
   for (let g = 0; g < options.games; g++) {
     // Game g of seed s uses seed s + g, so `--games 1 --seed <s + g>` replays it alone.
     const seed = options.seed + g;
@@ -158,6 +182,8 @@ export async function runSim(
       policyCounts ??= {};
       policyCounts[key] = (policyCounts[key] ?? 0) + n;
     }
+    for (const key of Object.keys(social) as (keyof SocialSummary)[])
+      social[key] += game.social[key];
     if (game.game) onGame(game.game);
     summary.illegalAppliedActionCount += game.illegalApplied;
     summary.invariantFailures += game.violations;
@@ -192,6 +218,7 @@ export async function runSim(
     Object.entries(summary.winners.byClass).map(([classId, wins]) => [classId, round2(wins)]),
   );
   Object.assign(summary, metrics.summary());
+  if (options.social) summary.social = social;
   if (policyCounts) {
     summary.policyCounts = policyCounts;
     if ('decisions' in policyCounts) summary.jev = decisionRates(policyCounts);
@@ -256,6 +283,7 @@ export function reproduceCommand(options: SimOptions, seed: number): string {
     `--max-steps ${options.maxSteps}`,
     `--lap-target ${options.lapTarget}`,
     `--policy ${options.policy}`,
+    ...(options.social ? ['--social'] : []),
     ...(options.seedSet === 'eval' ? ['--seed-set eval'] : []),
   ].join(' ');
 }
@@ -295,6 +323,7 @@ async function playGame(
     illegalApplied: 0,
     violations: 0,
     policyCounts: {},
+    social: { promiseOffers: 0, promisesAccepted: 0, promisesRejected: 0 },
   };
   // Every seat of one game gets the same `PolicyGame`, so a policy can share per-game state.
   const policyGame = { seed };
@@ -302,11 +331,18 @@ async function playGame(
   try {
     for (const seat of seats) {
       deciders.push({
-        policy: createPolicy(policyGame),
+        // `--social`: seat 0 is the human, always played by the random policy (§4.8).
+        policy:
+          options.social && seat.seatIndex === 0 ? new RandomPolicy() : createPolicy(policyGame),
         rng: createPolicyRng(`policy:${seed}:${seat.seatIndex}`),
       });
     }
-    let state = engine.createGame({ seed, seats, lapTarget: options.lapTarget });
+    let state = engine.createGame({
+      seed,
+      seats,
+      lapTarget: options.lapTarget,
+      ...(options.social && { social: true }),
+    });
     const game: PlayedGame = {
       seed,
       initialState: state,
@@ -344,7 +380,8 @@ async function playGame(
         state = automatic.state;
         continue;
       }
-      const seatIndex = state.activeSeatIndex;
+      const seatIndex = pendingDecision(state)?.seatIndex;
+      if (seatIndex === undefined) throw new Error('No pending decision');
       const legal = engine.legalActions(state, seatIndex);
       if (legal.enabled.length === 0) {
         result.abortReason = `no enabled action for seat ${seatIndex}`;
@@ -368,6 +405,11 @@ async function playGame(
       if ('rejected' in applied) continue;
       if (!enabled) result.illegalApplied++;
       metrics.step(state, action, applied.state, applied.events);
+      for (const event of applied.events) {
+        if (event.kind === 'promise_offered') result.social.promiseOffers++;
+        if (event.kind === 'promise_accepted') result.social.promisesAccepted++;
+        if (event.kind === 'promise_rejected') result.social.promisesRejected++;
+      }
       game.records.push(applied.record);
       state = applied.state;
     }
@@ -408,11 +450,15 @@ export function resolveChoice(
   };
 }
 
+/** A command from `actorId`, numbered with the revision that seat observes (§4.8). */
 export function command(state: GameState, actorId: string, choice: LegalAction): Action {
+  const seatIndex = state.config.seats.find((seat) => seat.actorId === actorId)!.seatIndex;
+  // Records hidden from a seat (a chat or promise between others) leave no gap in its numbering.
+  const revision = observe(state, seatIndex).public.stateRevision;
   return {
     actorId,
-    actionSeq: state.stateRevision + 1,
-    stateRevisionBefore: state.stateRevision,
+    actionSeq: revision + 1,
+    stateRevisionBefore: revision,
     kind: choice.kind,
     payload: choice.payload,
   } as Action;

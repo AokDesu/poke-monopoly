@@ -613,7 +613,8 @@ describe('the real engine', () => {
     expect(summary).toMatchObject({ games: 6, seats: 3, aborted: 0 });
     expect(summary.averageTurns).toBeGreaterThan(0);
     expect(summary.winners.bySeat.reduce((sum, n) => sum + n, 0)).toBeCloseTo(6);
-  });
+    // Six invariant-checked full games take seconds; the default 5 s fails on a loaded machine.
+  }, 60_000);
 
   test('rotates only the core classes; stretch classes wait until after G2 (§1)', async () => {
     const stretch = loadContent()
@@ -686,7 +687,10 @@ describe('summary metrics from the real engine (§8, Appendix A)', () => {
       expect([0, 1, 2]).toContain(row.lap);
       expect(row.catches).toBeLessThanOrEqual(row.attempts);
       expect(row.attempts).toBeLessThanOrEqual(row.encounters);
-      expect(row.attemptsPerEncounter).toBeCloseTo(row.attempts / row.encounters, 2);
+      // Rounded to two places, so it is within half a hundredth of the exact share.
+      expect(
+        Math.abs(row.attemptsPerEncounter - row.attempts / row.encounters),
+      ).toBeLessThanOrEqual(0.005 + 1e-9);
       encountersByDcLap.set(`${row.dc}@${row.lap}`, row.encounters);
     }
     // Every DC and Lap with an encounter lists all three Balls, so a Ball never tried shows 0.
@@ -834,4 +838,67 @@ test('loadContent reads and validates the real content/*.json from disk', async 
   const content = loadContent();
   expect(content.species).toHaveLength(19);
   expect(content.contentVersion).toBe(CONTENT_VERSION);
+});
+
+describe('--social: seat 0 plays as a human with the random policy (#56 S03, §4.8)', () => {
+  test('parses the flag and leaves every other option as before', () => {
+    expect(parseSimArgs(['--social']).social).toBe(true);
+    expect(parseSimArgs([])).not.toHaveProperty('social');
+    expect(parseSimArgs(['--games', '3', '--seed', '7', '--social'])).toMatchObject({
+      games: 3,
+      seed: 7,
+      social: true,
+    });
+  });
+
+  test('30 games finish with invariants on, and exercise promises both ways', async () => {
+    const { summary, failures } = await runSim(
+      realEngine,
+      options({ games: 30, seed: 1, social: true }),
+      POLICIES,
+      checkInvariants,
+    );
+    expect(failures).toEqual([]);
+    expect(summary).toMatchObject({
+      games: 30,
+      aborted: 0,
+      invariantFailures: 0,
+      illegalAppliedActionCount: 0,
+    });
+    const { promiseOffers, promisesAccepted, promisesRejected } = summary.social!;
+    expect(promiseOffers).toBeGreaterThan(10);
+    expect(promisesAccepted).toBeGreaterThan(0);
+    expect(promisesRejected).toBeGreaterThan(0);
+    expect(promisesAccepted + promisesRejected).toBe(promiseOffers);
+  }, 60_000);
+
+  test('a run without it has no social summary, no human seat and no Social window', async () => {
+    const { summary } = await runSim(realEngine, options({ games: 3 }), POLICIES, checkInvariants);
+    expect(summary).not.toHaveProperty('social');
+    const state = realEngine.createGame({
+      seed: 1,
+      seats: seatSetup(realEngine.classIds, 2, 1),
+      lapTarget: 2,
+    });
+    expect(state.config.seats.map((seat) => seat.controller)).toEqual(['ai', 'ai']);
+    expect(state.config).not.toHaveProperty('socialWindow');
+    const human = realEngine.createGame({
+      seed: 1,
+      seats: seatSetup(realEngine.classIds, 2, 1),
+      lapTarget: 2,
+      social: true,
+    });
+    expect(human.config.seats.map((seat) => seat.controller)).toEqual(['human', 'ai']);
+    expect(human.config.socialWindow).toBe(true);
+  }, 60_000);
+
+  test('a failing game reproduces with the flag', async () => {
+    const { failures } = await runSim(
+      realEngine,
+      options({ games: 1, social: true, maxSteps: 20 }),
+      POLICIES,
+      checkInvariants,
+    );
+    expect(failures[0]!.reproduce).toContain('--social');
+  });
 });

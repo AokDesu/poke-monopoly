@@ -1,5 +1,6 @@
 import { choice } from '@typesafe-ai/sdk';
 import type { LegalAction, Observation } from '../../engine/index.ts';
+import { chatHints } from '../chat.ts';
 import { itemText } from './content.ts';
 import { actorName, personalState, withoutQuestion, type Decision } from './decision.ts';
 import { shortlistActions, type Personality } from './shortlist.ts';
@@ -8,7 +9,7 @@ export const STRATEGY_INSTRUCTIONS =
   'Pick the ONE action that best fits `you.personality` right now. Only the listed actions are ' +
   'allowed. Each option states its effect and what is unknown when you choose it.';
 
-export type StrategyState = ReturnType<typeof personalState<Record<never, never>>>;
+export type StrategyState = ReturnType<typeof personalState<{ chat_hint?: string[] }>>;
 
 const HOSTILE_ITEM_IDS = ['repel', 'pickpocket'];
 
@@ -59,12 +60,18 @@ export function buildStrategyQuestion(
   enabledActions: readonly LegalAction[],
   personality: Personality,
 ): Decision<StrategyState> {
-  const early = withoutQuestion(enabledActions);
+  // Temporary #55 capability boundary (S06, S10): Stream B owns PvP and Ability question
+  // integration. Keep the existing item/skip questions and recordings stable in the meantime.
+  const supportedActions = enabledActions.filter(
+    (action) => action.kind !== 'declare_pvp' && action.kind !== 'activate_ability',
+  );
+  const early = withoutQuestion(supportedActions);
   if (early) return early;
-  if (!enabledActions.some((action) => action.kind === 'skip')) {
+  if (!supportedActions.some((action) => action.kind === 'skip')) {
     throw new RangeError('Strategy actions must include skip');
   }
-  const shortlist = shortlistActions(enabledActions, personality, observation);
+  const hints = chatHints(observation);
+  const shortlist = shortlistActions(supportedActions, personality, observation);
   if (shortlist.length === 1) return { kind: 'autoApply', actionId: shortlist[0]!.id };
   const options: Record<string, string> = {};
   const criteria: Record<string, string> = {};
@@ -76,7 +83,9 @@ export function buildStrategyQuestion(
   }
   return {
     kind: 'ask',
-    state: personalState(observation, personality, {}),
+    state: personalState(observation, personality, {
+      ...(hints.length > 0 && { chat_hint: hints }),
+    }),
     questions: { strategy: choice(STRATEGY_INSTRUCTIONS, criteria) },
     options,
   };

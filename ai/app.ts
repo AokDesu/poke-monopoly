@@ -7,6 +7,7 @@ import {
   decisionResponseSchema,
   type DecisionResponse,
 } from '../engine/contract/decision.ts';
+import { speakRequestSchema } from '../engine/contract/speech.ts';
 import {
   fallbackAnswer,
   policyAnswer,
@@ -20,12 +21,17 @@ import type { JevClient } from './jev/client.ts';
 import { DecisionJournal } from './jev/decision-journal.ts';
 import { fileDecisionLog, type DecisionLog } from './jev/decision-log.ts';
 import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
+import { createHaikuClient } from './haiku/client.ts';
 import { speechStatus } from './haiku/status.ts';
 import { presentationHeaders } from './presentation.ts';
 import { decideShop, shopRequestSchema } from './shop.ts';
+import { sameOriginJson } from './speech/guard.ts';
+import { createSpeaker, InvalidSpeakRequest, type SpeakerOptions } from './speech/speak.ts';
 
 /** Spec §6 item 2: the endpoint validates payload size before it reads the body. */
 export const MAX_BODY_BYTES = 32 * 1024;
+/** The speech route's request limit; an observation and a few IDs are far smaller. */
+export const MAX_SPEAK_BODY_BYTES = 16 * 1024;
 
 export interface AppOptions {
   /** Defaults to the orchestrator-backed decider over `jevClient` and `usage`. */
@@ -39,6 +45,8 @@ export interface AppOptions {
    * (`POST /api/ai/outcome`); none by default (the server below logs to a file).
    */
   decisionLog?: DecisionLog;
+  /** The speech route's Haiku client (the real one by default), environment and deadline; fakes in tests. */
+  speech?: Partial<SpeakerOptions>;
 }
 
 /** Copies only IDs and telemetry, so nothing else a decider returns can reach the browser. */
@@ -55,6 +63,7 @@ export const createApp = ({
   usage = defaultUsageLedger,
   jevClient,
   decisionLog,
+  speech,
   decider = createOrchestratorDecider({
     usage,
     ...(jevClient && { client: jevClient }),
@@ -62,6 +71,11 @@ export const createApp = ({
 }: AppOptions = {}) => {
   const app = new Hono();
   const journal = new DecisionJournal(decisionLog);
+  const speaker = createSpeaker({
+    client: createHaikuClient({ usage, ...(speech?.env && { env: speech.env }) }),
+    usage,
+    ...speech,
+  });
 
   // Never a stack trace or an error message: either could carry request or key material.
   app.onError((_error, c) => c.json({ error: 'internal_error' }, 500));
@@ -94,6 +108,38 @@ export const createApp = ({
       }
       journal.applied(parsed.data, parsed.data);
       return c.body(null, 204);
+    },
+  );
+
+  // The first route that returns text, and the only paid one: it returns one screened line and
+  // nothing else, and every failure past a valid request is still a 200 (the game never waits).
+  app.post(
+    '/api/ai/speak',
+    sameOriginJson,
+    bodyLimit({
+      maxSize: MAX_SPEAK_BODY_BYTES,
+      onError: (c) => c.json({ error: 'payload_too_large' }, 400),
+    }),
+    async (c) => {
+      let body: unknown;
+      try {
+        body = await c.req.json();
+      } catch {
+        return c.json({ error: 'invalid_json' }, 400);
+      }
+      const parsed = speakRequestSchema.safeParse(body);
+      if (!parsed.success) {
+        const paths = parsed.error.issues.map((issue) => issue.path.join('.'));
+        return c.json({ error: 'invalid_request', paths }, 400);
+      }
+      try {
+        return c.json(await speaker.speak(parsed.data));
+      } catch (error) {
+        if (error instanceof InvalidSpeakRequest) {
+          return c.json({ error: 'invalid_request', paths: [error.path] }, 400);
+        }
+        throw error;
+      }
     },
   );
 

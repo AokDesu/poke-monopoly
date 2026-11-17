@@ -1,6 +1,15 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { useSyncExternalStore } from 'react';
+import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import { afterEach, beforeAll, expect, test, vi } from 'vitest';
-import { deserialize, replay, serialize, stateHash } from '../../../engine/index.ts';
+import {
+  createGame,
+  createGameLog,
+  deserialize,
+  pendingDecision,
+  replay,
+  serialize,
+  stateHash,
+} from '../../../engine/index.ts';
 import { engineContent } from '../game/content.ts';
 import {
   configForSetup,
@@ -11,7 +20,7 @@ import {
 import { t } from '../i18n/en.ts';
 import { BoardScreen } from './BoardScreen.tsx';
 import { turnMessages } from './turnMessages.ts';
-import { HUMAN_STEP_MS, STEP_MS } from './useTurnPlayback.ts';
+import { HUMAN_STEP_MS, STEP_MS, useTurnPlayback } from './useTurnPlayback.ts';
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () {
@@ -499,4 +508,73 @@ test('a selected sale line fills Pokémon and coins from the engine result, not 
   await store.playOpponent(new AbortController().signal);
   render(<BoardScreen store={store} />);
   expect(screen.getByText('Sold Porygon for 8 coins.')).toBeTruthy();
+});
+
+test('playback answers an AI defender’s Ability window during the human turn (§6.4)', async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal(
+    'fetch',
+    async () =>
+      new Response(JSON.stringify({ backupOnly: true, jevEnabled: false, reason: 'disabled' })),
+  );
+  const state = createGame(
+    configForSetup(
+      {
+        mode: 'quick',
+        human: { classId: 'researcher', starterSpeciesId: 'porygon' },
+        opponents: [
+          {
+            classId: 'main-character',
+            starterSpeciesId: 'squirtle',
+            personality: 'greedy',
+            difficulty: 'normal',
+          },
+        ],
+      },
+      'playback-defender',
+    ),
+    engineContent,
+  );
+  state.phase = { kind: 'strategy' };
+  state.globalTurnNo = 5;
+  state.turnBudgets = { tacticalAction: 1, catchAttempt: 1, pokemonAbility: 1 };
+  for (const player of state.players) player.ownTurnNo = 2;
+  state.players[0]!.team[0]!.abilityReady = false;
+  state.players[0]!.items = [
+    { instanceId: 'ticket', itemId: 'battle-ticket', name: 'Battle Ticket', visibility: 'secret' },
+  ];
+  const store = createGameStore();
+  store.restore({ state, log: createGameLog(state) }, [
+    { seatIndex: 1, personality: 'greedy', difficulty: 'normal' },
+  ]);
+  expect('accepted' in store.choose('use-item:ticket:seat-1')).toBe(true);
+  while (store.advance({ human: true }));
+  expect(store.getSession()!.state.phase).toMatchObject({
+    kind: 'pvp',
+    battle: { step: 'defender_window' },
+  });
+  expect(store.getSession()!.state.activeSeatIndex).toBe(0);
+  expect(pendingDecision(store.getSession()!.state)?.seatIndex).toBe(1);
+  const mounted = renderHook(() => {
+    const view = useSyncExternalStore(store.subscribe, store.getView);
+    return useTurnPlayback(store, view);
+  });
+  act(() => mounted.result.current.setSpeed('instant'));
+  for (let step = 0; step < 10; step++) {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+  }
+  expect(
+    store
+      .getSession()!
+      .log.actions.some(
+        (record) => record.action.actorId === 'ai-1' && record.action.kind === 'activate_ability',
+      ),
+  ).toBe(true);
+  expect(store.getSession()!.state.phase).not.toMatchObject({
+    kind: 'pvp',
+    battle: { step: 'defender_window' },
+  });
+  mounted.unmount();
 });

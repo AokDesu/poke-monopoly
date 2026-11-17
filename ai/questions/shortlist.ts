@@ -1,3 +1,4 @@
+import { chatScoreShift } from '../chat.ts';
 import type { LegalAction, Observation } from '../../engine/index.ts';
 
 export type PersonalityWeight = 'risk' | 'aggression' | 'liquidity' | 'loyalty';
@@ -61,7 +62,14 @@ export function shortlistActions(
     observation.public.players.find((player) => player.seatIndex === seat)?.coins ?? 0;
   const candidates = actions.map((action, index) => {
     const kind = actionKind(action, observation);
-    return { action, index, kind, score: affinity(kind, personality) };
+    const item = observation.own.items.find(
+      (entry) => action.kind === 'use_item' && entry.instanceId === action.payload.itemInstanceId,
+    );
+    const chat = chatScoreShift(observation, {
+      itemId: item?.itemId,
+      targetSeatIndex: targetOf(action),
+    });
+    return { action, index, kind, score: affinity(kind, personality), chat };
   });
   const skip = candidates.filter(({ action }) => action.kind === 'skip');
   // Best first: liked kinds, then the richer target (the leader), then the engine's order.
@@ -69,7 +77,7 @@ export function shortlistActions(
     .filter(({ action }) => action.kind !== 'skip')
     .sort(
       (a, b) =>
-        b.score - a.score ||
+        b.score + b.chat - (a.score + a.chat) ||
         coins(targetOf(b.action)) - coins(targetOf(a.action)) ||
         a.index - b.index,
     );

@@ -9,19 +9,25 @@ export interface DecisionTally {
 }
 
 /**
- * Counts each seat's own decisions in the feed the viewer may see. A step the engine applied
- * (a die roll, the only legal action) is not a decision; every other accepted action by a seat is.
+ * Counts each seat's own decisions in the feed the viewer may see, by the actor that chose. A step
+ * the engine applied (a die roll, the only legal action) is not a decision; every other accepted
+ * action by a seat is.
  * Only the counts of records are read, never their contents.
  */
-export function decisionTally(feed: readonly SeatFeedEntry[]): ReadonlyMap<number, DecisionTally> {
+export function decisionTally(
+  feed: readonly SeatFeedEntry[],
+  seats: readonly { actorId: string; seatIndex: number }[],
+): ReadonlyMap<number, DecisionTally> {
   const tally = new Map<number, { jev: number; backup: number; unrecorded: number }>();
-  for (const { before, record, decision } of feed) {
-    if (record.action.actorId === 'engine' || record.auto) continue;
-    const seat = tally.get(before.activeSeatIndex) ?? { jev: 0, backup: 0, unrecorded: 0 };
+  for (const { record, decision } of feed) {
+    // The seat that chose, not the seat whose turn it was: a defender or reward chooser may differ.
+    const seatIndex = seats.find((seat) => seat.actorId === record.action.actorId)?.seatIndex;
+    if (seatIndex === undefined || record.auto) continue;
+    const seat = tally.get(seatIndex) ?? { jev: 0, backup: 0, unrecorded: 0 };
     if (decision?.source === 'jev') seat.jev++;
     else if (decision?.source === 'fallback') seat.backup++;
     else seat.unrecorded++;
-    tally.set(before.activeSeatIndex, seat);
+    tally.set(seatIndex, seat);
   }
   return tally;
 }

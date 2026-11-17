@@ -65,7 +65,7 @@ export function ResultsScreen({
   }
   // No human seat: nobody is "you", and the exported log (hidden hands and seed) never goes to a watcher.
   const watching = spectator !== null && results.humanSeat === undefined;
-  const tally = watching ? decisionTally(spectator.feed) : undefined;
+  const tally = watching ? decisionTally(spectator.feed, results.standings) : undefined;
   const earlier = [...(tally?.values() ?? [])].reduce((sum, seat) => sum + seat.unrecorded, 0);
   const names = results.winners.map((actorId) => {
     const row = results.standings.find((entry) => entry.actorId === actorId);

@@ -15,6 +15,7 @@ import {
   gameConfigSchema,
   legalActions,
   observe,
+  pendingDecision,
   replay,
   serialize,
   verifyReplay,
@@ -511,12 +512,14 @@ test('a chat changes nothing beyond its history and the social budget (§4.8 har
         // Coins, teams, items, Balls, RNG, phase and every other field: identical.
         expect(strip(after)).toEqual(strip(before));
         expect(after.rng).toEqual(before.rng);
-        // The legal set shrinks only by the social budget: chat choices go, nothing else moves.
+        // The legal set shrinks only by the social budget: the social choices go, nothing else moves.
         for (const seat of before.players.map((player) => player.seatIndex)) {
           const without = (state: GameState) => {
             const set = legalActions(state, seat);
             return {
-              enabled: set.enabled.filter((choice) => choice.kind !== 'chat'),
+              enabled: set.enabled.filter(
+                (choice) => choice.kind !== 'chat' && choice.kind !== 'offer_promise',
+              ),
               disabled: set.disabled,
             };
           };
@@ -547,7 +550,9 @@ function playRandomly(seed: number, picks: number[]): { state: GameState; chats:
   let wasSocial = false;
   for (let step = 0; step < 20_000 && state.phase.kind !== 'finished'; step++) {
     const auto = advanceAutomatically(state);
-    const choices = legalActions(state, state.activeSeatIndex).enabled;
+    // During PvP the defender or reward winner can decide on the challenger's turn (§6.4).
+    const decider = pendingDecision(state)?.seatIndex ?? state.activeSeatIndex;
+    const choices = legalActions(state, decider).enabled;
     const inSocial = state.phase.kind === 'social';
     const human = state.config.seats[state.activeSeatIndex]!.controller === 'human';
     // Entering a human's Social window always reopens the one interaction (reset at Start).
@@ -566,10 +571,11 @@ function playRandomly(seed: number, picks: number[]): { state: GameState; chats:
     }
     const choice = choices[picks[step % picks.length]! % choices.length]!;
     const before = state;
+    const observed = observe(state, decider).public.stateRevision;
     const action = {
-      actorId: state.players[state.activeSeatIndex]!.actorId,
-      actionSeq: state.stateRevision + 1,
-      stateRevisionBefore: state.stateRevision,
+      actorId: state.players[decider]!.actorId,
+      actionSeq: observed + 1,
+      stateRevisionBefore: observed,
       kind: choice.kind,
       payload: choice.payload,
     };

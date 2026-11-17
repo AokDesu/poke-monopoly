@@ -1,4 +1,4 @@
-import type { EngineEvent } from '../../../engine/index.ts';
+import type { SeatEvent } from '../../../engine/index.ts';
 import type { SeatFeedEntry } from '../game/store.ts';
 import { t, type MessageKey } from '../i18n/en.ts';
 import { itemName } from '../i18n/names.ts';
@@ -7,7 +7,7 @@ import type { ViewedObservation } from './labels.ts';
 import { turnMessages } from './turnMessages.ts';
 
 function eventMessage(
-  event: EngineEvent,
+  event: SeatEvent,
   observation: ViewedObservation,
 ): { key: MessageKey; text: string }[] {
   const seat = (index: number) => seatLabel(index, ownSeatOf(observation));
@@ -17,6 +17,19 @@ function eventMessage(
   switch (event.kind) {
     // Spec §5.7: persisted dialogue annotations are not gameplay announcements.
     // Status/evolution/reward records remain in the feed; dedicated UI is a later slice.
+    case 'attack_attempt':
+    case 'shield_armed':
+    case 'protection_applied':
+    case 'ability_activated':
+    case 'abilities_reset':
+    case 'player_displaced':
+    case 'ball_gained':
+    case 'gym_confirmed':
+    case 'gym_resolved':
+    case 'badge_awarded':
+    case 'pvp_response':
+    case 'pvp_confirmed':
+    case 'pvp_resolved':
     case 'status_changed':
     case 'pokemon_evolved':
     case 'battle_reward_resolved':
@@ -24,6 +37,9 @@ function eventMessage(
       return [];
     // Chat has its own screen (#57); the flag keeping the Social window closed is off until then.
     case 'chat_sent':
+    case 'promise_offered':
+    case 'promise_accepted':
+    case 'promise_rejected':
       return [];
     case 'random_result':
       if (event.purpose.startsWith('line:')) return [];
@@ -80,7 +96,7 @@ export function EventLog({
   observation,
   feed,
 }: {
-  events: readonly EngineEvent[];
+  events: readonly SeatEvent[];
   observation: ViewedObservation;
   feed?: readonly SeatFeedEntry[];
 }) {

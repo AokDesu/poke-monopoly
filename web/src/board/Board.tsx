@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from 'react';
-import type { EngineEvent } from '../../../engine/index.ts';
+import type { SeatEvent } from '../../../engine/index.ts';
 import { MEADOW_STARTERS } from '../game/models.ts';
 import type { OpponentSettings, SeatFeedEntry } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
@@ -19,7 +19,7 @@ export interface BoardProps {
   /** A seat's observation, or a watcher's public-only view (no `own`: nothing is "you"). */
   observation: ViewedObservation;
   /** Already filtered for this seat by eventsVisibleTo, never a raw engine log. */
-  events?: readonly EngineEvent[];
+  events?: readonly SeatEvent[];
   feed?: readonly SeatFeedEntry[];
   /** Each AI's setup, shown on its panel; the watcher's boards pass it. */
   opponents?: readonly OpponentSettings[];

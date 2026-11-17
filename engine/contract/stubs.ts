@@ -1,3 +1,15 @@
+import { pendingGymChoices, recordGymCommand, recordGymRoll } from '../gym.ts';
+import { pendingDecision } from '../decisions.ts';
+import { abilityChoices, activateAbility, recordChanceRoll } from '../abilities.ts';
+import { closeGymWindow } from '../gym.ts';
+import { actorRevision, attackVisibleTo, seatAttackAttempt } from '../visibility.ts';
+import {
+  closePvpWindow,
+  pvpChoices,
+  pendingPvpChoices,
+  recordPvpCommand,
+  recordPvpRoll,
+} from '../pvp.ts';
 import { positionOf } from './position.ts';
 import { actionSchema } from './schema.ts';
 import { d6, shuffle, RNG_VERSION } from '../rng.ts';
@@ -14,8 +26,15 @@ import { itemChoices, useItem } from '../items.ts';
 import { ENGINE_VERSION } from '../versions.ts';
 import { recordSale, validSale } from '../selling.ts';
 import { chatChoices, chatsOf, recordChat, validChat } from '../social.ts';
-import { actorRevision } from '../visibility.ts';
+import {
+  answerPromise,
+  offerPromise,
+  promiseOfferChoices,
+  promisesOf,
+  responseChoices,
+} from '../promises.ts';
 import type {
+  Action,
   GameState,
   Observation,
   LegalActions,
@@ -43,12 +62,20 @@ export function observe(state: GameState, seatIndex: number): Observation {
         knownItems: player.items
           .filter((item) => item.visibility === 'public')
           .map((item) => ({ ...item, visibility: 'public' as const })),
+        ...(player.armedShield?.visibility === 'public' ? { armedShield: player.armedShield } : {}),
         badges: player.badges,
         abilityReady: player.abilityUsedGlobalTurnNo !== state.globalTurnNo,
       })),
       globalTurnNo: state.globalTurnNo,
       stateRevision: actorRevision(state, ownPlayer.actorId),
       activeSeatIndex: state.activeSeatIndex,
+      ...(state.attackHistory
+        ? {
+            attackHistory: state.attackHistory
+              .filter((attempt) => attackVisibleTo(attempt, ownPlayer.actorId))
+              .map(seatAttackAttempt),
+          }
+        : {}),
       phase: state.phase,
       lapTarget: state.config.lapTarget,
       finalTableRound: state.finalTableRound,
@@ -56,10 +83,20 @@ export function observe(state: GameState, seatIndex: number): Observation {
     own: {
       seatIndex,
       items: ownPlayer.items,
+      ...(ownPlayer.armedShield ? { armedShield: ownPlayer.armedShield } : {}),
       balls: ownPlayer.balls,
       privateResults: ownPlayer.privateResults,
       // Only conversations this seat is part of; the key exists only when the Social window is on.
-      ...(state.config.socialWindow === true && { chats: chatsOf(state, seatIndex) }),
+      ...(state.config.socialWindow === true && {
+        chats: chatsOf(state, seatIndex),
+        promises: promisesOf(state, seatIndex),
+      }),
+      // A question is its two parties' alone (§4.8): a third seat never learns one was asked.
+      ...(state.pendingResponse &&
+        (state.pendingResponse.initiatorSeatIndex === seatIndex ||
+          state.pendingResponse.responderSeatIndex === seatIndex) && {
+          pendingResponse: state.pendingResponse,
+        }),
     },
   });
 }
@@ -69,7 +106,8 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   const player = state.players.find((candidate) => candidate.seatIndex === seatIndex);
   if (!player) throw new RangeError('Unknown seat index');
   const result: LegalActions = { enabled: [], disabled: [] };
-  if (seatIndex !== state.activeSeatIndex) {
+  const decision = pendingDecision(state);
+  if (seatIndex !== (decision?.seatIndex ?? state.activeSeatIndex)) {
     result.disabled.push({
       id: 'skip',
       kind: 'skip',
@@ -79,8 +117,23 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
     });
     return result;
   }
+  if (!decision) return result;
+  // A pending promise question: its responder chooses between accepting and rejecting (§4.8).
+  if (state.pendingResponse) {
+    responseChoices(state.pendingResponse, result);
+    return result;
+  }
   if (state.phase.kind === 'first_player_roll' && !state.phase.awaitingResult) {
     result.enabled.push({ id: 'roll', kind: 'roll', payload: {} });
+  }
+  if (state.config.engineVersion === ENGINE_VERSION) {
+    result.enabled.push(...abilityChoices(state, seatIndex));
+  }
+  if (state.config.engineVersion === ENGINE_VERSION && state.phase.kind === 'pvp') {
+    pendingPvpChoices(state, result);
+  }
+  if (state.config.engineVersion === ENGINE_VERSION && state.phase.kind === 'gym') {
+    pendingGymChoices(state, result);
   }
   if (state.phase.kind === 'strategy') {
     if (state.config.engineVersion === ENGINE_VERSION) itemChoices(state, seatIndex, result);
@@ -93,9 +146,21 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
       });
     }
     result.enabled.push({ id: 'skip', kind: 'skip', payload: {} });
+    if (state.config.engineVersion === ENGINE_VERSION) pvpChoices(state, result);
   }
   if (state.phase.kind === 'move' && !state.phase.awaitingResult) {
-    result.enabled.push({ id: 'roll', kind: 'roll', payload: {} });
+    result.enabled.push(
+      state.phase.rolled === undefined
+        ? { id: 'roll', kind: 'roll', payload: {} }
+        : { id: 'keep-die', kind: 'skip', payload: {} },
+    );
+  }
+  if (
+    state.phase.kind === 'encounter' &&
+    state.phase.face !== undefined &&
+    !state.phase.rerolling
+  ) {
+    result.enabled.push({ id: 'keep-die', kind: 'skip', payload: {} });
   }
   if (
     state.config.engineVersion === ENGINE_VERSION &&
@@ -103,7 +168,10 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   ) {
     result.enabled.push({ id: 'skip', kind: 'skip', payload: {} });
   }
-  if (state.phase.kind === 'social') chatChoices(state, seatIndex, result);
+  if (state.phase.kind === 'social') {
+    chatChoices(state, seatIndex, result);
+    promiseOfferChoices(state, seatIndex, result);
+  }
   if (state.phase.kind === 'encounter' && !state.phase.catchRoll) {
     for (const ballType of ['poke', 'great', 'ultra'] as const) {
       const action: LegalAction = { id: `catch:${ballType}`, kind: 'catch', payload: { ballType } };
@@ -169,6 +237,15 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   return result;
 }
 
+/** An activation inside a battle window closes that window (D4 steps 5–6, D5 step 2). */
+function recordActivation(next: GameState, action: Action) {
+  const inWindow =
+    (next.phase.kind === 'pvp' && next.phase.battle.step.endsWith('_window')) ||
+    (next.phase.kind === 'gym' && next.phase.battle.step === 'window');
+  const events = activateAbility(next, action);
+  return inWindow ? [...events, ...closePvpWindow(next), ...closeGymWindow(next)] : events;
+}
+
 /** Immutable command executor; implemented gameplay scope is documented in docs/engine-contract.md. */
 export function applyAction(state: GameState, input: unknown): ApplyActionResult {
   const parsed = actionSchema.safeParse(input);
@@ -191,10 +268,16 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       return { rejected: true, reason: 'illegal_action', state };
     }
     const pendingPurpose = pendingRollPurpose(state);
+    if ((state.phase.kind === 'pvp' || state.phase.kind === 'gym') && !pendingPurpose) {
+      return { rejected: true, reason: 'illegal_action', state };
+    }
     if (
       (action.payload.purpose.startsWith('first-player:') ||
         action.payload.purpose.startsWith('move:') ||
-        action.payload.purpose.startsWith('catch:')) &&
+        action.payload.purpose.startsWith('catch:') ||
+        action.payload.purpose.startsWith('pvp:') ||
+        action.payload.purpose.startsWith('gym:') ||
+        action.payload.purpose.startsWith('ability:')) &&
       action.payload.purpose !== pendingPurpose
     ) {
       return { rejected: true, reason: 'illegal_action', state };
@@ -217,6 +300,9 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       ...recordFirstPlayerRoll(next, draw.value),
       ...recordMoveRoll(next, draw.value),
       ...recordCatchRoll(next, draw.value),
+      ...recordPvpRoll(next, draw.value),
+      ...recordGymRoll(next, draw.value),
+      ...recordChanceRoll(next, draw.value),
     ];
     return {
       accepted: true,
@@ -224,6 +310,9 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       events,
       record: { action, events: structuredClone(events) },
     };
+  }
+  if ((state.phase.kind === 'pvp' || state.phase.kind === 'gym') && action.actorId === 'engine') {
+    return { rejected: true, reason: 'illegal_action', state };
   }
   if (action.actorId === 'engine' && action.kind === 'shuffle') {
     if (action.payload.deckId !== 'events' || state.config.rngVersion !== RNG_VERSION) {
@@ -254,8 +343,16 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
     next.eventDeck.discardPile.push(action.payload.eventId);
     return { accepted: true, state: next, events: [], record: { action, events: [] } };
   }
-  const actor = state.config.seats.find((seat) => seat.seatIndex === state.activeSeatIndex);
-  if (!actor || action.actorId !== actor.actorId) {
+  const actor = pendingDecision(state);
+  if (!actor) {
+    const active = state.config.seats.find((seat) => seat.seatIndex === state.activeSeatIndex);
+    return {
+      rejected: true,
+      reason: action.actorId === active?.actorId ? 'illegal_action' : 'wrong_actor',
+      state,
+    };
+  }
+  if (action.actorId !== actor.actorId) {
     return { rejected: true, reason: 'wrong_actor', state };
   }
   // Batch selection is validated as a whole rather than enumerating a team's power set.
@@ -270,10 +367,10 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
       : undefined;
   if (
     !(action.kind === 'chat'
-      ? validChat(state, state.activeSeatIndex, action.payload)
+      ? validChat(state, actor.seatIndex, action.payload)
       : saleIds !== undefined
         ? validSale(state, saleIds)
-        : legalActions(state, state.activeSeatIndex).enabled.some(
+        : legalActions(state, actor.seatIndex).enabled.some(
             (choice) =>
               choice.kind === action.kind &&
               JSON.stringify(choice.payload) === JSON.stringify(action.payload),
@@ -289,17 +386,27 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
   const events =
     action.kind === 'chat'
       ? recordChat(next, action.payload)
-      : saleIds !== undefined
-        ? recordSale(next, saleIds)
-        : next.config.engineVersion !== ENGINE_VERSION
-          ? recordTurnCommand(next, action.kind)
-          : next.phase.kind === 'encounter'
-            ? confirmCatch(next, action)
-            : next.phase.kind === 'shop'
-              ? confirmShop(next, action)
-              : action.kind === 'use_item'
-                ? useItem(next, action)
-                : recordTurnCommand(next, action.kind);
+      : action.kind === 'offer_promise'
+        ? offerPromise(next, action.payload)
+        : action.kind === 'respond'
+          ? answerPromise(next, action.payload.answer)
+          : saleIds !== undefined
+            ? recordSale(next, saleIds)
+            : next.config.engineVersion !== ENGINE_VERSION
+              ? recordTurnCommand(next, action.kind)
+              : action.kind === 'activate_ability'
+                ? recordActivation(next, action)
+                : next.phase.kind === 'gym'
+                  ? recordGymCommand(next, action)
+                  : action.kind === 'declare_pvp' || next.phase.kind === 'pvp'
+                    ? recordPvpCommand(next, action)
+                    : next.phase.kind === 'encounter'
+                      ? confirmCatch(next, action)
+                      : next.phase.kind === 'shop'
+                        ? confirmShop(next, action)
+                        : action.kind === 'use_item'
+                          ? useItem(next, action)
+                          : recordTurnCommand(next, action.kind);
   return {
     accepted: true,
     state: next,

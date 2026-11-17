@@ -94,11 +94,22 @@ test('results name the engine winner, each seat’s setup and who decided its mo
     expect(row, `seat ${seat.seatIndex} setup`).toBeTruthy();
   }
 
-  // Every decision is Jev's here, and the counts are the log's own.
+  // Every decision the log holds is counted once, to Jev or to the backup bot. Points the
+  // decision service has no question for yet (Gym, Ability) are taken by the browser's own
+  // fallback, which the store labels as such.
   const chosen = chosenBy(store);
+  const unsupported = new Map<number, number>();
+  for (const { record, decision } of store.getSpectatorView()!.feed) {
+    if (decision?.fallbackReason !== 'unsupported_decision_point') continue;
+    const seat = store
+      .getSession()!
+      .state.config.seats.find((entry) => entry.actorId === record.action.actorId)!.seatIndex;
+    unsupported.set(seat, (unsupported.get(seat) ?? 0) + 1);
+  }
   for (const seat of [0, 1, 2]) {
-    expect(cell(seat, 1), `seat ${seat} Jev`).toBe(String(chosen.get(seat) ?? 0));
-    expect(cell(seat, 2), `seat ${seat} backup`).toBe('0');
+    const backup = unsupported.get(seat) ?? 0;
+    expect(cell(seat, 2), `seat ${seat} backup`).toBe(String(backup));
+    expect(cell(seat, 1), `seat ${seat} Jev`).toBe(String((chosen.get(seat) ?? 0) - backup));
   }
   expect(document.body.textContent).not.toMatch(/\bYou\b|\bYour\b/);
   expect(screen.queryByRole('button', { name: t('results.export') })).toBeNull();

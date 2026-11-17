@@ -1,5 +1,5 @@
 import { effectiveForm } from '../../engine/index.ts';
-import type { Content, EngineEvent, Observation } from '../../engine/index.ts';
+import type { Content, SeatEvent, Observation } from '../../engine/index.ts';
 import type { Personality } from '../../content/personality-schema.ts';
 import type { Voice } from '../../content/voice-schema.ts';
 import type { Situation } from '../lines.ts';
@@ -38,7 +38,7 @@ export type SpeechBriefInput = {
   /** The speaking seat's own observation. */
   observation: Observation;
   /** Events from that seat's own feed (`eventsVisibleTo`), oldest first. */
-  events: readonly EngineEvent[];
+  events: readonly SeatEvent[];
   situation: Situation;
   /** The addressed seat; omit to speak to the table. */
   addressedSeat?: number;
@@ -66,7 +66,7 @@ function lapStage(observation: Observation): LapStage {
 
 /** Only events that are public with their amounts left out; anything else is not told. */
 function describeEvents(
-  events: readonly EngineEvent[],
+  events: readonly SeatEvent[],
   observation: Observation,
   content: Content,
 ): string[] {
