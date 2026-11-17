@@ -1,7 +1,13 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
+import { seatLabel } from '../board/labels.ts';
 import {
+  classConflicts,
+  classHolder,
   DIFFICULTIES,
+  MAX_RIVALS,
+  maxRivals,
   PERSONALITIES,
+  withRivalCount,
   type ClassOption,
   type OpponentChoice,
   type SeatChoice,
@@ -20,38 +26,63 @@ import { StarterPicker } from './StarterPicker.tsx';
 interface OpponentScreenProps {
   classes: readonly ClassOption[];
   human: SeatChoice;
-  /** Undefined only when no playable class is left for the opponent. */
-  opponent?: OpponentChoice;
-  onChange: (opponent: OpponentChoice) => void;
+  /** The rivals set up so far; empty only when no open class is left for one. */
+  rivals: readonly OpponentChoice[];
+  onChange: (rivals: readonly OpponentChoice[]) => void;
   onNext: () => void;
   onBack: () => void;
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  small = false,
+  children,
+}: {
+  title: string;
+  small?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <fieldset className="mt-10 first:mt-0">
-      <legend className="font-display text-2xl font-semibold">{title}</legend>
+      <legend className={`font-display font-semibold ${small ? 'text-xl' : 'text-2xl'}`}>
+        {title}
+      </legend>
       <div className="mt-4">{children}</div>
     </fieldset>
   );
 }
 
 /**
- * One AI opponent this cycle (issue #36): its class, personality and difficulty (spec §1, §3).
- * Classes are unique in a game, so the human's class is greyed with the reason; class and
- * personality are independent.
+ * The AI rivals (spec §1, §3): how many (one to three), then each rival's class, Starter,
+ * personality and difficulty, one rival at a time. Rival n is seat n and a choice changes only
+ * that rival. Classes are unique in a game, so a class another player has is greyed with the
+ * reason; one that repeats after Back changed the human's class is flagged and must be changed.
  */
 export function OpponentScreen({
   classes,
   human,
-  opponent,
+  rivals,
   onChange,
   onNext,
   onBack,
 }: OpponentScreenProps) {
   const reasonId = useId();
+  // A rival that repeats a class after Back is the one to open on.
+  const [editing, setEditing] = useState(() => classConflicts(human, rivals)[0] ?? 0);
   const playable = classes.filter((option) => option.playable);
-  const opponentClass = playable.find((option) => option.id === opponent?.classId);
+  const most = maxRivals(classes);
+  const at = Math.min(editing, rivals.length - 1);
+  const rival = rivals[at];
+  const rivalClass = playable.find((option) => option.id === rival?.classId);
+  const conflicts = classConflicts(human, rivals);
+  const blocked =
+    rivals.length === 0
+      ? t('opponents.noFreeClass')
+      : conflicts[0] !== undefined
+        ? t('opponents.fixClass', { rival: seatLabel(conflicts[0] + 1, 0) })
+        : undefined;
+  const update = (patch: Partial<OpponentChoice>) =>
+    onChange(rivals.map((entry, index) => (index === at ? { ...entry, ...patch } : entry)));
 
   return (
     <Screen
@@ -66,95 +97,176 @@ export function OpponentScreen({
           <Button
             variant="primary"
             className="ms-auto"
-            disabled={!opponent}
-            aria-describedby={opponent ? undefined : reasonId}
+            disabled={blocked !== undefined}
+            aria-describedby={blocked ? reasonId : undefined}
             onClick={onNext}
           >
             {t('opponents.next')}
           </Button>
-          {!opponent && (
+          {blocked && (
             <span className="basis-full text-end">
-              <DisabledReason id={reasonId}>{t('opponents.noFreeClass')}</DisabledReason>
+              <DisabledReason id={reasonId}>{blocked}</DisabledReason>
             </span>
           )}
         </>
       }
     >
-      <Section title={t('opponents.class')}>
-        <ul className="grid gap-6 lg:grid-cols-2">
-          {playable.map((option) => (
-            <li key={option.id}>
+      <Section title={t('opponents.count')}>
+        <ul className="grid gap-4 sm:grid-cols-3">
+          {Array.from({ length: MAX_RIVALS }, (_, index) => index + 1).map((count) => (
+            <li key={count}>
               <ChoiceRadio
-                name="opponent-class"
-                value={option.id}
-                checked={opponent?.classId === option.id}
-                art={
-                  <SpeciesArt
-                    speciesIds={option.starterSpeciesIds}
-                    spin={opponent?.classId === option.id}
-                  />
+                name="rival-count"
+                value={String(count)}
+                checked={rivals.length === count}
+                title={
+                  count === 1 ? t('opponents.countOne') : t('opponents.countMany', { n: count })
                 }
-                title={className(option.id)}
-                description={classPassive(option.id)}
-                disabledReason={option.id === human.classId ? t('opponents.classTaken') : undefined}
-                onSelect={() =>
-                  opponent &&
-                  onChange({
-                    ...opponent,
-                    classId: option.id,
-                    starterSpeciesId: option.starterSpeciesIds[0]!,
-                  })
+                description={t('opponents.players', { n: count + 1 })}
+                disabledReason={
+                  count > most
+                    ? t('opponents.countClosed', { open: playable.length, max: most })
+                    : undefined
                 }
-              />
-            </li>
-          ))}
-        </ul>
-        {opponent && opponentClass && opponentClass.starterSpeciesIds.length > 1 && (
-          <StarterPicker
-            name="opponent-starter"
-            legend={t('opponents.starter')}
-            speciesIds={opponentClass.starterSpeciesIds}
-            chosen={opponent.starterSpeciesId}
-            onChoose={(starterSpeciesId) => onChange({ ...opponent, starterSpeciesId })}
-          />
-        )}
-        {opponent && opponentClass && <StarterFacts speciesId={opponent.starterSpeciesId} rival />}
-      </Section>
-
-      <Section title={t('opponents.personality')}>
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {PERSONALITIES.map((entry) => (
-            <li key={entry.id}>
-              <ChoiceRadio
-                name="opponent-personality"
-                value={entry.id}
-                checked={opponent?.personality === entry.id}
-                title={t(`personality.${entry.id}`)}
-                disabledReason={entry.enabled ? undefined : t('opponents.personalityClosed')}
-                onSelect={() => opponent && onChange({ ...opponent, personality: entry.id })}
+                onSelect={() => {
+                  const next = withRivalCount(classes, human, rivals, count);
+                  if (!next) return;
+                  onChange(next);
+                  // A rival just added is the one to set up next.
+                  if (count > rivals.length) setEditing(count - 1);
+                }}
               />
             </li>
           ))}
         </ul>
       </Section>
 
-      <Section title={t('opponents.difficulty')}>
-        <p className="-mt-2 mb-4 text-ink-soft">{t('opponents.difficultyHint')}</p>
-        <ul className="grid gap-4 sm:grid-cols-2">
-          {DIFFICULTIES.map((difficulty) => (
-            <li key={difficulty}>
-              <ChoiceRadio
-                name="opponent-difficulty"
-                value={difficulty}
-                checked={opponent?.difficulty === difficulty}
-                title={t(`difficulty.${difficulty}`)}
-                description={t(`difficulty.${difficulty}Hint`)}
-                onSelect={() => opponent && onChange({ ...opponent, difficulty })}
-              />
-            </li>
-          ))}
-        </ul>
-      </Section>
+      {rival && (
+        <div key={at} className="mt-12">
+          {rivals.length > 1 && (
+            <fieldset className="mb-8">
+              <legend className="font-display text-xl font-semibold">
+                {t('opponents.editing')}
+              </legend>
+              <div className="mt-4 flex flex-wrap gap-3">
+                {rivals.map((entry, index) => (
+                  <label
+                    key={index}
+                    className={`flex cursor-pointer flex-col rounded-2xl px-5 py-2 font-display transition-[box-shadow,background-color] duration-150 has-[input:focus-visible]:outline-3 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-ink ${
+                      index === at
+                        ? 'bg-reward shadow-[0_4px_0_var(--color-reward-lip)]'
+                        : 'bg-panel-tint shadow-[inset_0_0_0_2px_var(--color-line)] hover:shadow-[inset_0_0_0_2px_var(--color-reward)]'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      className="sr-only"
+                      name="rival-editing"
+                      value={index}
+                      checked={index === at}
+                      onChange={() => setEditing(index)}
+                    />
+                    <span className="text-lg">{seatLabel(index + 1, 0)}</span>
+                    <span className="text-sm font-normal">{className(entry.classId)}</span>
+                    {conflicts.includes(index) && (
+                      <span className="text-sm font-bold underline decoration-2 underline-offset-2">
+                        {t('opponents.needsClass')}
+                      </span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+          <h2 className="text-2xl">{seatLabel(at + 1, 0)}</h2>
+
+          <div className="mt-6">
+            <Section title={t('opponents.class')} small>
+              <ul className="grid gap-6 lg:grid-cols-2">
+                {playable.map((option) => {
+                  const holder = classHolder(human, rivals, option.id, at);
+                  return (
+                    <li key={option.id}>
+                      <ChoiceRadio
+                        name={`rival-${at}-class`}
+                        value={option.id}
+                        checked={rival.classId === option.id}
+                        art={
+                          <SpeciesArt
+                            speciesIds={option.starterSpeciesIds}
+                            spin={rival.classId === option.id}
+                          />
+                        }
+                        title={className(option.id)}
+                        description={classPassive(option.id)}
+                        disabledReason={
+                          holder === undefined
+                            ? undefined
+                            : t('opponents.classTaken', {
+                                holder:
+                                  holder === 'human' ? t('seat.you') : seatLabel(holder + 1, 0),
+                              })
+                        }
+                        onSelect={() =>
+                          update({
+                            classId: option.id,
+                            starterSpeciesId: option.starterSpeciesIds[0]!,
+                          })
+                        }
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
+              {rivalClass && rivalClass.starterSpeciesIds.length > 1 && (
+                <StarterPicker
+                  name={`rival-${at}-starter`}
+                  legend={t('opponents.starter')}
+                  speciesIds={rivalClass.starterSpeciesIds}
+                  chosen={rival.starterSpeciesId}
+                  onChoose={(starterSpeciesId) => update({ starterSpeciesId })}
+                />
+              )}
+              {rivalClass && <StarterFacts speciesId={rival.starterSpeciesId} rival />}
+            </Section>
+
+            <Section title={t('opponents.personality')} small>
+              <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {PERSONALITIES.map((entry) => (
+                  <li key={entry.id}>
+                    <ChoiceRadio
+                      name={`rival-${at}-personality`}
+                      value={entry.id}
+                      checked={rival.personality === entry.id}
+                      title={t(`personality.${entry.id}`)}
+                      disabledReason={entry.enabled ? undefined : t('opponents.personalityClosed')}
+                      onSelect={() => update({ personality: entry.id })}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </Section>
+
+            <Section title={t('opponents.difficulty')} small>
+              <p className="-mt-2 mb-4 text-ink-soft">{t('opponents.difficultyHint')}</p>
+              <ul className="grid gap-4 sm:grid-cols-2">
+                {DIFFICULTIES.map((difficulty) => (
+                  <li key={difficulty}>
+                    <ChoiceRadio
+                      name={`rival-${at}-difficulty`}
+                      value={difficulty}
+                      checked={rival.difficulty === difficulty}
+                      title={t(`difficulty.${difficulty}`)}
+                      description={t(`difficulty.${difficulty}Hint`)}
+                      onSelect={() => update({ difficulty })}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          </div>
+        </div>
+      )}
     </Screen>
   );
 }

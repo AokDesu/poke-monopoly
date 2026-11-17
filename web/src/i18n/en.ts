@@ -48,7 +48,7 @@ export const en = {
   'home.body':
     'Roll the dice around the board, catch Pokémon with Balls, then keep them or sell them at Start. Whoever has the most coins at the end wins.',
   'home.newGame': 'New game',
-  'home.newGameHint': 'Pick a mode, a class and your AI rival, step by step.',
+  'home.newGameHint': 'Pick a mode, a class and one to three AI rivals, step by step.',
   'home.randomAll': 'Random All',
   'home.randomAllHint': 'Pick everything at random, then check it before you start.',
   'home.notEnoughClasses':
@@ -157,7 +157,7 @@ export const en = {
     'This step needs your answers from the earlier steps. Go back to Home and set up a new game.',
   'setup.step.mode': 'Mode',
   'setup.step.class': 'Class',
-  'setup.step.opponents': 'AI rival',
+  'setup.step.opponents': 'AI rivals',
   'setup.step.review': 'Review',
   'setup.step.firstPlayer': 'First roll',
 
@@ -182,19 +182,38 @@ export const en = {
   'class.comingLater': 'Coming later.',
   'class.passive.main-character': 'A bonus on your first catch roll each Lap.',
   'class.passive.researcher': 'A bonus on the first Pokémon you sell at Start each Lap.',
+  'class.passive.fisherman': 'A bonus on catch rolls against Water Pokémon.',
+  'class.passive.bug-catcher':
+    'A bonus on catch rolls against Bug Pokémon, and a bonus when you sell Bug Pokémon at Start.',
+  'class.passive.nurse-joy':
+    'You lose no coins when you lose a PvP battle, and your team recovers from Tired at the start of your turn.',
+  'class.closed.rival':
+    'Coming later. Its once-per-Lap forced battle needs the PvP controls, which are not built yet.',
+  'class.rivalHas':
+    '{rival} already has {class}. You can keep it and change that rival on the next step.',
 
-  'opponents.heading': 'Set up your AI rival',
+  'opponents.heading': 'Set up your AI rivals',
   'opponents.body':
-    'This test version has one AI rival. Choose its class, personality and difficulty. Personality does not depend on class.',
+    'Choose how many AI rivals you play against, then set each rival’s class, Starter, personality and difficulty. A choice changes only that rival. Personality does not depend on class.',
+  'opponents.count': 'Number of AI rivals',
+  'opponents.countOne': '1 AI rival',
+  'opponents.countMany': '{n} AI rivals',
+  'opponents.players': '{n} players in total.',
+  'opponents.countClosed':
+    'Only {open} classes are open and every player needs a different one, so a game has at most {max} AI rivals.',
+  'opponents.editing': 'Rival to set up',
+  'opponents.needsClass': 'Needs a different class',
   'opponents.class': 'Rival class',
-  'opponents.classTaken': 'You chose this class. Classes cannot repeat in one game.',
+  'opponents.classTaken': '{holder} has this class. Classes cannot repeat in one game.',
+  'opponents.fixClass':
+    '{rival} has a class another player has. Choose a different class for it to go on.',
   'opponents.starter': "Rival's Starter",
   'opponents.personality': 'Personality',
   'opponents.personalityClosed': 'Coming later.',
   'opponents.difficulty': 'Difficulty',
   'opponents.difficultyHint': 'Every difficulty sees only what its seat may see.',
   'opponents.noFreeClass':
-    'No class is left for the rival. Go back and choose a different class for yourself.',
+    'No class is left for a rival. Go back and choose a different class for yourself.',
   'opponents.next': 'Review setup',
 
   'personality.greedy': 'Greedy',
@@ -208,7 +227,6 @@ export const en = {
   'difficulty.normalHint': 'Gets more game information and always picks its top option.',
 
   'seat.you': 'You',
-  'seat.ai': 'AI rival',
 
   'review.heading': 'Review your setup',
   'review.body':
@@ -229,7 +247,7 @@ export const en = {
   'firstPlayer.yourTie': 'You tied for the top roll. Re-rolling to decide who goes first.',
   'firstPlayer.rollAgain': 'Roll again',
   'firstPlayer.youStart': 'You go first',
-  'firstPlayer.aiStarts': 'Your AI rival goes first',
+  'firstPlayer.aiStarts': '{name} goes first',
   'firstPlayer.thenSeatOrder': 'Then play follows seat order.',
   'firstPlayer.toBoard': 'Go to the board',
   'firstPlayer.quit': 'Quit this game',
@@ -296,6 +314,13 @@ export const en = {
   'save.pendingRoll': 'A die result is still waiting. It was not rolled before the save.',
   'save.pendingFinished': 'This game has already finished.',
   'save.pendingWatched': 'A watched game is in progress, turn {turn}.',
+  'save.rivals': 'AI rivals in this game',
+  'save.rivalRow': '{name}: {class}, {personality}, {difficulty}.',
+  'save.rivalSettingsMissing':
+    '{name}: {class}. Its saved personality or difficulty is not available in this build, so it plays as Greedy on Normal.',
+  'save.classClosed': '{class} is not open for new games in this build; this game keeps it.',
+  'save.personalityClosed':
+    '{personality} is not open for new games in this build; this game keeps it.',
   'save.mismatchHeading': 'This save cannot be loaded',
   'save.mismatchNext': 'New game starts a fresh game and removes this save from the browser.',
   'save.unreadable':
@@ -454,6 +479,24 @@ export const en = {
   'ai.reason.timeout': 'Jev did not answer in time.',
   'ai.reason.rate_limited': 'Jev is receiving too many requests.',
   'ai.reason.auth': 'The server could not connect to Jev with its current settings.',
+  'talk.heading': 'Table talk',
+  'talk.hide': 'Hide table talk',
+  'talk.show': 'Show table talk',
+  'talk.hidden': 'Table talk is hidden. No new lines are asked for while it is hidden.',
+  'talk.empty':
+    'No table talk yet. An AI may comment after a rare catch, a big sale, a Gym win, a change in the lead or the final round.',
+  'talk.onlyWords': 'Only words: table talk never changes a game number or an AI’s choice.',
+  'talk.aiWritten': 'AI-written · only words',
+  'talk.bank': 'Line bank · only words',
+  'talk.to': 'to {name}',
+  'talk.toYou': 'to you',
+  'talk.voiceOff': 'Voice off',
+  'talk.reason.disabled':
+    'AI-written speech is switched off on this server. Lines come from the line bank, or the table stays quiet.',
+  'talk.reason.missing_key':
+    'AI-written speech is not set up on this server. Lines come from the line bank, or the table stays quiet.',
+  'talk.reason.budget_exceeded':
+    'The AI-written speech spending limit has been reached. Lines come from the line bank, or the table stays quiet.',
   'ai.reason.stub': 'This decision uses the backup policy.',
   'ai.action.roll': '{name} rolled the die.',
   'ai.action.skip': '{name} continued past {phase}.',
@@ -509,8 +552,6 @@ export const en = {
   'gallery.pending.chat': 'Needs the chat panel, which is not built yet.',
   'gallery.pending.eventDeck':
     'The notice is in this catalog, but no screen shows it yet and the board has no Event deck.',
-  'gallery.pending.speech':
-    'Needs the speech writer and the Table talk panel, which are not built yet.',
   'gallery.row.onlyLegalAction': 'Only one legal action (e.g. must roll)',
   'gallery.row.shortlistEmpty': 'Shortlist empty after personality filtering',
   'gallery.row.noBall': 'Pokémon found but no Ball',
@@ -552,6 +593,13 @@ export const en = {
   'gallery.example.watchAfterContinue': 'Watch board after Continue, the AI deciding again',
   'gallery.example.watchAllBackup': 'Every AI in the watched game decided with the backup bot',
   'gallery.example.badgeOneOfTwo': 'One of two rivals timed out',
+  'gallery.example.voiceDisabled': 'Voice off: switched off on the server, a line from the bank',
+  'gallery.example.voiceMissingKey': 'Voice off: no key on the server, a line from the bank',
+  'gallery.example.voiceBudget': 'Voice off: spending limit reached, no line for this moment',
+  'gallery.example.screenBank':
+    'The text failed the screen: the bank line is shown, not labelled AI-written',
+  'gallery.example.screenSilence':
+    'The text failed the screen and the bank has no line: nothing is shown',
   'gallery.example.badgeRateLimited': 'One of two rivals was rate limited',
 } as const satisfies Record<string, string>;
 

@@ -27,6 +27,8 @@ export interface BoardProps {
   controls?: ReactNode;
   /** Current opponent action strip, rendered under the board loop (issue #123). */
   focus?: ReactNode;
+  /** The Table talk panel, shown beside the field log. */
+  talk?: ReactNode;
 }
 
 // Presentation coordinates only. Game positions are already positionOf(routeProgress) in observe().
@@ -40,7 +42,15 @@ function squareLayout(position: number) {
   return { row: position - 17, column: 7, direction: 'down' };
 }
 
-export function Board({ observation, events = [], feed, opponents, controls, focus }: BoardProps) {
+export function Board({
+  observation,
+  events = [],
+  feed,
+  opponents,
+  controls,
+  focus,
+  talk,
+}: BoardProps) {
   const { public: game } = observation;
   const ownSeat = ownSeatOf(observation);
   const you = game.players.find((player) => player.seatIndex === ownSeat);
@@ -171,7 +181,10 @@ export function Board({ observation, events = [], feed, opponents, controls, foc
               </div>
             </div>
             {focus}
-            <EventLog events={events} feed={feed} observation={observation} />
+            <div className="log-row">
+              <EventLog events={events} feed={feed} observation={observation} />
+              {talk}
+            </div>
           </div>
           <aside className="trainer-panels" aria-label={t('board.team')}>
             {controls}
