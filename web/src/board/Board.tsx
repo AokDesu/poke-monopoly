@@ -7,6 +7,7 @@ import { speciesName } from '../i18n/names.ts';
 import { BallIcon } from '../ui/icons.tsx';
 import { Screen } from '../ui/Screen.tsx';
 import { hasWebGl } from '../ui/three/support.ts';
+import { EventCard } from './EventCard.tsx';
 import { EventLog } from './EventLog.tsx';
 import { ownSeatOf, phaseLabel, seatLabel, type ViewedObservation } from './labels.ts';
 import { PlayerPanel } from './PlayerPanel.tsx';
@@ -181,6 +182,7 @@ export function Board({
               </div>
             </div>
             {focus}
+            {feed && <EventCard observation={observation} feed={feed} />}
             <div className="log-row">
               <EventLog events={events} feed={feed} observation={observation} />
               {talk}
