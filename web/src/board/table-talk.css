@@ -49,6 +49,23 @@
 .talk-lines li + li {
   border-top: 1px solid var(--color-line);
 }
+/* An exchange is one list entry holding two lines: the answer sits under the opening, set in by a hairline. */
+.talk-lines li.talk-exchange {
+  display: block;
+  padding: 0.55rem 0;
+}
+.talk-exchange ol {
+  display: grid;
+}
+.talk-exchange ol > li {
+  padding: 0.35rem 0;
+}
+.talk-exchange ol > li + li {
+  margin-left: 0.85rem;
+  padding-left: 0.85rem;
+  border-top: 0;
+  border-left: 1px solid var(--color-line);
+}
 .talk-lines .seat-disc {
   width: 1.75rem;
   height: 1.75rem;

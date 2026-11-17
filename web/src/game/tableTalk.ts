@@ -11,11 +11,19 @@ import type { SeatFeedEntry, SeatView, SpectatorView } from './store.ts';
  * decide how often a comment may appear on screen and never touch a coin, die or legal action.
  */
 export const TABLE_TALK = {
-  /** One comment per round: one turn for every seat. */
+  /** One comment or exchange per round: one turn for every seat. */
   maxPerRound: 1,
+  /** Comments per game; an exchange has its own limit below. */
   maxPerGame: 10,
+  /** AI-to-AI exchanges per game (spec §5.7): one AI speaks to another and the other answers once. */
+  maxExchangesPerGame: 10,
   /** How long a requested line may take before it is dropped, never retried (same window as a decision). */
   deadlineMs: AI_DECISION_MS,
+  /**
+   * How long a whole exchange may take, opening line, the server's manipulation check and the
+   * answer together; past it nothing is shown and nothing is retried.
+   */
+  exchangeDeadlineMs: 4_000,
   /** A sale at least this large, in coins, is a "big sale": a little under a rare species' base price. */
   bigSaleCoins: 16,
   /** Comments are asked for only at these speeds. */
@@ -156,34 +164,57 @@ export interface TalkContext {
   readonly speed: TalkSpeed;
   readonly paused: boolean;
   readonly hidden: boolean;
+  /**
+   * Whether an AI-to-AI exchange may be asked for: generated speech is on, Jev can check the
+   * line, and none was tried in this round. A comment never depends on it.
+   */
+  readonly exchangeAllowed: boolean;
+}
+
+/** The AI that answers the opening line: the seat the moment addresses, when that is an AI. */
+export interface ExchangeListener {
+  readonly seat: number;
+  readonly personalityId: string;
 }
 
 export interface TalkPlan {
   readonly moment: Moment;
   readonly speakerSeat: number;
   readonly personalityId: string;
+  /** Set when the line is the opening of an exchange: the addressed AI answers once (spec §5.7). */
+  readonly listener: ExchangeListener | null;
 }
 
 /**
- * Whether a comment may be asked for now, and from whom. Never at Fast or Instant, while paused or
- * hidden, past the round or game limit, or after the game ends; never from the seat whose own
- * moment it is; the speaker is a fixed function of the seed and the moment, among the AI seats.
+ * Whether a comment, or an exchange when the moment addresses an AI, may be asked for now, and from
+ * whom. Never at Fast or Instant, while paused or hidden, past the round or game limits, or after
+ * the game ends; never from the seat whose own moment it is; the speaker is a fixed function of the
+ * seed and the moment, among the AI seats. The limits are counted from the saved lines.
  */
 export function planTableTalk(context: TalkContext): TalkPlan | null {
-  const { view, seed, momentKey, spoken, moment, speed, paused, hidden } = context;
+  const { view, seed, momentKey, spoken, moment, speed, paused, hidden, exchangeAllowed } = context;
   const game = view.observation.public;
   if (!speedAllowsTalk(speed) || paused || hidden) return null;
   if (game.phase.kind === 'finished') return null;
-  if (spoken.length >= TABLE_TALK.maxPerGame) return null;
   const round = roundOf(moment.turn, game.players.length);
   const inRound = spoken.filter(
     (line) => roundOf(line.globalTurnNo, game.players.length) === round,
   ).length;
   if (inRound >= TABLE_TALK.maxPerRound) return null;
+  const seatIn = (seat: number) => game.players.some((player) => player.seatIndex === seat);
+  const listener = view.opponents.find(
+    (opponent) => opponent.seatIndex === moment.addressedSeat && seatIn(opponent.seatIndex),
+  );
+  const exchange =
+    exchangeAllowed &&
+    listener !== undefined &&
+    exchangeCount(spoken) < TABLE_TALK.maxExchangesPerGame;
+  // An exchange is two lines, so only the comments among the saved lines count toward the comment limit.
+  if (!exchange && spoken.length - 2 * exchangeCount(spoken) >= TABLE_TALK.maxPerGame) return null;
   const eligible = view.opponents
     .filter(
       (opponent) =>
-        game.players.some((player) => player.seatIndex === opponent.seatIndex) &&
+        seatIn(opponent.seatIndex) &&
         opponent.seatIndex !== moment.actingSeat &&
         opponent.seatIndex !== moment.subjectSeat &&
         opponent.seatIndex !== moment.addressedSeat,
@@ -191,7 +222,12 @@ export function planTableTalk(context: TalkContext): TalkPlan | null {
     .toSorted((a, b) => a.seatIndex - b.seatIndex);
   if (eligible.length === 0) return null;
   const speaker = eligible[hash(`${seed}:table-talk:${momentKey}`) % eligible.length]!;
-  return { moment, speakerSeat: speaker.seatIndex, personalityId: speaker.personality };
+  return {
+    moment,
+    speakerSeat: speaker.seatIndex,
+    personalityId: speaker.personality,
+    listener: exchange ? { seat: listener.seatIndex, personalityId: listener.personality } : null,
+  };
 }
 
 /** The saved table talk of a game, oldest first. */
@@ -202,6 +238,41 @@ export function spokenLines(
     (event): event is AiSpeechEvent => event.kind === 'ai_speech',
   );
 }
+
+/** Whether `line` is the answer to `opening`: the same turn, the same two seats, the roles swapped. */
+const answers = (opening: AiSpeechEvent | undefined, line: AiSpeechEvent): boolean =>
+  opening !== undefined &&
+  opening.source === 'haiku' &&
+  line.source === 'haiku' &&
+  opening.globalTurnNo === line.globalTurnNo &&
+  opening.addressedSeatIndex === line.speakerSeatIndex &&
+  line.addressedSeatIndex === opening.speakerSeatIndex;
+
+/** One entry of the table talk panel: a line said on its own, or an opening line and its answer. */
+export type TalkEntry =
+  | { readonly kind: 'line'; readonly line: AiSpeechEvent }
+  | { readonly kind: 'exchange'; readonly opening: AiSpeechEvent; readonly reply: AiSpeechEvent };
+
+/**
+ * The saved lines as the panel shows them, oldest first. An exchange is saved as its two lines,
+ * the answer straight after the opening; the log has no other mark, so the pairing is read from
+ * who spoke to whom in which turn. Only one comment or exchange can happen in a round, so a pair
+ * of lines that fit this can only be an exchange.
+ */
+export function talkEntries(lines: readonly AiSpeechEvent[]): TalkEntry[] {
+  const entries: TalkEntry[] = [];
+  for (const line of lines) {
+    const previous = entries.at(-1);
+    if (previous?.kind === 'line' && answers(previous.line, line)) {
+      entries[entries.length - 1] = { kind: 'exchange', opening: previous.line, reply: line };
+    } else entries.push({ kind: 'line', line });
+  }
+  return entries;
+}
+
+/** Exchanges among the saved lines: the limit holds across a save and a reload. */
+export const exchangeCount = (lines: readonly AiSpeechEvent[]): number =>
+  talkEntries(lines).filter((entry) => entry.kind === 'exchange').length;
 
 /**
  * `POST /api/ai/speak`'s body. The route wants the speaker's own observation, but a line must not
@@ -235,49 +306,87 @@ export function speakBody(args: {
   };
 }
 
+/**
+ * `POST /api/ai/speak`'s body for the listener's answer (`kind: 'reply'`). Like `speakBody`, the
+ * listener's own hand, Balls and peek results are never sent: `own` is empty and only the public
+ * game and the line being answered go to the route (spec §4.1, §5.4).
+ */
+export function replyBody(args: {
+  gameId: string;
+  plan: TalkPlan & { listener: ExchangeListener };
+  game: PublicGame;
+  momentKey: number;
+  quote: string;
+}): unknown {
+  const { gameId, plan, game, momentKey, quote } = args;
+  return {
+    kind: 'reply',
+    gameId,
+    seatIndex: plan.listener.seat,
+    stateRevision: game.stateRevision,
+    observation: {
+      public: game,
+      own: {
+        seatIndex: plan.listener.seat,
+        items: [],
+        balls: { poke: 0, great: 0, ultra: 0 },
+        privateResults: [],
+      },
+    },
+    speakerSeat: plan.speakerSeat,
+    quote,
+    situation: plan.moment.situation,
+    personalityId: plan.listener.personalityId,
+    turnKey: `talk:${momentKey}:reply`,
+  };
+}
+
 export interface SpokenAnswer {
   readonly source: 'haiku' | 'bank';
   readonly text: string;
   readonly lineId?: string;
 }
 
+/** One call to the speech route; every failure, and a reply with no usable line, is `null`. */
+async function postSpeech(body: unknown, signal: AbortSignal): Promise<SpokenAnswer | null> {
+  const response = await fetch('/api/ai/speak', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    signal,
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) return null;
+  const value: unknown = await response.json();
+  if (!value || typeof value !== 'object' || !('source' in value)) return null;
+  if (value.source === 'haiku' && 'text' in value && typeof value.text === 'string')
+    return { source: 'haiku' as const, text: value.text };
+  if (
+    value.source === 'bank' &&
+    'lineId' in value &&
+    typeof value.lineId === 'string' &&
+    'text' in value &&
+    typeof value.text === 'string'
+  )
+    return { source: 'bank' as const, text: value.text, lineId: value.lineId };
+  return null;
+}
+
 /**
- * Asks the speech route for one line. Same deadline rules as an AI decision: a line that is not
- * here within `TABLE_TALK.deadlineMs` is dropped even if it arrives later, and nothing is retried.
- * Every failure, and a reply with no line, is `null`; the game never waits for this.
+ * Runs `run` against a deadline and the caller's abort: whichever comes first ends the wait with
+ * `null`, even if the network answers later, and the request underneath is aborted.
  */
-export async function requestSpeech(
-  body: unknown,
+async function withinDeadline<T>(
+  ms: number,
   signal: AbortSignal,
-): Promise<SpokenAnswer | null> {
+  run: (signal: AbortSignal) => Promise<T | null>,
+): Promise<T | null> {
   if (signal.aborted) return null;
   const controller = new AbortController();
-  const { promise, resolve } = Promise.withResolvers<SpokenAnswer | null>();
+  const { promise, resolve } = Promise.withResolvers<T | null>();
   const abort = () => resolve(null);
   signal.addEventListener('abort', abort, { once: true });
-  const timer = setTimeout(abort, TABLE_TALK.deadlineMs);
-  void (async () => {
-    const response = await fetch('/api/ai/speak', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      signal: controller.signal,
-      body: JSON.stringify(body),
-    });
-    if (!response.ok) return null;
-    const value: unknown = await response.json();
-    if (!value || typeof value !== 'object' || !('source' in value)) return null;
-    if (value.source === 'haiku' && 'text' in value && typeof value.text === 'string')
-      return { source: 'haiku' as const, text: value.text };
-    if (
-      value.source === 'bank' &&
-      'lineId' in value &&
-      typeof value.lineId === 'string' &&
-      'text' in value &&
-      typeof value.text === 'string'
-    )
-      return { source: 'bank' as const, text: value.text, lineId: value.lineId };
-    return null;
-  })().then(resolve, () => resolve(null));
+  const timer = setTimeout(abort, ms);
+  void run(controller.signal).then(resolve, () => resolve(null));
   try {
     return await promise;
   } finally {
@@ -286,6 +395,38 @@ export async function requestSpeech(
     signal.removeEventListener('abort', abort);
   }
 }
+
+/**
+ * Asks the speech route for one line. Same deadline rules as an AI decision: a line that is not
+ * here within `TABLE_TALK.deadlineMs` is dropped even if it arrives later, and nothing is retried.
+ * Every failure, and a reply with no line, is `null`; the game never waits for this.
+ */
+export const requestSpeech = (body: unknown, signal: AbortSignal): Promise<SpokenAnswer | null> =>
+  withinDeadline(TABLE_TALK.deadlineMs, signal, (inner) => postSpeech(body, inner));
+
+export interface ExchangeAnswer {
+  readonly opening: string;
+  readonly reply: string;
+}
+
+/**
+ * Asks for a whole exchange (spec §5.7): the opening line, then the other AI's answer to it. Both
+ * must be generated lines and both must be here within `TABLE_TALK.exchangeDeadlineMs`; anything
+ * less, including a line the server's manipulation check refused, is `null` and nothing is shown.
+ * Nothing is retried, and the opening line is never shown before the answer is in.
+ */
+export const requestExchange = (
+  opening: unknown,
+  replyTo: (line: string) => unknown,
+  signal: AbortSignal,
+): Promise<ExchangeAnswer | null> =>
+  withinDeadline(TABLE_TALK.exchangeDeadlineMs, signal, async (inner) => {
+    const first = await postSpeech(opening, inner);
+    // Out of time or called off while the opening was out: the answer is never asked for.
+    if (first?.source !== 'haiku' || inner.aborted) return null;
+    const second = await postSpeech(replyTo(first.text), inner);
+    return second?.source === 'haiku' ? { opening: first.text, reply: second.text } : null;
+  });
 
 /**
  * The `ai_speech` event for an answer, or null when nothing may be shown: a bank line only for a
@@ -312,6 +453,22 @@ export function speechEvent(
   if (!canSpeakWithoutHaiku(moment.situation) || !Object.hasOwn(en, key) || !addressed) return null;
   const text = t(key, { target: className(addressed.classId) });
   return /[{}]/.test(text) ? null : { ...base, source: 'bank', lineId: answer.lineId!, text };
+}
+
+/** The two `ai_speech` events of an exchange, opening first, or null when either line cannot be saved. */
+export function exchangeEvents(
+  plan: TalkPlan & { listener: ExchangeListener },
+  answer: ExchangeAnswer,
+): [AiSpeechEvent, AiSpeechEvent] | null {
+  const { moment, speakerSeat, listener } = plan;
+  const opening = answer.opening.trim();
+  const reply = answer.reply.trim();
+  if ([opening, reply].some((text) => text.length === 0 || text.length > 280)) return null;
+  const base = { kind: 'ai_speech' as const, source: 'haiku' as const, globalTurnNo: moment.turn };
+  return [
+    { ...base, speakerSeatIndex: speakerSeat, addressedSeatIndex: listener.seat, text: opening },
+    { ...base, speakerSeatIndex: listener.seat, addressedSeatIndex: speakerSeat, text: reply },
+  ];
 }
 
 export type VoiceReason = 'disabled' | 'missing_key' | 'budget_exceeded';

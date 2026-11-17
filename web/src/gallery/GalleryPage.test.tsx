@@ -64,6 +64,11 @@ const SHOWN = [
   },
   { id: 'haiku-screen-fail', specRow: '16', keys: ['talk.bank', 'talk.onlyWords', 'talk.empty'] },
   {
+    id: 'ai-exchange',
+    specRow: 'ai-turns',
+    keys: ['talk.aiWritten', 'talk.onlyWords', 'talk.empty'],
+  },
+  {
     id: 'watch-browser-closed',
     specRow: '17',
     keys: ['save.pendingWatched', 'save.continue', 'game.resumedAiTurn'],

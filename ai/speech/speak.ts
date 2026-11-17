@@ -1,6 +1,9 @@
 import { toEngineContent } from '../../content/schema.ts';
 import {
+  replyResponseSchema,
   speakResponseSchema,
+  type ReplyRequest,
+  type ReplyResponse,
   type SpeakFallbackReason,
   type SpeakRequest,
   type SpeakResponse,
@@ -18,9 +21,11 @@ import { speechStatus } from '../haiku/status.ts';
 import { SPEND_CONFIG, type SpendConfig, type UsageRecorder } from '../jev/spend.ts';
 import { LINES, type Situation } from '../lines.ts';
 import { CONTENT } from '../questions/content.ts';
+import type { ManipulationGate } from './gate.ts';
 import {
   buildSpeechBrief,
   resolveSpeech,
+  screenSpeech,
   SPEECH_INSTRUCTION,
   VOICE,
   type SpeechRejection,
@@ -54,6 +59,11 @@ export interface SpeakerOptions {
   env?: NodeJS.ProcessEnv;
   deadlineMs?: number;
   config?: SpendConfig;
+  /**
+   * Asks Jev whether a line tries to sway the AI that would quote it (spec §5.3). Without one, no
+   * reply is ever written: a line nobody checked is never quoted.
+   */
+  gate?: ManipulationGate;
   /** One line per rejected reply: the reason and a running count, never the text. */
   log?: (message: string) => void;
 }
@@ -61,6 +71,12 @@ export interface SpeakerOptions {
 export interface Speaker {
   /** Throws `InvalidSpeakRequest` for a request that does not fit the game; otherwise always answers. */
   speak(request: SpeakRequest): Promise<SpeakResponse>;
+  /**
+   * The addressed AI's answer to one line (spec §5.7). The quote is screened, then asked of the
+   * manipulation gate, and only then reaches the listener's prompt; every failure is `none`.
+   * Throws `InvalidSpeakRequest` like `speak`.
+   */
+  reply(request: ReplyRequest): Promise<ReplyResponse>;
   /** Output-screen rejections so far, by reason. */
   rejections(): Partial<Record<SpeechRejection, number>>;
 }
@@ -80,6 +96,7 @@ export const createSpeaker = ({
   env = process.env,
   deadlineMs = HAIKU_DEADLINE_MS,
   config = SPEND_CONFIG,
+  gate,
   log = (message) => console.info(message),
 }: SpeakerOptions): Speaker => {
   const quotas = new Map<string, SpeechQuota>();
@@ -99,18 +116,81 @@ export const createSpeaker = ({
     return undefined;
   };
 
+  const noteRejection = (reason: SpeechRejection) => {
+    const count = (rejected[reason] = (rejected[reason] ?? 0) + 1);
+    log(`Speech line rejected: ${reason} (${count} so far).`);
+  };
+
+  type Generated = { ok: true; text: string } | { ok: false; reason: SpeakFallbackReason };
+
+  /**
+   * One Haiku call under the kill switches, the game's limits and the deadline: the core of a line
+   * and of a reply. `before` runs after the limits and ahead of the call, with the game's one
+   * in-flight slot held; a reason it returns stops the call and nothing is sent.
+   */
+  const generate = async (args: {
+    gameId: string;
+    turnKey: string;
+    prompt: string;
+    before?: () => Promise<SpeakFallbackReason | undefined>;
+  }): Promise<Generated> => {
+    const { gameId, turnKey, prompt, before } = args;
+    const status = speechStatus(usage, env);
+    if (!status.enabled) return { ok: false, reason: status.reason! };
+    const limit = limitReason(gameId);
+    if (limit) return { ok: false, reason: limit };
+    const quota = quotas.get(gameId)!;
+
+    const haikuRequest: HaikuRequest = { gameId, turnKey, system: SPEECH_INSTRUCTION, prompt };
+    quota.inFlight = true;
+    let call: Promise<HaikuResult> | undefined;
+    try {
+      const stop = await before?.();
+      if (stop) return { ok: false, reason: stop };
+      // Counted when it settles, even after the deadline: a late answer's tokens were spent.
+      call = (async () => client.write(haikuRequest))()
+        .catch((): HaikuFailure => ({ ok: false, fallbackReason: 'network' }))
+        .then((result) => {
+          if (result.ok || result.requestSent !== false) {
+            quota.calls += 1;
+            quota.inputTokens += result.usage?.inputTokens ?? 0;
+          }
+          return result;
+        })
+        .finally(() => {
+          quota.inFlight = false;
+        });
+    } finally {
+      // The call frees the slot itself once it settles; a call never made frees it here.
+      if (!call) quota.inFlight = false;
+    }
+    const { promise: expired, resolve: expire } = Promise.withResolvers<'expired'>();
+    const timer = setTimeout(() => expire('expired'), deadlineMs);
+    const outcome = await Promise.race([call, expired]).finally(() => clearTimeout(timer));
+
+    if (outcome === 'expired') return { ok: false, reason: 'timeout' };
+    if (!outcome.ok) return { ok: false, reason: outcome.fallbackReason };
+    return { ok: true, text: outcome.text };
+  };
+
+  /** The personality and situation a request names, or the 400 for one the server cannot speak about. */
+  const resolveSetup = (request: { personalityId: string; situation: string }) => {
+    if (!Object.hasOwn(PERSONALITIES, request.personalityId)) {
+      throw new InvalidSpeakRequest('personalityId');
+    }
+    const personality = PERSONALITIES[request.personalityId as keyof typeof PERSONALITIES];
+    if (!isSituation(request.situation)) throw new InvalidSpeakRequest('situation');
+    return { personality, situation: request.situation };
+  };
+
   return {
     rejections: () => ({ ...rejected }),
     async speak(request) {
       const started = performance.now();
       const requestId = crypto.randomUUID();
-      const { gameId, seatIndex, observation, situation, addressedSeat, turnKey } = request;
+      const { gameId, seatIndex, observation, addressedSeat, turnKey } = request;
 
-      if (!Object.hasOwn(PERSONALITIES, request.personalityId)) {
-        throw new InvalidSpeakRequest('personalityId');
-      }
-      const personality = PERSONALITIES[request.personalityId as keyof typeof PERSONALITIES];
-      if (!isSituation(situation)) throw new InvalidSpeakRequest('situation');
+      const { personality, situation } = resolveSetup(request);
       if (
         addressedSeat !== undefined &&
         (addressedSeat === seatIndex ||
@@ -142,10 +222,7 @@ export const createSpeaker = ({
         const base = { requestId, latencyMs: Math.round(performance.now() - started) };
         if (spoken.kind === 'haiku')
           return speakResponseSchema.parse({ source: 'haiku', ...base, text: spoken.text });
-        if (spoken.rejection) {
-          const count = (rejected[spoken.rejection] = (rejected[spoken.rejection] ?? 0) + 1);
-          log(`Speech line rejected: ${spoken.rejection} (${count} so far).`);
-        }
+        if (spoken.rejection) noteRejection(spoken.rejection);
         const fallbackReason = spoken.rejection ?? reason ?? 'internal_error';
         return speakResponseSchema.parse(
           spoken.kind === 'bank'
@@ -168,41 +245,92 @@ export const createSpeaker = ({
       const fromBank = (reason: SpeakFallbackReason) => answer(resolve(null), reason);
 
       try {
-        const status = speechStatus(usage, env);
-        if (!status.enabled) return fromBank(status.reason!);
-        const limit = limitReason(gameId);
-        if (limit) return fromBank(limit);
-        const quota = quotas.get(gameId)!;
-
-        const haikuRequest: HaikuRequest = {
-          gameId,
-          turnKey,
-          system: SPEECH_INSTRUCTION,
-          prompt: JSON.stringify(brief),
-        };
-        quota.inFlight = true;
-        // Counted when it settles, even after the deadline: a late answer's tokens were spent.
-        const call: Promise<HaikuResult> = (async () => client.write(haikuRequest))()
-          .catch((): HaikuFailure => ({ ok: false, fallbackReason: 'network' }))
-          .then((result) => {
-            if (result.ok || result.requestSent !== false) {
-              quota.calls += 1;
-              quota.inputTokens += result.usage?.inputTokens ?? 0;
-            }
-            return result;
-          })
-          .finally(() => {
-            quota.inFlight = false;
-          });
-        const { promise: expired, resolve: expire } = Promise.withResolvers<'expired'>();
-        const timer = setTimeout(() => expire('expired'), deadlineMs);
-        const outcome = await Promise.race([call, expired]).finally(() => clearTimeout(timer));
-
-        if (outcome === 'expired') return fromBank('timeout');
-        if (!outcome.ok) return fromBank(outcome.fallbackReason);
-        return answer(resolve(outcome.text), undefined);
+        const generated = await generate({ gameId, turnKey, prompt: JSON.stringify(brief) });
+        if (!generated.ok) return fromBank(generated.reason);
+        return answer(resolve(generated.text), undefined);
       } catch {
         return fromBank('internal_error');
+      }
+    },
+
+    async reply(request) {
+      const started = performance.now();
+      const { gameId, seatIndex, observation, speakerSeat, turnKey } = request;
+
+      const { personality, situation } = resolveSetup(request);
+      if (
+        speakerSeat === seatIndex ||
+        !observation.public.players.some((player) => player.seatIndex === speakerSeat)
+      ) {
+        throw new InvalidSpeakRequest('speakerSeat');
+      }
+      const setup = {
+        observation,
+        events: [],
+        situation,
+        addressedSeat: speakerSeat,
+        personality,
+        content,
+        voice: VOICE,
+      };
+      let screening;
+      try {
+        screening = buildSpeechBrief(setup);
+      } catch {
+        throw new InvalidSpeakRequest('observation');
+      }
+
+      const none = (fallbackReason: SpeakFallbackReason): ReplyResponse =>
+        replyResponseSchema.parse({
+          source: 'none',
+          requestId: crypto.randomUUID(),
+          latencyMs: Math.round(performance.now() - started),
+          fallbackReason,
+        });
+
+      try {
+        // The quote reaches this route from the browser, so it passes the output screen again
+        // before anything is spent on it: a line that never could have been shown is not quoted.
+        const quote = screenSpeech(request.quote, screening, content);
+        if (!quote.ok) {
+          noteRejection(quote.reason);
+          return none(quote.reason);
+        }
+        if (!gate) return none('gate_unavailable');
+        const brief = buildSpeechBrief({ ...setup, quote: quote.text });
+        const generated = await generate({
+          gameId,
+          turnKey,
+          prompt: JSON.stringify(brief),
+          before: async () => {
+            const verdict = await gate.check({
+              gameId,
+              turnKey: `${turnKey}:gate`,
+              from: brief.reply_to!.name,
+              to: brief.speaker.name,
+              text: quote.text,
+            });
+            if (verdict === 'manipulation') {
+              log('Exchange line refused by the manipulation gate.');
+              return 'manipulation';
+            }
+            return verdict === 'unavailable' ? 'gate_unavailable' : undefined;
+          },
+        });
+        if (!generated.ok) return none(generated.reason);
+        const screened = screenSpeech(generated.text, brief, content);
+        if (!screened.ok) {
+          noteRejection(screened.reason);
+          return none(screened.reason);
+        }
+        return replyResponseSchema.parse({
+          source: 'haiku',
+          requestId: crypto.randomUUID(),
+          latencyMs: Math.round(performance.now() - started),
+          text: screened.text,
+        });
+      } catch {
+        return none('internal_error');
       }
     },
   };

@@ -28,6 +28,11 @@ export type SpeechBrief = {
   };
   /** `null` speaks to the table. */
   addressed: { name: string; coins: Standing } | null;
+  /**
+   * A reply only (spec §5.7): what the addressed seat just said, as quoted data. It is a line that
+   * already passed the output screen and the manipulation gate, never the other seat's setup.
+   */
+  reply_to?: { name: string; says: string };
   /** At most three, oldest first, as plain sentences without amounts. */
   recent_events: string[];
   /** Names of items every seat can see; the output screen allows these and no other item name. */
@@ -42,6 +47,8 @@ export type SpeechBriefInput = {
   situation: Situation;
   /** The addressed seat; omit to speak to the table. */
   addressedSeat?: number;
+  /** What the addressed seat just said, for a reply: needs `addressedSeat`. */
+  quote?: string;
   personality: Personality;
   content: Content;
   voice: Voice;
@@ -121,7 +128,8 @@ function assertNoDigits(brief: SpeechBrief): void {
 }
 
 export function buildSpeechBrief(input: SpeechBriefInput): SpeechBrief {
-  const { observation, events, situation, addressedSeat, personality, content, voice } = input;
+  const { observation, events, situation, addressedSeat, quote, personality, content, voice } =
+    input;
   const { players } = observation.public;
   const seat = observation.own.seatIndex;
   const you = players.find((player) => player.seatIndex === seat);
@@ -141,6 +149,9 @@ export function buildSpeechBrief(input: SpeechBriefInput): SpeechBrief {
   if (addressedSeat !== undefined && (!addressed || addressedSeat === seat)) {
     throw new RangeError('Addressed seat must be another seat in the game');
   }
+  if (quote !== undefined && !addressed) {
+    throw new RangeError('A reply needs the seat it answers');
+  }
   const brief: SpeechBrief = {
     topic: { id: situation, text: text(voice.topics, 'topic', situation) },
     world: voice.world,
@@ -158,6 +169,7 @@ export function buildSpeechBrief(input: SpeechBriefInput): SpeechBrief {
     addressed: addressed
       ? { name: nameOf(addressed.classId), coins: standing(players, addressed.seatIndex) }
       : null,
+    ...(quote !== undefined && { reply_to: { name: nameOf(addressed!.classId), says: quote } }),
     recent_events: describeEvents(events, observation, content),
     public_items: [
       ...new Set(players.flatMap((player) => player.knownItems.map((item) => item.name))),
