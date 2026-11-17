@@ -3,6 +3,7 @@ import { BoardScreen } from './board/BoardScreen.tsx';
 import { CreditsScreen } from './CreditsScreen.tsx';
 import { classOptions, content as gameContent, engineContent } from './game/content.ts';
 import { rollForFirstPlayer } from './game/firstPlayer.ts';
+import { applyPreset } from './game/presets.ts';
 import {
   browserStorage,
   clearSave,
@@ -55,6 +56,7 @@ import { FirstPlayerScreen } from './setup/FirstPlayerScreen.tsx';
 import { HomeScreen } from './setup/HomeScreen.tsx';
 import { ModeScreen } from './setup/ModeScreen.tsx';
 import { OpponentScreen } from './setup/OpponentScreen.tsx';
+import { PresetScreen } from './setup/PresetScreen.tsx';
 import { ReviewScreen } from './setup/ReviewScreen.tsx';
 import { WatchOptionsScreen } from './setup/WatchOptionsScreen.tsx';
 import { Button } from './ui/Button.tsx';
@@ -304,12 +306,30 @@ export function App({
           canWatch={canWatch(classOptions)}
           onNewGame={() => go({ screen: 'setup', step: 'mode' })}
           onWatch={() => go({ screen: 'watch', step: 'mode' })}
+          onPresets={() => go({ screen: 'presets' })}
           onRandomAll={() => {
             const picked = randomSetup(classOptions, OPEN_MODES, random);
             if (!picked) return;
             setDraft({ mode: picked.mode, human: picked.human, rivals: picked.opponents });
             go({ screen: 'setup', step: 'review' });
           }}
+        />
+      );
+      break;
+    case 'presets':
+      screen = (
+        <PresetScreen
+          classes={classOptions}
+          openModes={OPEN_MODES}
+          onApply={(preset) => {
+            // A preset fills every seat; the review then shows each seat's exact choices.
+            const applied = applyPreset(preset, classOptions, OPEN_MODES, random);
+            if (!applied.ok) return;
+            const { mode, human, opponents } = applied.setup;
+            setDraft({ mode, human, rivals: opponents });
+            go({ screen: 'setup', step: 'review' });
+          }}
+          onBack={() => go(HOME)}
         />
       );
       break;

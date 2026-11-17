@@ -71,6 +71,7 @@ test('with fewer than two open classes Watch is greyed with its reason (§3.1)',
       canWatch={false}
       onNewGame={() => {}}
       onRandomAll={() => {}}
+      onPresets={() => {}}
       onWatch={() => {}}
     />,
   );

@@ -59,6 +59,8 @@ export const en = {
   'home.watchHint': 'Set up two to four AIs and watch them play each other. You take no seat.',
   'home.watchNotEnough':
     'Watching needs at least two playable classes, one for each AI. Ask the team to check the class file.',
+  'home.presets': 'Quick-start presets',
+  'home.presetsHint': 'Fill every seat in one tap, then check and change it before you start.',
   'home.boardCaption': 'Spaces on the board',
 
   'board.kind.start': 'Start',
@@ -168,6 +170,34 @@ export const en = {
   'setup.step.firstPlayer': 'First roll',
   'setup.step.ais': 'AIs',
   'setup.step.options': 'Table',
+
+  'presets.heading': 'Quick-start presets',
+  'presets.body':
+    'Pick one to fill every seat at once. The next screen shows each seat’s exact choices, and Back there lets you change any seat before you roll.',
+  'presets.rivalsUnit': 'AI',
+  'presets.problem.mode': 'This preset needs {mode} mode, which is closed.',
+  'presets.problem.noMode': 'No mode is open, so this preset cannot start.',
+  'presets.problem.class': 'This preset needs {class}, which is not open to play.',
+  'presets.problem.starter':
+    'This preset gives {class} the Starter {starter}, which that class does not offer.',
+  'presets.problem.duplicate':
+    'This preset gives {class} to two players, and classes cannot repeat in one game.',
+  'presets.problem.personality':
+    'This preset needs the {personality} personality, which is not open yet.',
+  'presets.problem.difficulty': 'This preset needs {difficulty} difficulty, which is closed.',
+  'presets.problem.seats':
+    'This preset needs {needed} AI rivals, but only {open} classes are open and every player needs a different one.',
+  'presets.problem.byHand':
+    'It has not been changed for you. Use New game to choose your seats yourself.',
+  'preset.one-rival-easy.name': 'One rival, easy',
+  'preset.one-rival-easy.hint': 'A calm first game: you and one Easy AI.',
+  'preset.two-rivals-normal.name': 'Two rivals, normal',
+  'preset.two-rivals-normal.hint': 'A fuller table: you and two Normal AIs.',
+  'preset.three-rivals-random.name': 'Three rivals, random',
+  'preset.three-rivals-random.hint':
+    'You and three AIs. Every class, Starter, personality and difficulty is picked at random.',
+  'preset.random-all.name': 'Random All',
+  'preset.random-all.hint': 'Everything picked at random, including how many AIs you play.',
 
   'mode.heading': 'Choose a mode',
   'mode.body': 'The mode sets how many Laps of the board it takes to end the game.',
