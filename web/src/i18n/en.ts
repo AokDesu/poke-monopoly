@@ -424,6 +424,24 @@ export const en = {
   'ai.reason.timeout': 'Jev did not answer in time.',
   'ai.reason.rate_limited': 'Jev is receiving too many requests.',
   'ai.reason.auth': 'The server could not connect to Jev with its current settings.',
+  'talk.heading': 'Table talk',
+  'talk.hide': 'Hide table talk',
+  'talk.show': 'Show table talk',
+  'talk.hidden': 'Table talk is hidden. No new lines are asked for while it is hidden.',
+  'talk.empty':
+    'No table talk yet. An AI may comment after a rare catch, a big sale, a Gym win, a change in the lead or the final round.',
+  'talk.onlyWords': 'Only words: table talk never changes a game number or an AI’s choice.',
+  'talk.aiWritten': 'AI-written · only words',
+  'talk.bank': 'Line bank · only words',
+  'talk.to': 'to {name}',
+  'talk.toYou': 'to you',
+  'talk.voiceOff': 'Voice off',
+  'talk.reason.disabled':
+    'AI-written speech is switched off on this server. Lines come from the line bank, or the table stays quiet.',
+  'talk.reason.missing_key':
+    'AI-written speech is not set up on this server. Lines come from the line bank, or the table stays quiet.',
+  'talk.reason.budget_exceeded':
+    'The AI-written speech spending limit has been reached. Lines come from the line bank, or the table stays quiet.',
   'ai.reason.stub': 'This decision uses the backup policy.',
   'ai.action.roll': '{name} rolled the die.',
   'ai.action.skip': '{name} continued past {phase}.',
@@ -479,8 +497,6 @@ export const en = {
   'gallery.pending.chat': 'Needs the chat panel, which is not built yet.',
   'gallery.pending.eventDeck':
     'The notice is in this catalog, but no screen shows it yet and the board has no Event deck.',
-  'gallery.pending.speech':
-    'Needs the speech writer and the Table talk panel, which are not built yet.',
   'gallery.pending.watch': 'Needs watch mode, which is not built yet.',
   'gallery.row.onlyLegalAction': 'Only one legal action (e.g. must roll)',
   'gallery.row.shortlistEmpty': 'Shortlist empty after personality filtering',
@@ -520,6 +536,13 @@ export const en = {
   'gallery.example.sellWholeTeam': 'Selling the whole team: preview',
   'gallery.example.afterWholeTeamSale': 'After the whole team was sold',
   'gallery.example.badgeOneOfTwo': 'One of two rivals timed out',
+  'gallery.example.voiceDisabled': 'Voice off: switched off on the server, a line from the bank',
+  'gallery.example.voiceMissingKey': 'Voice off: no key on the server, a line from the bank',
+  'gallery.example.voiceBudget': 'Voice off: spending limit reached, no line for this moment',
+  'gallery.example.screenBank':
+    'The text failed the screen: the bank line is shown, not labelled AI-written',
+  'gallery.example.screenSilence':
+    'The text failed the screen and the bank has no line: nothing is shown',
   'gallery.example.badgeRateLimited': 'One of two rivals was rate limited',
 } as const satisfies Record<string, string>;
 

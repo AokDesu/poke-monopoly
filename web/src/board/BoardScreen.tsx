@@ -3,6 +3,8 @@ import type { GameStore } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { Screen } from '../ui/Screen.tsx';
 import { Board } from './Board.tsx';
+import { TableTalkPanel } from './TableTalk.tsx';
+import { useTableTalk } from './useTableTalk.ts';
 import { useTurnPlayback } from './useTurnPlayback.ts';
 import { EncounterDialog } from './EncounterDialog.tsx';
 import { SellPanel } from './SellPanel.tsx';
@@ -22,6 +24,7 @@ export function BoardScreen({
   const view = useSyncExternalStore(store.subscribe, store.getView);
   const openedAt = useRef<number | null>(null);
   const playback = useTurnPlayback(store, view);
+  const talk = useTableTalk(store, view, playback);
   const [actionError, setActionError] = useState<number | null>(null);
   if (view && openedAt.current === null) openedAt.current = view.observation.public.stateRevision;
 
@@ -64,7 +67,22 @@ export function BoardScreen({
   );
   return (
     <>
-      <Board observation={view.observation} feed={view.feed} controls={controls} focus={focus} />
+      <Board
+        observation={view.observation}
+        feed={view.feed}
+        controls={controls}
+        focus={focus}
+        talk={
+          <TableTalkPanel
+            lines={talk.lines}
+            players={game.players}
+            viewerSeat={view.seatIndex}
+            hidden={talk.hidden}
+            onToggle={() => talk.setHidden(!talk.hidden)}
+            voiceOff={talk.voiceOff}
+          />
+        }
+      />
       {humanTurn && game.phase.kind === 'encounter' && !game.phase.catchRoll && (
         <EncounterDialog
           observation={view.observation}
