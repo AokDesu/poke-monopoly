@@ -7,7 +7,24 @@ import { legalActionSchema, observationSchema } from './schema.ts';
 const id = z.string().min(1);
 const count = z.int().nonnegative();
 
-export const decisionPointSchema = z.enum(['strategy', 'encounter', 'sell']);
+export const decisionPointSchema = z.enum([
+  'strategy',
+  'encounter',
+  'sell',
+  // Responder decisions (§4.8, §6 item 2): asked of the engine's pending-decision seat, which is not
+  // always the active one. S12–S14 add `pvp_response`, `reaction` and `reward` the same way.
+  'promise_response',
+  'deal_response',
+]);
+/** The decision points a pending responder answers, rather than the active seat's own phase. */
+export const responderDecisionPointSchema = z.enum(['promise_response', 'deal_response']);
+/**
+ * The decision point a pending question (`own.pendingResponse.kind`) is answered at. S05 adds the
+ * deal kind here; until then no deal question exists to ask.
+ */
+const responderPointOfPending: Readonly<Record<string, DecisionPoint | undefined>> = {
+  promise_offer: 'promise_response',
+};
 /**
  * An outcome may also name the Shop, which has no Jev question (spec §5.3) but whose decision the
  * log still records, as a non-Jev decision (§6 item 8). A request names it through the Shop's own
@@ -51,6 +68,19 @@ export const decisionFactsSchema = z.strictObject({
     )
     .max(64)
     .optional(),
+  /**
+   * The engine's numbers for a pending deal, for the responder (S05, S08): net values to each side,
+   * the concession asked and the budget left. All optional until the engine provides them; ai/
+   * turns them into buckets and never computes its own.
+   */
+  deal: z
+    .strictObject({
+      netValueToYou: z.int().optional(),
+      netValueToProposer: z.int().optional(),
+      concession: count.optional(),
+      budgetLeft: count.optional(),
+    })
+    .optional(),
 });
 
 export const decisionRequestSchema = z
@@ -79,7 +109,28 @@ export const decisionRequestSchema = z
         message: 'Must match the observation',
       });
     }
-    if (observation.public.phase.kind !== request.decisionPoint) {
+    if (responderDecisionPointSchema.safeParse(request.decisionPoint).success) {
+      // Only the pending-decision seat may be asked: the responder of the question it is part of.
+      const pending = observation.own.pendingResponse;
+      if (
+        !pending ||
+        pending.responderSeatIndex !== request.seatIndex ||
+        responderPointOfPending[pending.kind] !== request.decisionPoint
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['decisionPoint'],
+          message: 'Must be the pending responder answering its own question',
+        });
+      }
+      if (request.enabledActions.some((action) => action.kind !== 'respond')) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['enabledActions'],
+          message: 'A responder decision offers only respond actions',
+        });
+      }
+    } else if (observation.public.phase.kind !== request.decisionPoint) {
       ctx.addIssue({
         code: 'custom',
         path: ['decisionPoint'],

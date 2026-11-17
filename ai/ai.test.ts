@@ -1180,3 +1180,85 @@ describe('import boundaries', () => {
     expect(await importErrors(code)).not.toEqual([]);
   });
 });
+
+describe('responder decisions (spec §4.8, §5.3, §6 item 2; S06)', () => {
+  /** Seat 0 asks seat 1 for a promise; seat 1 owes the answer while seat 0 stays active. */
+  const pendingGame = () =>
+    act(socialGame(3), 'offer_promise', { targetSeatIndex: 1, direction: 'offer' });
+  const responderRequest = (
+    state: GameState,
+    seat: number,
+    decisionPoint: DecisionRequest['decisionPoint'] = 'promise_response',
+  ): DecisionRequest => {
+    const observation = observe(state, seat);
+    return {
+      gameId: 'game-test-1',
+      seatIndex: seat,
+      decisionPoint,
+      stateRevision: observation.public.stateRevision,
+      observation,
+      enabledActions: legalActions(state, seat).enabled,
+      facts: {},
+      difficulty: 'normal',
+      personalityId: 'cautious',
+      turnKey: `${seat}:1`,
+    };
+  };
+
+  test("promise_response is answered with the responder's own accept or reject", async () => {
+    const state = pendingGame();
+    const request = responderRequest(state, 1);
+    expect(request.enabledActions.map((action) => action.id)).toEqual([
+      'respond:accept',
+      'respond:reject',
+    ]);
+    const response = await decide(request);
+    expect(response.status).toBe(200);
+    const body = decisionResponseSchema.parse(await response.json());
+    expect(body).toMatchObject({ source: 'fallback', fallbackReason: 'auto' });
+    expect(request.enabledActions.map((action) => action.id)).toContain(
+      (body as { choice: string }).choice,
+    );
+  });
+
+  test('only the pending-decision seat is accepted: not the initiator, a bystander or another point', async () => {
+    const state = pendingGame();
+    // The initiator is the active seat but owes nothing; seat 2 never sees the question.
+    expect((await decide(responderRequest(state, 0))).status).toBe(400);
+    expect((await decide(responderRequest(state, 2))).status).toBe(400);
+    // The point must name the question the seat is asked: no deal is pending in the contract yet.
+    expect((await decide(responderRequest(state, 1, 'deal_response'))).status).toBe(400);
+    // A responder point with a non-respond action list is refused.
+    const mixed = responderRequest(state, 1);
+    const strategyActions = strategy.enabledActions;
+    expect((await decide({ ...mixed, enabledActions: strategyActions })).status).toBe(400);
+    // Without a pending question there is nothing to respond to.
+    const idle = socialGame(3);
+    expect(
+      (await decide({ ...responderRequest(pendingGame(), 1), observation: observe(idle, 1) }))
+        .status,
+    ).toBe(400);
+  });
+
+  test('the orchestrator routes both responder points to the auto policy without asking Jev', async () => {
+    const state = pendingGame();
+    const request = responderRequest(state, 1);
+    const ask = vi.fn(async () => ({ ok: false as const, fallbackReason: 'network' as const }));
+    const orchestrator = new Orchestrator({ client: { ask } });
+    for (const decisionPoint of ['promise_response', 'deal_response'] as const) {
+      const decision = await orchestrator.decide({
+        turnKey: 'k',
+        observation: request.observation,
+        legalActions: { enabled: request.enabledActions, disabled: [] },
+        facts: {},
+        difficulty: 'normal',
+        personality: PERSONALITIES.greedy,
+        decisionPoint,
+        rng: createPolicyRng('r'),
+      });
+      expect(decision).toMatchObject({ source: 'auto', requests: 0 });
+      expect(decision.events[0]!.questionId).toBe(decisionPoint);
+    }
+    expect(ask).not.toHaveBeenCalled();
+  });
+});

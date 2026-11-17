@@ -1,3 +1,4 @@
+import type { DecisionPoint } from '../engine/contract/decision.ts';
 import type { Personality } from '../content/personality-schema.ts';
 import type { LegalAction, LegalActions, Observation } from '../engine/index.ts';
 import type { PolicyChoice, PolicyFacts, PolicyRng } from '../sim/policy.ts';
@@ -105,6 +106,11 @@ export interface DecideRequest {
   facts: DecideFacts;
   difficulty: Difficulty;
   personality: Personality;
+  /**
+   * The wire's decision point. A responder point (a pending question another seat owes) is routed
+   * by it rather than by the observed phase, which is the active seat's, not the responder's.
+   */
+  decisionPoint?: DecisionPoint;
   /** Seeded choice source for Easy sampling and the fallback policy's tie-breaks. */
   rng: PolicyRng;
   /** The game's revision when the answer arrives; defaults to the observed one. */
@@ -241,6 +247,13 @@ export class Orchestrator {
     const log = { turnKey: request.turnKey, decision: this.#quota.nextDecision(), finished };
     try {
       const { phase } = request.observation.public;
+      // Responder decisions use the `auto` policy until S09 and S10 add their question builders.
+      if (
+        request.decisionPoint === 'promise_response' ||
+        request.decisionPoint === 'deal_response'
+      ) {
+        return policyDecision(request, 'auto', null);
+      }
       if (phase.kind === 'strategy' || phase.kind === 'encounter') {
         return await this.#decideChoice(request, phase.kind, log);
       }
@@ -566,7 +579,7 @@ function policyDecision(
       {
         requestId: null,
         model: null,
-        questionId: observation.public.phase.kind,
+        questionId: request.decisionPoint ?? observation.public.phase.kind,
         choice: typeof choice === 'string' ? choice : `sell:${choice.sellUids.join('+')}`,
         probabilities: null,
         confidence: null,

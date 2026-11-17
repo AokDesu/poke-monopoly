@@ -283,6 +283,7 @@ export const createOrchestratorDecider = ({
       // Hard waits for gate G2 (spec §5.6): until then it plays as Normal.
       difficulty: request.difficulty === 'easy' ? 'easy' : 'normal',
       personality: personalityFor(request.personalityId),
+      decisionPoint: request.decisionPoint,
       rng: rngFor(request),
     });
     return { ...fromDecision(request, decision), events: decision.events };
