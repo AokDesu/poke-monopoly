@@ -80,6 +80,7 @@ export function observe(state: GameState, seatIndex: number): Observation {
       phase: state.phase,
       lapTarget: state.config.lapTarget,
       finalTableRound: state.finalTableRound,
+      ...(state.lastEvent ? { lastEvent: state.lastEvent } : {}),
     },
     own: {
       seatIndex,
@@ -87,6 +88,9 @@ export function observe(state: GameState, seatIndex: number): Observation {
       ...(ownPlayer.armedShield ? { armedShield: ownPlayer.armedShield } : {}),
       balls: ownPlayer.balls,
       privateResults: ownPlayer.privateResults,
+      ...(state.lastEvent?.seatIndex === seatIndex && state.lastEventReward
+        ? { lastEventReward: state.lastEventReward }
+        : {}),
       // Only conversations this seat is part of; the key exists only when the Social window is on.
       ...(state.config.socialWindow === true && {
         chats: chatsOf(state, seatIndex),

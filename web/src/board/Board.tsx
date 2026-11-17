@@ -1,14 +1,14 @@
 import { lazy, Suspense, type ReactNode } from 'react';
-import type { Observation, SeatEvent } from '../../../engine/index.ts';
+import type { SeatEvent } from '../../../engine/index.ts';
 import { MEADOW_STARTERS } from '../game/models.ts';
-import type { SeatFeedEntry } from '../game/store.ts';
+import type { OpponentSettings, SeatFeedEntry } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { speciesName } from '../i18n/names.ts';
 import { BallIcon } from '../ui/icons.tsx';
 import { Screen } from '../ui/Screen.tsx';
 import { hasWebGl } from '../ui/three/support.ts';
 import { EventLog } from './EventLog.tsx';
-import { phaseLabel, seatLabel } from './labels.ts';
+import { ownSeatOf, phaseLabel, seatLabel, type ViewedObservation } from './labels.ts';
 import { PlayerPanel } from './PlayerPanel.tsx';
 import { RouteArrow, SpaceIcon } from './SpaceIcon.tsx';
 import './board.css';
@@ -16,14 +16,19 @@ import './board.css';
 const StarterMeadow = lazy(() => import('./StarterMeadow.tsx'));
 
 export interface BoardProps {
-  observation: Observation;
+  /** A seat's observation, or a watcher's public-only view (no `own`: nothing is "you"). */
+  observation: ViewedObservation;
   /** Already filtered for this seat by eventsVisibleTo, never a raw engine log. */
   events?: readonly SeatEvent[];
   feed?: readonly SeatFeedEntry[];
+  /** Each AI's setup, shown on its panel; the watcher's boards pass it. */
+  opponents?: readonly OpponentSettings[];
   /** Live turn controls; omitted by the read-only fixture Board. */
   controls?: ReactNode;
   /** Current opponent action strip, rendered under the board loop (issue #123). */
   focus?: ReactNode;
+  /** The Table talk panel, shown beside the field log. */
+  talk?: ReactNode;
 }
 
 // Presentation coordinates only. Game positions are already positionOf(routeProgress) in observe().
@@ -37,13 +42,23 @@ function squareLayout(position: number) {
   return { row: position - 17, column: 7, direction: 'down' };
 }
 
-export function Board({ observation, events = [], feed, controls, focus }: BoardProps) {
-  const { public: game, own } = observation;
-  const you = game.players.find((player) => player.seatIndex === own.seatIndex)!;
-  const activeName = seatLabel(game.activeSeatIndex, own.seatIndex);
+export function Board({
+  observation,
+  events = [],
+  feed,
+  opponents,
+  controls,
+  focus,
+  talk,
+}: BoardProps) {
+  const { public: game } = observation;
+  const ownSeat = ownSeatOf(observation);
+  const you = game.players.find((player) => player.seatIndex === ownSeat);
+  const activeName = seatLabel(game.activeSeatIndex, ownSeat);
   // During an opponent's turn the board spotlight follows the acting rival, so the
-  // square and the action text under it always name the same move (issue #123).
-  const opponentTurn = game.phase.kind !== 'finished' && game.activeSeatIndex !== own.seatIndex;
+  // square and the action text under it always name the same move (issue #123). A watcher
+  // holds no seat, so every turn is a rival's and the spotlight follows each seat in turn.
+  const opponentTurn = game.phase.kind !== 'finished' && game.activeSeatIndex !== ownSeat;
   const focusSeat = opponentTurn ? game.activeSeatIndex : undefined;
   const focusPosition =
     focusSeat === undefined
@@ -66,7 +81,7 @@ export function Board({ observation, events = [], feed, controls, focus }: Board
               <strong>
                 {game.phase.kind === 'finished'
                   ? t('board.finished')
-                  : game.activeSeatIndex === own.seatIndex
+                  : game.activeSeatIndex === ownSeat
                     ? t('board.yourTurn')
                     : t('board.turn', { name: activeName })}
               </strong>
@@ -119,7 +134,7 @@ export function Board({ observation, events = [], feed, controls, focus }: Board
                               key={player.seatIndex}
                               data-testid={`token-${player.seatIndex}`}
                               aria-label={t('board.tokenLabel', {
-                                name: seatLabel(player.seatIndex, own.seatIndex),
+                                name: seatLabel(player.seatIndex, ownSeat),
                                 seat: player.seatIndex,
                                 position: player.position,
                               })}
@@ -158,7 +173,7 @@ export function Board({ observation, events = [], feed, controls, focus }: Board
                       <span className="seat-disc" data-seat={player.seatIndex}>
                         {player.seatIndex}
                       </span>
-                      <span>{seatLabel(player.seatIndex, own.seatIndex)}</span>
+                      <span>{seatLabel(player.seatIndex, ownSeat)}</span>
                       <RouteArrow direction="right" />
                     </span>
                   ))}
@@ -166,15 +181,23 @@ export function Board({ observation, events = [], feed, controls, focus }: Board
               </div>
             </div>
             {focus}
-            <EventLog events={events} feed={feed} observation={observation} />
+            <div className="log-row">
+              <EventLog events={events} feed={feed} observation={observation} />
+              {talk}
+            </div>
           </div>
           <aside className="trainer-panels" aria-label={t('board.team')}>
             {controls}
-            <PlayerPanel player={you} observation={observation} />
+            {you && <PlayerPanel player={you} observation={observation} />}
             {game.players
-              .filter((player) => player.seatIndex !== own.seatIndex)
+              .filter((player) => player.seatIndex !== ownSeat)
               .map((player) => (
-                <PlayerPanel key={player.seatIndex} player={player} observation={observation} />
+                <PlayerPanel
+                  key={player.seatIndex}
+                  player={player}
+                  observation={observation}
+                  setup={opponents?.find((entry) => entry.seatIndex === player.seatIndex)}
+                />
               ))}
           </aside>
         </div>

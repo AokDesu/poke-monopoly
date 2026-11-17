@@ -11,23 +11,38 @@ import {
   readSaveText,
   summarize,
   writeSave,
+  readWatchSetup,
+  writeWatchSetup,
+  clearWatchSetup,
+  savedRivals,
+  type SavedRival,
   type SaveMeta,
   type SaveStorage,
   type SaveSummary,
 } from './game/save.ts';
 import {
+  canWatch,
   completeSetup,
+  completeWatchSetup,
+  DEFAULT_WATCH_SETTINGS,
   freshSeed,
-  opponentFor,
+  randomAis,
+  restoreWatchProgress,
+  withRivalCount,
   randomSetup,
+  WATCH_MIN_AIS,
   type ModeId,
   type SetupDraft,
+  type WatchDraft,
 } from './game/setup.ts';
 import {
   configForSetup,
+  configForWatch,
   createGameStore,
   MODES,
   opponentSettings,
+  rematchConfig,
+  watchOpponentSettings,
   type GameSession,
   type GameStore,
 } from './game/store.ts';
@@ -41,6 +56,7 @@ import { HomeScreen } from './setup/HomeScreen.tsx';
 import { ModeScreen } from './setup/ModeScreen.tsx';
 import { OpponentScreen } from './setup/OpponentScreen.tsx';
 import { ReviewScreen } from './setup/ReviewScreen.tsx';
+import { WatchOptionsScreen } from './setup/WatchOptionsScreen.tsx';
 import { Button } from './ui/Button.tsx';
 import { BallIcon } from './ui/icons.tsx';
 import { FocusHeadingContext, Screen } from './ui/Screen.tsx';
@@ -63,6 +79,8 @@ type SaveOffer =
       kind: 'continue';
       session: GameSession;
       opponents: SaveMeta['opponents'];
+      watch: SaveMeta['watch'];
+      rivals: SavedRival[];
       summary: SaveSummary;
     }
   | { kind: 'mismatch'; message: string }
@@ -87,11 +105,14 @@ function inspect(storage: SaveStorage | null): { offer: SaveOffer | null; unavai
       unavailable: false,
     };
   }
+  const meta = readMeta(storage);
   return {
     offer: {
       kind: 'continue',
       session: loaded.game,
-      opponents: readMeta(storage).opponents,
+      opponents: meta.opponents,
+      watch: meta.watch,
+      rivals: savedRivals(loaded.game, meta),
       summary: summarize(loaded.game, loaded.resumed),
     },
     unavailable: false,
@@ -107,12 +128,23 @@ export function App({
   const [store] = useState(() => givenStore ?? createGameStore());
   const [storage] = useState(() => (givenStorage === undefined ? browserStorage() : givenStorage));
   const [opened] = useState(() => inspect(storage));
+  // A reload keeps an unfinished watch setup, unless a saved game is waiting on the Home screen.
+  const [restored] = useState(() =>
+    storage && !opened.offer
+      ? restoreWatchProgress(readWatchSetup(storage), classOptions, OPEN_MODES)
+      : undefined,
+  );
   const [savingOff, setSavingOff] = useState(opened.unavailable);
   const [offer, setOffer] = useState(opened.offer);
   const [resumeNotice, setResumeNotice] = useState<string | null>(null);
-  const [route, setRoute] = useState<Route>(HOME);
+  const [route, setRoute] = useState<Route>(() =>
+    restored ? { screen: 'watch', step: restored.step } : HOME,
+  );
   const [creditsFrom, setCreditsFrom] = useState<Route>(HOME);
   const [draft, setDraft] = useState<SetupDraft>({});
+  const [watch, setWatch] = useState<WatchDraft>(
+    () => restored?.draft ?? { settings: DEFAULT_WATCH_SETTINGS },
+  );
   const [startFailed, setStartFailed] = useState(false);
   const [navigated, setNavigated] = useState(false);
   const noticeRef = useRef<string | null>(null);
@@ -125,8 +157,12 @@ export function App({
       const session = store.getSession();
       if (storage) {
         try {
-          if (session) writeSave(storage, session, { opponents: store.getOpponents() });
-          else clearSave(storage);
+          if (session) {
+            writeSave(storage, session, {
+              opponents: store.getOpponents(),
+              watch: store.getWatchSettings(),
+            });
+          } else clearSave(storage);
           setSavingOff(false);
         } catch {
           setSavingOff(true);
@@ -143,17 +179,30 @@ export function App({
     });
   }, [store, storage]);
 
+  // An unfinished watch setup waits in storage so a reload on any watch step, the review included,
+  // finds every answer again. Credits is a detour and keeps it; any other screen drops it.
+  useEffect(() => {
+    if (!storage) return;
+    try {
+      if (route.screen === 'watch') writeWatchSetup(storage, route.step, watch);
+      else if (route.screen !== 'credits') clearWatchSetup(storage);
+    } catch {
+      setSavingOff(true);
+    }
+  }, [storage, route, watch]);
+
   const go = (next: Route) => {
     setNavigated(true);
     setStartFailed(false);
     setRoute(next);
   };
   const canStart = randomSetup(classOptions, OPEN_MODES, () => 0) !== undefined;
-  const setup = completeSetup(draft);
+  const setup = completeSetup(draft, classOptions);
+  const watchSetup = completeWatchSetup(watch, classOptions);
   const continueSaved = () => {
     if (offer?.kind !== 'continue') return;
     try {
-      store.restore(offer.session, [...offer.opponents]);
+      store.restore(offer.session, [...offer.opponents], offer.watch);
     } catch {
       setOffer({ kind: 'unreadable' });
       return;
@@ -194,11 +243,47 @@ export function App({
     store.clear();
     go(HOME);
   };
+  /** Leave from a watched game: Save keeps the game for Continue, End discards it. */
+  const leaveWatch = (how: 'save' | 'end') => {
+    if (how === 'end') {
+      playAgain();
+      return;
+    }
+    noticeRef.current = null;
+    setResumeNotice(null);
+    setOffer(inspect(storage).offer);
+    go(HOME);
+  };
+  /** Same AIs and settings, a new seed (spec §3, watch path). */
+  const watchAgain = () => {
+    const session = store.getSession();
+    if (!session) {
+      playAgain();
+      return;
+    }
+    const settings = store.getOpponents();
+    const tableSettings = store.getWatchSettings();
+    noticeRef.current = null;
+    setResumeNotice(null);
+    try {
+      store.start(
+        rematchConfig(session.state.config, freshSeed()),
+        engineContent,
+        settings,
+        tableSettings,
+      );
+    } catch {
+      playAgain();
+      return;
+    }
+    go({ screen: 'play' });
+  };
   const prompt: SavePromptProps | null = offer
     ? offer.kind === 'continue'
       ? {
           kind: 'continue',
           pending: pendingLine(offer.summary),
+          rivals: offer.rivals,
           onContinue: continueSaved,
           onNewGame: discardSave,
         }
@@ -216,11 +301,13 @@ export function App({
         <HomeScreen
           board={gameContent.board}
           canStart={canStart}
+          canWatch={canWatch(classOptions)}
           onNewGame={() => go({ screen: 'setup', step: 'mode' })}
+          onWatch={() => go({ screen: 'watch', step: 'mode' })}
           onRandomAll={() => {
             const picked = randomSetup(classOptions, OPEN_MODES, random);
             if (!picked) return;
-            setDraft({ mode: picked.mode, human: picked.human, opponent: picked.opponents[0] });
+            setDraft({ mode: picked.mode, human: picked.human, rivals: picked.opponents });
             go({ screen: 'setup', step: 'review' });
           }}
         />
@@ -244,14 +331,16 @@ export function App({
             <ClassScreen
               classes={classOptions}
               chosen={draft.human}
-              onSelect={(human) =>
-                setDraft({
-                  ...draft,
-                  human,
-                  opponent: opponentFor(classOptions, human, draft.opponent),
-                })
-              }
-              onNext={() => go({ screen: 'setup', step: 'opponents' })}
+              rivals={draft.rivals}
+              onSelect={(human) => setDraft({ ...draft, human })}
+              onNext={() => {
+                // The first time through, one rival on the first free class; later answers stay.
+                const rivals = draft.rivals?.length
+                  ? draft.rivals
+                  : (withRivalCount(classOptions, draft.human!, [], 1) ?? []);
+                setDraft({ ...draft, rivals });
+                go({ screen: 'setup', step: 'opponents' });
+              }}
               onBack={() => go({ screen: 'setup', step: 'mode' })}
             />
           );
@@ -261,8 +350,8 @@ export function App({
             <OpponentScreen
               classes={classOptions}
               human={draft.human}
-              opponent={draft.opponent}
-              onChange={(opponent) => setDraft({ ...draft, opponent })}
+              rivals={draft.rivals ?? []}
+              onChange={(rivals) => setDraft({ ...draft, rivals })}
               onNext={() => go({ screen: 'setup', step: 'review' })}
               onBack={() => go({ screen: 'setup', step: 'class' })}
             />
@@ -310,17 +399,95 @@ export function App({
           break;
       }
       break;
+    case 'watch':
+      switch (route.step) {
+        case 'mode':
+          screen = (
+            <ModeScreen
+              flow="watch"
+              onChoose={(mode) => {
+                // The first time through, two AIs on the first free classes; later answers stay.
+                const ais = watch.ais?.length
+                  ? watch.ais
+                  : (withRivalCount(classOptions, undefined, [], WATCH_MIN_AIS) ?? []);
+                setWatch({ ...watch, mode, ais });
+                go({ screen: 'watch', step: 'ais' });
+              }}
+              onBack={() => go(HOME)}
+            />
+          );
+          break;
+        case 'ais':
+          screen = (
+            <OpponentScreen
+              classes={classOptions}
+              rivals={watch.ais ?? []}
+              onChange={(ais) => setWatch({ ...watch, ais })}
+              onRandomAll={() => {
+                // Random All fills every seat and never changes how many AIs were asked for.
+                const ais = randomAis(classOptions, watch.ais?.length ?? 0, random);
+                if (ais) setWatch({ ...watch, ais });
+              }}
+              onNext={() => go({ screen: 'watch', step: 'options' })}
+              onBack={() => go({ screen: 'watch', step: 'mode' })}
+            />
+          );
+          break;
+        case 'options':
+          screen = watch.ais ? (
+            <WatchOptionsScreen
+              settings={watch.settings}
+              onChange={(settings) => setWatch({ ...watch, settings })}
+              onNext={() => go({ screen: 'watch', step: 'review' })}
+              onBack={() => go({ screen: 'watch', step: 'ais' })}
+            />
+          ) : (
+            <MissingStep onHome={() => go(HOME)} />
+          );
+          break;
+        case 'review':
+          screen = watchSetup ? (
+            <ReviewScreen
+              setup={watchSetup}
+              failed={startFailed}
+              onBack={() => go({ screen: 'watch', step: 'options' })}
+              onRoll={() => {
+                try {
+                  store.start(
+                    configForWatch(watchSetup, seed ?? freshSeed()),
+                    engineContent,
+                    watchOpponentSettings(watchSetup),
+                    watchSetup.settings,
+                  );
+                  // No human roll screen: every AI's roll, ties included, is the log's start (§3).
+                  rollForFirstPlayer(store);
+                  go({ screen: 'play' });
+                } catch {
+                  // The engine re-checks every setup (createGame); say so instead of going blank.
+                  store.clear();
+                  setStartFailed(true);
+                }
+              }}
+            />
+          ) : (
+            <MissingStep onHome={() => go(HOME)} />
+          );
+          break;
+      }
+      break;
     case 'play':
       screen = (
         <BoardScreen
           store={store}
           notice={resumeNotice ?? undefined}
           onFinished={() => go({ screen: 'results' })}
+          savingOff={savingOff}
+          onLeave={leaveWatch}
         />
       );
       break;
     case 'results':
-      screen = <ResultsScreen store={store} onPlayAgain={playAgain} />;
+      screen = <ResultsScreen store={store} onPlayAgain={playAgain} onWatchAgain={watchAgain} />;
       break;
     case 'credits':
       screen = <CreditsScreen onBack={() => go(creditsFrom)} />;
@@ -348,7 +515,17 @@ export function App({
           </p>
         )}
         <FocusHeadingContext value={navigated}>
-          <div key={route.screen === 'setup' ? route.step : route.screen}>{screen}</div>
+          <div
+            key={
+              route.screen === 'setup'
+                ? route.step
+                : route.screen === 'watch'
+                  ? `watch-${route.step}`
+                  : route.screen
+            }
+          >
+            {screen}
+          </div>
         </FocusHeadingContext>
       </main>
       {route.screen !== 'credits' && (

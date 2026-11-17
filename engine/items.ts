@@ -17,6 +17,11 @@ import type {
 // Hostile items cannot target the user and ignore board distance (§4.6).
 export const HOSTILE = ['repel', 'sticky-web', 'pickpocket', 'battle-ticket'];
 
+/** Engine-owned classification for observers of legal choices (§4.6). */
+export function isHostileItem(itemId: string): boolean {
+  return HOSTILE.includes(itemId);
+}
+
 /**
  * How much of an item's authored effect (Appendix A) this engine applies, so screens never claim
  * more than it does. `partial`: Potion clears Tired only; combat debuffs are not tracked yet.

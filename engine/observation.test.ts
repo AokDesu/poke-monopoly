@@ -153,7 +153,7 @@ test('no seat sees the draws of an Event deck shuffle, which would reveal its or
 const SEED = 'SEED-SENTINEL';
 const DECK = ['EVENT-SENTINEL-a', 'EVENT-SENTINEL-b', 'EVENT-SENTINEL-c'];
 
-/** A 2- or 3-seat game whose seats each hold secret sentinel items and whose deck is planted. */
+/** A 2-, 3- or 4-seat game with private item and peek sentinels. */
 function sentinelGame(game: number): GameState {
   const scenario = fixtureSchema.parse(fixture).state;
   const content = structuredClone(scenario.content);
@@ -163,10 +163,17 @@ function sentinelGame(game: number): GameState {
     starterSpeciesIds: ['eevee'],
     classItemId: 'pickpocket',
   });
+  content.classes.push({
+    id: 'gym-trainer',
+    name: 'Gym Trainer',
+    starterSpeciesIds: ['eevee'],
+    classItemId: 'pickpocket',
+  });
   const seats = [
     ...scenario.config.seats,
     { actorId: 'player-2', seatIndex: 2, classId: 'team-rocket', controller: 'ai' as const },
-  ].slice(0, 2 + (game % 2));
+    { actorId: 'player-3', seatIndex: 3, classId: 'gym-trainer', controller: 'ai' as const },
+  ].slice(0, 2 + (game % 3));
   const state = createGame(
     createGameConfig({ seats, seed: `${SEED}-${game}`, lapTarget: 3 }),
     content,
@@ -182,7 +189,9 @@ function sentinelGame(game: number): GameState {
       });
     }
   }
-  state.eventDeck = { drawPile: [...DECK], discardPile: [] };
+  for (const player of state.players) {
+    player.privateResults = [{ kind: 'peek', eventId: `PRIVATE-PEEK-${player.seatIndex}` }];
+  }
   return state;
 }
 
@@ -195,15 +204,32 @@ function plantSentinels(state: GameState): void {
   }
 }
 
-/** Serialised fragments that would reveal a secret item held by any seat other than `seat`. */
+/** Serialised fragments that would reveal another seat's secret items or peek results. */
 function othersSecrets(states: GameState[], seat: number): string[] {
   return states.flatMap((state) =>
     state.players
       .filter((player) => player.seatIndex !== seat)
-      .flatMap((player) => player.items.filter((item) => item.visibility === 'secret'))
-      .flatMap((item) => [`"${item.instanceId}"`, item.name]),
+      .flatMap((player) => [
+        ...player.items
+          .filter((item) => item.visibility === 'secret')
+          .flatMap((item) => [`"${item.instanceId}"`, item.name]),
+        ...player.privateResults.map((result) => `"${result.eventId}"`),
+      ]),
   );
 }
+
+// A private peek result needs its own leak check: it contains no secret-item sentinel (§8).
+test('the seat leak harness catches a private peek copied into a visible output', () => {
+  const state = strategy('repel');
+  state.players[1]!.privateResults = [{ kind: 'peek', eventId: 'PRIVATE-PEEK-1' }];
+  const clean = JSON.stringify(observe(state, 0));
+  const tainted = JSON.stringify({ view: observe(state, 0), eventId: 'PRIVATE-PEEK-1' });
+  const assertNoSecrets = (json: string) => {
+    for (const secret of othersSecrets([state], 0)) expect(json).not.toContain(secret);
+  };
+  expect(() => assertNoSecrets(clean)).not.toThrow();
+  expect(() => assertNoSecrets(tainted)).toThrow();
+});
 
 function step(state: GameState, pick: (n: number) => number) {
   const automatic = advanceAutomatically(state);
@@ -228,8 +254,10 @@ test('500 random mid-game states never show a seat another seat’s secrets, RNG
   let states = 0;
   const itemEvents = new Set<string>();
   const actionKinds = new Set<string>();
+  const seatCounts = new Set<number>();
   for (let game = 0; game < 25; game++) {
     let state = sentinelGame(game);
+    seatCounts.add(state.players.length);
     let choices = createRng(game);
     const pick = (n: number) => {
       const draw = int(choices, n);
@@ -268,7 +296,10 @@ test('500 random mid-game states never show a seat another seat’s secrets, RNG
         const actor = before.players.find((entry) => entry.actorId === record.action.actorId);
         if (actor?.seatIndex !== seat) expect(seenRecord).not.toContain('"offerId"');
         if (move % 3 !== 0) continue;
-        const seen = JSON.stringify([observe(state, seat), legalActions(state, seat)]);
+        // Drawn Events are public now; plant impossible IDs only in the projection copy.
+        const projection = { ...state };
+        projection.eventDeck = { drawPile: [...DECK], discardPile: [] };
+        const seen = JSON.stringify([observe(projection, seat), legalActions(projection, seat)]);
         for (const secret of secrets) expect(seen).not.toContain(secret);
         for (const hidden of [SEED, `"${state.rng.state}"`, RNG_VERSION, ...DECK]) {
           expect(seen).not.toContain(hidden);
@@ -276,10 +307,12 @@ test('500 random mid-game states never show a seat another seat’s secrets, RNG
         expect(seen).not.toMatch(/"(rng|cursor|seed|rngVersion|eventDeck|drawPile)":/);
         // Control: the seat does see its own secret items.
         for (const item of player.items) expect(seen).toContain(`"${item.instanceId}"`);
+        for (const result of player.privateResults) expect(seen).toContain(`"${result.eventId}"`);
       }
     }
   }
   expect(states).toBe(500);
+  expect(seatCounts).toEqual(new Set([2, 3, 4]));
   // Random play bought and used secret items, so their UID events were exercised.
   expect(itemEvents).toEqual(new Set(['uid_created', 'uid_destroyed', 'hostile_item_used']));
   // Random play reached these record kinds; shuffle and event_draw are checked above.
@@ -396,4 +429,50 @@ test('action record visibility rejects an unknown seat like the other read seams
   const before = strategy('repel');
   const { record } = accepted(before, 'skip');
   expect(() => seatRecord(before, record, 2)).toThrow(RangeError);
+});
+
+test('private changes leave every other seat’s observations and legal choices unchanged in 2/3/4-seat play (§4.1, §5.4, §8)', () => {
+  for (let game = 0; game < 9; game++) {
+    let state = sentinelGame(game);
+    let choices = createRng(`private-twins-${game}`);
+    const pick = (n: number) => {
+      const draw = int(choices, n);
+      choices = draw.rng;
+      return draw.value;
+    };
+    for (let move = 0; move < 60; move++) {
+      state = step(state, pick).state;
+      for (const observer of state.players) {
+        const twin = structuredClone(state);
+        twin.config.seed = 'OTHER-SEED';
+        twin.rng = createRng('OTHER-RNG');
+        twin.eventDeck = { drawPile: ['OTHER-DRAW'], discardPile: ['OTHER-DISCARD'] };
+        for (const owner of twin.players) {
+          if (owner.seatIndex === observer.seatIndex) continue;
+          owner.items = owner.items.map((item) =>
+            item.visibility === 'secret'
+              ? {
+                  ...item,
+                  instanceId: `OTHER-${item.instanceId}`,
+                  name: 'OTHER-NAME',
+                  itemId: 'potion',
+                }
+              : item,
+          );
+          owner.balls = { poke: 97, great: 98, ultra: 99 };
+          owner.privateResults = [{ kind: 'peek', eventId: 'OTHER-PEEK' }];
+          // An armed secret shield is also private; do not vary public shields.
+          if (owner.armedShield?.visibility !== 'public') {
+            if (owner.armedShield) delete owner.armedShield;
+            else owner.armedShield = { scope: 'price', visibility: 'secret' };
+          }
+        }
+        const seat = observer.seatIndex;
+        expect(observe(twin, seat), `game ${game}, move ${move}, seat ${seat}`).toEqual(
+          observe(state, seat),
+        );
+        expect(legalActions(twin, seat)).toEqual(legalActions(state, seat));
+      }
+    }
+  }
 });

@@ -4,7 +4,7 @@ const BALLS = ['poke', 'great', 'ultra'] as const;
 
 /** A short human-readable view of `summary`, printed after its JSON line. */
 export function formatSummary(summary: SimSummary): string[] {
-  const { catching, shop, salesByLap } = summary;
+  const { catching, shop, salesByLap, hostility, promises } = summary;
   const row = (label: string, value: string) => `  ${label.padEnd(22)}${value}`;
   const lines = [
     `Sim: ${summary.games} games, ${summary.seats} seats, seed set ${summary.seedSet}`,
@@ -17,6 +17,9 @@ export function formatSummary(summary: SimSummary): string[] {
         `${catching.catches} catches, ${catching.releases} releases`,
     ),
     row('Shop', list(shop.purchases) || 'no purchases'),
+    row('Events drawn', list(summary.events.drawn) || 'none'),
+    row('Events resolved', list(summary.events.resolved) || 'none'),
+    row('Event shuffles', String(summary.events.shuffles)),
     row(
       'Sales by Lap',
       Object.entries(salesByLap)
@@ -29,7 +32,32 @@ export function formatSummary(summary: SimSummary): string[] {
         .map(([classId, seats]) => `${classId} ${seats.join('/')}`)
         .join(', '),
     ),
+    row(
+      'Hostile items',
+      `${hostility.hostileUsed} / ${hostility.legalHostileOpportunity} (${hostility.usedPerOpportunity ?? 'n/a'})`,
+    ),
+    row(
+      'Promises',
+      `${promises.offered} offered, ${promises.accepted} accepted, ${promises.rejected} rejected`,
+    ),
+    row(
+      'Promise outcomes',
+      `${promises.broken} broken, ${promises.closedByGameEnd} closed by game end, ${promises.pending} pending`,
+    ),
+    row(
+      'Promises kept',
+      `${promises.keptWithOpportunity} kept with opportunity, ${promises.keptWithoutOpportunity} kept without opportunity`,
+    ),
+    row('Promise opportunities', `${promises.breachOpportunity} with breach opportunity`),
   ];
+  for (const entry of hostility.byPersonalityLap) {
+    lines.push(
+      row(
+        `  ${entry.personalityId} Lap ${entry.lap}`,
+        `${entry.hostileUsed} / ${entry.legalHostileOpportunity} (${entry.usedPerOpportunity ?? 'n/a'})`,
+      ),
+    );
+  }
   if (summary.jev) {
     const { decisions, requests, invalidOutputRate, fallbackRate } = summary.jev;
     lines.push(

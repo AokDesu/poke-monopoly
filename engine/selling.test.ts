@@ -306,7 +306,7 @@ test('pre-sale executable versions reject instead of silently replaying differen
 test('income, atomic sale, rescue, destination and resume replay without extra assets (§4.7, §6.8, §8)', () => {
   const initial = sellState();
   initial.phase = { kind: 'move' };
-  initial.players[0]!.routeProgress = 20;
+  initial.players[0]!.routeProgress = 18;
   const log = createGameLog(initial);
   const roll = applyAction(initial, {
     actorId: 'player-0',
@@ -317,7 +317,7 @@ test('income, atomic sale, rescue, destination and resume replay without extra a
   });
   if ('rejected' in roll) throw new Error(roll.reason);
   log.actions.push(roll.record);
-  const moved = advanceAutomatically(roll.state); // Seed 4 yields six, crosses Start to position 2.
+  const moved = advanceAutomatically(roll.state); // Seed 4 yields six, lands on Start.
   log.actions.push(...moved.records);
   const committed = sell(moved.state, ['starter:0', 'caught-eevee']);
   if ('rejected' in committed) throw new Error(committed.reason);
@@ -332,7 +332,7 @@ test('income, atomic sale, rescue, destination and resume replay without extra a
   expect(resumed).toEqual(committed.state);
   const destination = advanceAutomatically(resumed);
   expect(destination.events).toEqual([
-    { kind: 'space_resolved', seatIndex: 0, position: 2, effect: 'none_yet' },
+    { kind: 'space_resolved', seatIndex: 0, position: 0 },
     { kind: 'phase_changed', from: 'resolve', to: 'end' },
   ]);
   log.actions.push(...destination.records);

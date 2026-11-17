@@ -74,7 +74,7 @@ export const contentSchema = z.strictObject({
   board: boardSchema,
   // Optional for historical contract fixtures; real authored content always supplies this.
   evolutions: evolutionsSchema.optional(),
-  // Event card IDs for the deck (§4.6); their effects arrive with C4. Optional for old fixtures.
+  // Event card IDs for the deck (§4.6). Optional for historical contract fixtures.
   events: z.array(z.strictObject({ id })).optional(),
   species: z.array(
     z.strictObject({
@@ -228,6 +228,24 @@ export const offerPromisePayloadSchema = z.strictObject({
   direction: promiseDirectionSchema,
 });
 const privateResultSchema = z.strictObject({ kind: z.literal('peek'), eventId: id });
+const eventRewardSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('item'), item: itemInstanceSchema }),
+  z.strictObject({ kind: z.literal('ball'), ballType }),
+]);
+/** Public summary of the last Event; secret item identities never enter this shape (§4.6). */
+const eventResolutionSchema = z.strictObject({
+  seatIndex: count,
+  eventId: id,
+  result: z.discriminatedUnion('kind', [
+    z.strictObject({ kind: z.literal('encounter'), speciesId: id }),
+    z.strictObject({ kind: z.literal('tired'), instanceId: id.nullable() }),
+    z.strictObject({ kind: z.literal('item') }),
+    z.strictObject({
+      kind: z.literal('coins'),
+      transfers: z.array(z.strictObject({ seatIndex: count, amount: z.int() })),
+    }),
+  ]),
+});
 /** One armed shield, independent of the consumed item UID (Appendix C.4 D6/D7). */
 export const armedShieldSchema = z.strictObject({
   // `price` blocks a whole hostile item/Ability action or a PvP coin loss; `battle_coin_loss`
@@ -473,6 +491,8 @@ export const gameStateSchema = z.strictObject({
     .optional(),
   rng: z.strictObject({ cursor: count, state: id }),
   eventDeck: z.strictObject({ drawPile: z.array(id), discardPile: z.array(id) }),
+  lastEvent: eventResolutionSchema.optional(),
+  lastEventReward: eventRewardSchema.optional(),
   // Durable idempotency receipts; absent before the first resolved reward.
   resolvedRewardIds: z.array(id).optional(),
   attackHistory: z.array(attackAttemptSchema).optional(),
@@ -588,6 +608,10 @@ export const aiSpeechEventSchema = z.strictObject({
   globalTurnNo: count,
 });
 export const engineEventSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('event_deck_shuffled'), cardCount: count }),
+  z.strictObject({ kind: z.literal('item_gained'), ownerId: id, item: itemInstanceSchema }),
+  z.strictObject({ kind: z.literal('event_drawn'), seatIndex: count, eventId: id }),
+  z.strictObject({ kind: z.literal('event_resolved'), ...eventResolutionSchema.shape }),
   attackAttemptSchema,
   z.strictObject({
     kind: z.literal('ability_activated'),
@@ -776,6 +800,7 @@ export const observationSchema = z.strictObject({
     phase: phaseSchema,
     lapTarget: z.int().positive(),
     finalTableRound: finalTableRoundSchema,
+    lastEvent: eventResolutionSchema.optional(),
   }),
   own: z.strictObject({
     seatIndex: count,
@@ -783,6 +808,7 @@ export const observationSchema = z.strictObject({
     armedShield: armedShieldSchema.optional(),
     balls: ballPouchSchema,
     privateResults: z.array(privateResultSchema),
+    lastEventReward: eventRewardSchema.optional(),
     // Only messages this seat sent or received; present only when `config.socialWindow` is on.
     chats: z.array(chatMessageSchema).optional(),
     // Only promises this seat made or received, and the question it is part of; Social window only.

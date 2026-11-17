@@ -20,6 +20,17 @@ import fixture from './fixtures/start-of-game-2p.json';
 
 type Controller = 'human' | 'ai';
 
+/** Gives seat 0 a hostile item every seat can see: the one public chance that earns trust (Q3). */
+function withPublicChance(state: GameState): GameState {
+  state.players[0]!.items.push({
+    instanceId: 'item-public-repel',
+    itemId: 'repel',
+    name: 'Repel',
+    visibility: 'public',
+  });
+  return state;
+}
+
 /**
  * A game in seat order with `controllers`, on the first seat's Social window, having played own turn 1
  * with every other seat still on own turn 0, so the first seat is the one that offers.
@@ -254,18 +265,22 @@ test('an attack on a different seat, or before the promise, does not break it (�
 });
 
 test('kept with a public chance earns +1 trust; kept without one earns nothing (§4.8)', () => {
-  // With a chance: both teams are battle-ready in the promiser's Strategy.
-  const withChance = promise(game(), 1, 'offer');
+  // With a chance: the promiser holds a public hostile item against the recipient in its Strategy.
+  const withChance = promise(withPublicChance(game()), 1, 'offer');
   const strategy = accepted(withChance, 'skip').state;
   expect(strategy.promises![0]!.chance).toBe(true);
   const keptWith = accepted(play(strategy, atEnd(0, 2)).state, 'skip');
   expect(keptWith.state.promises![0]!.settled!.outcome).toBe('kept_with_chance');
   expect(trust(keptWith.state, 1, 0)).toBe(1);
-  // Without one: the promiser has no battle-ready Pokémon, and holds nothing else public.
+  // Without one: both teams are battle-ready, so a PvP declaration is legal, yet that is no chance (Q3).
   const state = game();
-  state.players[0]!.team = state.players[0]!.team.map((pokemon) => ({ ...pokemon, tired: true }));
   const noChance = promise(state, 1, 'offer');
   const strategyNo = accepted(noChance, 'skip').state;
+  expect(
+    legalActions(strategyNo, 0).enabled.some(
+      (action) => action.kind === 'declare_pvp' && action.payload.targetSeatIndex === 1,
+    ),
+  ).toBe(true);
   expect(strategyNo.promises![0]!.chance).toBeUndefined();
   const keptWithout = accepted(play(strategyNo, atEnd(0, 2)).state, 'skip');
   expect(keptWithout.state.promises![0]!.settled!.outcome).toBe('kept_without_chance');
@@ -275,7 +290,6 @@ test('kept with a public chance earns +1 trust; kept without one earns nothing (
 
 test('a secret hostile item gives no chance: the chance reads public facts only (Q3)', () => {
   const state = game();
-  state.players[0]!.team = state.players[0]!.team.map((pokemon) => ({ ...pokemon, tired: true }));
   state.players[0]!.items.push({
     instanceId: 'item-ping',
     itemId: 'repel',
@@ -323,7 +337,7 @@ function round(from: GameState, attack: boolean): GameState {
 }
 
 test('the +1 stops at +2 per pair, the −2 is not capped, and trust stays within −3..3 (§4.8)', () => {
-  let state = game();
+  let state = withPublicChance(game());
   const kept: number[] = [];
   for (let i = 0; i < 4; i++) {
     state = round(state, false);
@@ -365,7 +379,7 @@ test('a game that ends inside the window closes the promise with no trust change
 });
 
 test('the opportunity flag and the kept split never reach a seat (§4.8 Privacy, §6.3)', () => {
-  const state = game(['human', 'ai', 'ai']);
+  const state = withPublicChance(game(['human', 'ai', 'ai']));
   const strategy = accepted(promise(state, 1, 'offer'), 'skip').state;
   expect(strategy.promises![0]!.chance).toBe(true);
   const reached = play(strategy, atEnd(0, 2));

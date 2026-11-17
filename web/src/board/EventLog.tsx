@@ -1,15 +1,16 @@
-import type { Observation, SeatEvent } from '../../../engine/index.ts';
+import type { SeatEvent } from '../../../engine/index.ts';
 import type { SeatFeedEntry } from '../game/store.ts';
 import { t, type MessageKey } from '../i18n/en.ts';
 import { itemName } from '../i18n/names.ts';
-import { phaseLabel, playerLabel, reasonLabel, seatLabel } from './labels.ts';
+import { ownSeatOf, phaseLabel, playerLabel, reasonLabel, seatLabel } from './labels.ts';
+import type { ViewedObservation } from './labels.ts';
 import { turnMessages } from './turnMessages.ts';
 
 function eventMessage(
   event: SeatEvent,
-  observation: Observation,
+  observation: ViewedObservation,
 ): { key: MessageKey; text: string }[] {
-  const seat = (index: number) => seatLabel(index, observation.own.seatIndex);
+  const seat = (index: number) => seatLabel(index, ownSeatOf(observation));
   const message = (key: MessageKey, values?: Record<string, string | number>) => [
     { key, text: t(key, values) },
   ];
@@ -23,6 +24,10 @@ function eventMessage(
     case 'abilities_reset':
     case 'player_displaced':
     case 'ball_gained':
+    case 'item_gained':
+    case 'event_deck_shuffled':
+    case 'event_drawn':
+    case 'event_resolved':
     case 'gym_confirmed':
     case 'gym_resolved':
     case 'badge_awarded':
@@ -97,12 +102,12 @@ export function EventLog({
   feed,
 }: {
   events: readonly SeatEvent[];
-  observation: Observation;
+  observation: ViewedObservation;
   feed?: readonly SeatFeedEntry[];
 }) {
   const rows = feed
     ? feed.flatMap((entry) => [
-        ...turnMessages(entry),
+        ...turnMessages(entry, ownSeatOf(observation)),
         ...entry.record.events.flatMap((event) => eventMessage(event, observation)),
       ])
     : events.flatMap((event) => eventMessage(event, observation));

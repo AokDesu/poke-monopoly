@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
-  applyAction,
+  saleFacts,
   createGame,
   createGameConfig,
   observe,
@@ -70,34 +70,12 @@ const rescue: PokemonInstance = {
   tradeable: false,
 };
 
-/** The engine's own sale prices, read from `applyAction` on a copy, as the sim's facts do. */
-function salePrices(state: GameState, ids: string[]) {
-  const result = applyAction(state, {
-    actorId: 'P1',
-    actionSeq: state.stateRevision + 1,
-    stateRevisionBefore: state.stateRevision,
-    kind: 'sell',
-    payload: { pokemonInstanceIds: ids },
-  });
-  if ('rejected' in result) throw new Error(`Sale rejected: ${result.reason}`);
-  const sales = result.events.flatMap((event) =>
-    event.kind === 'coin_transfer' && event.reason === 'pokemon_sale' && event.sale
-      ? [event.sale]
-      : [],
-  );
-  return new Map(ids.map((id, index) => [id, sales[index]!]));
-}
-
-function engineFacts(state: GameState, keepValue: (id: string) => number = () => 2): SellFacts {
-  const ids = state.players[0]!.team.map((pokemon) => pokemon.instanceId);
-  const together = salePrices(state, ids);
+/** Real engine facts, with explicit keep overrides only for presentation boundary tests. */
+function engineFacts(state: GameState, keepValue?: (id: string) => number): SellFacts {
   return {
-    pokemon: ids.map((instanceId) => ({
-      instanceId,
-      salePrice: together.get(instanceId)!.basePrice,
-      classBonusAlone: salePrices(state, [instanceId]).get(instanceId)!.classBonus,
-      classBonusTogether: together.get(instanceId)!.classBonus,
-      keepValue: keepValue(instanceId),
+    pokemon: saleFacts(state, 0).map((row) => ({
+      ...row,
+      ...(keepValue && { keepValue: keepValue(row.instanceId) }),
     })),
   };
 }
@@ -324,7 +302,19 @@ describe('Rescue Starters (spec §4.7)', () => {
 });
 
 describe('buckets (spec §5.4, §5.6)', () => {
-  test('sale and keep values are low up to 5, medium 6–12 and high from 13', () => {
+  test('keep buckets measure lost Battle points: zero, one or two, three or more', () => {
+    const state = sellPhase([caught(1, 'dratini')]);
+    expect(
+      [0, 1, 2, 3, 8].map(
+        (value) =>
+          ask(
+            state,
+            engineFacts(state, () => value),
+          ).requests[0]!.state.sell_phase.offers.sell_team_0!.keep_value,
+      ),
+    ).toEqual(['low', 'medium', 'medium', 'high', 'high']);
+  });
+  test('sale coins are low up to 5, medium 6–12 and high from 13', () => {
     expect([0, 5, 6, 12, 13, 26].map(bucketSellValue)).toEqual([
       'low',
       'low',
@@ -340,19 +330,17 @@ describe('buckets (spec §5.4, §5.6)', () => {
     const state = sellPhase([caught(1, 'dratini')]);
     const facts = engineFacts(state, () => 3);
     const offer = ask(state, facts).requests[0]!.state.sell_phase.offers.sell_team_0!;
-    expect(offer).toMatchObject({ sale_value_now: 'high', keep_value: 'low' });
+    expect(offer).toMatchObject({ sale_value_now: 'high', keep_value: 'high' });
   });
 
-  test('with no keep value from the engine the offer has no keep bucket and the question never mentions one', () => {
+  test('invalid or missing keep facts fail rather than inventing a Battle value', () => {
     const state = sellPhase([caught(1, 'dratini')]);
-    const facts: SellFacts = {
-      pokemon: engineFacts(state).pokemon.map((fact) => ({ ...fact, keepValue: undefined })),
-    };
-    const { requests } = ask(state, facts);
-    const offer = requests[0]!.state.sell_phase.offers.sell_team_0!;
-    expect(offer).toMatchObject({ sale_value_now: 'high' });
-    expect(offer).not.toHaveProperty('keep_value');
-    expect(JSON.stringify(requests[0]!.questions)).not.toMatch(/keep_value/);
+    for (const value of [-1, 1.5, NaN, undefined]) {
+      const facts = {
+        pokemon: engineFacts(state).pokemon.map((row) => ({ ...row, keepValue: value })),
+      };
+      expect(() => ask(state, facts as SellFacts)).toThrow(RangeError);
+    }
   });
 
   test('Laps remaining and the last Sell Phase follow the Lap target and the Final Table Round', () => {

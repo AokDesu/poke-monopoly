@@ -10,6 +10,10 @@ export const CHAT_TUNING = Object.freeze({
   bucketStep: 0.25,
   /** Messages kept in `recent_chat` (§5.4). */
   recentLimit: 3,
+  /** The manipulation Noul at or above which a message is refused and never enters a state (§5.3). */
+  manipulationThreshold: 0.5,
+  /** Reply lines offered to Jev at once (§5.3 Line: at most 5). */
+  replyLineLimit: 5,
 });
 
 /** The seat's id as the state names it (same as `actorName` in questions/decision.ts). */

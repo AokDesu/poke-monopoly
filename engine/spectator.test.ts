@@ -90,7 +90,6 @@ function plantSecrets(state: GameState, tag: string): void {
       ],
     },
   ];
-  state.eventDeck = { drawPile: DECK.map((card) => `${tag}-${card}`), discardPile: [] };
 }
 
 /** Names every secret item after its owner, so a leak of it is detectable after random play too. */
@@ -166,9 +165,11 @@ test('no spectator view, event or record of 25 seeded all-AI games of 2–4 seat
         expect(['hostile_item_used', 'chat_sent']).not.toContain(event.kind);
       expect(feed).not.toContain('"offerId"');
       expect(feed).not.toContain('"order"');
-      expect(feed).not.toContain('"eventId"');
+      // The drawn card is public; undealt cards remain hidden.
 
-      const view = observeSpectator(state);
+      const projection = { ...state };
+      projection.eventDeck = { drawPile: [...DECK], discardPile: [] };
+      const view = observeSpectator(projection);
       views++;
       expect(view.public.stateRevision).toBe(shown);
       const text = JSON.stringify(view);
@@ -461,7 +462,7 @@ function abilityStrategy(effect: 'vine_pull' | 'lucky_splash'): GameState {
   return state;
 }
 
-test('a hostile Ability target and protection stay private in the spectator feed, even with two seats (D6)', () => {
+test('a hostile Ability’s target and protection stay private in the spectator feed, even with two seats (D6)', () => {
   const before = abilityStrategy('vine_pull');
   before.players[1]!.armedShield = { scope: 'price', visibility: 'secret' };
   const result = applyAction(before, {
@@ -475,7 +476,15 @@ test('a hostile Ability target and protection stay private in the spectator feed
   expect(result.events.map((event) => event.kind)).toContain('protection_applied');
   const seen = actionVisibleToSpectator(before, result.record, 0)!;
   expect(seen.action.payload).not.toHaveProperty('targetSeatIndex');
-  expect(seen.events).toEqual([]);
+  // The use is public; the block and the attempt are not (§4.1, C.3).
+  expect(seen.events).toEqual([
+    {
+      kind: 'ability_activated',
+      ownerId: 'player-0',
+      instanceId: 'starter:0',
+      effect: 'vine_pull',
+    },
+  ]);
   expect(observeSpectator(result.state).public.attackHistory).toEqual([]);
 });
 

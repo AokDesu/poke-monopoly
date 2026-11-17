@@ -11,7 +11,6 @@ import type {
 } from './contract/schema.ts';
 import { ABILITY_EFFECTS, abilityChoices, abilityEffectOf } from './abilities.ts';
 import { HOSTILE, itemChoices } from './items.ts';
-import { pvpDisabledReason } from './pvp.ts';
 import { hideFromBystanders, socialOpen } from './social.ts';
 
 /** Trust is clamped to this range (§4.8). */
@@ -53,6 +52,22 @@ export function promiseActive(state: GameState, promise: NoAttackPromise): boole
     (promiser.ownTurnNo === promise.closesOwnTurnNo &&
       state.activeSeatIndex === promise.promiserSeatIndex)
   );
+}
+
+/**
+ * Read-only window status for §8 reporting; does not settle promises or change trust.
+ * A finished game has ended its final turn, even if the last active seat is the promiser.
+ */
+export function promiseWindowStatus(
+  state: GameState,
+  promise: NoAttackPromise,
+): 'active' | 'expired' | 'closed_by_game_end' {
+  if (state.phase.kind === 'finished') {
+    return player(state, promise.promiserSeatIndex).ownTurnNo >= promise.closesOwnTurnNo
+      ? 'expired'
+      : 'closed_by_game_end';
+  }
+  return promiseActive(state, promise) ? 'active' : 'expired';
 }
 
 /**
@@ -211,10 +226,10 @@ export function trustOf(state: GameState, seatIndex: number) {
 }
 
 /**
- * Whether the promiser holds a **public** chance to attack the recipient now (Q3, docs/engine-contract.md).
- * Only facts every seat can see count: both teams battle-ready for a PvP declaration, a hostile item the
- * promiser holds publicly, or a hostile Ability of a Pokémon on the public team. A secret item never counts,
- * so the chance, and so the trust it earns, depends on nothing the recipient cannot see.
+ * Whether the promiser holds a **public** chance to break the promise now (Q3, docs/engine-contract.md). Only a
+ * hostile item the promiser holds publicly or a hostile Ability of a Pokémon on the public team counts. A legal
+ * PvP declaration does not: it is almost always available, so every kept promise would earn trust. A secret item
+ * never counts either, so the chance, and so the trust it earns, depends on nothing the recipient cannot see.
  */
 export function publicAttackChance(
   state: GameState,
@@ -222,9 +237,7 @@ export function publicAttackChance(
   recipientSeatIndex: number,
 ) {
   const promiser = player(state, promiserSeatIndex);
-  const recipient = player(state, recipientSeatIndex);
   if (state.phase.kind !== 'strategy' || state.activeSeatIndex !== promiserSeatIndex) return false;
-  if (pvpDisabledReason(state, promiser, recipient) === null) return true;
   const items: { enabled: LegalAction[]; disabled: LegalAction[] } = { enabled: [], disabled: [] };
   itemChoices(state, promiserSeatIndex, items as LegalActions);
   const publicHostile = items.enabled.some((action) => {

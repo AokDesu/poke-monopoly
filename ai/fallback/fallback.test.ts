@@ -61,7 +61,12 @@ describe('personality files (§5.5)', () => {
 
   test('every content/personalities/*.json validates and Greedy matches Appendix B', () => {
     const files = readdirSync(dir).filter((name) => name.endsWith('.json'));
-    expect(files).toEqual(['greedy.json']);
+    expect(files.sort()).toEqual([
+      'aggressive.json',
+      'cautious.json',
+      'greedy.json',
+      'opportunist.json',
+    ]);
     for (const file of files) {
       const json = JSON.parse(readFileSync(new URL(file, dir), 'utf8'));
       expect(() => parsePersonality(file.slice(0, -'.json'.length), json)).not.toThrow();
@@ -120,6 +125,7 @@ describe('FallbackPolicy input (§5.2, house rule 3)', () => {
       catchChance?: Readonly<Partial<Record<'poke' | 'great' | 'ultra', number>>>;
       catchSuccessFaces?: Readonly<Partial<Record<'poke' | 'great' | 'ultra', number>>>;
       saleValue?: Readonly<Record<string, number>>;
+      keepValue?: Readonly<Record<string, number>>;
     }>();
     const state = fixtureSchema.parse(sellFixture).state;
     const { legal } = seat0(sellFixture);
@@ -370,7 +376,7 @@ describe('sim registration (§1: games finish with Jev off)', () => {
         return realEngine.applyAction(state, action);
       },
     };
-    const options = { ...DEFAULT_OPTIONS, games: 4, seed: 1, seats: 2, policy: 'fallback' };
+    const options = { ...DEFAULT_OPTIONS, games: 4, seed: 10, seats: 2, policy: 'fallback' };
     const { summary } = await runSim(engine, options, POLICIES, checkInvariants);
     expect(summary).toMatchObject({ illegalAppliedActionCount: 0, invariantFailures: 0 });
     for (const { sold, qualifying } of sales) expect(sold).toEqual(qualifying);

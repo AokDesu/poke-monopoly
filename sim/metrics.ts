@@ -5,6 +5,14 @@ import {
   type EngineEvent,
   type GameState,
 } from '../engine/index.ts';
+import {
+  createInteractionMetrics,
+  emptyHostilitySummary,
+  emptyPromiseSummary,
+  type DecisionEvidence,
+  type HostilitySummary,
+  type PromiseSummary,
+} from './interactions.ts';
 
 const BALL_TYPES: readonly BallType[] = ['poke', 'great', 'ultra'];
 
@@ -51,6 +59,9 @@ export type FeatureSummary = {
 };
 
 export type MetricsSummary = {
+  events: { drawn: Record<string, number>; resolved: Record<string, number>; shuffles: number };
+  hostility: HostilitySummary;
+  promises: PromiseSummary;
   catching: CatchingSummary;
   shop: ShopSummary;
   salesByLap: SalesByLap;
@@ -58,13 +69,23 @@ export type MetricsSummary = {
 };
 
 export type MetricsCollector = {
+  startGame(): void;
   /** Adds one accepted step (`before` → `after` by `action`). */
-  step(before: GameState, action: Action, after: GameState, events: readonly EngineEvent[]): void;
+  step(
+    before: GameState,
+    action: Action,
+    after: GameState,
+    events: readonly EngineEvent[],
+    decision?: DecisionEvidence,
+  ): void;
   summary(): MetricsSummary;
 };
 
 export function emptyMetricsSummary(): MetricsSummary {
   return {
+    events: { drawn: {}, resolved: {}, shuffles: 0 },
+    hostility: emptyHostilitySummary(),
+    promises: emptyPromiseSummary(),
     catching: { encounters: 0, attempts: 0, catches: 0, releases: 0, byBallDcLap: [] },
     shop: { purchases: {} },
     salesByLap: {},
@@ -74,6 +95,7 @@ export function emptyMetricsSummary(): MetricsSummary {
 
 /** Collects the §8 and Appendix A counts over every game of a run, from accepted steps only. */
 export function createMetrics(): MetricsCollector {
+  const interactions = createInteractionMetrics();
   const total = emptyMetricsSummary();
   const encounters = new Map<string, number>();
   const tries = new Map<string, { attempts: number; catches: number }>();
@@ -82,7 +104,11 @@ export function createMetrics(): MetricsCollector {
   const sales = (lap: number) => (total.salesByLap[lap] ??= { sold: 0, coins: 0 });
 
   return {
-    step(before, action, after, events) {
+    startGame() {
+      interactions.startGame();
+    },
+    step(before, action, after, events, decision) {
+      interactions.step(before, after, events, decision);
       const { catching } = total;
       if (after.phase.kind === 'encounter' && before.phase.kind !== 'encounter') {
         const { speciesId } = after.phase.pokemon;
@@ -98,6 +124,13 @@ export function createMetrics(): MetricsCollector {
         purchases[action.payload.offerId] = (purchases[action.payload.offerId] ?? 0) + 1;
       }
       for (const event of events) {
+        if (event.kind === 'event_drawn') {
+          total.events.drawn[event.eventId] = (total.events.drawn[event.eventId] ?? 0) + 1;
+        }
+        if (event.kind === 'event_resolved') {
+          total.events.resolved[event.eventId] = (total.events.resolved[event.eventId] ?? 0) + 1;
+        }
+        if (event.kind === 'event_deck_shuffled') total.events.shuffles++;
         if (event.kind !== 'coin_transfer' || event.reason !== 'pokemon_sale') continue;
         const lap = sales(before.players[before.activeSeatIndex]!.creditedLap);
         lap.sold++;
@@ -145,6 +178,12 @@ export function createMetrics(): MetricsCollector {
         }
       }
       return {
+        events: {
+          drawn: sortedKeys(total.events.drawn),
+          resolved: sortedKeys(total.events.resolved),
+          shuffles: total.events.shuffles,
+        },
+        ...interactions.summary(),
         catching: { ...total.catching, byBallDcLap: rows },
         shop: { purchases: sortedKeys(total.shop.purchases) },
         salesByLap: total.salesByLap,

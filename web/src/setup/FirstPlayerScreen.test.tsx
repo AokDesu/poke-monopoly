@@ -14,8 +14,7 @@ const rival = (classId: string, starterSpeciesId: string): OpponentChoice => ({
   personality: 'greedy',
   difficulty: 'easy',
 });
-// Setup offers one AI this cycle; the roll screen already handles more (spec §3), and only a
-// third seat can show a tie that leaves someone out.
+// Only a third seat can show a tie that leaves someone out (spec §3).
 const threeSeats: GameSetup = {
   mode: 'quick',
   human: { classId: 'researcher', starterSpeciesId: 'porygon' },
@@ -48,7 +47,9 @@ test('a scripted tie shows only the tied seats re-rolling, each with its roll (�
     ),
   ).toEqual(['3', '2']);
   expect(within(second!).getByText(t('firstPlayer.tie'))).toBeTruthy();
-  expect(screen.getByRole('status').textContent).toContain(t('firstPlayer.aiStarts'));
+  expect(screen.getByRole('status').textContent).toContain(
+    t('firstPlayer.aiStarts', { name: t('board.rivalLabel', { seat: 1 }) }),
+  );
   expect(screen.queryByRole('button', { name: t('firstPlayer.rollAgain') })).toBeNull();
 });
 

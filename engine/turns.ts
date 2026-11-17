@@ -10,6 +10,7 @@ import { finishGame } from './game-end.ts';
 import { openShop } from './shop.ts';
 import { slowedSteps } from './slows.ts';
 import { positionOf } from './contract/position.ts';
+import { drawAndResolveEvent } from './events.ts';
 import { noteAttackChances, settleDuePromises } from './promises.ts';
 
 /** Internal transitions operate only on the executor's detached next snapshot. */
@@ -172,9 +173,9 @@ function resolveDestination(next: GameState): EngineEvent[] {
       openGym(next, position);
       return [{ kind: 'space_resolved', seatIndex: player.seatIndex, position }];
     case 'event':
-      // Events remain explicit placeholders until their own slice.
       return [
-        { kind: 'space_resolved', seatIndex: player.seatIndex, position, effect: 'none_yet' },
+        { kind: 'space_resolved', seatIndex: player.seatIndex, position },
+        ...drawAndResolveEvent(next),
       ];
     case 'shop':
       return [{ kind: 'space_resolved', seatIndex: player.seatIndex, position }, ...openShop(next)];

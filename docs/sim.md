@@ -30,8 +30,31 @@ Standard output carries one JSON line, then a short readable table. Scripts read
 | `catching.byBallDcLap` | Appendix A's `catchAttempt / encounter`: one row per Ball type, catch DC and Lap with at least one encounter, giving `encounters`, `attempts` and `catches` with that Ball, and `attemptsPerEncounter`. |
 | `shop`                 | Shop `purchases` by offer ID (`offer-poke`, `offer-lucky-egg`, ...).                                                                                                                         |
 | `features`             | Trigger evidence (§8, Appendix A): Ability activations by effect `primitives`, core `classPassives` that changed a number (a catch or sale class bonus, Rival's combat bonus, Nurse Joy's heal or loss protection), and `battles` (`pvp`, of which `forced`, and `gym`). |
+| `hostility`           | Hostile-item `hostileUsed`, `legalHostileOpportunity`, `usedPerOpportunity`, and `byPersonalityLap` rows with the same counts and rate. See definitions below (§8 Scoring). |
+| `promises`            | `offered`, `accepted`, `rejected`, `broken`, `kept`, `keptWithOpportunity`, `keptWithoutOpportunity`, `closedByGameEnd`, `breachOpportunity`, and `pending`. Always present, including zero counts without `--social`. |
+| `social`              | With `--social`, the existing `promiseOffers`, `promisesAccepted`, and `promisesRejected` fields mirror the corresponding `promises` counts. |
 | `salesByLap`           | Start Sell Phase sales by Lap: Pokémon `sold` (Rescue Starters included, at 0) and `coins` paid. Final Table Round auto-sales are not counted.                                               |
 
 **Lap** in `byBallDcLap` and `salesByLap` is the acting player's `creditedLap`: the number of paid Start crossings so far. Lap 0 is before the first crossing; the Sell Phase after the n-th crossing is Lap n.
 
 `catches / attempts` in a row is that Ball's observed success rate at that DC; with the Ball prices in content it gives the success-per-cost comparison Appendix A asks for before any price change. The summary records measurements only: balance changes and policy comparisons are separate work.
+
+## Hostile items and promises
+
+Spec: §4.8 (promise window and attack evidence), §8 (Simulation scoring), §10 C4.
+
+`hostility.legalHostileOpportunity` counts **one opportunity per seat turn** in which an accepted decision had at least one enabled hostile-item choice. Several held items, several legal targets, or another decision in the same turn do not add opportunities. Disabled choices add none. `hostileUsed` counts canonical `attack_attempt` events whose source is `hostile_item`, including attempts blocked by a shield. Hostile Abilities and PvP declarations contribute to promise evidence, rather than this item metric. `usedPerOpportunity` is the count ratio, or JSON `null` (printed as `n/a`) when there were no opportunities.
+
+`hostility.byPersonalityLap` groups both counts by the deciding policy's personality ID and the acting player's `creditedLap`. Fallback and Jev already carry their personality. Random policies, including the human seat under `--social`, are labelled `unassigned`; the sim does not invent a personality for them. Rows exist only when a use or opportunity was observed. All counts cover accepted steps, including the completed portion of an aborted game.
+
+Promise offers and answers come from their engine events. Each acceptance opens one reporting obligation until the end of the promiser's next own turn. When the engine settles it at that End, the sim counts the outcome the engine recorded: `broken` if the promiser made an attack attempt on that recipient after the promise (including a shield-blocked attempt; other actors and other targets do not break it), otherwise kept or closed by game end.
+
+`breachOpportunity` counts accepted promises whose promiser held a public hostile item or a hostile Ability chance against their recipient during their window, as the engine recorded it (a legal PvP declaration is not a chance, and a secret item never counts). Each promise counts at most once. Every promise count here is read from the engine's settlement record, not counted again from events. At expiry, an unbroken promise is `keptWithOpportunity` or `keptWithoutOpportunity`, and their sum is `kept`. A game ending before the deadline records `closedByGameEnd`, excluded from kept/broken comparisons. Expiry on the game's final turn still counts as kept. Aborted games leave unresolved accepted promises `pending`, rather than treating them as kept or closed by game end.
+
+Accounting identities:
+
+- `accepted = broken + kept + closedByGameEnd + pending`.
+- `kept = keptWithOpportunity + keptWithoutOpportunity`.
+- In a finished game, `offered = accepted + rejected` and `pending = 0`. An abort while an offer awaits its answer can leave `offered` greater than `accepted + rejected`.
+
+These are simulation measurements of the existing window and attack evidence. They do not settle engine promises, update trust or add memory; that gameplay work remains deferred under §4.8. Event/deck and Sell/keep-value integration and the balanced 300-game report are separate work.

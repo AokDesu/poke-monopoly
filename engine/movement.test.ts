@@ -90,10 +90,7 @@ test('landing exactly on Start pays once, while setup and a move before Start pa
   expect(landed.events.filter((event) => event.kind === 'coin_transfer')).toHaveLength(1);
 });
 
-test.each([
-  { progress: 18, position: 0, space: 'start', effect: {} },
-  { progress: 20, position: 2, space: 'event', effect: { effect: 'none_yet' } },
-])(
+test.each([{ progress: 18, position: 0, space: 'start', effect: {} }])(
   'the $space destination logs resolution without gameplay effects (§4.2)',
   ({ progress, position, effect }) => {
     let state = move(movementState(progress)).state;
@@ -110,13 +107,13 @@ test.each([
 );
 
 test('pending movement resumes once and paid movement/Sell/resolution replay exactly (§6.8, §8)', () => {
-  const initial = movementState();
+  const initial = movementState(18);
   const log = createGameLog(initial);
   const roll = command(initial, 'roll');
   log.actions.push(roll.record);
   const resumed = replay(JSON.parse(JSON.stringify(log)));
   expect(resumed.phase).toEqual({ kind: 'move', awaitingResult: true });
-  expect(resumed.players[0]!.routeProgress).toBe(20);
+  expect(resumed.players[0]!.routeProgress).toBe(18);
   const result = advanceAutomatically(resumed);
   log.actions.push(...result.records);
   const finished = command(result.state, 'finish_sell');
@@ -226,7 +223,7 @@ test('executors reject old turn-only version snapshots instead of silently chang
 });
 
 test('an empty Sell finishes before the destination is resolved (§4.2 steps 4–6, §4.7, §8)', () => {
-  const movement = move(movementState());
+  const movement = move(movementState(18));
   const finished = command(movement.state, 'finish_sell');
   expect(finished.state.phase).toEqual({ kind: 'resolve' });
   expect(finished.state.players).toEqual(movement.state.players);
@@ -247,7 +244,7 @@ test('an empty Sell finishes before the destination is resolved (§4.2 steps 4�
     'phase_changed',
   ]);
   expect(resolved.events).toEqual([
-    { kind: 'space_resolved', seatIndex: 0, position: 2, effect: 'none_yet' },
+    { kind: 'space_resolved', seatIndex: 0, position: 0 },
     { kind: 'phase_changed', from: 'resolve', to: 'end' },
   ]);
 });

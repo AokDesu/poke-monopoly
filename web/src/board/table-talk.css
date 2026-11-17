@@ -1,0 +1,107 @@
+.table-talk {
+  padding: 1rem 1.25rem;
+  border-radius: 18px;
+}
+.talk-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+.table-talk h2 {
+  font-size: 1.1rem;
+}
+.talk-toggle {
+  min-height: 44px;
+  padding-block: 0.4rem;
+  font-size: 0.85rem;
+}
+.talk-voice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.6rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--color-ink-soft);
+}
+.talk-badge {
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  color: var(--color-ink);
+  background: var(--color-panel-lip);
+}
+.talk-lines {
+  display: grid;
+  gap: 0.2rem;
+  max-height: 16rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #7b96bf #eef4ff;
+}
+.talk-lines li {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  padding: 0.55rem 0;
+}
+.talk-lines li + li {
+  border-top: 1px solid var(--color-line);
+}
+/* An exchange is one list entry holding two lines: the answer sits under the opening, set in by a hairline. */
+.talk-lines li.talk-exchange {
+  display: block;
+  padding: 0.55rem 0;
+}
+.talk-exchange ol {
+  display: grid;
+}
+.talk-exchange ol > li {
+  padding: 0.35rem 0;
+}
+.talk-exchange ol > li + li {
+  margin-left: 0.85rem;
+  padding-left: 0.85rem;
+  border-top: 0;
+  border-left: 1px solid var(--color-line);
+}
+.talk-lines .seat-disc {
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: 0.85rem;
+}
+.talk-who {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.5rem;
+  font-size: 0.85rem;
+}
+.talk-who span {
+  color: var(--color-ink-soft);
+}
+.talk-text {
+  margin-top: 0.15rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.talk-label {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--color-ink-soft);
+}
+.talk-notice {
+  margin-top: 0.6rem;
+}
+.log-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+  gap: 1.5rem 1rem;
+  margin-top: 1.5rem;
+  align-items: start;
+}
+.log-row > .panel {
+  margin-top: 0;
+}

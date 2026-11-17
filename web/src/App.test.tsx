@@ -98,31 +98,119 @@ test('Standard is visible but greyed with its reason; Play and Results wait for 
   expect(expectDisabledExplained()).toBe(1);
 });
 
-test('the rival cannot take the human class, and says why (§3)', async () => {
+test('a rival cannot take a class another player has, and says why (§3)', async () => {
   const { click } = setup();
   await click(button(t('home.newGame')));
   await click(screen.getByRole('button', { name: new RegExp(t('mode.quick')) }));
   expectDisabledExplained(); // Next waits for a class, and the closed classes say why.
   expect(button(t('nav.next'))).toHaveProperty('disabled', true);
+  expect(radio(/^Rival/)).toHaveProperty('disabled', true);
   await click(radio(/^Researcher/));
   await click(button(t('nav.next')));
 
   const taken = radio(/^Researcher/);
   expect(taken).toHaveProperty('disabled', true);
   expect(document.getElementById(taken.getAttribute('aria-describedby')!)?.textContent).toBe(
-    t('opponents.classTaken'),
+    t('opponents.classTaken', { holder: t('seat.you') }),
   );
   expect(radio(/^Main Character/)).toHaveProperty('checked', true);
   expect(radio(new RegExp(`^${t('personality.greedy')}`))).toHaveProperty('checked', true);
   expect(radio(new RegExp(`^${t('personality.aggressive')}`))).toHaveProperty('disabled', true);
   expect(expectDisabledExplained()).toBeGreaterThanOrEqual(4);
 
-  // Changing the human class to the rival's moves the rival to a free class.
+  // Going Back and taking the rival's class is not repaired silently: it is flagged, the rival
+  // keeps its choice, and the setup cannot go on until the rival changes class.
   await click(button(t('nav.back')));
   await click(radio(/^Main Character/));
+  expect(screen.getByRole('status').textContent).toBe(
+    t('class.rivalHas', { rival: t('board.rivalLabel', { seat: 1 }), class: 'Main Character' }),
+  );
   await click(button(t('nav.next')));
-  expect(radio(/^Researcher/)).toHaveProperty('checked', true);
+  expect(radio(/^Main Character/)).toHaveProperty('checked', true);
   expect(radio(/^Main Character/)).toHaveProperty('disabled', true);
+  const review = button(t('opponents.next'));
+  expect(review).toHaveProperty('disabled', true);
+  expect(document.getElementById(review.getAttribute('aria-describedby')!)?.textContent).toBe(
+    t('opponents.fixClass', { rival: t('board.rivalLabel', { seat: 1 }) }),
+  );
+  await click(radio(/^Researcher/));
+  expect(button(t('opponents.next'))).toHaveProperty('disabled', false);
+});
+
+const rivalTab = (seat: number) => radio(new RegExp(`^AI rival · seat ${seat}`));
+const rivalCount = (count: number) =>
+  radio(
+    new RegExp(`^${t(count === 1 ? 'opponents.countOne' : 'opponents.countMany', { n: count })}`),
+  );
+const checkedName = (group: string) =>
+  (document.querySelector<HTMLInputElement>(`input[name="${group}"]:checked`)?.closest('label')
+    ?.textContent ?? '') as string;
+
+async function toRivals(click: (element: HTMLElement) => Promise<void>) {
+  await click(button(t('home.newGame')));
+  await click(screen.getByRole('button', { name: new RegExp(t('mode.quick')) }));
+  await click(radio(/^Researcher/));
+  await click(button(t('nav.next')));
+}
+
+test('three rivals are set independently, listed in seat order, and all roll first (§3)', async () => {
+  const { click } = setup({ seed: 1 });
+  await toRivals(click);
+  expect(rivalCount(1)).toHaveProperty('checked', true);
+  await click(rivalCount(3));
+  // The rival just added is the one on screen: Nurse Joy is the third free class.
+  expect(rivalTab(3)).toHaveProperty('checked', true);
+  expect(checkedName('rival-2-class')).toMatch(/^Nurse Joy/);
+  await click(radio(/^Bug Catcher/));
+  await click(radio(new RegExp(`^${t('difficulty.normal')}`)));
+
+  // Changing rival 2 changes neither rival 1 nor rival 3.
+  await click(rivalTab(2));
+  expect(checkedName('rival-1-class')).toMatch(/^Fisherman/);
+  await click(radio(/^Nurse Joy/));
+  await click(radio(new RegExp(`^${t('difficulty.normal')}`)));
+  await click(rivalTab(1));
+  expect(checkedName('rival-0-class')).toMatch(/^Main Character/);
+  expect(checkedName('rival-0-difficulty')).toMatch(new RegExp(`^${t('difficulty.easy')}`));
+  await click(rivalTab(3));
+  expect(checkedName('rival-2-class')).toMatch(/^Bug Catcher/);
+  expect(checkedName('rival-2-difficulty')).toMatch(new RegExp(`^${t('difficulty.normal')}`));
+  await click(rivalTab(2));
+  expect(checkedName('rival-1-class')).toMatch(/^Nurse Joy/);
+
+  await click(button(t('opponents.next')));
+  const seatList = screen.getByRole('heading', { name: t('review.seats') }).nextElementSibling!;
+  expect([...seatList.querySelectorAll('li')].map((item) => item.textContent)).toEqual([
+    expect.stringMatching(/^You.*Researcher/),
+    expect.stringMatching(/^AI rival · seat 1.*Main Character.*Greedy.*Easy/),
+    expect.stringMatching(/^AI rival · seat 2.*Nurse Joy.*Greedy.*Normal/),
+    expect.stringMatching(/^AI rival · seat 3.*Bug Catcher.*Greedy.*Normal/),
+  ]);
+  await click(button(t('review.roll')));
+  const first = document.querySelectorAll('[data-seat]');
+  expect([...first].slice(0, 4).map((row) => (row as HTMLElement).dataset.seat)).toEqual([
+    '0',
+    '1',
+    '2',
+    '3',
+  ]);
+  expect(screen.getByRole('button', { name: t('firstPlayer.toBoard') })).toBeTruthy();
+});
+
+test('changing the count keeps the rivals that stay as chosen (§3)', async () => {
+  const { click } = setup();
+  await toRivals(click);
+  await click(radio(/^Bug Catcher/));
+  await click(radio(new RegExp(`^${t('difficulty.normal')}`)));
+  await click(rivalCount(3));
+  await click(rivalCount(1));
+  await click(rivalCount(2));
+  await click(rivalTab(1));
+  expect(checkedName('rival-0-class')).toMatch(/^Bug Catcher/);
+  expect(checkedName('rival-0-difficulty')).toMatch(new RegExp(`^${t('difficulty.normal')}`));
+  // Rival 2 is new and takes a class nobody else has.
+  await click(rivalTab(2));
+  expect(checkedName('rival-1-class')).toMatch(/^Main Character/);
 });
 
 test('a class with several Starters offers a picker, preset to the first (§4.1)', async () => {

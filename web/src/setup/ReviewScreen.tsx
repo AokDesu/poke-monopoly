@@ -1,4 +1,5 @@
-import type { GameSetup } from '../game/setup.ts';
+import { seatLabel } from '../board/labels.ts';
+import type { GameSetup, WatchSetup } from '../game/setup.ts';
 import { MODES } from '../game/store.ts';
 import { className, speciesName } from '../i18n/names.ts';
 import { t } from '../i18n/en.ts';
@@ -9,7 +10,8 @@ import { SpeciesArt } from '../ui/SpeciesArt.tsx';
 import { SetupProgress } from './SetupProgress.tsx';
 
 interface ReviewScreenProps {
-  setup: GameSetup;
+  /** A watched game has `ais` and no human seat (spec §3). */
+  setup: GameSetup | WatchSetup;
   /** Set when the engine refused to create a game from this setup. */
   failed: boolean;
   onRoll: () => void;
@@ -25,19 +27,33 @@ function Chip({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * The whole setup before the roll (spec §3): mode, then every seat in seat order. Rolling creates
- * the game through the engine and makes the human's first-player roll in the same click.
+ * The whole setup before the first roll (spec §3): mode, then every seat in seat order. Starting
+ * creates the game through the engine and makes the first-player roll in the same click: the
+ * human's own, or in a watched game every AI's.
  */
 export function ReviewScreen({ setup, failed, onRoll, onBack }: ReviewScreenProps) {
-  const seats = [
-    { label: t('seat.you'), choice: setup.human, opponent: undefined },
-    ...setup.opponents.map((opponent) => ({ label: t('seat.ai'), choice: opponent, opponent })),
-  ];
+  const watch = 'ais' in setup;
+  const seats = watch
+    ? setup.ais.map((opponent, index) => ({
+        label: seatLabel(index, undefined),
+        choice: opponent,
+        opponent,
+      }))
+    : [
+        { label: t('seat.you'), choice: setup.human, opponent: undefined },
+        ...setup.opponents.map((opponent, index) => ({
+          label: seatLabel(index + 1, 0),
+          choice: opponent,
+          opponent,
+        })),
+      ];
   return (
     <Screen
-      before={<SetupProgress step="review" />}
-      heading={t('review.heading')}
-      body={t('review.body')}
+      before={
+        watch ? <SetupProgress flow="watch" step="review" /> : <SetupProgress step="review" />
+      }
+      heading={t(watch ? 'watchReview.heading' : 'review.heading')}
+      body={t(watch ? 'watchReview.body' : 'review.body')}
       actions={
         <>
           <Button variant="secondary" onClick={onBack}>
@@ -45,14 +61,14 @@ export function ReviewScreen({ setup, failed, onRoll, onBack }: ReviewScreenProp
           </Button>
           <Button variant="primary" className="ms-auto" onClick={onRoll}>
             <DieIcon className="size-6" />
-            {t('review.roll')}
+            {t(watch ? 'watchReview.start' : 'review.roll')}
           </Button>
         </>
       }
     >
       {failed && (
         <p role="alert" className="panel mb-6 p-5 font-bold text-action">
-          {t('review.startFailed')}
+          {t(watch ? 'watchReview.startFailed' : 'review.startFailed')}
         </p>
       )}
       <div className="panel flex items-center gap-4 p-5">
@@ -65,7 +81,21 @@ export function ReviewScreen({ setup, failed, onRoll, onBack }: ReviewScreenProp
           <span className="font-display text-2xl font-semibold">{t(`mode.${setup.mode}`)}</span>
         </span>
       </div>
-      <h2 className="mt-10 text-2xl">{t('review.seats')}</h2>
+      {watch && (
+        <>
+          <h2 className="mt-10 text-2xl">{t('watchReview.settings')}</h2>
+          <p className="mt-4 flex flex-wrap gap-2">
+            <Chip>
+              {t('watchReview.talk')}:{' '}
+              {t(setup.settings.talk ? 'watchReview.on' : 'watchReview.off')}
+            </Chip>
+            <Chip>
+              {t('watchReview.speed')}: {t(`ai.speed.${setup.settings.speed}`)}
+            </Chip>
+          </p>
+        </>
+      )}
+      <h2 className="mt-10 text-2xl">{t(watch ? 'watchReview.seats' : 'review.seats')}</h2>
       <ol className="mt-4 grid gap-6 lg:grid-cols-2">
         {seats.map(({ label, choice, opponent }) => (
           <li key={label + choice.classId} className="panel flex flex-wrap items-center gap-4 p-5">

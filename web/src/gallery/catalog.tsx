@@ -1,10 +1,22 @@
 import type { ReactNode } from 'react';
+import type { AiSpeechEvent } from '../../../engine/index.ts';
+import type { PublicGame, VoiceReason } from '../game/tableTalk.ts';
 import { EncounterDialog } from '../board/EncounterDialog.tsx';
 import { SellPanel } from '../board/SellPanel.tsx';
+import { TableTalkPanel } from '../board/TableTalk.tsx';
 import { TurnPanel } from '../board/TurnPanel.tsx';
+import { WatchPanel } from '../board/WatchPanel.tsx';
 import { t, type MessageKey } from '../i18n/en.ts';
+import { className } from '../i18n/names.ts';
 import { pendingLine, SavePrompt } from '../SavePrompt.tsx';
-import { createScenes, STATIC_PLAYBACK, type GalleryFixtures, type Scene } from './scenes.ts';
+import type { TurnPlayback } from '../board/useTurnPlayback.ts';
+import {
+  createScenes,
+  STATIC_PLAYBACK,
+  type GalleryFixtures,
+  type Scene,
+  type WatchScene,
+} from './scenes.ts';
 
 export interface GalleryExample {
   readonly id: string;
@@ -47,6 +59,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
   const sellPhase = once(scenes.sellPhaseFullTeam);
   const wholeTeamSold = once(scenes.wholeTeamSold);
   const decisionOpen = once(scenes.rivalDecisionOpen);
+  const watchOpen = once(scenes.watchDecisionOpen);
   const rivalFallback = (reason: string, rivals: 1 | 2) =>
     once(() => scenes.rivalLeftShop({ source: 'fallback', fallbackReason: reason }, rivals));
   const timeoutOfOne = rivalFallback('timeout', 1);
@@ -56,6 +69,55 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
   const revisionMismatch = rivalFallback('revision_mismatch', 2);
   const lowConfidence = rivalFallback('low_confidence', 2);
 
+  const talk = (
+    voiceOff: VoiceReason | null,
+    lines: readonly AiSpeechEvent[],
+    players: PublicGame['players'] = decisionOpen().view.observation.public.players,
+  ) => (
+    <TableTalkPanel
+      lines={lines}
+      players={players}
+      viewerSeat={decisionOpen().view.seatIndex}
+      hidden={false}
+      onToggle={noop}
+      voiceOff={voiceOff}
+    />
+  );
+  const bankLine: AiSpeechEvent = {
+    kind: 'ai_speech',
+    speakerSeatIndex: 1,
+    addressedSeatIndex: 0,
+    source: 'bank',
+    lineId: 'taunt-leader-cautious-neutral-1',
+    text: t('ai.line.taunt-leader-cautious-neutral-1', {
+      target: className(decisionOpen().view.observation.public.players[0]!.classId),
+    }),
+    globalTurnNo: 12,
+  };
+  const exchangeLines: readonly AiSpeechEvent[] = [
+    {
+      kind: 'ai_speech',
+      speakerSeatIndex: 2,
+      addressedSeatIndex: 1,
+      source: 'haiku',
+      text: 'That was a lucky catch, and I am glad to see it.',
+      globalTurnNo: 12,
+    },
+    {
+      kind: 'ai_speech',
+      speakerSeatIndex: 1,
+      addressedSeatIndex: 2,
+      source: 'haiku',
+      text: 'Thank you. The tall grass has been kind to me today.',
+      globalTurnNo: 12,
+    },
+  ];
+  // Two rivals, so the exchange is between two AI seats and the player only watches. The scene
+  // clones seat 1 for seat 2, so seat 2 gets the class its config names.
+  const exchangePlayers = () =>
+    timeoutOfTwo().view.observation.public.players.map((player) =>
+      player.seatIndex === 2 ? { ...player, classId: 'researcher' } : player,
+    );
   const turnPanel = (scene: Pick<Scene, 'view'>, extra?: { notice?: string }) => (
     <TurnPanel
       view={scene.view}
@@ -63,6 +125,19 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
       actionError={false}
       onChoose={noop}
       {...extra}
+    />
+  );
+
+  const watchPanel = (
+    scene: Pick<WatchScene, 'view'>,
+    extra?: { notice?: string; status?: TurnPlayback['status'] },
+  ) => (
+    <WatchPanel
+      view={scene.view}
+      playback={{ ...STATIC_PLAYBACK, status: extra?.status ?? null }}
+      notice={extra?.notice}
+      savingOff={false}
+      onLeave={noop}
     />
   );
 
@@ -272,6 +347,123 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
         },
       ],
     },
+    {
+      id: 'haiku-off',
+      specRow: 15,
+      label: 'gallery.row.haikuOff',
+      keys: [
+        'talk.voiceOff',
+        'talk.reason.disabled',
+        'talk.reason.missing_key',
+        'talk.reason.budget_exceeded',
+        'talk.bank',
+      ],
+      examples: [
+        {
+          id: 'disabled',
+          caption: 'gallery.example.voiceDisabled',
+          render: () => talk('disabled', [bankLine]),
+        },
+        {
+          id: 'missing-key',
+          caption: 'gallery.example.voiceMissingKey',
+          render: () => talk('missing_key', [bankLine]),
+        },
+        {
+          id: 'budget',
+          caption: 'gallery.example.voiceBudget',
+          render: () => talk('budget_exceeded', []),
+        },
+      ],
+    },
+    {
+      id: 'haiku-screen-fail',
+      specRow: 16,
+      label: 'gallery.row.haikuScreenFail',
+      keys: ['talk.bank', 'talk.onlyWords', 'talk.empty'],
+      examples: [
+        {
+          id: 'bank-line',
+          caption: 'gallery.example.screenBank',
+          render: () => talk(null, [bankLine]),
+        },
+        {
+          id: 'silence',
+          caption: 'gallery.example.screenSilence',
+          render: () => talk(null, []),
+        },
+      ],
+    },
+    {
+      id: 'ai-exchange',
+      specRow: null,
+      label: 'gallery.row.aiExchange',
+      keys: ['talk.aiWritten', 'talk.onlyWords', 'talk.empty'],
+      examples: [
+        {
+          id: 'exchange',
+          caption: 'gallery.example.exchange',
+          render: () => talk(null, [bankLine, ...exchangeLines], exchangePlayers()),
+        },
+        {
+          id: 'exchange-dropped',
+          caption: 'gallery.example.exchangeDropped',
+          render: () => talk(null, []),
+        },
+      ],
+    },
+    {
+      id: 'watch-browser-closed',
+      specRow: 17,
+      label: 'gallery.row.watchBrowserClosed',
+      keys: ['save.pendingWatched', 'save.continue', 'game.resumedAiTurn'],
+      examples: [
+        {
+          id: 'continue-prompt',
+          caption: 'gallery.example.watchContinue',
+          render: () => (
+            <SavePrompt
+              kind="continue"
+              pending={pendingLine({
+                phase: watchOpen().view.observation.public.phase.kind,
+                waiting: 'decision',
+                seatIndex: watchOpen().view.observation.public.activeSeatIndex,
+                turn: watchOpen().view.observation.public.globalTurnNo,
+                aiDecision: true,
+              })}
+              onContinue={noop}
+              onNewGame={noop}
+            />
+          ),
+        },
+        {
+          id: 'after-continue',
+          caption: 'gallery.example.watchAfterContinue',
+          render: () => watchPanel(watchOpen(), { notice: t('game.resumedAiTurn') }),
+        },
+      ],
+    },
+    {
+      id: 'watch-all-backup',
+      specRow: 18,
+      label: 'gallery.row.watchAllBackup',
+      keys: ['ai.allBackupBanner', 'ai.backupBadge'],
+      examples: [
+        {
+          id: 'server-backup-only',
+          caption: 'gallery.example.watchAllBackup',
+          render: () =>
+            watchPanel(watchOpen(), {
+              status: {
+                jevEnabled: false,
+                backupOnly: true,
+                reason: 'disabled',
+                speech: { enabled: false, reason: 'disabled' },
+              },
+            }),
+        },
+      ],
+    },
   ];
 }
 /** Every §3.1 row not in `GALLERY_ROWS`. The test holds both lists to the spec's table. */
@@ -281,8 +473,4 @@ export const PENDING_ROWS: readonly PendingRow[] = [
   { specRow: 10, label: 'gallery.row.chatUnclassified', reason: 'gallery.pending.chat' },
   { specRow: 11, label: 'gallery.row.chatManipulation', reason: 'gallery.pending.chat' },
   { specRow: 14, label: 'gallery.row.eventDeckOut', reason: 'gallery.pending.eventDeck' },
-  { specRow: 15, label: 'gallery.row.haikuOff', reason: 'gallery.pending.speech' },
-  { specRow: 16, label: 'gallery.row.haikuScreenFail', reason: 'gallery.pending.speech' },
-  { specRow: 17, label: 'gallery.row.watchBrowserClosed', reason: 'gallery.pending.watch' },
-  { specRow: 18, label: 'gallery.row.watchAllBackup', reason: 'gallery.pending.watch' },
 ];

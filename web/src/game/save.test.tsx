@@ -16,7 +16,13 @@ import { App } from '../App.tsx';
 import { t } from '../i18n/en.ts';
 import { engineContent } from './content.ts';
 import { META_KEY, SAVE_KEY, saveText, type SaveStorage } from './save.ts';
-import { configForSetup, createGameStore, type Command, type GameStore } from './store.ts';
+import {
+  configForSetup,
+  createGameStore,
+  opponentSettings,
+  type Command,
+  type GameStore,
+} from './store.ts';
 import { STEP_MS } from '../board/useTurnPlayback.ts';
 
 afterEach(() => {
@@ -385,3 +391,60 @@ test('a finished game shows engine coins, exports a replayable log, and play aga
   expect(store.getSession()).toBeNull();
   expect(box.getItem(SAVE_KEY)).toBeNull();
 }, 30000);
+
+const threeRivals = {
+  mode: 'quick' as const,
+  human: { classId: 'main-character', starterSpeciesId: 'bulbasaur' },
+  opponents: [
+    { classId: 'fisherman', starterSpeciesId: 'magikarp' },
+    { classId: 'nurse-joy', starterSpeciesId: 'chansey' },
+    { classId: 'bug-catcher', starterSpeciesId: 'caterpie' },
+  ].map((seat, index) => ({
+    ...seat,
+    personality: 'greedy' as const,
+    difficulty: index === 1 ? ('normal' as const) : ('easy' as const),
+  })),
+};
+
+test('a three-rival save lists every rival, restores each seat, and explains an unavailable one (§3, §6.7)', () => {
+  const box = memory();
+  const store = createGameStore();
+  render(<App store={store} storage={box} seed={1} />);
+  act(() =>
+    store.start(configForSetup(threeRivals, 1), engineContent, opponentSettings(threeRivals)),
+  );
+  cleanup();
+
+  const reload = (storage: SaveStorage) => {
+    const next = createGameStore();
+    render(<App store={next} storage={storage} />);
+    const section = screen.getByRole('heading', { name: t('save.rivals') }).closest('section')!;
+    return { next, lines: [...section.querySelectorAll('li')].map((item) => item.textContent) };
+  };
+  const { next, lines } = reload(
+    memory({ [SAVE_KEY]: box.getItem(SAVE_KEY)!, [META_KEY]: box.getItem(META_KEY)! }),
+  );
+  expect(lines).toEqual([
+    'AI rival · seat 1: Fisherman, Greedy, Easy.',
+    'AI rival · seat 2: Nurse Joy, Greedy, Normal.',
+    'AI rival · seat 3: Bug Catcher, Greedy, Easy.',
+  ]);
+  fireEvent.click(screen.getByRole('button', { name: t('save.continue') }));
+  expect(next.getOpponents()).toEqual(opponentSettings(threeRivals));
+  cleanup();
+
+  // Seat 2 keeps a personality this build does not open; seat 3's saved personality is unknown.
+  const meta = JSON.stringify({
+    opponents: [
+      { seatIndex: 1, personality: 'greedy', difficulty: 'easy' },
+      { seatIndex: 2, personality: 'aggressive', difficulty: 'normal' },
+      { seatIndex: 3, personality: 'sneaky', difficulty: 'easy' },
+    ],
+  });
+  const tampered = reload(memory({ [SAVE_KEY]: box.getItem(SAVE_KEY)!, [META_KEY]: meta }));
+  expect(tampered.lines).toEqual([
+    'AI rival · seat 1: Fisherman, Greedy, Easy.',
+    `AI rival · seat 2: Nurse Joy, Aggressive, Normal. ${t('save.personalityClosed', { personality: 'Aggressive' })}`,
+    t('save.rivalSettingsMissing', { name: 'AI rival · seat 3', class: 'Bug Catcher' }),
+  ]);
+});
