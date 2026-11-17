@@ -1,4 +1,12 @@
-import type { Action, ActionRecord, EngineEvent, GameState } from './contract/schema.ts';
+import { ABILITY_EFFECTS, abilityEffectOf, pendingChanceRollPurpose } from './abilities.ts';
+import type {
+  Action,
+  ActionRecord,
+  AttackAttempt,
+  EngineEvent,
+  GameState,
+  SeatAttackAttempt,
+} from './contract/schema.ts';
 
 /** An action whose payload may have fields this seat must not see removed. */
 export type SeatAction = Action extends infer A
@@ -6,22 +14,54 @@ export type SeatAction = Action extends infer A
     ? Omit<A, 'payload'> & { payload: Partial<P> }
     : never
   : never;
+/** An event as a seat sees it: an attack attempt without its engine-internal `actionSeq`. */
+export type SeatEvent = Exclude<EngineEvent, AttackAttempt> | SeatAttackAttempt;
 /** A seat-safe copy of an `ActionRecord`, numbered within that seat's own feed. */
-export type SeatActionRecord = Omit<ActionRecord, 'action'> & { action: SeatAction };
+export type SeatActionRecord = Omit<ActionRecord, 'action' | 'events'> & {
+  action: SeatAction;
+  events: SeatEvent[];
+};
+
+/** An attack attempt without the global sequence, which counts records a seat may not see (§4.8). */
+export function seatAttackAttempt(attempt: AttackAttempt): SeatAttackAttempt {
+  const { kind, attackId, actorId, targetId, source, globalTurnNo } = attempt;
+  return { kind, attackId, actorId, targetId, source, globalTurnNo };
+}
 
 /**
  * Whether `seatIndex` may see an event produced by applying an action to `before` (§4.1, §5.4).
  * A secret item's UID events are its owner's alone; a hostile item use is its user's and target's;
- * shuffle draws, which reveal deck order, are nobody's.
+ * shuffle draws, which reveal deck order, are nobody's; a chance roll's die is its roller's.
  */
 function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): boolean {
   if (event.kind === 'random_result' && event.purpose.startsWith('shuffle:')) return false;
+  if (event.kind === 'random_result' && isHiddenChanceRoll(before, event.purpose, seatIndex)) {
+    return false;
+  }
   if (event.kind === 'hostile_item_used') {
     return event.userSeatIndex === seatIndex || event.targetSeatIndex === seatIndex;
   }
   // A chat message is its sender's and recipient's alone (§4.8, §5.4).
   if (event.kind === 'chat_sent') {
     return event.fromSeatIndex === seatIndex || event.toSeatIndex === seatIndex;
+  }
+  const observerId = before.players.find((player) => player.seatIndex === seatIndex)?.actorId;
+  if (event.kind === 'attack_attempt') return attackVisibleTo(event, observerId);
+  // A hostile Ability's use is its user's and target's, like a hostile item (D6, #37).
+  if (event.kind === 'ability_activated' && ABILITY_EFFECTS[event.effect].hostile) {
+    return event.ownerId === observerId || event.targetId === observerId;
+  }
+  if (event.kind === 'ball_gained') return event.ownerId === observerId;
+  // A secret shield's arming shows others only the item-count change (D6).
+  if (event.kind === 'shield_armed') {
+    return event.visibility === 'public' || event.ownerId === observerId;
+  }
+  // A blocked hostile item/Ability is seen by its user and target; a blocked coin loss is public.
+  if (
+    event.kind === 'protection_applied' &&
+    (event.source === 'hostile_item' || event.source === 'hostile_ability')
+  ) {
+    return event.actorId === observerId || event.targetId === observerId;
   }
   // Items created during play are bought, hence secret (§4.1).
   if (event.kind === 'uid_created' && event.entity === 'item') {
@@ -39,16 +79,36 @@ function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): bo
   return true;
 }
 
+/** Lucky Splash's die reveals a private Ball gain, so only the rolling seat sees its face (§4.1). */
+function isHiddenChanceRoll(before: GameState, purpose: string, seatIndex: number): boolean {
+  return (
+    before.phase.kind === 'chance_roll' &&
+    purpose === pendingChanceRollPurpose(before) &&
+    before.phase.seatIndex !== seatIndex
+  );
+}
+
+/** PvP declarations are public; hostile item/Ability attempts are the actor's and target's (#37). */
+export function attackVisibleTo(attempt: AttackAttempt, observerId: string | undefined): boolean {
+  return (
+    attempt.source === 'pvp_declaration' ||
+    attempt.actorId === observerId ||
+    attempt.targetId === observerId
+  );
+}
+
 /** The events of one accepted action that `seatIndex` may see, in their original order. */
 export function eventsVisibleTo(
   before: GameState,
   events: EngineEvent[],
   seatIndex: number,
-): EngineEvent[] {
+): SeatEvent[] {
   if (!before.players.some((player) => player.seatIndex === seatIndex)) {
     throw new RangeError('Unknown seat index');
   }
-  return structuredClone(events.filter((event) => visibleTo(before, event, seatIndex)));
+  return structuredClone(events)
+    .filter((event) => visibleTo(before, event, seatIndex))
+    .map((event) => (event.kind === 'attack_attempt' ? seatAttackAttempt(event) : event));
 }
 
 /**
@@ -61,13 +121,7 @@ export function actorRevision(state: GameState, actorId: string): number {
   return state.stateRevision - (player?.unseenRecords ?? 0);
 }
 
-/**
- * The accepted-record count without chats, for instance IDs every seat may see (§4.8): a chat
- * must not shift them, or a seat outside it could tell that it happened.
- */
-export function publicRevision(state: GameState): number {
-  return state.stateRevision - (state.chatsSent ?? 0);
-}
+export { publicRevision } from './revision.ts';
 
 /**
  * Whether the record is a chat this seat took no part in (§4.8). A seat outside a conversation must
@@ -108,9 +162,26 @@ export function actionVisibleTo(
     // A hostile item use is its user's and target's alone (§4.1, §4.4).
     if (action.payload.targetSeatIndex !== seatIndex) delete action.payload.targetSeatIndex;
   }
+  if (
+    action.kind === 'activate_ability' &&
+    actor?.seatIndex !== seatIndex &&
+    action.payload.targetSeatIndex !== undefined &&
+    action.payload.targetSeatIndex !== seatIndex
+  ) {
+    const pokemon = actor?.team.find((entry) => entry.instanceId === action.payload.instanceId);
+    const effect = pokemon && abilityEffectOf(before, pokemon);
+    if (effect && ABILITY_EFFECTS[effect].hostile) delete action.payload.targetSeatIndex;
+  }
   // Deck order and the drawn card are nobody's until an effect makes them public (§4.6).
   if (action.kind === 'shuffle') delete action.payload.order;
   if (action.kind === 'event_draw') delete action.payload.eventId;
+  if (
+    action.kind === 'dice_result' &&
+    action.payload.purpose !== undefined &&
+    isHiddenChanceRoll(before, action.payload.purpose, seatIndex)
+  ) {
+    delete action.payload.value;
+  }
   const copy: SeatActionRecord = { ...structuredClone(record), action, events };
   // Whether another seat's Social step had alternatives would tell whether it spent its chat (§4.8).
   if (

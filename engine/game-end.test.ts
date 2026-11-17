@@ -74,6 +74,9 @@ function step(state: GameState) {
   if (state.phase.kind === 'strategy') return command(state, 'skip');
   if (state.phase.kind === 'sell') return command(state, 'sell', { pokemonInstanceIds: [] });
   if (state.phase.kind === 'shop') return command(state, 'skip_shop');
+  if (state.phase.kind === 'gym' && state.phase.battle.step === 'entry') {
+    return command(state, 'skip');
+  }
   if (state.phase.kind === 'encounter' && !state.phase.catchRoll) return command(state, 'release');
   const result = advanceAutomatically(state);
   if (result.records.length !== 1) throw new Error(`No step from ${state.phase.kind}`);

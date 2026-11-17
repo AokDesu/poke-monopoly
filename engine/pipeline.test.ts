@@ -14,6 +14,7 @@ import {
   createGameConfig,
   gameLogSchema,
   legalActions,
+  pendingDecision,
 } from './index.ts';
 import fixture from './fixtures/start-of-game-2p.json';
 import shopFixture from './fixtures/shop-low-coins.json';
@@ -448,7 +449,7 @@ test('200 accepted player and generated records have no sequence gaps and replay
     });
     accept({ actorId: 'engine', kind: 'event_draw', payload: { eventId: 'c' } });
     // Walk real turns: generated dice and sole choices advance automatically; at a
-    // decision the active player takes the last enabled choice (keep, release or skip).
+    // decision the pending seat takes the last enabled choice, including PvP responses.
     while (log.actions.length < 200) {
       const automatic = advanceAutomatically(state);
       if (automatic.records.length === 1) {
@@ -457,9 +458,10 @@ test('200 accepted player and generated records have no sequence gaps and replay
         state = automatic.state;
         continue;
       }
-      const choice = legalActions(state, state.activeSeatIndex).enabled.at(-1)!;
+      const owner = pendingDecision(state)!;
+      const choice = legalActions(state, owner.seatIndex).enabled.at(-1)!;
       accept({
-        actorId: state.players[state.activeSeatIndex]!.actorId,
+        actorId: owner.actorId,
         kind: choice.kind,
         payload: choice.payload,
       });

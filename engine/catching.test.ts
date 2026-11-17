@@ -295,8 +295,11 @@ test('repeated species get distinct team UIDs and pending/resolved catches resum
         state = result.state;
         log.actions.push(result.record);
       }
-    } else if (state.phase.kind === 'strategy') {
-      // Rival's Lucky Egg makes Strategy a real decision; this scenario uses no items.
+    } else if (
+      state.phase.kind === 'strategy' ||
+      (state.phase.kind === 'gym' && state.phase.battle.step === 'entry')
+    ) {
+      // Rival's Lucky Egg makes Strategy a real decision; this scenario uses no items or Gyms.
       const result = command(state, 'skip');
       state = result.state;
       log.actions.push(result.record);
@@ -339,6 +342,7 @@ test(
           for (const player of state.players) player.balls = { poke: 3, great: 3, ultra: 3 };
           const log = createGameLog(state);
           for (const selection of selections) {
+            if (state.phase.kind === 'finished') break;
             const before = state;
             if (state.phase.kind === 'encounter' && !state.phase.catchRoll) {
               const choices = legalActions(state, state.activeSeatIndex).enabled;
@@ -359,7 +363,10 @@ test(
               expect(result.events.filter((event) => event.kind === 'uid_created')).toEqual([]);
               state = result.state;
               log.actions.push(result.record);
-            } else if (['sell', 'shop', 'strategy'].includes(state.phase.kind)) {
+            } else if (
+              ['sell', 'shop', 'strategy'].includes(state.phase.kind) ||
+              (state.phase.kind === 'gym' && state.phase.battle.step === 'entry')
+            ) {
               // Sell (#24), Shop (#29) and item use (#31) are real decisions; this property
               // keeps the team, buys nothing and uses no items, so only catches change the pouch.
               const result =

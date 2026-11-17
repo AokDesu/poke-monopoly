@@ -1,4 +1,4 @@
-import type { EngineEvent, Observation } from '../../../engine/index.ts';
+import type { Observation, SeatEvent } from '../../../engine/index.ts';
 import type { SeatFeedEntry } from '../game/store.ts';
 import { t, type MessageKey } from '../i18n/en.ts';
 import { itemName } from '../i18n/names.ts';
@@ -6,7 +6,7 @@ import { phaseLabel, playerLabel, reasonLabel, seatLabel } from './labels.ts';
 import { turnMessages } from './turnMessages.ts';
 
 function eventMessage(
-  event: EngineEvent,
+  event: SeatEvent,
   observation: Observation,
 ): { key: MessageKey; text: string }[] {
   const seat = (index: number) => seatLabel(index, observation.own.seatIndex);
@@ -16,6 +16,19 @@ function eventMessage(
   switch (event.kind) {
     // Spec §5.7: persisted dialogue annotations are not gameplay announcements.
     // Status/evolution/reward records remain in the feed; dedicated UI is a later slice.
+    case 'attack_attempt':
+    case 'shield_armed':
+    case 'protection_applied':
+    case 'ability_activated':
+    case 'abilities_reset':
+    case 'player_displaced':
+    case 'ball_gained':
+    case 'gym_confirmed':
+    case 'gym_resolved':
+    case 'badge_awarded':
+    case 'pvp_response':
+    case 'pvp_confirmed':
+    case 'pvp_resolved':
     case 'status_changed':
     case 'pokemon_evolved':
     case 'battle_reward_resolved':
@@ -79,7 +92,7 @@ export function EventLog({
   observation,
   feed,
 }: {
-  events: readonly EngineEvent[];
+  events: readonly SeatEvent[];
   observation: Observation;
   feed?: readonly SeatFeedEntry[];
 }) {

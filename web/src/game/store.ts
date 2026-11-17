@@ -15,6 +15,7 @@ import {
   observe,
   observeSpectator,
   oddsForAllBalls,
+  pendingDecision,
   saleFacts,
   saleQuote,
   winner,
@@ -33,6 +34,7 @@ import {
   type Observation,
   type SpectatorObservation,
   type SeatActionRecord,
+  type SeatEvent,
 } from '../../../engine/index.ts';
 import { reportOutcome, requestOpponent, type AiDecision } from './ai.ts';
 import type { DifficultyId, GameSetup, PersonalityId } from './setup.ts';
@@ -394,11 +396,13 @@ export function createGameStore(): GameStore {
     },
     advance({ human = false } = {}): boolean {
       const { state, log } = current();
-      const active = state.config.seats.find((seat) => seat.seatIndex === state.activeSeatIndex);
+      const owner = state.config.seats.find(
+        (seat) => seat.seatIndex === pendingDecision(state)?.seatIndex,
+      );
       if (
         !human &&
-        active?.controller === 'human' &&
-        legalActions(state, active.seatIndex).enabled.length > 0
+        owner?.controller === 'human' &&
+        legalActions(state, owner.seatIndex).enabled.length > 0
       ) {
         return false;
       }
@@ -415,15 +419,30 @@ export function createGameStore(): GameStore {
       const snapshot = current();
       const token = gameToken;
       const { state } = snapshot;
-      const seatIndex = state.activeSeatIndex;
-      if (state.config.seats.find((seat) => seat.seatIndex === seatIndex)?.controller !== 'ai') {
+      const seatIndex = pendingDecision(state)?.seatIndex;
+      if (
+        seatIndex === undefined ||
+        state.config.seats.find((seat) => seat.seatIndex === seatIndex)?.controller !== 'ai'
+      ) {
         return false;
       }
       const enabledActions = legalActions(state, seatIndex).enabled;
       if (enabledActions.length <= 1) return false;
       const decisionPoint = state.phase.kind;
-      if (!['strategy', 'encounter', 'sell', 'shop'].includes(decisionPoint)) {
-        throw new Error('Unsupported opponent decision point');
+      if (
+        !['strategy', 'encounter', 'sell', 'shop'].includes(decisionPoint) ||
+        (state.phase.kind === 'encounter' && state.phase.catchRoll)
+      ) {
+        // Temporary #55 boundary: the decision API has no Gym, battle, Ability-window or reroll
+        // questions yet (Stream B). Take the engine's first listed choice so play continues.
+        const choice = enabledActions[0]!;
+        const actorId = state.players.find((player) => player.seatIndex === seatIndex)!.actorId;
+        const result = submit({ actorId, kind: choice.kind, payload: choice.payload } as Command, {
+          source: 'fallback',
+          fallbackReason: 'unsupported_decision_point',
+        });
+        if ('rejected' in result) throw new Error('Opponent action was rejected');
+        return true;
       }
       const settings = opponents.find((opponent) => opponent.seatIndex === seatIndex);
       const observation = observe(state, seatIndex);
@@ -539,7 +558,7 @@ export function createGameStore(): GameStore {
  */
 export function projectBoardFixture(input: unknown): {
   observation: Observation;
-  events: EngineEvent[];
+  events: SeatEvent[];
 } {
   const fixture = fixtureSchema.parse(input);
   return {

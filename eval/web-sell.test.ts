@@ -73,6 +73,8 @@ interface SellDecision {
 
 interface Played {
   decisions: number;
+  /** Decisions sent to `/api/ai/decide`; the #55 Gym, battle and Ability steps are taken locally. */
+  asked: number;
   sells: SellDecision[];
   records: DecisionRecord[];
 }
@@ -126,12 +128,13 @@ async function play(withJev: boolean): Promise<Played> {
     decisionLog: (line) => records.push(line),
   });
   const store = newGame();
-  const played: Played = { decisions: 0, sells: [], records };
+  const played: Played = { decisions: 0, asked: 0, sells: [], records };
   vi.stubGlobal('fetch', async (url: RequestInfo | URL, init?: RequestInit) => {
     const path = String(url);
     // `keepalive` is a browser flag that Hono's in-memory Request does not take.
     const response = await app.request(path, { ...init, keepalive: undefined });
     if (path === '/api/ai/decide') {
+      played.asked++;
       const request = JSON.parse(String(init?.body));
       if (request.decisionPoint === 'sell') {
         played.sells.push({
@@ -219,8 +222,11 @@ test('with Jev reachable, every Sell Phase with a Pokémon to offer asks one Nou
 test('a full seeded game: every AI decision is one decision-log row, Shop included as non-Jev', async () => {
   const played = await play(false);
   expect(played.decisions).toBeGreaterThan(20);
-  // No Jev question is asked without a key, so each decision logs exactly one event.
-  expect(played.records).toHaveLength(played.decisions);
+  // No Jev question is asked without a key, so each decision the server answers logs exactly
+  // one event. The engine's first listed choice at a #55 step the server has no question for
+  // yet is not a server decision, so it is not logged.
+  expect(played.asked).toBeGreaterThan(20);
+  expect(played.records).toHaveLength(played.asked);
   const decisions = new Set(
     played.records.map((row) => `${row.turnKey}:${row.stateRevision}:${row.decisionPoint}`),
   );

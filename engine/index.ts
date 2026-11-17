@@ -15,6 +15,7 @@ export {
   eventsVisibleTo,
   type SeatAction,
   type SeatActionRecord,
+  type SeatEvent,
 } from './visibility.ts';
 export {
   actionVisibleToSpectator,
@@ -62,4 +63,13 @@ export {
 export { pvpOdds, gymOdds, type CombatOdds, type OutcomeOdds } from './odds.ts';
 export { evolvePokemon } from './evolution.ts';
 export { rewardChoices, resolveReward, type RewardResolution } from './rewards.ts';
+
+export {
+  decisionPoint,
+  pendingDecision,
+  socialTargets,
+  type EngineDecisionPoint,
+} from './decisions.ts';
+
+export { ABILITY_EFFECTS, type AbilityEffect } from './abilities.ts';
 export { itemEffectStatus, type ItemEffectStatus } from './items.ts';

@@ -9,7 +9,7 @@ declare module 'virtual:board-fixtures' {
       string,
       {
         observation: import('../../engine/index.ts').Observation;
-        events: import('../../engine/index.ts').EngineEvent[];
+        events: import('../../engine/index.ts').SeatEvent[];
       }
     >
   >;

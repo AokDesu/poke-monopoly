@@ -17,6 +17,7 @@ import {
   legalActions,
   observe,
   observeSpectator,
+  pendingDecision,
   resume,
   serialize,
   stateHash,
@@ -104,10 +105,11 @@ function secretsOf(...states: GameState[]): string[] {
 function step(state: GameState, pick: (n: number) => number) {
   const automatic = advanceAutomatically(state);
   if (automatic.records.length === 1) return automatic;
-  const enabled = legalActions(state, state.activeSeatIndex).enabled;
+  const seatIndex = pendingDecision(state)!.seatIndex;
+  const enabled = legalActions(state, seatIndex).enabled;
   const choice = enabled[pick(enabled.length)]!;
   const result = applyAction(state, {
-    actorId: state.players.find((player) => player.seatIndex === state.activeSeatIndex)!.actorId,
+    actorId: pendingDecision(state)!.actorId,
     actionSeq: state.stateRevision + 1,
     stateRevisionBefore: state.stateRevision,
     kind: choice.kind,
@@ -306,6 +308,7 @@ test('a hostile item use shows a spectator only its public effect, even in a two
   expect(result.events.map((event) => event.kind)).toContain('hostile_item_used');
   const seen = actionVisibleToSpectator(before, result.record, 0)!;
   expect(seen.events.map((event) => event.kind)).toEqual(['coin_transfer']);
+  expect(observeSpectator(result.state).public.attackHistory).toEqual([]);
   expect(seen.action.payload).toEqual({});
   expect(eventsVisibleToSpectator(before, result.events)).toEqual(seen.events);
 });
@@ -422,4 +425,116 @@ test('the spectator view equals a seat’s public view apart from its own revisi
   for (const player of state.players) {
     expect(observeSpectator(state).public).toEqual(observe(state, player.seatIndex).public);
   }
+});
+
+test('a spectator never inherits a seat’s hostile attack history or a secret shield (§4.1, D6)', () => {
+  const before = strategy('pickpocket');
+  before.players[1]!.armedShield = { scope: 'price', visibility: 'secret' };
+  const result = applyAction(before, {
+    actorId: 'player-0',
+    actionSeq: 1,
+    stateRevisionBefore: 0,
+    kind: 'use_item',
+    payload: { itemInstanceId: 'SECRET-0', targetSeatIndex: 1 },
+  });
+  if ('rejected' in result) throw new Error(result.reason);
+  expect(result.events.map((event) => event.kind)).toContain('protection_applied');
+  expect(observe(result.state, 0).public.attackHistory).toHaveLength(1);
+  expect(observeSpectator(before).public.players[1]).not.toHaveProperty('armedShield');
+  expect(observeSpectator(result.state).public.attackHistory).toEqual([]);
+  expect(eventsVisibleToSpectator(before, result.events)).toEqual([]);
+  const twin = structuredClone(result.state);
+  twin.attackHistory = [];
+  expect(observeSpectator(twin)).toEqual(observeSpectator(result.state));
+});
+
+function abilityStrategy(effect: 'vine_pull' | 'lucky_splash'): GameState {
+  const state = strategy('repel');
+  const speciesId = state.players[0]!.team[0]!.speciesId;
+  state.content.species.find((species) => species.id === speciesId)!.ability = {
+    name: effect,
+    text: effect,
+    effect,
+    timing: 'OWN_STRATEGY',
+  };
+  state.players[1]!.routeProgress = 1;
+  return state;
+}
+
+test('a hostile Ability target and protection stay private in the spectator feed, even with two seats (D6)', () => {
+  const before = abilityStrategy('vine_pull');
+  before.players[1]!.armedShield = { scope: 'price', visibility: 'secret' };
+  const result = applyAction(before, {
+    actorId: 'player-0',
+    actionSeq: 1,
+    stateRevisionBefore: 0,
+    kind: 'activate_ability',
+    payload: { instanceId: before.players[0]!.team[0]!.instanceId, targetSeatIndex: 1 },
+  });
+  if ('rejected' in result) throw new Error(result.reason);
+  expect(result.events.map((event) => event.kind)).toContain('protection_applied');
+  const seen = actionVisibleToSpectator(before, result.record, 0)!;
+  expect(seen.action.payload).not.toHaveProperty('targetSeatIndex');
+  expect(seen.events).toEqual([]);
+  expect(observeSpectator(result.state).public.attackHistory).toEqual([]);
+});
+
+test('Lucky Splash reveals neither its die nor Ball gain to a spectator (§4.1, S13)', () => {
+  const before = abilityStrategy('lucky_splash');
+  const activated = applyAction(before, {
+    actorId: 'player-0',
+    actionSeq: 1,
+    stateRevisionBefore: 0,
+    kind: 'activate_ability',
+    payload: { instanceId: before.players[0]!.team[0]!.instanceId },
+  });
+  if ('rejected' in activated) throw new Error(activated.reason);
+  expect(activated.state.phase.kind).toBe('chance_roll');
+  expect(observeSpectator(activated.state)).not.toHaveProperty('own');
+  expect(observeSpectator(activated.state)).not.toHaveProperty('pendingDecision');
+  const result = advanceAutomatically(activated.state);
+  const seen = actionVisibleToSpectator(activated.state, result.records[0]!, 1)!;
+  expect(seen.action.payload).not.toHaveProperty('value');
+  expect(seen.events.map((event) => event.kind)).not.toContain('random_result');
+  expect(seen.events.map((event) => event.kind)).not.toContain('ball_gained');
+});
+
+test('public PvP evidence omits internal sequence numbers and a battle window reveals no private shield or choices (§6.3, D6)', () => {
+  const before = strategy('repel');
+  for (const species of before.content.species) {
+    species.ability = {
+      name: 'Shell Guard',
+      text: 'Guard',
+      effect: 'shell_guard',
+      timing: 'REACTION',
+    };
+  }
+  const declared = applyAction(before, {
+    actorId: 'player-0',
+    actionSeq: 1,
+    stateRevisionBefore: 0,
+    kind: 'declare_pvp',
+    payload: { targetSeatIndex: 1 },
+  });
+  if ('rejected' in declared) throw new Error(declared.reason);
+  const seen = actionVisibleToSpectator(before, declared.record, 0)!;
+  const attempt = seen.events.find((event) => event.kind === 'attack_attempt');
+  expect(attempt).toMatchObject({ source: 'pvp_declaration', targetId: 'player-1' });
+  expect(attempt).not.toHaveProperty('actionSeq');
+  const accepted = applyAction(declared.state, {
+    actorId: 'player-1',
+    actionSeq: 2,
+    stateRevisionBefore: 1,
+    kind: 'respond_pvp',
+    payload: { accept: true },
+  });
+  if ('rejected' in accepted) throw new Error(accepted.reason);
+  expect(accepted.state.phase).toMatchObject({ kind: 'pvp', battle: { step: 'defender_window' } });
+  const twin = structuredClone(accepted.state);
+  twin.players[1]!.armedShield = { scope: 'price', visibility: 'secret' };
+  const view = observeSpectator(twin);
+  expect(view).toEqual(observeSpectator(accepted.state));
+  expect(view).not.toHaveProperty('pendingDecision');
+  expect(view).not.toHaveProperty('legalActions');
+  expect(view.public.players[1]).not.toHaveProperty('armedShield');
 });

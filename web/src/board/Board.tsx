@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from 'react';
-import type { EngineEvent, Observation } from '../../../engine/index.ts';
+import type { Observation, SeatEvent } from '../../../engine/index.ts';
 import { MEADOW_STARTERS } from '../game/models.ts';
 import type { SeatFeedEntry } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
@@ -18,7 +18,7 @@ const StarterMeadow = lazy(() => import('./StarterMeadow.tsx'));
 export interface BoardProps {
   observation: Observation;
   /** Already filtered for this seat by eventsVisibleTo, never a raw engine log. */
-  events?: readonly EngineEvent[];
+  events?: readonly SeatEvent[];
   feed?: readonly SeatFeedEntry[];
   /** Live turn controls; omitted by the read-only fixture Board. */
   controls?: ReactNode;

@@ -1,5 +1,11 @@
 import { afterEach, expect, test, vi } from 'vitest';
-import { replay, stateHash } from '../../../engine/index.ts';
+import {
+  createGame,
+  createGameLog,
+  pendingDecision,
+  replay,
+  stateHash,
+} from '../../../engine/index.ts';
 import { engineContent } from './content.ts';
 import { configForSetup, createGameStore, type GameStore } from './store.ts';
 
@@ -132,6 +138,58 @@ test('leaving the Board aborts a pending answer without advancing its decision',
   controller.abort();
   expect(await pending).toBe(false);
   expect(store.getSession()).toBe(before);
+});
+
+test('an AI defender that owes a PvP decision on the human turn is played, so the game continues (§6.4)', async () => {
+  const config = configForSetup(
+    {
+      mode: 'quick',
+      human: { classId: 'researcher', starterSpeciesId: 'porygon' },
+      opponents: [
+        {
+          classId: 'main-character',
+          starterSpeciesId: 'squirtle',
+          personality: 'greedy',
+          difficulty: 'normal',
+        },
+      ],
+    },
+    'ticket-seed',
+  );
+  const state = createGame(config, engineContent);
+  state.phase = { kind: 'strategy' };
+  state.globalTurnNo = 5;
+  state.turnBudgets = { tacticalAction: 1, catchAttempt: 1, pokemonAbility: 1 };
+  for (const player of state.players) player.ownTurnNo = 2;
+  state.players[0]!.team[0]!.abilityReady = false;
+  state.players[0]!.items = [
+    { instanceId: 'ticket', itemId: 'battle-ticket', name: 'Battle Ticket', visibility: 'secret' },
+  ];
+  const store = createGameStore();
+  store.restore({ state, log: createGameLog(state) }, [
+    { seatIndex: 1, personality: 'greedy', difficulty: 'normal' },
+  ]);
+
+  expect('accepted' in store.choose('use-item:ticket:seat-1')).toBe(true);
+  while (store.advance({ human: true }));
+  const window = store.getSession()!.state;
+  expect(window.activeSeatIndex).toBe(0);
+  expect(window.phase).toMatchObject({ kind: 'pvp', battle: { step: 'defender_window' } });
+  expect(pendingDecision(window)?.seatIndex).toBe(1);
+  expect(store.getView()!.legalActions.enabled).toEqual([]);
+
+  for (let step = 0; step < 50 && store.getSession()!.state.phase.kind === 'pvp'; step++) {
+    if (store.advance({ human: true })) continue;
+    if (pendingDecision(store.getSession()!.state)?.seatIndex === 0) {
+      store.choose(store.getView()!.legalActions.enabled[0]!.id);
+    } else {
+      expect(await store.playOpponent(new AbortController().signal)).toBe(true);
+    }
+  }
+  const after = store.getSession()!;
+  expect(after.state.phase.kind).not.toBe('pvp');
+  expect(after.state.activeSeatIndex).toBe(0);
+  expect(stateHash(replay(after.log))).toBe(stateHash(after.state));
 });
 
 /** A Quick game with the Social window open; seat 0 is the human, then 1 or 2 AI opponents. */

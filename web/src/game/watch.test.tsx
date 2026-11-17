@@ -117,7 +117,16 @@ test('an unreachable decision service finishes the game on the backup bot (§3.1
   const sources = store.getSpectatorView()!.feed.flatMap((entry) => entry.decision ?? []);
   expect(sources.length).toBeGreaterThan(0);
   expect(sources.every((decision) => decision.source === 'fallback')).toBe(true);
-  expect(sources.every((decision) => decision.fallbackReason === 'network')).toBe(true);
+  expect(sources.some((decision) => decision.fallbackReason === 'network')).toBe(true);
+  for (const entry of store.getSpectatorView()!.feed) {
+    if (!entry.decision) continue;
+    if (entry.decision.fallbackReason === 'unsupported_decision_point') {
+      // S15's local battle/Ability fallback does not call the decision service.
+      expect(['pvp', 'gym', 'move', 'encounter']).toContain(entry.before.phase.kind);
+    } else {
+      expect(entry.decision.fallbackReason).toBe('network');
+    }
+  }
   expect(store.getResults()).not.toBeNull();
 });
 
