@@ -8,8 +8,10 @@ import {
   createGame,
   createGameConfig,
   createRng,
+  actionVisibleTo,
   eventsVisibleTo,
   legalActions,
+  observe,
   pendingDecision,
   positionOf,
   type Action,
@@ -107,7 +109,7 @@ test('AC-4 variant: with both slow kinds pending the fixed move is max(1, min(3 
   expect(quickFlight(state).state.players[1]!.routeProgress).toBe(47);
 });
 
-test('AC-4 variant: Vine Pull pushes 2 back with no income or Resolve, leaving the pushed player’s Repel pending; only user and target see the hostile use (D9, D6)', () => {
+test('AC-4 variant: Vine Pull pushes 2 back with no income or Resolve, leaving the pushed player’s Repel pending; only user and target see its target and attempt (D9, D6)', () => {
   const state = game(0);
   state.players[1]!.routeProgress = 49;
   state.players[1]!.pendingSlows = ['repel'];
@@ -116,8 +118,46 @@ test('AC-4 variant: Vine Pull pushes 2 back with no income or Resolve, leaving t
   expect(pushed.state.players[1]!.pendingSlows).toEqual(['repel']);
   expect(pushed.state.phase.kind).toBe('strategy');
   expect(kinds(pushed.events)).toEqual(['ability_activated', 'attack_attempt', 'player_displaced']);
-  expect(kinds(eventsVisibleTo(state, pushed.events, 2))).toEqual(['player_displaced']);
+  // The use is public, the target and the attempt are not (§4.1, C.3).
+  expect(kinds(eventsVisibleTo(state, pushed.events, 2))).toEqual([
+    'ability_activated',
+    'player_displaced',
+  ]);
   expect(kinds(eventsVisibleTo(state, pushed.events, 1))).toEqual(kinds(pushed.events));
+});
+
+test('a blocked and an unblocked hostile Ability look the same to a third seat: the use is public, its target and block are not (§4.1, C.3)', () => {
+  // Seat 2's String Shot at seat 1; seat 0 is the third seat.
+  const shot = (shielded: boolean) => {
+    const before = game(2);
+    if (shielded) before.players[1]!.armedShield = { scope: 'price', visibility: 'secret' };
+    const result = run(before, 'activate_ability', { instanceId: 'starter:2', targetSeatIndex: 1 });
+    return { before, result, record: result.record };
+  };
+  const blocked = shot(true);
+  const open = shot(false);
+  expect(blocked.result.state.players[1]!.pendingSlows).toBeUndefined();
+  expect(open.result.state.players[1]!.pendingSlows).toEqual(['string_shot']);
+  const third = (run: ReturnType<typeof shot>) => ({
+    events: eventsVisibleTo(run.before, run.result.events, 0),
+    record: actionVisibleTo(run.before, run.record, 0, 0),
+    observed: observe(run.result.state, 0).public,
+  });
+  expect(third(blocked)).toEqual(third(open));
+  expect(third(open).events).toEqual([
+    { kind: 'ability_activated', ownerId: 'p2', instanceId: 'starter:2', effect: 'string_shot' },
+  ]);
+  expect(third(open).record!.action.payload).toEqual({ instanceId: 'starter:2' });
+  // The target sees the whole use, including whether it was blocked.
+  expect(kinds(eventsVisibleTo(blocked.before, blocked.result.events, 1))).toEqual([
+    'ability_activated',
+    'attack_attempt',
+    'protection_applied',
+  ]);
+  expect(kinds(eventsVisibleTo(open.before, open.result.events, 1))).toEqual([
+    'ability_activated',
+    'attack_attempt',
+  ]);
 });
 
 test('displacement may go below zero and an old milestone recrossed later pays nothing (§6.5, D9)', () => {
