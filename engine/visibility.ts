@@ -31,7 +31,8 @@ export function seatAttackAttempt(attempt: AttackAttempt): SeatAttackAttempt {
 /**
  * Whether `seatIndex` may see an event produced by applying an action to `before` (§4.1, §5.4).
  * A secret item's UID events are its owner's alone; a hostile item use is its user's and target's;
- * shuffle draws, which reveal deck order, are nobody's; a chance roll's die is its roller's.
+ * shuffle draws, which reveal deck order, are nobody's; a chance roll's die is its roller's. A hostile
+ * Ability's use is public but its target is not (`seatEvent`); its attempt and block are the user's and target's.
  */
 function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): boolean {
   if (event.kind === 'random_result' && event.purpose.startsWith('shuffle:')) return false;
@@ -58,10 +59,6 @@ function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): bo
     return event.promiserSeatIndex === seatIndex || event.recipientSeatIndex === seatIndex;
   }
   if (event.kind === 'attack_attempt') return attackVisibleTo(event, observerId);
-  // A hostile Ability's use is its user's and target's, like a hostile item (D6, #37).
-  if (event.kind === 'ability_activated' && ABILITY_EFFECTS[event.effect].hostile) {
-    return event.ownerId === observerId || event.targetId === observerId;
-  }
   if (event.kind === 'ball_gained') return event.ownerId === observerId;
   // A secret shield's arming shows others only the item-count change (D6).
   if (event.kind === 'shield_armed') {
@@ -99,6 +96,16 @@ function isHiddenChanceRoll(before: GameState, purpose: string, seatIndex: numbe
   );
 }
 
+/** A seat's copy of a visible event: no `actionSeq`, and a hostile Ability's target only for its user and target (§4.1, C.3). */
+export function seatEvent(before: GameState, event: EngineEvent, seatIndex: number): SeatEvent {
+  if (event.kind === 'attack_attempt') return seatAttackAttempt(event);
+  if (event.kind === 'ability_activated' && ABILITY_EFFECTS[event.effect].hostile) {
+    const observerId = before.players.find((player) => player.seatIndex === seatIndex)?.actorId;
+    if (event.ownerId !== observerId && event.targetId !== observerId) delete event.targetId;
+  }
+  return event;
+}
+
 /** PvP declarations are public; hostile item/Ability attempts are the actor's and target's (#37). */
 export function attackVisibleTo(attempt: AttackAttempt, observerId: string | undefined): boolean {
   return (
@@ -119,7 +126,7 @@ export function eventsVisibleTo(
   }
   return structuredClone(events)
     .filter((event) => visibleTo(before, event, seatIndex))
-    .map((event) => (event.kind === 'attack_attempt' ? seatAttackAttempt(event) : event));
+    .map((event) => seatEvent(before, event, seatIndex));
 }
 
 /**
