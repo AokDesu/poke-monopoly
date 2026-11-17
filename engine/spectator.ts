@@ -90,7 +90,7 @@ export function eventsVisibleToSpectator(before: GameState, events: EngineEvent[
 }
 
 /**
- * A copy of one accepted record for a spectator's feed, or `null` for a chat, which must not be
+ * A copy of one accepted record for a spectator's feed, or `null` for a chat or promise record, which must not be
  * known to have happened (§4.8). `shownBefore` is how many records the feed holds; the copy is
  * numbered after them, so a hidden record leaves no gap. A spectator is nobody's buyer, user or
  * target, so every field a seat only sees for itself is dropped (as `actionVisibleTo` does for others).
@@ -100,7 +100,8 @@ export function actionVisibleToSpectator(
   record: ActionRecord,
   shownBefore: number,
 ): SeatActionRecord | null {
-  if (record.action.kind === 'chat') return null;
+  const { kind } = record.action;
+  if (kind === 'chat' || kind === 'offer_promise' || kind === 'respond') return null;
   const action: SeatAction = structuredClone(record.action);
   action.actionSeq = shownBefore + 1;
   action.stateRevisionBefore = shownBefore;

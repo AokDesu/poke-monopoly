@@ -16,9 +16,10 @@ export const CHAT_HISTORY_PER_PAIR = 3;
  * Whether the active human may start a conversation now (§4.2): the flag is on, it is the Social
  * window, and this turn's one social interaction is unspent. AI seats never start conversations.
  */
-function socialOpen(state: GameState, seatIndex: number): boolean {
+export function socialOpen(state: GameState, seatIndex: number): boolean {
   if (state.config.socialWindow !== true) return false;
   if (state.config.engineVersion !== ENGINE_VERSION) return false;
+  if (state.pendingResponse) return false;
   if (state.phase.kind !== 'social' || state.activeSeatIndex !== seatIndex) return false;
   if ((state.turnBudgets.socialInteraction ?? 0) <= 0) return false;
   return state.config.seats.find((seat) => seat.seatIndex === seatIndex)?.controller === 'human';
@@ -73,6 +74,17 @@ export function validChat(state: GameState, seatIndex: number, payload: ChatPayl
   );
 }
 
+/**
+ * Marks the record being applied as unseen by every seat outside the conversation, so each of those
+ * seats' own feed and revision skip it (§4.8). The full record stays in the engine's replay log.
+ */
+export function hideFromBystanders(next: GameState, seatA: number, seatB: number): void {
+  for (const player of next.players) {
+    if (player.seatIndex === seatA || player.seatIndex === seatB) continue;
+    player.unseenRecords = (player.unseenRecords ?? 0) + 1;
+  }
+}
+
 /** Spends the social interaction and keeps the message. Changes nothing else (§4.8 hard line). */
 export function recordChat(next: GameState, payload: ChatPayload): EngineEvent[] {
   const fromSeatIndex = next.activeSeatIndex;
@@ -97,11 +109,7 @@ export function recordChat(next: GameState, payload: ChatPayload): EngineEvent[]
     chats.push(pair);
   }
   pair.messages = [...pair.messages, message].slice(-CHAT_HISTORY_PER_PAIR);
-  for (const player of next.players) {
-    if (player.seatIndex === fromSeatIndex || player.seatIndex === payload.targetSeatIndex)
-      continue;
-    player.unseenRecords = (player.unseenRecords ?? 0) + 1;
-  }
+  hideFromBystanders(next, fromSeatIndex, payload.targetSeatIndex);
   return [
     {
       kind: 'chat_sent',

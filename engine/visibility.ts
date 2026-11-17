@@ -45,6 +45,13 @@ function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): bo
   if (event.kind === 'chat_sent') {
     return event.fromSeatIndex === seatIndex || event.toSeatIndex === seatIndex;
   }
+  // A promise question and its answer are the two parties' alone (§4.8 Privacy).
+  if (event.kind === 'promise_offered') {
+    return event.initiatorSeatIndex === seatIndex || event.responderSeatIndex === seatIndex;
+  }
+  if (event.kind === 'promise_accepted' || event.kind === 'promise_rejected') {
+    return event.promiserSeatIndex === seatIndex || event.recipientSeatIndex === seatIndex;
+  }
   const observerId = before.players.find((player) => player.seatIndex === seatIndex)?.actorId;
   if (event.kind === 'attack_attempt') return attackVisibleTo(event, observerId);
   // A hostile Ability's use is its user's and target's, like a hostile item (D6, #37).
@@ -124,20 +131,28 @@ export function actorRevision(state: GameState, actorId: string): number {
 export { publicRevision } from './revision.ts';
 
 /**
- * Whether the record is a chat this seat took no part in (§4.8). A seat outside a conversation must
- * not learn that it happened or whom it was with: in a three-seat game, "a chat happened and it was
- * not to me" names the recipient, so the record is absent from the seat's feed, not redacted.
+ * Whether the record is a chat or promise question or answer this seat took no part in (§4.8). A seat
+ * outside a conversation must not learn that it happened or whom it was with: in a three-seat game,
+ * "a chat happened and it was not to me" names the recipient, and a `respond` names the responder by
+ * its actor, so the record is absent from the seat's feed, not redacted.
  */
-function hiddenChat(before: GameState, record: ActionRecord, seatIndex: number): boolean {
+function hiddenRecord(before: GameState, record: ActionRecord, seatIndex: number): boolean {
   const { action } = record;
-  if (action.kind !== 'chat') return false;
   const actor = before.players.find((player) => player.actorId === action.actorId);
-  return actor?.seatIndex !== seatIndex && action.payload.targetSeatIndex !== seatIndex;
+  if (action.kind === 'chat' || action.kind === 'offer_promise') {
+    return actor?.seatIndex !== seatIndex && action.payload.targetSeatIndex !== seatIndex;
+  }
+  if (action.kind === 'respond') {
+    return (
+      actor?.seatIndex !== seatIndex && before.pendingResponse?.initiatorSeatIndex !== seatIndex
+    );
+  }
+  return false;
 }
 
 /**
  * A copy of one accepted record that `seatIndex` may see, or `null` when the seat must not know it
- * happened (a chat between two other seats, §4.8). `before` is the state it was applied to and
+ * happened (a chat or promise between two other seats, §4.8). `before` is the state it was applied to and
  * `shownBefore` is how many records this seat's feed already holds. The copy is numbered in the
  * seat's own feed (`actionSeq = shownBefore + 1`), so a hidden record leaves no gap in the
  * sequence or revision. The full record, with its real numbers, stays in the engine's replay log.
@@ -149,7 +164,7 @@ export function actionVisibleTo(
   shownBefore: number,
 ): SeatActionRecord | null {
   const events = eventsVisibleTo(before, record.events, seatIndex);
-  if (hiddenChat(before, record, seatIndex)) return null;
+  if (hiddenRecord(before, record, seatIndex)) return null;
   const action: SeatAction = structuredClone(record.action);
   action.actionSeq = shownBefore + 1;
   action.stateRevisionBefore = shownBefore;
