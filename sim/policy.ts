@@ -24,6 +24,8 @@ export type PolicyFacts = {
   catchSuccessFaces?: Readonly<Partial<Record<BallType, number>>>;
   /** Coins each own sellable Pokémon would fetch in one batch selling all of them (§4.7). */
   saleValue?: Readonly<Record<string, number>>;
+  /** Lost Battle points for each own Pokémon if removed, from `saleFacts` (§5.6). */
+  keepValue?: Readonly<Record<string, number>>;
 };
 
 /**
@@ -34,6 +36,8 @@ export type PolicyChoice = string | { sellUids: readonly string[] };
 
 /** Spec §8: a policy only chooses; the engine stays the sole rules authority (§9). */
 export interface Policy {
+  /** Reporting metadata; policies without a personality are labelled `unassigned`. */
+  readonly personality?: { readonly id: string };
   /** Set when `decide` reads `facts`; the runner skips asking the engine for them otherwise. */
   readonly wantsFacts?: boolean;
   /** May wait, for example on a Jev request (§5.6); the runner awaits every decision. */

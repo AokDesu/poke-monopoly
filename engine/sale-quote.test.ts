@@ -59,6 +59,46 @@ function commit(state: GameState, ids: string[]) {
   return result;
 }
 
+test('keep value is the loss of the best battle-ready stat, independent of sale coins (§5.4, §5.6)', () => {
+  const state = scenario();
+  const team = state.players[0]!.team;
+  // Give Bulbasaur Battle 3 over Eevee's 2. Tired members cannot battle.
+  state.content.species.find((entry) => entry.id === 'bulbasaur')!.battle = 3;
+  team[1]!.tired = false;
+  const before = structuredClone(state);
+  expect(saleFacts(state, 0).map((row) => row.keepValue)).toEqual([1, 0, 0]);
+  expect(saleFacts(state, 0)).toEqual(saleFacts(state, 0));
+  expect(state).toEqual(before);
+  state.players[0]!.coins = 0;
+  state.players[0]!.badges = 9;
+  state.players[0]!.classId = 'rival';
+  state.players[1]!.team = [];
+  expect(saleFacts(state, 0).map((row) => row.keepValue)).toEqual([1, 0, 0]);
+});
+
+test('tied reserves, Tired teams, an empty team and evolved forms have defined keep values (§5.6)', () => {
+  const state = scenario();
+  const player = state.players[0]!;
+  player.team[1]!.tired = false;
+  // Two Battle-2 members cover each other, regardless of the selected combat UID.
+  expect(saleFacts(state, 0).map((row) => row.keepValue)).toEqual([0, 0, 0]);
+  player.team.forEach((entry) => {
+    entry.tired = true;
+  });
+  expect(saleFacts(state, 0).map((row) => row.keepValue)).toEqual([0, 0, 0]);
+  player.team = [player.team[0]!];
+  player.team[0]!.tired = false;
+  expect(saleFacts(state, 0)[0]!.keepValue).toBe(2);
+  // Existing current forms use their printed stat, including evolved Rescue Starters.
+  state.content.species.push({ ...state.content.species[0]!, id: 'strong-form', battle: 7 });
+  player.team[0]!.speciesId = 'strong-form';
+  player.team[0]!.evolutionStage = 1;
+  player.team[0]!.origin = 'rescue_starter';
+  expect(saleFacts(state, 0)[0]).toMatchObject({ saleValue: 0, keepValue: 7 });
+  player.team = [];
+  expect(saleFacts(state, 0)).toEqual([]);
+});
+
 test('sale quotes assign the batch bonus after tired reduction and equal actual payments without mutation', () => {
   const state = scenario();
   const before = structuredClone(state);
@@ -139,6 +179,7 @@ test('sale facts price every team member alone and with the whole team, as the b
       classBonusAlone: 3,
       classBonusTogether: 0,
       saleValue: 5,
+      keepValue: 2,
     },
     {
       instanceId: 'caught',
@@ -146,8 +187,16 @@ test('sale facts price every team member alone and with the whole team, as the b
       classBonusAlone: 3,
       classBonusTogether: 3,
       saleValue: 13,
+      keepValue: 0,
     },
-    { instanceId: 'rescue', salePrice: 0, classBonusAlone: 0, classBonusTogether: 0, saleValue: 0 },
+    {
+      instanceId: 'rescue',
+      salePrice: 0,
+      classBonusAlone: 0,
+      classBonusTogether: 0,
+      saleValue: 0,
+      keepValue: 0,
+    },
   ]);
   // The values are what the batch selling the whole team actually pays, row by row.
   const paid = commit(

@@ -102,7 +102,9 @@ export interface OrchestratorDeciderOptions {
  */
 const sellFactsOf = (
   request: DecisionRequest,
-): { facts: SellFacts; saleValue: Record<string, number> } | undefined => {
+):
+  | { facts: SellFacts; saleValue: Record<string, number>; keepValue: Record<string, number> }
+  | undefined => {
   const rows = request.facts.sell;
   if (!rows || request.decisionPoint !== 'sell') return undefined;
   const sellable = new Set(
@@ -115,15 +117,18 @@ const sellFactsOf = (
   if (![...given].every((instanceId) => sellable.has(instanceId))) return undefined;
   return {
     facts: {
-      // No keep value: the engine has none yet, so Jev gets the sale value and class bonus only.
-      pokemon: rows.map(({ instanceId, salePrice, classBonusAlone, classBonusTogether }) => ({
-        instanceId,
-        salePrice,
-        classBonusAlone,
-        classBonusTogether,
-      })),
+      pokemon: rows.map(
+        ({ instanceId, salePrice, classBonusAlone, classBonusTogether, keepValue }) => ({
+          instanceId,
+          salePrice,
+          classBonusAlone,
+          classBonusTogether,
+          keepValue,
+        }),
+      ),
     },
     saleValue: Object.fromEntries(rows.map((row) => [row.instanceId, row.saleValue])),
+    keepValue: Object.fromEntries(rows.map((row) => [row.instanceId, row.keepValue])),
   };
 };
 
@@ -133,7 +138,8 @@ const sellFactsOf = (
  */
 const toFacts = (request: DecisionRequest): DecideFacts => {
   const sale = sellFactsOf(request);
-  if (sale) return { policy: { saleValue: sale.saleValue }, sell: sale.facts };
+  if (sale)
+    return { policy: { saleValue: sale.saleValue, keepValue: sale.keepValue }, sell: sale.facts };
   const odds = request.facts.catchOdds;
   if (!odds) return {};
   const catchChance: Partial<Record<'poke' | 'great' | 'ultra', number>> = {};
@@ -283,6 +289,7 @@ export const createOrchestratorDecider = ({
       // Hard waits for gate G2 (spec §5.6): until then it plays as Normal.
       difficulty: request.difficulty === 'easy' ? 'easy' : 'normal',
       personality: personalityFor(request.personalityId),
+      decisionPoint: request.decisionPoint,
       rng: rngFor(request),
     });
     return { ...fromDecision(request, decision), events: decision.events };

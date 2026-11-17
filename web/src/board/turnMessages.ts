@@ -8,13 +8,20 @@ export interface TurnMessage {
   text: string;
 }
 
-/** Presentation only: accepted, seat-filtered records are the authority for every announcement. */
-export function turnMessages({ before, record }: SeatFeedEntry): TurnMessage[] {
+/**
+ * Presentation only: accepted, seat-filtered records are the authority for every announcement.
+ * `viewerSeat` is the human seat reading the feed, or `undefined` for a watcher, who sees every
+ * seat as an AI rival.
+ */
+export function turnMessages(
+  { before, record }: SeatFeedEntry,
+  viewerSeat: number | undefined,
+): TurnMessage[] {
   const messages: TurnMessage[] = [];
   const action = record.action;
   const phase = before.phase;
-  if (before.activeSeatIndex !== 0 && action.actorId !== 'engine') {
-    const name = seatLabel(before.activeSeatIndex, 0);
+  if (before.activeSeatIndex !== viewerSeat && action.actorId !== 'engine') {
+    const name = seatLabel(before.activeSeatIndex, viewerSeat);
     const pokemon =
       phase.kind === 'encounter'
         ? (content.species.find((species) => species.id === phase.pokemon.speciesId)?.name ?? '')
@@ -50,7 +57,7 @@ export function turnMessages({ before, record }: SeatFeedEntry): TurnMessage[] {
   // square. Never claims a distance: the engine may slow steps.
   if (
     action.kind === 'dice_result' &&
-    before.activeSeatIndex !== 0 &&
+    before.activeSeatIndex !== viewerSeat &&
     before.phase.kind === 'move'
   ) {
     let roll: number | undefined;
@@ -63,7 +70,10 @@ export function turnMessages({ before, record }: SeatFeedEntry): TurnMessage[] {
     if (roll !== undefined) {
       messages.push({
         key: 'ai.action.move',
-        text: t('ai.action.move', { name: seatLabel(before.activeSeatIndex, 0), result: roll }),
+        text: t('ai.action.move', {
+          name: seatLabel(before.activeSeatIndex, viewerSeat),
+          result: roll,
+        }),
       });
     }
   }
@@ -86,12 +96,15 @@ export function turnMessages({ before, record }: SeatFeedEntry): TurnMessage[] {
           ? 'caught'
           : 'escaped';
     const key =
-      before.activeSeatIndex === 0
+      before.activeSeatIndex === viewerSeat
         ? (`encounter.${outcome}` as const)
         : (`ai.result.${outcome}` as const);
     const { speciesId } = before.phase.pokemon;
     const pokemon = content.species.find((species) => species.id === speciesId)!.name;
-    messages.push({ key, text: t(key, { pokemon, name: seatLabel(before.activeSeatIndex, 0) }) });
+    messages.push({
+      key,
+      text: t(key, { pokemon, name: seatLabel(before.activeSeatIndex, viewerSeat) }),
+    });
   }
   return messages;
 }

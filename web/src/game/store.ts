@@ -39,7 +39,7 @@ import {
   type SeatEvent,
 } from '../../../engine/index.ts';
 import { reportOutcome, requestOpponent, type AiDecision } from './ai.ts';
-import type { DifficultyId, GameSetup, PersonalityId } from './setup.ts';
+import type { DifficultyId, GameSetup, PersonalityId, WatchSettings, WatchSetup } from './setup.ts';
 
 /**
  * Rules adapter (spec §6.1). Storage IO lives in `save.ts`; both call the engine only through
@@ -105,6 +105,12 @@ export interface GameResults {
     readonly coins: number;
     readonly badges: number;
   }[];
+  /** Each seat's public starting setup (spec §4.1: the starting kit is public). */
+  readonly seats: readonly {
+    readonly seatIndex: number;
+    readonly classId: string;
+    readonly starterSpeciesId?: string;
+  }[];
   readonly winners: readonly string[];
   readonly reason: 'coins' | 'badges' | 'co_winners';
 }
@@ -119,7 +125,12 @@ export interface GameStore {
   /** The watcher's view, or null without a game or when a seat is human. Stable between changes. */
   getSpectatorView(): SpectatorView | null;
   /** Creates the game and its log together (engine contract: `createGameLog(createGame(...))`). */
-  start(config: GameConfig, content: Content, opponents?: readonly OpponentSettings[]): void;
+  start(
+    config: GameConfig,
+    content: Content,
+    opponents?: readonly OpponentSettings[],
+    watch?: WatchSettings,
+  ): void;
   /** Rejected commands change nothing and notify no one. */
   submit(command: Command): ApplyActionResult;
   /** Submits one of the human seat's enabled legal actions by its ID. */
@@ -135,6 +146,8 @@ export interface GameStore {
   playOpponent(signal: AbortSignal): Promise<boolean>;
   /** Setup saved beside the engine log so a resumed AI decision uses the same personality. */
   getOpponents(): readonly OpponentSettings[];
+  /** A watched game's talk and starting-speed settings, kept with the game; absent otherwise. */
+  getWatchSettings(): WatchSettings | undefined;
   /** Identifies this game to the speech route; changes when a game starts or is restored. */
   getGameId(): string;
   /**
@@ -146,7 +159,11 @@ export interface GameStore {
    * Replaces the session with a saved game. Applies nothing: dice stay as logged and the
    * pending decision stays pending (spec §3.1, §6.9).
    */
-  restore(session: GameSession, settings?: readonly OpponentSettings[]): void;
+  restore(
+    session: GameSession,
+    settings?: readonly OpponentSettings[],
+    watchSettings?: WatchSettings,
+  ): void;
   /** Engine winner and coin/badge standings, or null until the game is finished. Stable. */
   getResults(): GameResults | null;
   clear(): void;
@@ -173,6 +190,36 @@ export function opponentSettings(setup: GameSetup): OpponentSettings[] {
     personality,
     difficulty,
   }));
+}
+
+/** Every seat of a watched game is an AI, so no seat is 'human' and seat n is `ais[n]` (spec §3). */
+export function configForWatch(setup: WatchSetup, seed: GameConfig['seed']): GameConfig {
+  const seats = setup.ais.map((choice, seatIndex) => ({
+    actorId: `ai-${seatIndex}`,
+    seatIndex,
+    classId: choice.classId,
+    starterSpeciesId: choice.starterSpeciesId,
+    controller: 'ai' as const,
+  }));
+  return createGameConfig({ seats, seed, lapTarget: MODES[setup.mode].lapTarget });
+}
+
+export function watchOpponentSettings(setup: WatchSetup): OpponentSettings[] {
+  return setup.ais.map(({ personality, difficulty }, seatIndex) => ({
+    seatIndex,
+    personality,
+    difficulty,
+  }));
+}
+
+/** The same seats, lap target and settings under a new seed: "Watch again" (spec §3). */
+export function rematchConfig(config: GameConfig, seed: GameConfig['seed']): GameConfig {
+  return createGameConfig({
+    seats: config.seats,
+    seed,
+    lapTarget: config.lapTarget,
+    ...(config.socialWindow !== undefined && { socialWindow: config.socialWindow }),
+  });
 }
 
 function humanSeat(state: GameState): number | undefined {
@@ -211,6 +258,11 @@ function resultsOf(state: GameState): GameResults | null {
         coins: player.coins,
         badges: player.badges,
       })),
+    seats: state.config.seats.map(({ seatIndex, classId, starterSpeciesId }) => ({
+      seatIndex,
+      classId,
+      ...(starterSpeciesId !== undefined && { starterSpeciesId }),
+    })),
     winners: outcome.winners,
     reason: outcome.reason,
   };
@@ -239,6 +291,7 @@ export function createGameStore(): GameStore {
   let shownFeed: readonly SeatFeedEntry[] = [];
   let results: GameResults | null = null;
   let opponents: readonly OpponentSettings[] = [];
+  let watch: WatchSettings | undefined;
   let gameToken = '';
   const listeners = new Set<() => void>();
 
@@ -378,10 +431,16 @@ export function createGameStore(): GameStore {
     getSpectatorView(): SpectatorView | null {
       return spectatorView;
     },
-    start(config: GameConfig, content: Content, settings: readonly OpponentSettings[] = []): void {
+    start(
+      config: GameConfig,
+      content: Content,
+      settings: readonly OpponentSettings[] = [],
+      watchSettings?: WatchSettings,
+    ): void {
       const state = createGame(config, content);
       gameToken = crypto.randomUUID();
       opponents = settings;
+      watch = watchSettings;
       shownFeed = [];
       commit({ state, log: createGameLog(state) }, state, []);
     },
@@ -540,6 +599,9 @@ export function createGameStore(): GameStore {
     getOpponents(): readonly OpponentSettings[] {
       return opponents;
     },
+    getWatchSettings(): WatchSettings | undefined {
+      return watch;
+    },
     getGameId(): string {
       return gameToken;
     },
@@ -564,8 +626,13 @@ export function createGameStore(): GameStore {
       for (const listener of listeners) listener();
       return true;
     },
-    restore(game: GameSession, settings: readonly OpponentSettings[] = []): void {
+    restore(
+      game: GameSession,
+      settings: readonly OpponentSettings[] = [],
+      watchSettings?: WatchSettings,
+    ): void {
       opponents = settings;
+      watch = watchSettings;
       gameToken = crypto.randomUUID();
       publish(game, feedFrom(game.log, humanSeat(game.state)));
     },
@@ -579,6 +646,7 @@ export function createGameStore(): GameStore {
       shownFeed = [];
       results = null;
       opponents = [];
+      watch = undefined;
       gameToken = '';
       for (const listener of listeners) listener();
     },

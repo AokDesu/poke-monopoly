@@ -6,7 +6,16 @@ import {
   type Resumed,
   type SavedGame,
 } from '../../../engine/index.ts';
-import { DIFFICULTIES, PERSONALITIES, type DifficultyId, type PersonalityId } from './setup.ts';
+import {
+  DIFFICULTIES,
+  PERSONALITIES,
+  TURN_SPEEDS,
+  type DifficultyId,
+  type PersonalityId,
+  type WatchDraft,
+  type WatchSettings,
+  type WatchStep,
+} from './setup.ts';
 
 /** Browser key for the engine save text. The value is exactly `serialize`'s output. */
 export const SAVE_KEY = 'poke-monopoly.save';
@@ -25,6 +34,8 @@ export interface SaveMeta {
     readonly personality: PersonalityId;
     readonly difficulty: DifficultyId;
   }[];
+  /** Present only for a watched game: its talk setting and starting speed. */
+  readonly watch?: WatchSettings;
 }
 
 export type LoadResult =
@@ -52,7 +63,7 @@ export function readSaveText(storage: SaveStorage): string | null {
 
 export function writeSave(storage: SaveStorage, game: SavedGame, meta: SaveMeta): void {
   storage.setItem(SAVE_KEY, serialize(game));
-  storage.setItem(META_KEY, JSON.stringify({ opponents: meta.opponents }));
+  storage.setItem(META_KEY, JSON.stringify({ opponents: meta.opponents, watch: meta.watch }));
 }
 
 export function clearSave(storage: SaveStorage): void {
@@ -68,6 +79,10 @@ export function readMeta(storage: SaveStorage): SaveMeta {
     if (!parsed || typeof parsed !== 'object' || !('opponents' in parsed)) return EMPTY_META;
     const rows = parsed.opponents;
     if (!Array.isArray(rows)) return EMPTY_META;
+    const watch = 'watch' in parsed ? parsed.watch : undefined;
+    const talk = watch && typeof watch === 'object' && 'talk' in watch ? watch.talk : undefined;
+    const speed = watch && typeof watch === 'object' && 'speed' in watch ? watch.speed : undefined;
+    const startSpeed = TURN_SPEEDS.find((item) => item === speed);
     return {
       opponents: rows.flatMap((entry) => {
         if (!entry || typeof entry !== 'object') return [];
@@ -77,9 +92,34 @@ export function readMeta(storage: SaveStorage): SaveMeta {
         if (typeof row.seatIndex !== 'number' || !personality || !difficulty) return [];
         return [{ seatIndex: row.seatIndex, personality, difficulty }];
       }),
+      ...(typeof talk === 'boolean' && startSpeed && { watch: { talk, speed: startSpeed } }),
     };
   } catch {
     return EMPTY_META;
+  }
+}
+
+/** Where an unfinished watch setup waits across a reload; gone once the game starts or setup is left. */
+export const WATCH_SETUP_KEY = 'poke-monopoly.watch-setup';
+
+export function writeWatchSetup(storage: SaveStorage, step: WatchStep, draft: WatchDraft): void {
+  storage.setItem(
+    WATCH_SETUP_KEY,
+    JSON.stringify({ step, mode: draft.mode, ais: draft.ais, ...draft.settings }),
+  );
+}
+
+export function clearWatchSetup(storage: SaveStorage): void {
+  storage.removeItem(WATCH_SETUP_KEY);
+}
+
+/** The saved watch setup as plain data; `restoreWatchProgress` checks it against today's choices. */
+export function readWatchSetup(storage: SaveStorage): unknown {
+  try {
+    const raw = storage.getItem(WATCH_SETUP_KEY);
+    return raw ? (JSON.parse(raw) as unknown) : undefined;
+  } catch {
+    return undefined;
   }
 }
 

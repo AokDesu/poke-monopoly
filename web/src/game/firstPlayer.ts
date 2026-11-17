@@ -42,12 +42,14 @@ export function firstPlayerRoll(view: SeatView): FirstPlayerRoll {
 }
 
 /**
- * Apply every sole roll and engine result, including tied re-rolls, automatically (§3.1).
+ * Apply every sole roll and engine result, including tied re-rolls, automatically (§3.1). The
+ * phase is read from the human seat's view, or the watcher's when every seat is an AI (§3).
  * Stop once the engine picks the first player: the first turn belongs to the board.
  */
 export function rollForFirstPlayer(store: GameStore): void {
   while (
-    store.getView()?.observation.public.phase.kind === 'first_player_roll' &&
+    (store.getView() ?? store.getSpectatorView())?.observation.public.phase.kind ===
+      'first_player_roll' &&
     store.advance({ human: true })
   );
 }

@@ -120,6 +120,7 @@ describe('FallbackPolicy input (§5.2, house rule 3)', () => {
       catchChance?: Readonly<Partial<Record<'poke' | 'great' | 'ultra', number>>>;
       catchSuccessFaces?: Readonly<Partial<Record<'poke' | 'great' | 'ultra', number>>>;
       saleValue?: Readonly<Record<string, number>>;
+      keepValue?: Readonly<Record<string, number>>;
     }>();
     const state = fixtureSchema.parse(sellFixture).state;
     const { legal } = seat0(sellFixture);

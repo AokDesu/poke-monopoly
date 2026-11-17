@@ -68,10 +68,16 @@ const SHOWN = [
     specRow: 'ai-turns',
     keys: ['talk.aiWritten', 'talk.onlyWords', 'talk.empty'],
   },
+  {
+    id: 'watch-browser-closed',
+    specRow: '17',
+    keys: ['save.pendingWatched', 'save.continue', 'game.resumedAiTurn'],
+  },
+  { id: 'watch-all-backup', specRow: '18', keys: ['ai.allBackupBanner', 'ai.backupBadge'] },
 ] as const satisfies readonly { id: string; specRow: string; keys: readonly MessageKey[] }[];
 
-/** Rows with nothing for a player to see in this build (no chat, deals, speech or watch screen, engine-only). */
-const PENDING = ['2', '6', '10', '11', '14', '17', '18'];
+/** Rows with nothing for a player to see in this build (no chat, deals or event-deck screen, engine-only). */
+const PENDING = ['2', '6', '10', '11', '14'];
 
 /** A catalog message as a pattern, so templated values (`{value}`) match whatever the engine says. */
 function shown(root: HTMLElement, key: MessageKey): boolean {

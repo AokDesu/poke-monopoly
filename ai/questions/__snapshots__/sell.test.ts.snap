@@ -15,7 +15,7 @@ exports[`a team of five (spec §5.3) > exact question text (spec §5.4: wording 
         "false": "Keep it: you keep the Pokémon and can sell it at a later Sell Phase. When \`sell_phase.last_sell_phase\` is true there is none: a Pokémon kept to the end of the game is sold automatically for less, with no class bonus.",
         "true": "Sell it now: you get its sale value now, plus the class bonus if \`class_bonus\` says so, and you no longer have the Pokémon. If you sell every Pokémon you have, you get a Rescue Starter, which sells for nothing.",
       },
-      "instructions": "Sell Phase at Start: should \`you.team[0]\` (Pidgey) be sold now? Its facts are in \`sell_phase.offers.sell_team_0\`. \`sale_value_now\` (coins from selling it now) and \`keep_value\` (what keeping it is worth) are separate values, each low, medium or high. \`class_bonus\` says whether your class adds bonus coins to this sale; a once-per-Lap bonus goes to only one Pokémon per Sell Phase.",
+      "instructions": "Sell Phase at Start: should \`you.team[0]\` (Pidgey) be sold now? Its facts are in \`sell_phase.offers.sell_team_0\`. \`sale_value_now\` (coins from selling it now) and \`keep_value\` (loss of your best battle-ready Battle stat if it is removed) are separate values, each low, medium or high. Keep value is low for no loss, medium for a small loss and high for a large loss; it does not predict recovery from Tired, evolution or future sale coins. \`class_bonus\` says whether your class adds bonus coins to this sale; a once-per-Lap bonus goes to only one Pokémon per Sell Phase.",
       "type": "noul",
     },
     "sell_team_1": {
@@ -23,7 +23,7 @@ exports[`a team of five (spec §5.3) > exact question text (spec §5.4: wording 
         "false": "Keep it: you keep the Pokémon and can sell it at a later Sell Phase. When \`sell_phase.last_sell_phase\` is true there is none: a Pokémon kept to the end of the game is sold automatically for less, with no class bonus.",
         "true": "Sell it now: you get its sale value now, plus the class bonus if \`class_bonus\` says so, and you no longer have the Pokémon. If you sell every Pokémon you have, you get a Rescue Starter, which sells for nothing.",
       },
-      "instructions": "Sell Phase at Start: should \`you.team[1]\` (Eevee) be sold now? Its facts are in \`sell_phase.offers.sell_team_1\`. \`sale_value_now\` (coins from selling it now) and \`keep_value\` (what keeping it is worth) are separate values, each low, medium or high. \`class_bonus\` says whether your class adds bonus coins to this sale; a once-per-Lap bonus goes to only one Pokémon per Sell Phase.",
+      "instructions": "Sell Phase at Start: should \`you.team[1]\` (Eevee) be sold now? Its facts are in \`sell_phase.offers.sell_team_1\`. \`sale_value_now\` (coins from selling it now) and \`keep_value\` (loss of your best battle-ready Battle stat if it is removed) are separate values, each low, medium or high. Keep value is low for no loss, medium for a small loss and high for a large loss; it does not predict recovery from Tired, evolution or future sale coins. \`class_bonus\` says whether your class adds bonus coins to this sale; a once-per-Lap bonus goes to only one Pokémon per Sell Phase.",
       "type": "noul",
     },
     "sell_team_2": {
@@ -31,7 +31,7 @@ exports[`a team of five (spec §5.3) > exact question text (spec §5.4: wording 
         "false": "Keep it: you keep the Pokémon and can sell it at a later Sell Phase. When \`sell_phase.last_sell_phase\` is true there is none: a Pokémon kept to the end of the game is sold automatically for less, with no class bonus.",
         "true": "Sell it now: you get its sale value now, plus the class bonus if \`class_bonus\` says so, and you no longer have the Pokémon. If you sell every Pokémon you have, you get a Rescue Starter, which sells for nothing.",
       },
-      "instructions": "Sell Phase at Start: should \`you.team[2]\` (Dratini) be sold now? Its facts are in \`sell_phase.offers.sell_team_2\`. \`sale_value_now\` (coins from selling it now) and \`keep_value\` (what keeping it is worth) are separate values, each low, medium or high. \`class_bonus\` says whether your class adds bonus coins to this sale; a once-per-Lap bonus goes to only one Pokémon per Sell Phase.",
+      "instructions": "Sell Phase at Start: should \`you.team[2]\` (Dratini) be sold now? Its facts are in \`sell_phase.offers.sell_team_2\`. \`sale_value_now\` (coins from selling it now) and \`keep_value\` (loss of your best battle-ready Battle stat if it is removed) are separate values, each low, medium or high. Keep value is low for no loss, medium for a small loss and high for a large loss; it does not predict recovery from Tired, evolution or future sale coins. \`class_bonus\` says whether your class adds bonus coins to this sale; a once-per-Lap bonus goes to only one Pokémon per Sell Phase.",
       "type": "noul",
     },
     "sell_team_3": {
@@ -39,7 +39,7 @@ exports[`a team of five (spec §5.3) > exact question text (spec §5.4: wording 
         "false": "Keep it: you keep the Pokémon and can sell it at a later Sell Phase. When \`sell_phase.last_sell_phase\` is true there is none: a Pokémon kept to the end of the game is sold automatically for less, with no class bonus.",
         "true": "Sell it now: you get its sale value now, plus the class bonus if \`class_bonus\` says so, and you no longer have the Pokémon. If you sell every Pokémon you have, you get a Rescue Starter, which sells for nothing.",
       },
-      "instructions": "Sell Phase at Start: should \`you.team[3]\` (Magikarp) be sold now? Its facts are in \`sell_phase.offers.sell_team_3\`. \`sale_value_now\` (coins from selling it now) and \`keep_value\` (what keeping it is worth) are separate values, each low, medium or high. \`class_bonus\` says whether your class adds bonus coins to this sale; a once-per-Lap bonus goes to only one Pokémon per Sell Phase.",
+      "instructions": "Sell Phase at Start: should \`you.team[3]\` (Magikarp) be sold now? Its facts are in \`sell_phase.offers.sell_team_3\`. \`sale_value_now\` (coins from selling it now) and \`keep_value\` (loss of your best battle-ready Battle stat if it is removed) are separate values, each low, medium or high. Keep value is low for no loss, medium for a small loss and high for a large loss; it does not predict recovery from Tired, evolution or future sale coins. \`class_bonus\` says whether your class adds bonus coins to this sale; a once-per-Lap bonus goes to only one Pokémon per Sell Phase.",
       "type": "noul",
     },
     "sell_team_4": {
@@ -47,7 +47,7 @@ exports[`a team of five (spec §5.3) > exact question text (spec §5.4: wording 
         "false": "Keep it: you keep the Pokémon and can sell it at a later Sell Phase. When \`sell_phase.last_sell_phase\` is true there is none: a Pokémon kept to the end of the game is sold automatically for less, with no class bonus.",
         "true": "Sell it now: you get its sale value now, plus the class bonus if \`class_bonus\` says so, and you no longer have the Pokémon. If you sell every Pokémon you have, you get a Rescue Starter, which sells for nothing.",
       },
-      "instructions": "Sell Phase at Start: should \`you.team[4]\` (Snorlax) be sold now? Its facts are in \`sell_phase.offers.sell_team_4\`. \`sale_value_now\` (coins from selling it now) and \`keep_value\` (what keeping it is worth) are separate values, each low, medium or high. \`class_bonus\` says whether your class adds bonus coins to this sale; a once-per-Lap bonus goes to only one Pokémon per Sell Phase.",
+      "instructions": "Sell Phase at Start: should \`you.team[4]\` (Snorlax) be sold now? Its facts are in \`sell_phase.offers.sell_team_4\`. \`sale_value_now\` (coins from selling it now) and \`keep_value\` (loss of your best battle-ready Battle stat if it is removed) are separate values, each low, medium or high. Keep value is low for no loss, medium for a small loss and high for a large loss; it does not predict recovery from Tired, evolution or future sale coins. \`class_bonus\` says whether your class adds bonus coins to this sale; a once-per-Lap bonus goes to only one Pokémon per Sell Phase.",
       "type": "noul",
     },
   },
@@ -263,7 +263,7 @@ exports[`a team of five (spec §5.3) > exact question text (spec §5.4: wording 
         },
         "sell_team_4": {
           "class_bonus": "only if you do not also sell a Pokémon that takes it instead",
-          "keep_value": "low",
+          "keep_value": "medium",
           "pokemon": "Snorlax",
           "sale_value_now": "high",
         },

@@ -24,6 +24,8 @@ export interface TableTalk {
   /** Every line saved with the game, oldest first. */
   lines: readonly AiSpeechEvent[];
   hidden: boolean;
+  /** False when the game was set up with AI talk off: no lines are asked for and no panel shows. */
+  enabled: boolean;
   setHidden(hidden: boolean): void;
   /** Why generated speech is off, when the server says so. */
   voiceOff: VoiceReason | null;
@@ -58,6 +60,8 @@ export function useTableTalk(
     [session?.log.dialogueEvents],
   );
   const [hidden, setHidden] = useState(false);
+  // A watched game started with AI talk off never asks for a line (spec §3); other games talk.
+  const enabled = store.getWatchSettings()?.talk ?? true;
   const off = voiceOff(playback.status);
   // An exchange needs Jev for the manipulation check as well as Haiku for the words.
   const exchangeOn = off === null && playback.status?.backupOnly !== true;
@@ -65,6 +69,7 @@ export function useTableTalk(
     speed: playback.speed,
     paused: playback.paused,
     hidden,
+    enabled,
     off,
     exchangeOn,
     lines,
@@ -73,6 +78,7 @@ export function useTableTalk(
     speed: playback.speed,
     paused: playback.paused,
     hidden,
+    enabled,
     off,
     exchangeOn,
     lines,
@@ -114,7 +120,7 @@ export function useTableTalk(
       moment,
       speed: now.speed,
       paused: now.paused,
-      hidden: now.hidden,
+      hidden: now.hidden || !now.enabled,
       exchangeAllowed: now.exchangeOn && track.exchangeRound !== round,
     });
     const { listener } = plan ?? {};
@@ -167,5 +173,5 @@ export function useTableTalk(
     [],
   );
 
-  return { lines, hidden, setHidden, voiceOff: off };
+  return { lines, hidden, setHidden, enabled, voiceOff: off };
 }

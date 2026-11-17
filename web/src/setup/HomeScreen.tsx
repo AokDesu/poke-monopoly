@@ -10,14 +10,25 @@ interface HomeScreenProps {
   board: readonly BoardSpace[];
   /** False when content has too few playable classes for every seat to have its own. */
   canStart: boolean;
+  /** False when fewer than two classes are playable, so two AIs cannot each have their own. */
+  canWatch: boolean;
   onNewGame: () => void;
   onRandomAll: () => void;
+  onWatch: () => void;
 }
 
-export function HomeScreen({ board, canStart, onNewGame, onRandomAll }: HomeScreenProps) {
+export function HomeScreen({
+  board,
+  canStart,
+  canWatch,
+  onNewGame,
+  onRandomAll,
+  onWatch,
+}: HomeScreenProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const focusHeading = useContext(FocusHeadingContext);
   const reasonId = useId();
+  const watchReasonId = useId();
   const describedBy = canStart ? undefined : reasonId;
 
   useEffect(() => {
@@ -69,7 +80,22 @@ export function HomeScreen({ board, canStart, onNewGame, onRandomAll }: HomeScre
             </Button>
             <p className="mt-2 ps-2 text-sm text-ink-soft">{t('home.randomAllHint')}</p>
           </div>
+          <div>
+            <Button
+              variant="secondary"
+              className="w-full"
+              disabled={!canWatch}
+              aria-describedby={canWatch ? undefined : watchReasonId}
+              onClick={onWatch}
+            >
+              {t('home.watch')}
+            </Button>
+            <p className="mt-2 ps-2 text-sm text-ink-soft">{t('home.watchHint')}</p>
+          </div>
           {!canStart && <DisabledReason id={reasonId}>{t('home.notEnoughClasses')}</DisabledReason>}
+          {!canWatch && (
+            <DisabledReason id={watchReasonId}>{t('home.watchNotEnough')}</DisabledReason>
+          )}
         </div>
       </div>
     </section>

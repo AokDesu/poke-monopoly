@@ -96,6 +96,7 @@ Watch path: Home → Watch AIs → choose Quick → choose 2–4 AIs → set eac
 
 - Random All and presets for a quick start.
 - Classes are unique within a game; class and personality are independent.
+- Watch setup: after the mode and the number of AIs (two to four), the player sets each AI's class, Starter, personality and difficulty, whether the AIs talk at the table (AI talk on or off) and the speed the game starts at. Random All fills every AI and keeps the requested number. Choices the browser cannot play stay visible, greyed, with the reason. The setup is kept across a reload, and AI talk and the starting speed are saved with the game.
 
 **Turn order**
 
@@ -466,7 +467,8 @@ Kept as `skills/jev-questions/SKILL.md`.
   - Never: Event order, opponents' secret items or RNG state. Opponents' Ball counts are not exposed directly in observations but can be inferred from public play (§4.1).
 - **Numbers become named buckets**, e.g. `"win_chance": "low"` or `"coins_vs_you": "far ahead"`. Never send numbers for Jev to compare.
 - **Keep value types apart:** cash, expected sale value, benefit of keeping the team, risk and promises are separate buckets. They are never merged into one coin figure, and badges are never counted as coins.
-  - The keep value bucket (benefit of keeping a Pokémon) is deferred until the engine computes a keep value ([#160](https://github.com/AokDesu/poke-monopoly/issues/160)). Until then Sell questions carry no keep value bucket; none is invented outside the engine.
+  - At the Sell Phase, `saleFacts` computes `keepValue` for each Pokémon: the team's highest battle-ready current-form Battle stat minus that stat with just this Pokémon removed, floored at zero. An empty or all-Tired team has stat zero; tied or weaker reserves have keep value zero. This measures immediate combat contribution in **Battle points, never coins**. It uses current Tired status and current forms (§4.4), with no hypothetical Rescue Starter, recovery, evolution, future sale, Ability/item effects or class bonus. Cash, badges, opponents' secrets and RNG do not enter it.
+  - Sell Nouls always receive a separate `keep_value` bucket from these engine facts: **low** at 0 lost Battle points, **medium** at 1–2 and **high** at 3 or more. Sale coins retain their own `sale_value_now` buckets (low 0–5, medium 6–12, high 13+) and `class_bonus` stays separate. These are presentation thresholds, not changes to sale payments (§4.7).
 - **Wording:** questions and criteria are written **in English**, literally, with boundary cases spelled out in the criteria.
 - **One question = one decision.** Multi-item work is split into one question per item and combined in code.
 - **Size:** state ≤ ~4k tokens per request.
@@ -491,9 +493,10 @@ Every level uses the same observation.
 | Level | How it chooses |
 |---|---|
 | Easy | The engine sends immediate effects only; the AI **samples from Jev's `probabilities`** (seeded and logged) |
-| Normal | The engine adds buckets for distance to Start, Laps remaining and sale opportunity (keep value is deferred until the engine computes it, [#160](https://github.com/AokDesu/poke-monopoly/issues/160)); the AI takes the **argmax** |
+| Normal | The engine adds buckets for distance to Start, Laps remaining, sale opportunity and keep value (§5.4); the AI takes the **argmax** |
 | Hard *(gate G2)* | The engine runs Monte Carlo rollouts from the belief state and sends expected-outcome buckets per option before the argmax. Unknowns are sampled from known information; it never reads the real deck or seed |
 
+- **Sell fallback:** the existing sale desire (relative sale coins, reduced for a ready Ability and an Original Starter) is multiplied by 1 for low keep value, 0.75 for medium and 0.5 for high before applying the personality's sell threshold. A caller without keep facts retains the existing low-keep behavior; it never invents a combat projection. This is a policy preference over separate buckets, not a conversion of Battle points into coins.
 - **Confidence floor:** set per question type and option count, then tuned on the C4 eval set for `jev-1.13.0`.
   - Below the floor (Normal/Hard), the fallback policy chooses between Jev's top two by personality weight.
   - 0.6 is only the starting value for questions with few options.

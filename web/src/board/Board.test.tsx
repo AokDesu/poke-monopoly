@@ -1,6 +1,12 @@
 import { render, screen, within } from '@testing-library/react';
 import { expect, expectTypeOf, test } from 'vitest';
-import { fixtureSchema, observe, type GameState, type Observation } from '../../../engine/index.ts';
+import {
+  fixtureSchema,
+  observe,
+  type GameState,
+  type Observation,
+  type SpectatorObservation,
+} from '../../../engine/index.ts';
 import { content } from '../game/content.ts';
 import { t } from '../i18n/en.ts';
 import { Board, type BoardProps } from './Board.tsx';
@@ -9,8 +15,9 @@ const fixtures = Object.values(
   import.meta.glob('../../../engine/fixtures/*.json', { eager: true, import: 'default' }),
 ).map((input) => fixtureSchema.parse(input));
 
-// The component's public seam cannot accept a replay/audit snapshot.
-expectTypeOf<BoardProps['observation']>().toEqualTypeOf<Observation>();
+// The component's public seam takes a seat's observation or the watcher's public view, and cannot
+// accept a replay/audit snapshot.
+expectTypeOf<BoardProps['observation']>().toEqualTypeOf<Observation | SpectatorObservation>();
 expectTypeOf<GameState>().not.toExtend<BoardProps['observation']>();
 
 test.each(fixtures)('$name shows the engine projection, not recomputed game values', (fixture) => {
