@@ -12,7 +12,7 @@ import {
   chatReplySchema,
   type ChatReply,
 } from '../engine/contract/chat-reply.ts';
-import { speakRequestSchema } from '../engine/contract/speech.ts';
+import { replyRequestSchema, speakRequestSchema } from '../engine/contract/speech.ts';
 import {
   fallbackAnswer,
   policyAnswer,
@@ -23,7 +23,7 @@ import {
   type DeciderAnswer,
 } from './decider.ts';
 import { ChatLedger, createChatReplier, incomingMessage, type ChatReplier } from './chat-reply.ts';
-import type { JevClient } from './jev/client.ts';
+import { createSdkJevClient, type JevClient } from './jev/client.ts';
 import { DecisionJournal } from './jev/decision-journal.ts';
 import { fileDecisionLog, type DecisionLog } from './jev/decision-log.ts';
 import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
@@ -31,6 +31,7 @@ import { createHaikuClient } from './haiku/client.ts';
 import { speechStatus } from './haiku/status.ts';
 import { presentationHeaders } from './presentation.ts';
 import { decideShop, shopRequestSchema } from './shop.ts';
+import { createManipulationGate } from './speech/gate.ts';
 import { sameOriginJson } from './speech/guard.ts';
 import { createSpeaker, InvalidSpeakRequest, type SpeakerOptions } from './speech/speak.ts';
 
@@ -53,7 +54,10 @@ export interface AppOptions {
   decisionLog?: DecisionLog;
   /** The chat route's replier; defaults to the Jev-backed one over `jevClient` and `usage`. */
   chatReplier?: ChatReplier;
-  /** The speech route's Haiku client (the real one by default), environment and deadline; fakes in tests. */
+  /**
+   * The speech route's Haiku client (the real one by default), environment and deadline, and the
+   * manipulation gate for replies (over `jevClient` and `usage` by default); fakes in tests.
+   */
   speech?: Partial<SpeakerOptions>;
 }
 
@@ -84,6 +88,8 @@ export const createApp = ({
   const speaker = createSpeaker({
     client: createHaikuClient({ usage, ...(speech?.env && { env: speech.env }) }),
     usage,
+    // Spec §5.7: an AI line is checked by the same Jev question as the player's chat before another AI quotes it.
+    gate: createManipulationGate({ client: jevClient ?? createSdkJevClient, usage }),
     ...speech,
   });
 
@@ -174,13 +180,22 @@ export const createApp = ({
       } catch {
         return c.json({ error: 'invalid_json' }, 400);
       }
-      const parsed = speakRequestSchema.safeParse(body);
+      // A reply names its kind; a line for the table or one seat has none.
+      const isReply =
+        typeof body === 'object' && body !== null && 'kind' in body && body.kind === 'reply';
+      const parsed = isReply
+        ? replyRequestSchema.safeParse(body)
+        : speakRequestSchema.safeParse(body);
       if (!parsed.success) {
         const paths = parsed.error.issues.map((issue) => issue.path.join('.'));
         return c.json({ error: 'invalid_request', paths }, 400);
       }
       try {
-        return c.json(await speaker.speak(parsed.data));
+        return c.json(
+          'kind' in parsed.data
+            ? await speaker.reply(parsed.data)
+            : await speaker.speak(parsed.data),
+        );
       } catch (error) {
         if (error instanceof InvalidSpeakRequest) {
           return c.json({ error: 'invalid_request', paths: [error.path] }, 400);

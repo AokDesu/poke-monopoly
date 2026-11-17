@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { AiSpeechEvent } from '../../../engine/index.ts';
-import type { VoiceReason } from '../game/tableTalk.ts';
+import type { PublicGame, VoiceReason } from '../game/tableTalk.ts';
 import { EncounterDialog } from '../board/EncounterDialog.tsx';
 import { SellPanel } from '../board/SellPanel.tsx';
 import { TableTalkPanel } from '../board/TableTalk.tsx';
@@ -69,10 +69,14 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
   const revisionMismatch = rivalFallback('revision_mismatch', 2);
   const lowConfidence = rivalFallback('low_confidence', 2);
 
-  const talk = (voiceOff: VoiceReason | null, lines: readonly AiSpeechEvent[]) => (
+  const talk = (
+    voiceOff: VoiceReason | null,
+    lines: readonly AiSpeechEvent[],
+    players: PublicGame['players'] = decisionOpen().view.observation.public.players,
+  ) => (
     <TableTalkPanel
       lines={lines}
-      players={decisionOpen().view.observation.public.players}
+      players={players}
       viewerSeat={decisionOpen().view.seatIndex}
       hidden={false}
       onToggle={noop}
@@ -90,6 +94,30 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
     }),
     globalTurnNo: 12,
   };
+  const exchangeLines: readonly AiSpeechEvent[] = [
+    {
+      kind: 'ai_speech',
+      speakerSeatIndex: 2,
+      addressedSeatIndex: 1,
+      source: 'haiku',
+      text: 'That was a lucky catch, and I am glad to see it.',
+      globalTurnNo: 12,
+    },
+    {
+      kind: 'ai_speech',
+      speakerSeatIndex: 1,
+      addressedSeatIndex: 2,
+      source: 'haiku',
+      text: 'Thank you. The tall grass has been kind to me today.',
+      globalTurnNo: 12,
+    },
+  ];
+  // Two rivals, so the exchange is between two AI seats and the player only watches. The scene
+  // clones seat 1 for seat 2, so seat 2 gets the class its config names.
+  const exchangePlayers = () =>
+    timeoutOfTwo().view.observation.public.players.map((player) =>
+      player.seatIndex === 2 ? { ...player, classId: 'researcher' } : player,
+    );
   const turnPanel = (scene: Pick<Scene, 'view'>, extra?: { notice?: string }) => (
     <TurnPanel
       view={scene.view}
@@ -362,6 +390,24 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
         {
           id: 'silence',
           caption: 'gallery.example.screenSilence',
+          render: () => talk(null, []),
+        },
+      ],
+    },
+    {
+      id: 'ai-exchange',
+      specRow: null,
+      label: 'gallery.row.aiExchange',
+      keys: ['talk.aiWritten', 'talk.onlyWords', 'talk.empty'],
+      examples: [
+        {
+          id: 'exchange',
+          caption: 'gallery.example.exchange',
+          render: () => talk(null, [bankLine, ...exchangeLines], exchangePlayers()),
+        },
+        {
+          id: 'exchange-dropped',
+          caption: 'gallery.example.exchangeDropped',
           render: () => talk(null, []),
         },
       ],

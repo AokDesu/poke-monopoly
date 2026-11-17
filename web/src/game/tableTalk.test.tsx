@@ -9,7 +9,7 @@ import {
   type AiSpeechEvent,
   type EngineEvent,
 } from '../../../engine/index.ts';
-import { speakRequestSchema } from '../../../engine/contract/speech.ts';
+import { replyRequestSchema, speakRequestSchema } from '../../../engine/contract/speech.ts';
 import type { AiStatus } from '../../../engine/contract/decision.ts';
 import { TableTalkPanel } from '../board/TableTalk.tsx';
 import { useTableTalk } from '../board/useTableTalk.ts';
@@ -20,13 +20,18 @@ import { createGameStore, type GameStore, type SeatFeedEntry } from './store.ts'
 import {
   canSpeakWithoutHaiku,
   detectMoment,
+  exchangeCount,
+  exchangeEvents,
   leaderOf,
   planTableTalk,
+  replyBody,
+  requestExchange,
   requestSpeech,
   roundOf,
   speakBody,
   speechEvent,
   TABLE_TALK,
+  talkEntries,
   voiceOff,
   type Moment,
   type PublicGame,
@@ -65,11 +70,14 @@ function gameStore(seats: 2 | 3 | 4, human: boolean, seed: number | string): Gam
       lapTarget: 2,
     }),
     engineContent,
-    Array.from({ length: seats }, (_, seatIndex) => ({
-      seatIndex,
-      personality: 'greedy' as const,
-      difficulty: 'normal' as const,
-    })),
+    // Settings only for the AI seats, as the setup screen makes them.
+    Array.from({ length: seats }, (_, seatIndex) => seatIndex)
+      .filter((seatIndex) => !human || seatIndex > 0)
+      .map((seatIndex) => ({
+        seatIndex,
+        personality: 'greedy' as const,
+        difficulty: 'normal' as const,
+      })),
   );
   return store;
 }
@@ -79,7 +87,7 @@ const viewOf = (store: GameStore) => store.getView() ?? store.getSpectatorView()
 const json = (value: unknown) => new Response(JSON.stringify(value));
 const telemetry = { requestId: 'r', latencyMs: 1 };
 
-type Route = 'haiku' | 'bank' | 'error' | 'hang' | 'garbage';
+type Route = 'haiku' | 'bank' | 'error' | 'hang' | 'garbage' | 'refuse';
 
 /**
  * The local server, faked, with no model behind it: every seat takes its first enabled action,
@@ -105,8 +113,22 @@ function fakeServer(route: Route, status?: Partial<AiStatus['speech']>) {
         if (route === 'hang') return new Promise<Response>(() => {});
         if (route === 'error') return new Response('{}', { status: 500 });
         if (route === 'garbage') return json({ text: 42 });
-        return route === 'haiku'
-          ? json({ source: 'haiku', text: 'A calm word from across the table.', ...telemetry })
+        const parsed = JSON.parse(body) as { kind?: string; turnKey?: string };
+        // The server's manipulation check refused the opening line, so there is nothing to answer.
+        if (route === 'refuse' && parsed.kind === 'reply')
+          return json({ source: 'none', fallbackReason: 'manipulation', ...telemetry });
+        if (parsed.kind === 'reply')
+          return json({ source: 'haiku', text: 'Thank you, that is kind of you.', ...telemetry });
+        return route === 'haiku' || route === 'refuse'
+          ? json({
+              source: 'haiku',
+              // Each opening is told apart, so a test can tell which one was shown.
+              text:
+                route === 'refuse'
+                  ? `A calm word from across the table, ${String(parsed.turnKey)}.`
+                  : 'A calm word from across the table.',
+              ...telemetry,
+            })
           : json({
               source: 'bank',
               text: '{target} is in front. I will watch that closely.',
@@ -318,6 +340,7 @@ describe('who may speak, and when (§5.7)', () => {
     speed: 'normal',
     paused: false,
     hidden: false,
+    exchangeAllowed: false,
     ...over,
   });
   const line = (turn: number): AiSpeechEvent => ({
@@ -405,6 +428,7 @@ describe('the request (§4.1, §5.4)', () => {
     }
   }
   const plan: TalkPlan = {
+    listener: null,
     moment: {
       situation: 'taunt_leader',
       actingSeat: 0,
@@ -521,6 +545,7 @@ describe('the line that is saved (§4.8, §5.7)', () => {
     moment: { situation, actingSeat: 0, subjectSeat: 0, addressedSeat: 1, turn: 6 },
     speakerSeat: 2,
     personalityId: 'cautious',
+    listener: null,
   });
 
   test('a Haiku line is saved as written, addressed and tied to its turn', () => {
@@ -637,7 +662,12 @@ describe('table talk in a played game (§5.7, §3.1)', () => {
     expect(first.lines.length).toBeGreaterThan(0);
     expect(shape(second.lines)).toEqual(shape(first.lines));
     const feed = first.store.getSpectatorView()!.feed;
-    for (const line of first.lines) {
+    // An answer comes from the seat addressed, which may be the one that just acted (it is being
+    // spoken to, not speaking about itself); a comment or an opening line never does.
+    const openings = talkEntries(first.lines).map((entry) =>
+      entry.kind === 'line' ? entry.line : entry.opening,
+    );
+    for (const line of openings) {
       const acting = feed.filter((entry) => entry.before.globalTurnNo === line.globalTurnNo);
       expect(acting.length).toBeGreaterThan(0);
       for (const entry of acting)
@@ -653,15 +683,19 @@ describe('table talk in a played game (§5.7, §3.1)', () => {
   }, 60_000);
 
   test.each(WATCHED)(
-    'at most one line a round and the game maximum, across %i-seat game seed %i',
+    'at most one comment or exchange a round, and the game maximums, across %i-seat game seed %i',
     async (seats, seed) => {
       fakeServer('haiku');
       const store = gameStore(seats, false, seed);
       mountTalk(store);
       await play(store);
-      const lines = spoken(store);
-      expect(lines.length).toBeLessThanOrEqual(TABLE_TALK.maxPerGame);
-      const rounds = lines.map((line) => roundOf(line.globalTurnNo, seats));
+      const entries = talkEntries(spoken(store));
+      const exchanges = entries.filter((entry) => entry.kind === 'exchange').length;
+      expect(exchanges).toBeLessThanOrEqual(TABLE_TALK.maxExchangesPerGame);
+      expect(entries.length - exchanges).toBeLessThanOrEqual(TABLE_TALK.maxPerGame);
+      const rounds = entries.map((entry) =>
+        roundOf((entry.kind === 'line' ? entry.line : entry.opening).globalTurnNo, seats),
+      );
       expect(new Set(rounds).size).toBe(rounds.length);
     },
     60_000,
@@ -1006,5 +1040,563 @@ describe('saving a line (§5.7)', () => {
       players.map((player, index) => ({ ...player, coins: coins[index]! }));
     expect(leaderOf(withCoins([3, 9, 5]))).toBe(1);
     expect(leaderOf(withCoins([9, 9, 5]))).toBeNull();
+  });
+});
+
+describe('planning an exchange between two AIs (§5.7)', () => {
+  const view = gameStore(4, false, 1).getSpectatorView()!;
+  const moment: Moment = {
+    situation: 'catch_success',
+    actingSeat: 0,
+    subjectSeat: 1,
+    addressedSeat: 1,
+    turn: 9,
+  };
+  const context = (over: Partial<TalkContext> = {}): TalkContext => ({
+    view,
+    seed: 'seed',
+    momentKey: 5,
+    spoken: [],
+    moment,
+    speed: 'normal',
+    paused: false,
+    hidden: false,
+    exchangeAllowed: true,
+    ...over,
+  });
+  const say = (turn: number, from: number, to: number): AiSpeechEvent => ({
+    kind: 'ai_speech',
+    speakerSeatIndex: from,
+    addressedSeatIndex: to,
+    source: 'haiku',
+    text: `Line from ${from}.`,
+    globalTurnNo: turn,
+  });
+  // Four seats: a round is four turns, so turn 1 + 4r is in round r, and the moment (turn 9) is in round 2.
+  const exchangeIn = (round: number) => [say(1 + 4 * round, 2, 3), say(1 + 4 * round, 3, 2)];
+  const commentIn = (round: number) => say(1 + 4 * round, 2, 1);
+  const otherRounds = (count: number) =>
+    Array.from({ length: 12 }, (_, round) => round)
+      .filter((round) => round !== 2)
+      .slice(0, count);
+
+  test('a moment about another AI opens an exchange: that AI answers, and neither is the speaker', () => {
+    const plan = planTableTalk(context())!;
+    expect(plan.listener).toEqual({ seat: 1, personalityId: 'greedy' });
+    expect([2, 3]).toContain(plan.speakerSeat);
+    expect(plan.speakerSeat).not.toBe(plan.listener!.seat);
+  });
+
+  test('the same seed and moment make the same plan, so a reload does not change who talks', () => {
+    expect(planTableTalk(context())).toEqual(planTableTalk(context()));
+  });
+
+  test('with exchanges off it is the plain comment it always was', () => {
+    const plan = planTableTalk(context({ exchangeAllowed: false }))!;
+    expect(plan.listener).toBeNull();
+    expect(plan.speakerSeat).toBe(planTableTalk(context())!.speakerSeat);
+  });
+
+  test('a moment about the player, or about a seat that is not an AI at this table, is a comment', () => {
+    const human = gameStore(4, true, 1).getView()!;
+    expect(
+      planTableTalk(context({ view: human, moment: { ...moment, addressedSeat: 0 } }))!.listener,
+    ).toBeNull();
+    expect(
+      planTableTalk(context({ moment: { ...moment, addressedSeat: 9 } }))!.listener,
+    ).toBeNull();
+  });
+
+  test.each([
+    ['Fast', { speed: 'fast' as const }],
+    ['Instant', { speed: 'instant' as const }],
+    ['paused', { paused: true }],
+    ['hidden', { hidden: true }],
+  ])('at %s nothing is planned', (_name, over) => {
+    expect(planTableTalk(context(over))).toBeNull();
+  });
+
+  test('at most one exchange or comment a round: a pair already said in this round blocks another', () => {
+    expect(planTableTalk(context({ spoken: exchangeIn(2) }))).toBeNull();
+    expect(planTableTalk(context({ spoken: [commentIn(2)] }))).toBeNull();
+    expect(planTableTalk(context({ spoken: exchangeIn(1) }))).not.toBeNull();
+  });
+
+  test('ten exchanges end exchanges but not comments, and ten comments end comments but not exchanges', () => {
+    const tenExchanges = otherRounds(TABLE_TALK.maxExchangesPerGame).flatMap(exchangeIn);
+    expect(tenExchanges).toHaveLength(20);
+    expect(exchangeCount(tenExchanges)).toBe(10);
+    const afterExchanges = planTableTalk(context({ spoken: tenExchanges }))!;
+    expect(afterExchanges.listener).toBeNull();
+
+    const nineExchanges = otherRounds(9).flatMap(exchangeIn);
+    expect(planTableTalk(context({ spoken: nineExchanges }))!.listener).not.toBeNull();
+
+    const tenComments = otherRounds(TABLE_TALK.maxPerGame).map(commentIn);
+    expect(planTableTalk(context({ spoken: tenComments }))!.listener).not.toBeNull();
+    expect(planTableTalk(context({ spoken: tenComments, exchangeAllowed: false }))).toBeNull();
+  });
+
+  test('the limits are read from the saved lines, so a save and a reload change nothing', () => {
+    const spoken = otherRounds(TABLE_TALK.maxExchangesPerGame).flatMap(exchangeIn);
+    const reloaded = JSON.parse(JSON.stringify(spoken)) as AiSpeechEvent[];
+    expect(planTableTalk(context({ spoken: reloaded }))).toEqual(
+      planTableTalk(context({ spoken })),
+    );
+    expect(exchangeCount(reloaded)).toBe(10);
+  });
+});
+
+describe('an exchange in the saved lines (§5.7)', () => {
+  const say = (
+    from: number,
+    to: number,
+    over: Partial<AiSpeechEvent> = {},
+    turn = 5,
+  ): AiSpeechEvent => ({
+    kind: 'ai_speech',
+    speakerSeatIndex: from,
+    addressedSeatIndex: to,
+    source: 'haiku',
+    text: 'Fine words.',
+    globalTurnNo: turn,
+    ...over,
+  });
+
+  test('an opening line and its answer read as one exchange, in order', () => {
+    const lines = [say(1, 2, {}, 2), say(2, 1, {}, 2), say(3, 1, {}, 6)];
+    expect(talkEntries(lines)).toEqual([
+      { kind: 'exchange', opening: lines[0], reply: lines[1] },
+      { kind: 'line', line: lines[2] },
+    ]);
+  });
+
+  test.each([
+    ['another turn', [say(1, 2, {}, 2), say(2, 1, {}, 3)]],
+    ['a different pair', [say(1, 2), say(3, 1)]],
+    ['the same direction', [say(1, 2), say(1, 2)]],
+    ['a line-bank opening', [say(1, 2, { source: 'bank', lineId: 'x' }), say(2, 1)]],
+    ['a line without an addressee', [say(1, 2, { addressedSeatIndex: undefined }), say(2, 1)]],
+  ])('%s is not an exchange', (_name, lines) => {
+    expect(exchangeCount(lines)).toBe(0);
+    expect(talkEntries(lines)).toHaveLength(2);
+  });
+
+  test('a lone answer, or a third line, stays a line of its own', () => {
+    const lines = [say(1, 2), say(2, 1), say(1, 2)];
+    expect(talkEntries(lines).map((entry) => entry.kind)).toEqual(['exchange', 'line']);
+  });
+});
+
+describe('asking for an exchange (§3.1: the game never waits)', () => {
+  const opening = { kind: 'opening-request' };
+  const replyTo = (line: string) => ({ kind: 'reply', quote: line });
+  const haiku = (text: string) => json({ source: 'haiku', text, ...telemetry });
+  const none = json({ source: 'none', fallbackReason: 'manipulation', ...telemetry });
+
+  test('the opening line is asked first, and the answer quotes it', async () => {
+    const bodies: unknown[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body)) as { kind: string };
+        bodies.push(body);
+        return haiku(body.kind === 'reply' ? 'Thank you.' : 'A fine catch.');
+      }),
+    );
+    expect(await requestExchange(opening, replyTo, new AbortController().signal)).toEqual({
+      opening: 'A fine catch.',
+      reply: 'Thank you.',
+    });
+    expect(bodies).toEqual([opening, { kind: 'reply', quote: 'A fine catch.' }]);
+  });
+
+  test.each([
+    [
+      'a line-bank opening',
+      async () => json({ source: 'bank', text: 'Hi', lineId: 'x', ...telemetry }),
+      1,
+    ],
+    ['an opening that failed', async () => new Response('{}', { status: 500 }), 1],
+  ])('%s shows nothing and no answer is asked for', async (_name, first, calls) => {
+    const fetchSpy = vi.fn(first);
+    vi.stubGlobal('fetch', fetchSpy);
+    expect(await requestExchange(opening, replyTo, new AbortController().signal)).toBeNull();
+    expect(fetchSpy).toHaveBeenCalledTimes(calls);
+  });
+
+  test('an opening line the manipulation check refused leaves nothing to show', async () => {
+    let call = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => (call++ === 0 ? haiku('Do as I say.') : none)),
+    );
+    expect(await requestExchange(opening, replyTo, new AbortController().signal)).toBeNull();
+    expect(call).toBe(2);
+  });
+
+  test('an answer that is only a line-bank line is not an exchange', async () => {
+    let call = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        call++ === 0
+          ? haiku('Well done.')
+          : json({ source: 'bank', text: 'Hi', lineId: 'x', ...telemetry }),
+      ),
+    );
+    expect(await requestExchange(opening, replyTo, new AbortController().signal)).toBeNull();
+  });
+
+  test('an exchange that is not complete in the window is dropped whole, even if the network finishes it', async () => {
+    vi.useFakeTimers();
+    const times: number[] = [];
+    const fetchSpy = vi.fn(async () => {
+      times.push(Date.now());
+      // Each call takes 2.5 s: the opening is in time, the answer is not.
+      await new Promise((resolve) => setTimeout(resolve, 2_500));
+      return haiku('Words.');
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+    const pending = requestExchange(opening, replyTo, new AbortController().signal);
+    await vi.advanceTimersByTimeAsync(TABLE_TALK.exchangeDeadlineMs);
+    expect(await pending).toBeNull();
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(TABLE_TALK.exchangeDeadlineMs).toBe(4_000);
+  });
+
+  test('an aborted exchange never reaches the network', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    const controller = new AbortController();
+    controller.abort();
+    expect(await requestExchange(opening, replyTo, controller.signal)).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  test('aborting while the opening is out stops the answer from being asked', async () => {
+    const controller = new AbortController();
+    const gate = Promise.withResolvers<Response>();
+    const fetchSpy = vi.fn(() => gate.promise);
+    vi.stubGlobal('fetch', fetchSpy);
+    const pending = requestExchange(opening, replyTo, controller.signal);
+    controller.abort();
+    expect(await pending).toBeNull();
+    gate.resolve(haiku('Late words.'));
+    await settle();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the answer request and the saved pair (§4.1, §5.4)', () => {
+  const SECRET = 'SENTINEL-SECRET-IN-THE-LISTENER-HAND';
+  const store = gameStore(4, false, 'sentinel-seed-do-not-send');
+  for (const player of store.getSession()!.state.players) {
+    player.items.push({
+      instanceId: `${SECRET}-uid-${player.seatIndex}`,
+      itemId: 'repel',
+      name: `${SECRET}-name`,
+      visibility: 'secret',
+    });
+    player.balls.poke = 7_777_777;
+    player.privateResults.push({ kind: 'peek', eventId: `${SECRET}-peek` });
+  }
+  const plan = {
+    listener: { seat: 1, personalityId: 'greedy' },
+    moment: {
+      situation: 'catch_success' as const,
+      actingSeat: 0,
+      subjectSeat: 1,
+      addressedSeat: 1,
+      turn: 9,
+    },
+    speakerSeat: 2,
+    personalityId: 'greedy',
+  };
+  const game = store.getSpectatorView()!.observation.public;
+
+  test('it is the listener asked, from the speaker, with the line quoted and nothing private', () => {
+    const body = replyBody({ gameId: 'g', plan, game, momentKey: 4, quote: 'A fine catch.' });
+    const text = JSON.stringify(body);
+    for (const secret of [SECRET, '7777777', 'sentinel-seed', store.getSession()!.state.rng.state])
+      expect(text).not.toContain(secret);
+    const parsed = replyRequestSchema.parse(JSON.parse(text));
+    expect(parsed).toMatchObject({
+      seatIndex: 1,
+      speakerSeat: 2,
+      quote: 'A fine catch.',
+      situation: 'catch_success',
+      personalityId: 'greedy',
+      turnKey: 'talk:4:reply',
+    });
+    expect(parsed.observation.own).toEqual({
+      seatIndex: 1,
+      items: [],
+      balls: { poke: 0, great: 0, ultra: 0 },
+      privateResults: [],
+    });
+    expect(new TextEncoder().encode(text).length).toBeLessThan(16 * 1024);
+  });
+
+  test('the pair is saved opening first, each line labelled AI-written and addressed to the other', () => {
+    const events = exchangeEvents(plan, { opening: ' A fine catch. ', reply: 'Thank you.' })!;
+    expect(events).toEqual([
+      {
+        kind: 'ai_speech',
+        speakerSeatIndex: 2,
+        addressedSeatIndex: 1,
+        source: 'haiku',
+        text: 'A fine catch.',
+        globalTurnNo: 9,
+      },
+      {
+        kind: 'ai_speech',
+        speakerSeatIndex: 1,
+        addressedSeatIndex: 2,
+        source: 'haiku',
+        text: 'Thank you.',
+        globalTurnNo: 9,
+      },
+    ]);
+    expect(talkEntries(events)).toEqual([
+      { kind: 'exchange', opening: events[0], reply: events[1] },
+    ]);
+  });
+
+  test.each([
+    ['an empty opening', { opening: '  ', reply: 'Thank you.' }],
+    ['an empty answer', { opening: 'A fine catch.', reply: '' }],
+    ['an answer past the saved limit', { opening: 'A fine catch.', reply: 'x'.repeat(281) }],
+  ])('%s is not saved, and neither line is', (_name, answer) => {
+    expect(exchangeEvents(plan, answer)).toBeNull();
+  });
+});
+
+describe('exchanges in a played game (§5.7, §4.2)', () => {
+  const replies = (calls: { parsed: Record<string, unknown> }[]) =>
+    calls.filter((call) => call.parsed.kind === 'reply');
+
+  test.each(WATCHED)(
+    'a watched %i-seat game, seed %i: exchanges are two labelled lines between two AIs',
+    async (seats, seed) => {
+      const calls = fakeServer('haiku');
+      const store = gameStore(seats, false, seed);
+      const mounted = mountTalk(store);
+      await play(store);
+      const exchanges = talkEntries(spoken(store)).filter((entry) => entry.kind === 'exchange');
+      expect(exchanges.length).toBeGreaterThan(0);
+      expect(replies(calls)).toHaveLength(exchanges.length);
+      for (const { opening, reply } of exchanges) {
+        expect(opening.source).toBe('haiku');
+        expect(reply.source).toBe('haiku');
+        expect(reply.speakerSeatIndex).toBe(opening.addressedSeatIndex);
+        expect(reply.addressedSeatIndex).toBe(opening.speakerSeatIndex);
+      }
+      // The route is asked for every request kind it knows and the bodies are ones it accepts.
+      for (const call of calls)
+        expect(
+          (call.parsed.kind === 'reply' ? replyRequestSchema : speakRequestSchema).safeParse(
+            call.parsed,
+          ).success,
+        ).toBe(true);
+      mounted.unmount();
+    },
+    60_000,
+  );
+
+  test('the game is identical with exchanges on and off: state, action log, hash and replay', async () => {
+    const finals: { actions: unknown; hash: string; lines: number; exchanges: number }[] = [];
+    for (const route of ['haiku', 'refuse', 'hang', 'error'] as const) {
+      fakeServer(route);
+      const store = gameStore(4, false, 1);
+      const mounted = mountTalk(store);
+      await play(store);
+      const session = store.getSession()!;
+      expect(verifyReplay(session)).toMatchObject({ pass: true });
+      finals.push({
+        actions: session.log.actions,
+        hash: stateHash(session.state),
+        lines: spoken(store).length,
+        exchanges: exchangeCount(spoken(store)),
+      });
+      mounted.unmount();
+    }
+    expect(finals.map((final) => final.hash)).toEqual(Array(4).fill(finals[0]!.hash));
+    for (const final of finals) expect(final.actions).toEqual(finals[0]!.actions);
+    expect(finals[0]!.exchanges).toBeGreaterThan(0);
+    // A refused opening line is shown to nobody, whether the check or the network said no.
+    expect(finals.slice(1).map((final) => final.exchanges)).toEqual([0, 0, 0]);
+  }, 120_000);
+
+  test('a line the manipulation check refused is neither shown nor saved, and the round is not tried twice', async () => {
+    const calls = fakeServer('refuse');
+    const store = gameStore(4, false, 1);
+    const mounted = mountTalk(store);
+    await play(store);
+    expect(replies(calls).length).toBeGreaterThan(0);
+    // Every opening that was asked for was held back: no exchange, and none of those lines, was saved.
+    expect(exchangeCount(spoken(store))).toBe(0);
+    const heldBack = replies(calls).map((call) =>
+      String(call.parsed.turnKey).replace(':reply', ''),
+    );
+    for (const line of spoken(store))
+      for (const key of heldBack) expect(line.text).not.toContain(`, ${key}.`);
+    // One try per round: a refusal is not asked again for another moment in the same round.
+    const feed = store.getSpectatorView()!.feed;
+    const rounds = replies(calls).map((call) => {
+      const momentKey = Number(String(call.parsed.turnKey).split(':')[1]);
+      return roundOf(feed[momentKey - 1]!.before.globalTurnNo, 4);
+    });
+    expect(new Set(rounds).size).toBe(rounds.length);
+    mounted.unmount();
+  }, 60_000);
+
+  test('with Haiku off, or with Jev on its backup, nobody is asked for an exchange', async () => {
+    for (const status of [
+      {
+        jevEnabled: true,
+        backupOnly: false,
+        reason: null,
+        speech: { enabled: false, reason: 'disabled' },
+      },
+      {
+        jevEnabled: false,
+        backupOnly: true,
+        reason: 'disabled',
+        speech: { enabled: true, reason: null },
+      },
+    ] as AiStatus[]) {
+      const calls = fakeServer('bank', status.speech);
+      const store = gameStore(4, false, 1);
+      const mounted = mountTalk(store, { status });
+      await play(store);
+      expect(replies(calls)).toHaveLength(0);
+      expect(exchangeCount(spoken(store))).toBe(0);
+      mounted.unmount();
+      cleanup();
+    }
+  }, 120_000);
+
+  test.each([
+    ['Fast', { speed: 'fast' as const }],
+    ['Instant', { speed: 'instant' as const }],
+  ])(
+    'at %s speed no exchange is asked for',
+    async (_name, playback) => {
+      const calls = fakeServer('haiku');
+      const store = gameStore(4, false, 1);
+      mountTalk(store, playback);
+      await play(store);
+      expect(calls).toHaveLength(0);
+    },
+    60_000,
+  );
+
+  test('after a reload the same exchanges are there, none is asked for again, and the limits go on', async () => {
+    fakeServer('haiku');
+    const whole = gameStore(4, false, 1);
+    mountTalk(whole);
+    const total = await play(whole);
+    cleanup();
+    const expected = shape(spoken(whole));
+    expect(exchangeCount(spoken(whole))).toBeGreaterThan(0);
+
+    const cut = Math.floor(total / 2);
+    fakeServer('haiku');
+    const first = gameStore(4, false, 1);
+    const mountedFirst = mountTalk(first);
+    await play(first, (steps) => steps === cut);
+    const text = saveText(first.getSession()!);
+    mountedFirst.unmount();
+    const loaded = loadSave(text);
+    if (!loaded.ok) throw new Error(loaded.message);
+    const second = createGameStore();
+    second.restore(loaded.game, first.getOpponents());
+    expect(exchangeCount(spoken(second))).toBe(exchangeCount(spoken(first)));
+    const calls = fakeServer('haiku');
+    mountTalk(second);
+    await settle();
+    expect(calls).toHaveLength(0);
+    await play(second);
+    expect(shape(spoken(second))).toEqual(expected);
+    expect(exchangeCount(spoken(second))).toBeLessThanOrEqual(TABLE_TALK.maxExchangesPerGame);
+  }, 120_000);
+
+  test('a sentinel secret in every hand reaches no opening request, no answer request and no save', async () => {
+    const SECRET = 'SENTINEL-EXCHANGE-SECRET';
+    const calls = fakeServer('haiku');
+    const store = gameStore(4, false, 'sentinel-seed-do-not-send');
+    for (const player of store.getSession()!.state.players) {
+      player.items.push({
+        instanceId: `${SECRET}-uid`,
+        itemId: 'repel',
+        name: `${SECRET}-item`,
+        visibility: 'secret',
+      });
+      player.balls.poke = 7_777_777;
+    }
+    mountTalk(store);
+    await play(store);
+    expect(replies(calls).length).toBeGreaterThan(0);
+    for (const call of calls) {
+      expect(call.body).not.toContain(SECRET);
+      expect(call.body).not.toContain('7777777');
+      expect(call.body).not.toContain('sentinel-seed');
+    }
+    expect(JSON.stringify(store.getSession()!.log.dialogueEvents)).not.toContain(SECRET);
+  }, 60_000);
+});
+
+describe('the Table talk panel shows an exchange (§3, §4.8)', () => {
+  const players = gameStore(4, false, 1).getSpectatorView()!.observation.public.players;
+  const pair: AiSpeechEvent[] = [
+    {
+      kind: 'ai_speech',
+      speakerSeatIndex: 2,
+      addressedSeatIndex: 1,
+      source: 'haiku',
+      text: 'That was a lucky catch.',
+      globalTurnNo: 9,
+    },
+    {
+      kind: 'ai_speech',
+      speakerSeatIndex: 1,
+      addressedSeatIndex: 2,
+      source: 'haiku',
+      text: 'Thank you, the grass was kind.',
+      globalTurnNo: 9,
+    },
+  ];
+  const earlier: AiSpeechEvent = {
+    kind: 'ai_speech',
+    speakerSeatIndex: 3,
+    addressedSeatIndex: 0,
+    source: 'haiku',
+    text: 'Well played at the gym.',
+    globalTurnNo: 3,
+  };
+
+  test('the two lines are one group, opening above the answer, each labelled AI-written', () => {
+    render(
+      <TableTalkPanel
+        lines={[earlier, ...pair]}
+        players={players}
+        hidden={false}
+        onToggle={() => {}}
+        voiceOff={null}
+      />,
+    );
+    const group = screen.getByRole('list', { name: /An exchange: .+ speaks to .+, who answers/ });
+    const rows = group.querySelectorAll('li');
+    expect(rows).toHaveLength(2);
+    expect(rows[0]!.textContent).toContain('That was a lucky catch.');
+    expect(rows[1]!.textContent).toContain('Thank you, the grass was kind.');
+    for (const row of rows) expect(row.textContent).toContain(t('talk.aiWritten'));
+    // The newest entry is first in the panel, an older single line after the group.
+    const top = screen.getByRole('list', { name: t('talk.heading') });
+    expect(top.children).toHaveLength(2);
+    expect(top.children[0]!.hasAttribute('data-exchange')).toBe(true);
+    expect(top.children[1]!.textContent).toContain('Well played at the gym.');
   });
 });
