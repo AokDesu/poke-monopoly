@@ -31,7 +31,9 @@ export function GalleryPage({ fixtures }: { fixtures: GalleryFixtures }) {
               <p className="gallery-spec">
                 {row.specRow === null
                   ? t('gallery.specAiTurns')
-                  : t('gallery.specRow', { row: row.specRow })}
+                  : row.specRow === 'battle'
+                    ? t('gallery.specBattle')
+                    : t('gallery.specRow', { row: row.specRow })}
               </p>
             </header>
             <div className="gallery-examples">

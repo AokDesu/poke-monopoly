@@ -3,10 +3,13 @@ import {
   actionVisibleToSpectator,
   advanceAutomatically,
   applyAction,
+  battlePreview,
+  challengeOdds,
   createGame,
   createGameConfig,
   createGameLog,
   createRng,
+  decisionPoint,
   eventsVisibleTo,
   engineEventSchema,
   aiSpeechEventSchema,
@@ -22,7 +25,9 @@ import {
   winner,
   type SaleQuote,
   type BallType,
+  type BattlePreview,
   type CatchOdds,
+  type EngineDecisionPoint,
   type Action,
   type AiSpeechEvent,
   type ActionRecord,
@@ -62,6 +67,11 @@ export interface OpponentSettings {
   readonly difficulty: DifficultyId;
 }
 
+/** The engine's pre-declaration terms and odds against one opponent. */
+export type ChallengeOdds = NonNullable<ReturnType<typeof challengeOdds>> & {
+  readonly seatIndex: number;
+};
+
 /** One accepted action as the human seat may see it (engine contract: `actionVisibleTo`). */
 export interface SeatFeedEntry {
   /** What the seat saw just before the action: the public phase and whose turn it was. */
@@ -80,6 +90,15 @@ export interface SeatView {
   readonly observation: Observation;
   readonly legalActions: LegalActions;
   readonly catchOdds: readonly ({ ballType: BallType } & CatchOdds)[];
+  /**
+   * The engine's decision owner and kind, which differ from the active seat during a PvP response,
+   * window, reroll or reward (§6.4). Null while the engine owes a die or the game is over.
+   */
+  readonly decision: { readonly seatIndex: number; readonly point: EngineDecisionPoint } | null;
+  /** The pending PvP or Gym battle's engine terms and odds, from this seat's reading (§4.4). */
+  readonly battle: BattlePreview | null;
+  /** Odds of each challenge this seat could declare now, in Strategy only (§4.4). */
+  readonly challenges: readonly ChallengeOdds[];
   readonly feed: readonly SeatFeedEntry[];
   readonly opponents: readonly OpponentSettings[];
 }
@@ -310,6 +329,7 @@ export function createGameStore(): GameStore {
   const viewOf = (state: GameState, feed: readonly SeatFeedEntry[]): SeatView | null => {
     const seatIndex = humanSeat(state);
     if (seatIndex === undefined) return null;
+    const pending = pendingDecision(state);
     return {
       seatIndex,
       observation: observe(state, seatIndex),
@@ -319,6 +339,21 @@ export function createGameStore(): GameStore {
         state.phase.kind === 'encounter' &&
         !state.phase.catchRoll
           ? oddsForAllBalls(state, seatIndex)
+          : [],
+      decision: pending && { seatIndex: pending.seatIndex, point: decisionPoint(state)! },
+      battle:
+        state.phase.kind === 'pvp' || state.phase.kind === 'gym'
+          ? battlePreview(state, seatIndex)
+          : null,
+      challenges:
+        state.phase.kind === 'strategy' && state.activeSeatIndex === seatIndex
+          ? state.players.flatMap((player) => {
+              const odds =
+                player.seatIndex === seatIndex
+                  ? null
+                  : challengeOdds(state, seatIndex, player.seatIndex);
+              return odds ? [{ ...odds, seatIndex: player.seatIndex }] : [];
+            })
           : [],
       feed,
       opponents,

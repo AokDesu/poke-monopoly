@@ -25,7 +25,16 @@ const fixtures: GalleryFixtures = {
 // the catalog keys each must put on screen. Do not derive it from the gallery: deleting a key from
 // an example must fail the test.
 const SHOWN = [
-  { id: 'only-legal-action', specRow: '1', keys: ['turn.onlyLegalAction', 'turn.automatic'] },
+  {
+    id: 'only-legal-action',
+    specRow: '1',
+    keys: [
+      'turn.onlyLegalAction',
+      'turn.automatic',
+      'choice.challengeGym',
+      'battle.gymAutoSkipped',
+    ],
+  },
   {
     id: 'no-ball',
     specRow: '3',
@@ -74,6 +83,26 @@ const SHOWN = [
     keys: ['save.pendingWatched', 'save.continue', 'game.resumedAiTurn'],
   },
   { id: 'watch-all-backup', specRow: '18', keys: ['ai.allBackupBanner', 'ai.backupBadge'] },
+  {
+    id: 'pvp-gym',
+    specRow: 'battle',
+    keys: [
+      'challenge.heading',
+      'challenge.intro',
+      'battle.heading.response',
+      'battle.declineNote',
+      'battle.forcedBy',
+      'battle.heading.window',
+      'battle.withThis',
+      'battle.heading.gym',
+      'battle.termsGym',
+      'battle.heading.reward',
+      'battle.reward.evolveGroup',
+      'battle.reward.choose',
+      'battle.result',
+      'board.event.pvpResolved',
+    ],
+  },
 ] as const satisfies readonly { id: string; specRow: string; keys: readonly MessageKey[] }[];
 
 /** Rows with nothing for a player to see in this build (no chat, deals or event-deck screen, engine-only). */
@@ -116,7 +145,9 @@ test('every §3.1 row that has a screen shows each of its catalog keys, labelled
     const label =
       row.specRow === 'ai-turns'
         ? t('gallery.specAiTurns')
-        : t('gallery.specRow', { row: row.specRow });
+        : row.specRow === 'battle'
+          ? t('gallery.specBattle')
+          : t('gallery.specRow', { row: row.specRow });
     expect(within(el).getByText(label), row.id).toBeTruthy();
   }
 });

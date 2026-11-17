@@ -77,7 +77,15 @@ export function turnMessages(
       });
     }
   }
-  if (record.auto && record.action.actorId !== 'engine') {
+  // Gym entry: leaving without a challenge costs nothing (§4.4). With no battle-ready Pokémon the
+  // engine applies the skip itself (§3.1, Appendix C.3 D5 step 1).
+  const gymSkip = phase.kind === 'gym' && phase.battle.step === 'entry' && action.kind === 'skip';
+  if (gymSkip) {
+    const name = seatLabel(before.activeSeatIndex, viewerSeat);
+    const key = record.auto ? 'battle.gymAutoSkipped' : 'battle.gymSkipped';
+    messages.push({ key, text: t(key, { name }) });
+  }
+  if (record.auto && record.action.actorId !== 'engine' && !gymSkip) {
     messages.push({
       key: 'turn.automatic',
       text: t('turn.automatic', {

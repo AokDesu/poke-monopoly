@@ -77,6 +77,18 @@ export function PlayerPanel({ player, observation, setup }: PlayerPanelProps) {
           </dd>
         </div>
       </dl>
+      <dl className="player-stats player-extras">
+        <div>
+          <dt>{t('board.badges')}</dt>
+          <dd aria-label={t('board.badges')}>{player.badges}</dd>
+        </div>
+        {(ownData?.armedShield ?? player.armedShield) && (
+          <div>
+            <dt>{t('board.shield')}</dt>
+            <dd aria-label={t('board.shield')}>{t('board.shieldArmed')}</dd>
+          </div>
+        )}
+      </dl>
       <h3>{own ? t('board.yourTeam') : t('board.team')}</h3>
       {player.team.length === 0 ? (
         <p className="panel-note">{t('board.emptyTeam')}</p>

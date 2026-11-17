@@ -27,8 +27,8 @@ export interface GalleryExample {
 /** One spec row that has a screen in this build, with the examples that show it. */
 export interface GalleryRow {
   readonly id: string;
-  /** Row number in the spec §3.1 table; `null` for the §3 "Backup bot mode" badge line. */
-  readonly specRow: number | null;
+  /** Row number in the spec §3.1 table; `null` for the §3 AI-turn lines, `'battle'` for §4.4's PvP and Gym. */
+  readonly specRow: number | 'battle' | null;
   /** The spec's own wording for the situation. */
   readonly label: MessageKey;
   /** Catalog keys the examples must put on screen; the gallery test fails if one is missing. */
@@ -59,6 +59,8 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
   const sellPhase = once(scenes.sellPhaseFullTeam);
   const wholeTeamSold = once(scenes.wholeTeamSold);
   const decisionOpen = once(scenes.rivalDecisionOpen);
+  const gymNoReady = once(scenes.gymNoBattleReady);
+  const gymNoReadyAuto = once(scenes.gymNoBattleReadyAuto);
   const watchOpen = once(scenes.watchDecisionOpen);
   const rivalFallback = (reason: string, rivals: 1 | 2) =>
     once(() => scenes.rivalLeftShop({ source: 'fallback', fallbackReason: reason }, rivals));
@@ -146,7 +148,12 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
       id: 'only-legal-action',
       specRow: 1,
       label: 'gallery.row.onlyLegalAction',
-      keys: ['turn.onlyLegalAction', 'turn.automatic'],
+      keys: [
+        'turn.onlyLegalAction',
+        'turn.automatic',
+        'choice.challengeGym',
+        'battle.gymAutoSkipped',
+      ],
       examples: [
         {
           id: 'before',
@@ -157,6 +164,16 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
           id: 'after',
           caption: 'gallery.example.afterAuto',
           render: () => turnPanel(noBallAuto()),
+        },
+        {
+          id: 'gym-before',
+          caption: 'gallery.example.gymNoBattleReady',
+          render: () => turnPanel(gymNoReady()),
+        },
+        {
+          id: 'gym-after',
+          caption: 'gallery.example.gymAutoSkipped',
+          render: () => turnPanel(gymNoReadyAuto()),
         },
       ],
     },
@@ -461,6 +478,69 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
                 speech: { enabled: false, reason: 'disabled' },
               },
             }),
+        },
+      ],
+    },
+    {
+      id: 'pvp-gym',
+      specRow: 'battle',
+      label: 'gallery.row.pvpGym',
+      keys: [
+        'challenge.heading',
+        'challenge.intro',
+        'battle.heading.response',
+        'battle.declineNote',
+        'battle.forcedBy',
+        'battle.heading.window',
+        'battle.withThis',
+        'battle.heading.gym',
+        'battle.termsGym',
+        'battle.heading.reward',
+        'battle.reward.evolveGroup',
+        'battle.reward.choose',
+        'battle.result',
+        'board.event.pvpResolved',
+      ],
+      examples: [
+        {
+          id: 'challenge',
+          caption: 'gallery.example.challengeChoice',
+          render: () => turnPanel(scenes.challengeChoice()),
+        },
+        {
+          id: 'challenge-blocked',
+          caption: 'gallery.example.challengeBlocked',
+          render: () => turnPanel(scenes.challengeBlocked()),
+        },
+        {
+          id: 'defender',
+          caption: 'gallery.example.defenderResponse',
+          render: () => turnPanel(scenes.defenderResponse()),
+        },
+        {
+          id: 'forced',
+          caption: 'gallery.example.forcedChallenge',
+          render: () => turnPanel(scenes.forcedChallenge()),
+        },
+        {
+          id: 'window',
+          caption: 'gallery.example.abilityWindow',
+          render: () => turnPanel(scenes.abilityWindow()),
+        },
+        {
+          id: 'gym',
+          caption: 'gallery.example.gymEntry',
+          render: () => turnPanel(scenes.gymEntry()),
+        },
+        {
+          id: 'reward',
+          caption: 'gallery.example.rewardChoice',
+          render: () => turnPanel(scenes.rewardChoice()),
+        },
+        {
+          id: 'reward-taken',
+          caption: 'gallery.example.rewardTaken',
+          render: () => turnPanel(scenes.rewardTaken()),
         },
       ],
     },

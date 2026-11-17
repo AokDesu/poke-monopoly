@@ -4,30 +4,26 @@ import { t, type MessageKey } from '../i18n/en.ts';
 import { itemName } from '../i18n/names.ts';
 import { ownSeatOf, phaseLabel, playerLabel, reasonLabel, seatLabel } from './labels.ts';
 import type { ViewedObservation } from './labels.ts';
+import { battleEventMessages } from './battleMessages.ts';
 import { turnMessages } from './turnMessages.ts';
 
-function eventMessage(
+/** One seat-filtered event in words; `before` is the public phase its record was applied in. */
+export function eventMessage(
   event: SeatEvent,
   observation: ViewedObservation,
+  before?: SeatFeedEntry['before'],
 ): { key: MessageKey; text: string }[] {
   const seat = (index: number) => seatLabel(index, ownSeatOf(observation));
   const message = (key: MessageKey, values?: Record<string, string | number>) => [
     { key, text: t(key, values) },
   ];
   switch (event.kind) {
-    // Spec §5.7: persisted dialogue annotations are not gameplay announcements.
-    // Status/evolution/reward records remain in the feed; dedicated UI is a later slice.
+    // Battle, Gym, protection, Ability, status and evolution events are announced in words.
     case 'attack_attempt':
     case 'shield_armed':
     case 'protection_applied':
     case 'ability_activated':
     case 'abilities_reset':
-    case 'player_displaced':
-    case 'ball_gained':
-    case 'item_gained':
-    case 'event_deck_shuffled':
-    case 'event_drawn':
-    case 'event_resolved':
     case 'gym_confirmed':
     case 'gym_resolved':
     case 'badge_awarded':
@@ -37,6 +33,14 @@ function eventMessage(
     case 'status_changed':
     case 'pokemon_evolved':
     case 'battle_reward_resolved':
+      return battleEventMessages(event, observation, before);
+    // Spec §5.7: persisted dialogue annotations are not gameplay announcements.
+    case 'player_displaced':
+    case 'ball_gained':
+    case 'item_gained':
+    case 'event_deck_shuffled':
+    case 'event_drawn':
+    case 'event_resolved':
     case 'line_selected':
       return [];
     // Chat has its own screen (#57); the flag keeping the Social window closed is off until then.
@@ -49,7 +53,7 @@ function eventMessage(
       if (event.purpose.startsWith('line:')) return [];
       // Strings/arrays may be internal draw IDs or deck order in historical fixtures. Never dump them.
       return typeof event.result === 'number' &&
-        /^(first-player:|move:|catch:|movement$)/.test(event.purpose)
+        /^(first-player:|move:|catch:|movement$|pvp:|gym:)/.test(event.purpose)
         ? message('board.event.randomRoll', { result: event.result })
         : message('board.event.randomDraw');
     case 'coin_transfer': {
@@ -107,7 +111,7 @@ export function EventLog({
   const rows = feed
     ? feed.flatMap((entry) => [
         ...turnMessages(entry, ownSeatOf(observation)),
-        ...entry.record.events.flatMap((event) => eventMessage(event, observation)),
+        ...entry.record.events.flatMap((event) => eventMessage(event, observation, entry.before)),
       ])
     : events.flatMap((event) => eventMessage(event, observation));
   return (
