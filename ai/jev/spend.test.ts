@@ -6,6 +6,7 @@ import {
   costUsd,
   dailyBudgetFromEnv,
   openUsageLedger,
+  parseUsageLog,
   readUsageLog,
   SPEND_CONFIG,
   SpendLedger,
@@ -160,5 +161,101 @@ describe('the usage log file', () => {
     const file = join(mkdtempSync(join(tmpdir(), 'jev-usage-')), 'jev-usage.jsonl');
     writeFileSync(file, `${JSON.stringify(line(tokensFor(1)))}\n`);
     expect(openUsageLedger(file, { now: () => NOW }).budgetExceeded()).toBe(true);
+  });
+});
+
+const haikuTokensFor = (thb: number) =>
+  Math.ceil(
+    (thb /
+      SPEND_CONFIG.thbPerUsd /
+      SPEND_CONFIG.haikuModelPrices['claude-haiku-5-5']!.inputUsdPerMillionTokens) *
+      1_000_000,
+  );
+
+const haikuLine = (thb: number, time = NOW.toISOString()): UsageLine => ({
+  ...line(haikuTokensFor(thb), time),
+  provider: 'haiku',
+  model: 'claude-haiku-5-5',
+});
+
+describe('Haiku spend in the shared ledger (spec §1, §9)', () => {
+  test('Haiku costs $0.10 per million input and $0.50 per million output tokens', () => {
+    const haiku = { provider: 'haiku', model: 'claude-haiku-5-5' } as const;
+    expect(costUsd({ ...haiku, inputTokens: 1_000_000, outputTokens: 0 })).toBeCloseTo(0.1, 12);
+    expect(costUsd({ ...haiku, inputTokens: 0, outputTokens: 1_000_000 })).toBeCloseTo(0.5, 12);
+    // Jev's price is unchanged, with or without the provider named.
+    expect(
+      costUsd({ provider: 'jev', inputTokens: 1_000_000, outputTokens: 1_000_000 }),
+    ).toBeCloseTo(0.042, 12);
+  });
+
+  test('a Haiku model with no listed price counts at the dearest listed price', () => {
+    const unknown = {
+      provider: 'haiku' as const,
+      model: 'claude-haiku-9',
+      inputTokens: 0,
+      outputTokens: 1e6,
+    };
+    expect(costUsd(unknown)).toBeCloseTo(0.5, 12);
+  });
+
+  test('Haiku’s hard stop is THB 150 inside the THB 1,500 total', () => {
+    expect(SPEND_CONFIG).toMatchObject({ haikuCapThb: 150, totalCapThb: 1500 });
+  });
+
+  test('Haiku is refused at its own cap while Jev may still ask', () => {
+    const ledger = new SpendLedger({ lines: [haikuLine(149)], warn: () => {} });
+    expect(ledger.budgetExceeded('haiku')).toBe(false);
+    ledger.record(haikuLine(1));
+    expect(ledger.budgetExceeded('haiku')).toBe(true);
+    expect(ledger.budgetExceeded()).toBe(false);
+    expect(ledger.spentThb('haiku')).toBeGreaterThanOrEqual(150);
+    expect(ledger.spentThb('jev')).toBe(0);
+  });
+
+  test('Jev and Haiku count together toward the total cap, and both are refused at it', () => {
+    const ledger = new SpendLedger({
+      lines: [line(tokensFor(1400)), haikuLine(99)],
+      warn: () => {},
+    });
+    expect(ledger.budgetExceeded()).toBe(false);
+    expect(ledger.budgetExceeded('haiku')).toBe(false);
+    ledger.record(haikuLine(2));
+    expect(ledger.budgetExceeded()).toBe(true);
+    expect(ledger.budgetExceeded('haiku')).toBe(true);
+  });
+
+  test('a Jev line with no provider is a Jev line, and Haiku never spends the daily budget', () => {
+    const ledger = new SpendLedger({
+      lines: [haikuLine(100)],
+      dailyBudgetThb: 20,
+      now: () => NOW,
+      warn: () => {},
+    });
+    expect(ledger.spentTodayThb()).toBe(0);
+    expect(ledger.budgetExceeded()).toBe(false);
+    ledger.record(line(tokensFor(20)));
+    expect(ledger.spentThb('jev')).toBeGreaterThan(19);
+    expect(ledger.budgetExceeded()).toBe(true);
+  });
+
+  test('warns once at 80% of the Haiku cap, apart from the total warning', () => {
+    const warn = vi.fn();
+    const ledger = new SpendLedger({ lines: [haikuLine(119)], warn });
+    expect(warn).not.toHaveBeenCalled();
+    ledger.record(haikuLine(2));
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0]![0]).toMatch(/Haiku spend.*80% or more of its THB 150 cap/);
+    ledger.record(haikuLine(20));
+    expect(warn).toHaveBeenCalledOnce();
+  });
+
+  test('the usage log parses Jev lines without a provider and Haiku lines with one', () => {
+    const jev = JSON.stringify(line(100));
+    const haiku = JSON.stringify(haikuLine(1));
+    const other = JSON.stringify({ ...line(100), provider: 'other' });
+    const parsed = parseUsageLog([jev, haiku, other].join('\n'));
+    expect(parsed.invalid).toEqual([3]);
+    expect(parsed.lines.map((l) => l.provider)).toEqual([undefined, 'haiku']);
   });
 });

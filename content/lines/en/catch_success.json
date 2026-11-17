@@ -16,5 +16,59 @@
     "personality": "greedy",
     "trust": "neutral",
     "text": "Got {pokemon}. That Ball was well spent."
+  },
+  {
+    "id": "catch-success-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Caught {pokemon}. That makes my team stronger."
+  },
+  {
+    "id": "catch-success-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{pokemon} is mine now. Bring on the next fight."
+  },
+  {
+    "id": "catch-success-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Got {pokemon}. I am ready to battle."
+  },
+  {
+    "id": "catch-success-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Caught {pokemon}. I will look after it."
+  },
+  {
+    "id": "catch-success-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Got {pokemon}. Good to have it on the team."
+  },
+  {
+    "id": "catch-success-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "{pokemon} is caught. Slow and steady works."
+  },
+  {
+    "id": "catch-success-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Caught {pokemon}. I can sell it or keep it, whichever pays."
+  },
+  {
+    "id": "catch-success-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Got {pokemon}. I will decide what to do with it later."
+  },
+  {
+    "id": "catch-success-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "{pokemon} is caught. A chance well taken."
   }
 ]

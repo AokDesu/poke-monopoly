@@ -36,6 +36,11 @@ export const STATIC_PLAYBACK: TurnPlayback = {
   line: null,
   skipLine: () => {},
   retry: () => {},
+  paused: false,
+  setPaused: () => {},
+  step: () => {},
+  stepBlocked: null,
+  skipToEnd: () => {},
 };
 
 /** A rival seat cloned from seat 1: only what the human seat may see of it. */

@@ -1,0 +1,74 @@
+[
+  {
+    "id": "promise-kept-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Promise kept, {target}. A deal is a deal."
+  },
+  {
+    "id": "promise-kept-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "I kept my word. That is good for business."
+  },
+  {
+    "id": "promise-kept-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "My promise to you, {target}, is kept."
+  },
+  {
+    "id": "promise-kept-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Promise kept, {target}. I keep my word even when I want a fight."
+  },
+  {
+    "id": "promise-kept-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "I held my promise. Remember that."
+  },
+  {
+    "id": "promise-kept-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "My word held, {target}."
+  },
+  {
+    "id": "promise-kept-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "The promise is kept, {target}. I am glad it held."
+  },
+  {
+    "id": "promise-kept-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "I kept my promise to you. Trust matters."
+  },
+  {
+    "id": "promise-kept-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Promise kept. That is how careful play works."
+  },
+  {
+    "id": "promise-kept-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Promise kept, {target}. That helps us both."
+  },
+  {
+    "id": "promise-kept-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "I kept my word. It was the useful thing to do."
+  },
+  {
+    "id": "promise-kept-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "The promise held, {target}. Good for both of us."
+  }
+]

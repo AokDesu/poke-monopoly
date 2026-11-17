@@ -1,14 +1,31 @@
+import catchFail from '../../../content/lines/en/catch_fail.json';
+import catchSuccess from '../../../content/lines/en/catch_success.json';
+import dealAccept from '../../../content/lines/en/deal_accept.json';
+import dealReject from '../../../content/lines/en/deal_reject.json';
 import fallbackNotice from '../../../content/lines/en/fallback_notice.json';
 import gameStart from '../../../content/lines/en/game_start.json';
-import catchSuccess from '../../../content/lines/en/catch_success.json';
-import catchFail from '../../../content/lines/en/catch_fail.json';
+import gymWin from '../../../content/lines/en/gym_win.json';
+import manipulationRefused from '../../../content/lines/en/manipulation_refused.json';
+import promiseBroken from '../../../content/lines/en/promise_broken.json';
+import promiseKept from '../../../content/lines/en/promise_kept.json';
 import soldPokemon from '../../../content/lines/en/sold_pokemon.json';
+import tauntLeader from '../../../content/lines/en/taunt_leader.json';
 
 const dialogue = Object.fromEntries(
-  [...fallbackNotice, ...gameStart, ...catchSuccess, ...catchFail, ...soldPokemon].map((line) => [
-    `ai.line.${line.id}`,
-    line.text,
-  ]),
+  [
+    ...catchFail,
+    ...catchSuccess,
+    ...dealAccept,
+    ...dealReject,
+    ...fallbackNotice,
+    ...gameStart,
+    ...gymWin,
+    ...manipulationRefused,
+    ...promiseBroken,
+    ...promiseKept,
+    ...soldPokemon,
+    ...tauntLeader,
+  ].map((line) => [`ai.line.${line.id}`, line.text]),
 ) as Record<`ai.line.${string}`, string>;
 
 /**
@@ -77,6 +94,7 @@ export const en = {
   'board.finished': 'Game finished',
   'board.noGame': 'No game is open. Start a new game from Home.',
   'board.habitat': 'Starter meadow',
+  'board.habitatNames': 'In the meadow: {names}',
   'board.phase.first_player_roll': 'First-player roll',
   'board.phase.start': 'Start of turn',
   'board.phase.social': 'Social',
@@ -227,6 +245,15 @@ export const en = {
   'team.readOnly': 'Inspection only. Evolution is chosen as a battle reward.',
   'team.tiredReason': 'Cannot battle while Tired. Clears at the end of its owner’s next turn.',
   'team.rescueRestriction': 'Cannot be traded or receive a sale bonus, even after evolution.',
+  'team.baseValue': 'Base value',
+  'team.baseValueNote':
+    'Base value is the listed worth of this form. The Sell Phase quotes what it actually sells for.',
+  'team.nextFormStats': 'Battle {battle} · Base value {base}',
+  'team.nextFormAbility': 'Ability: {ability}',
+  'team.branchChoice': 'This line branches. You choose one of these forms when it evolves.',
+  'species.catchDc': 'Catch DC',
+  'starter.facts': 'About your Starter, {name}',
+  'starter.rivalFacts': 'About the rival’s Starter, {name}',
 
   'play.heading': 'Game board',
   'results.heading': 'Results',
@@ -254,10 +281,16 @@ export const en = {
   'save.pendingDecision': 'Open decision: {phase}. Waiting on {name}.',
   'save.pendingRoll': 'A die result is still waiting. It was not rolled before the save.',
   'save.pendingFinished': 'This game has already finished.',
+  'save.pendingWatched': 'A watched game is in progress, turn {turn}.',
   'save.mismatchHeading': 'This save cannot be loaded',
   'save.mismatchNext': 'New game starts a fresh game and removes this save from the browser.',
   'save.unreadable':
     'This save could not be read. New game starts a fresh game and removes it from the browser.',
+
+  'watch.stepWhileRunning': 'Pause the game first. Step plays one action while paused.',
+  'watch.stepBusy': 'Wait for the action in progress to finish.',
+  'watch.stepFailed': 'The AI decision failed. Retry it before stepping.',
+  'watch.stepFinished': 'The game has finished.',
 
   'credits.link': 'Credits',
   'credits.heading': '3D model credits',
@@ -325,6 +358,7 @@ export const en = {
   'encounter.released': '{pokemon} was released. No Ball was spent.',
   'encounter.release': 'Release',
   'encounter.noBall': 'No Ball, so you cannot catch. Release the Pokémon to go on.',
+  'encounter.facts': 'About this Pokémon',
 
   'shop.notEnoughCoins': 'Not enough coins for this item. You can leave the Shop without buying.',
   'shop.itemsFull':
@@ -333,6 +367,16 @@ export const en = {
   'shop.buy': 'Buy {item} · {price} coins',
   'shop.buyOne': 'Buy {item} · {price} coin',
   'shop.balance': 'You have {coins} coins',
+
+  'item.kind.ball': 'Ball',
+  'item.kind.utility': 'Utility item',
+  'item.price': 'Price: {price} coins',
+  'item.priceOne': 'Price: {price} coin',
+  'item.ball.effect': 'Required to catch a Pokémon. Catch roll bonus: +{bonus}.',
+  'item.effect.planned': 'Planned effect: {effect}',
+  'item.status.partial':
+    'Only part of this effect works in this build: it clears Tired. Combat debuffs are not tracked yet.',
+  'item.status.planned': 'Not active yet: this build does not apply this effect.',
 
   'strategy.targets': 'Choose an opponent',
   'strategy.preview': 'Effect preview',
@@ -435,6 +479,9 @@ export const en = {
   'gallery.pending.chat': 'Needs the chat panel, which is not built yet.',
   'gallery.pending.eventDeck':
     'The notice is in this catalog, but no screen shows it yet and the board has no Event deck.',
+  'gallery.pending.speech':
+    'Needs the speech writer and the Table talk panel, which are not built yet.',
+  'gallery.pending.watch': 'Needs watch mode, which is not built yet.',
   'gallery.row.onlyLegalAction': 'Only one legal action (e.g. must roll)',
   'gallery.row.shortlistEmpty': 'Shortlist empty after personality filtering',
   'gallery.row.noBall': 'Pokémon found but no Ball',
@@ -451,6 +498,11 @@ export const en = {
   'gallery.row.browserClosed': 'The browser closes during an AI turn',
   'gallery.row.teamEmpty': 'Team is empty after the Sell Phase',
   'gallery.row.eventDeckOut': 'Event deck runs out',
+  'gallery.row.haikuOff': 'Haiku is off, has no key, is out of budget or is slow',
+  'gallery.row.haikuScreenFail':
+    "Haiku's text fails the output screen (too long, a digit, a link, a non-public item name, an offer or promise)",
+  'gallery.row.watchBrowserClosed': "A watched game's browser closes",
+  'gallery.row.watchAllBackup': 'Every AI in a watched game is on the backup bot',
   'gallery.row.backupBadge':
     'A "Backup bot mode" badge shows truthfully whenever an AI is using the fallback',
   'gallery.example.beforeAuto': 'Before the game applies it',

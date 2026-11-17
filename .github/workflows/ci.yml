@@ -34,10 +34,10 @@ jobs:
             exit 1
           fi
 
-      - name: Guard - no committed Jev key
+      - name: Guard - no committed Jev or Haiku key
         run: |
-          if git grep -nE 'TYPESAFE_API_KEY[[:space:]]*[=][[:space:]]*["'\'']?[A-Za-z0-9_-]'; then
-            echo "::error::A tracked file sets TYPESAFE_API_KEY to a value. Remove it and rotate the key."
+          if git grep -nE '(TYPESAFE|ANTHROPIC)_API_KEY[[:space:]]*[=][[:space:]]*["'\'']?[A-Za-z0-9_-]'; then
+            echo "::error::A tracked file sets TYPESAFE_API_KEY or ANTHROPIC_API_KEY to a value. Remove it and rotate the key."
             exit 1
           fi
 

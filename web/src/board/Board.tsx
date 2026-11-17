@@ -1,7 +1,9 @@
 import { lazy, Suspense, type ReactNode } from 'react';
 import type { Observation, SeatEvent } from '../../../engine/index.ts';
+import { MEADOW_STARTERS } from '../game/models.ts';
 import type { SeatFeedEntry } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
+import { speciesName } from '../i18n/names.ts';
 import { BallIcon } from '../ui/icons.tsx';
 import { Screen } from '../ui/Screen.tsx';
 import { hasWebGl } from '../ui/three/support.ts';
@@ -144,6 +146,11 @@ export function Board({ observation, events = [], feed, controls, focus }: Board
                   <BallIcon className="size-7" />
                   <span>{t('board.habitat')}</span>
                 </div>
+                <p className="meadow-names">
+                  {t('board.habitatNames', {
+                    names: MEADOW_STARTERS.map(({ id }) => speciesName(id)).join(', '),
+                  })}
+                </p>
                 <p className="route-instruction">{t('board.direction')}</p>
                 <div className="seat-order" aria-label={t('board.turnOrder')}>
                   {game.players.map((player) => (

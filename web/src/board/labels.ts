@@ -1,7 +1,7 @@
 import type { Observation } from '../../../engine/index.ts';
 import { en, t, type MessageKey } from '../i18n/en.ts';
 
-export function seatLabel(seatIndex: number, ownSeatIndex: number): string {
+export function seatLabel(seatIndex: number, ownSeatIndex: number | undefined): string {
   return seatIndex === ownSeatIndex ? t('seat.you') : t('board.rivalLabel', { seat: seatIndex });
 }
 

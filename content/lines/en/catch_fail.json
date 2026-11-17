@@ -16,5 +16,59 @@
     "personality": "greedy",
     "trust": "neutral",
     "text": "No luck with {pokemon} this time."
+  },
+  {
+    "id": "catch-fail-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{pokemon} got away. I go after the next one."
+  },
+  {
+    "id": "catch-fail-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Missed {pokemon}. That does not stop me."
+  },
+  {
+    "id": "catch-fail-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "No catch this time. I move on."
+  },
+  {
+    "id": "catch-fail-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Missed {pokemon}. I will check my Balls before the next try."
+  },
+  {
+    "id": "catch-fail-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "{pokemon} escaped. A Ball is gone, so I must be careful with the rest."
+  },
+  {
+    "id": "catch-fail-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "No catch this time. I will wait for a better chance."
+  },
+  {
+    "id": "catch-fail-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "{pokemon} got away. On to the next chance."
+  },
+  {
+    "id": "catch-fail-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Missed {pokemon}. There will be other openings."
+  },
+  {
+    "id": "catch-fail-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "No luck with {pokemon}. I look for the next opening."
   }
 ]
