@@ -182,7 +182,6 @@ function sentinelGame(game: number): GameState {
       });
     }
   }
-  state.eventDeck = { drawPile: [...DECK], discardPile: [] };
   return state;
 }
 
@@ -268,7 +267,10 @@ test('500 random mid-game states never show a seat another seat’s secrets, RNG
         const actor = before.players.find((entry) => entry.actorId === record.action.actorId);
         if (actor?.seatIndex !== seat) expect(seenRecord).not.toContain('"offerId"');
         if (move % 3 !== 0) continue;
-        const seen = JSON.stringify([observe(state, seat), legalActions(state, seat)]);
+        // Drawn Events are public now; plant impossible IDs only in the projection copy.
+        const projection = { ...state };
+        projection.eventDeck = { drawPile: [...DECK], discardPile: [] };
+        const seen = JSON.stringify([observe(projection, seat), legalActions(projection, seat)]);
         for (const secret of secrets) expect(seen).not.toContain(secret);
         for (const hidden of [SEED, `"${state.rng.state}"`, RNG_VERSION, ...DECK]) {
           expect(seen).not.toContain(hidden);

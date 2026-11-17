@@ -90,7 +90,6 @@ function plantSecrets(state: GameState, tag: string): void {
       ],
     },
   ];
-  state.eventDeck = { drawPile: DECK.map((card) => `${tag}-${card}`), discardPile: [] };
 }
 
 /** Names every secret item after its owner, so a leak of it is detectable after random play too. */
@@ -166,9 +165,11 @@ test('no spectator view, event or record of 25 seeded all-AI games of 2–4 seat
         expect(['hostile_item_used', 'chat_sent']).not.toContain(event.kind);
       expect(feed).not.toContain('"offerId"');
       expect(feed).not.toContain('"order"');
-      expect(feed).not.toContain('"eventId"');
+      // The drawn card is public; undealt cards remain hidden.
 
-      const view = observeSpectator(state);
+      const projection = { ...state };
+      projection.eventDeck = { drawPile: [...DECK], discardPile: [] };
+      const view = observeSpectator(projection);
       views++;
       expect(view.public.stateRevision).toBe(shown);
       const text = JSON.stringify(view);

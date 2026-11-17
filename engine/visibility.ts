@@ -35,6 +35,11 @@ export function seatAttackAttempt(attempt: AttackAttempt): SeatAttackAttempt {
  */
 function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): boolean {
   if (event.kind === 'random_result' && event.purpose.startsWith('shuffle:')) return false;
+  const observerId = before.players.find((player) => player.seatIndex === seatIndex)?.actorId;
+  if (event.kind === 'random_result' && event.purpose === 'event:e4:item') {
+    return seatIndex === before.activeSeatIndex;
+  }
+  if (event.kind === 'item_gained') return event.ownerId === observerId;
   if (event.kind === 'random_result' && isHiddenChanceRoll(before, event.purpose, seatIndex)) {
     return false;
   }
@@ -45,7 +50,6 @@ function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): bo
   if (event.kind === 'chat_sent') {
     return event.fromSeatIndex === seatIndex || event.toSeatIndex === seatIndex;
   }
-  const observerId = before.players.find((player) => player.seatIndex === seatIndex)?.actorId;
   if (event.kind === 'attack_attempt') return attackVisibleTo(event, observerId);
   // A hostile Ability's use is its user's and target's, like a hostile item (D6, #37).
   if (event.kind === 'ability_activated' && ABILITY_EFFECTS[event.effect].hostile) {

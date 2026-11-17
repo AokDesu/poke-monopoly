@@ -47,6 +47,7 @@ function publicEvent(before: GameState, event: EngineEvent): boolean {
     case 'random_result':
       return (
         !event.purpose.startsWith('shuffle:') &&
+        event.purpose !== 'event:e4:item' &&
         !(before.phase.kind === 'chance_roll' && event.purpose === pendingChanceRollPurpose(before))
       );
     case 'uid_created':
@@ -62,6 +63,9 @@ function publicEvent(before: GameState, event: EngineEvent): boolean {
     case 'protection_applied':
       return event.source === 'pvp_coin_loss' || event.source === 'gym_coin_loss';
     case 'player_displaced':
+    case 'event_deck_shuffled':
+    case 'event_drawn':
+    case 'event_resolved':
     case 'abilities_reset':
     case 'gym_confirmed':
     case 'gym_resolved':

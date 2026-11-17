@@ -23,6 +23,10 @@ function eventMessage(
     case 'abilities_reset':
     case 'player_displaced':
     case 'ball_gained':
+    case 'item_gained':
+    case 'event_deck_shuffled':
+    case 'event_drawn':
+    case 'event_resolved':
     case 'gym_confirmed':
     case 'gym_resolved':
     case 'badge_awarded':
