@@ -1,9 +1,10 @@
+import type { TurnSpeed } from '../game/setup.ts';
 import type { SeatView, SpectatorView } from '../game/store.ts';
 import type { AiDecision } from '../game/ai.ts';
 import { t, type MessageKey } from '../i18n/en.ts';
 import { Button } from '../ui/Button.tsx';
 import { seatLabel } from './labels.ts';
-import type { TurnPlayback, TurnSpeed } from './useTurnPlayback.ts';
+import type { TurnPlayback } from './useTurnPlayback.ts';
 
 const REASONS: Record<string, MessageKey> = {
   disabled: 'ai.reason.disabled',

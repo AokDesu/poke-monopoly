@@ -20,6 +20,8 @@ export interface TableTalk {
   /** Every line saved with the game, oldest first. */
   lines: readonly AiSpeechEvent[];
   hidden: boolean;
+  /** False when the game was set up with AI talk off: no lines are asked for and no panel shows. */
+  enabled: boolean;
   setHidden(hidden: boolean): void;
   /** Why generated speech is off, when the server says so. */
   voiceOff: VoiceReason | null;
@@ -51,9 +53,18 @@ export function useTableTalk(
     [session?.log.dialogueEvents],
   );
   const [hidden, setHidden] = useState(false);
+  // A watched game started with AI talk off never asks for a line (spec §3); other games talk.
+  const enabled = store.getWatchSettings()?.talk ?? true;
   const off = voiceOff(playback.status);
-  const live = useRef({ speed: playback.speed, paused: playback.paused, hidden, off, lines });
-  live.current = { speed: playback.speed, paused: playback.paused, hidden, off, lines };
+  const live = useRef({
+    speed: playback.speed,
+    paused: playback.paused,
+    hidden,
+    enabled,
+    off,
+    lines,
+  });
+  live.current = { speed: playback.speed, paused: playback.paused, hidden, enabled, off, lines };
   const tracking = useRef<Tracking | null>(null);
 
   useEffect(() => {
@@ -89,7 +100,7 @@ export function useTableTalk(
       moment,
       speed: now.speed,
       paused: now.paused,
-      hidden: now.hidden,
+      hidden: now.hidden || !now.enabled,
     });
     if (!plan || (now.off && !canSpeakWithoutHaiku(moment.situation))) return;
     const controller = new AbortController();
@@ -119,5 +130,5 @@ export function useTableTalk(
     [],
   );
 
-  return { lines, hidden, setHidden, voiceOff: off };
+  return { lines, hidden, setHidden, enabled, voiceOff: off };
 }

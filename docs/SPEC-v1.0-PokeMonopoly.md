@@ -96,6 +96,7 @@ Watch path: Home → Watch AIs → choose Quick → choose 2–4 AIs → set eac
 
 - Random All and presets for a quick start.
 - Classes are unique within a game; class and personality are independent.
+- Watch setup: after the mode and the number of AIs (two to four), the player sets each AI's class, Starter, personality and difficulty, whether the AIs talk at the table (AI talk on or off) and the speed the game starts at. Random All fills every AI and keeps the requested number. Choices the browser cannot play stay visible, greyed, with the reason. The setup is kept across a reload, and AI talk and the starting speed are saved with the game.
 
 **Turn order**
 

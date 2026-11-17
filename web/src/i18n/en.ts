@@ -53,6 +53,10 @@ export const en = {
   'home.randomAllHint': 'Pick everything at random, then check it before you start.',
   'home.notEnoughClasses':
     'The game data has too few playable classes for every player, so a game cannot start. Ask the team to check the class file.',
+  'home.watch': 'Watch AIs play',
+  'home.watchHint': 'Set up two to four AIs and watch them play each other. You take no seat.',
+  'home.watchNotEnough':
+    'Watching needs at least two playable classes, one for each AI. Ask the team to check the class file.',
   'home.boardCaption': 'Spaces on the board',
 
   'board.kind.start': 'Start',
@@ -160,6 +164,8 @@ export const en = {
   'setup.step.opponents': 'AI rivals',
   'setup.step.review': 'Review',
   'setup.step.firstPlayer': 'First roll',
+  'setup.step.ais': 'AIs',
+  'setup.step.options': 'Table',
 
   'mode.heading': 'Choose a mode',
   'mode.body': 'The mode sets how many Laps of the board it takes to end the game.',
@@ -236,6 +242,51 @@ export const en = {
   'review.roll': 'Roll for first player',
   'review.startFailed':
     'A game could not be created from this setup. Go back, change your class or rival, and try again.',
+
+  'watchReview.heading': 'Review the watch setup',
+  'watchReview.body':
+    'Seats follow this list and none of them is yours. Every AI rolls a die; the highest roll goes first, and the rolls, ties included, are the first entries in the log.',
+  'watchReview.seats': 'AIs in seat order',
+  'watchReview.settings': 'Table settings',
+  'watchReview.start': 'Start watching',
+  'watchReview.startFailed':
+    'A game could not be created from this setup. Go back, change an AI, and try again.',
+  'watchReview.talk': 'AI talk',
+  'watchReview.speed': 'Starting speed',
+  'watchReview.on': 'On',
+  'watchReview.off': 'Off',
+
+  'watchOptions.heading': 'Table settings',
+  'watchOptions.body':
+    'Choose whether the AIs talk at the table and how fast the game starts. You can change the speed while you watch.',
+  'watchOptions.talk': 'AI talk',
+  'watchOptions.talkOn': 'Talk on',
+  'watchOptions.talkOnHint':
+    'After a big moment one AI may say a short line to the table. Lines are only words.',
+  'watchOptions.talkOff': 'Talk off',
+  'watchOptions.talkOffHint': 'No lines are asked for and the table talk panel is not shown.',
+  'watchOptions.speed': 'Starting speed',
+  'watchOptions.normalHint': 'A readable pace. AI talk is spoken only at this speed.',
+  'watchOptions.fastHint': 'Short pauses between moves. The AIs do not talk.',
+  'watchOptions.instantHint': 'No pauses. The AIs do not talk.',
+  'watchOptions.next': 'Review setup',
+
+  'watchSetup.heading': 'Set up the AIs',
+  'watchSetup.body':
+    'Choose how many AIs play, then set each AI’s class, Starter, personality and difficulty. A choice changes only that AI. Nobody holds a seat: you watch.',
+  'watchSetup.count': 'Number of AIs',
+  'watchSetup.countMany': '{n} AIs',
+  'watchSetup.seats': '{n} AIs play each other.',
+  'watchSetup.countClosed':
+    'Only {open} classes are open and every AI needs a different one, so a watched game has at most {max} AIs.',
+  'watchSetup.editing': 'AI to set up',
+  'watchSetup.class': 'AI class',
+  'watchSetup.starter': 'AI’s Starter',
+  'watchSetup.noFreeClass':
+    'Fewer than two classes are open, so a watched game cannot start. Ask the team to check the class file.',
+  'watchSetup.randomAll': 'Random All',
+  'watchSetup.randomAllHint': 'Fill every AI at random. The number of AIs stays as it is.',
+  'watchSetup.next': 'Table settings',
 
   'firstPlayer.heading': 'Who goes first?',
   'firstPlayer.body':
