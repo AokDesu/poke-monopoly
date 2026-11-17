@@ -24,6 +24,8 @@ export type PolicyFacts = {
   catchSuccessFaces?: Readonly<Partial<Record<BallType, number>>>;
   /** Coins each own sellable Pokémon would fetch in one batch selling all of them (§4.7). */
   saleValue?: Readonly<Record<string, number>>;
+  /** Lost Battle points for each own Pokémon if removed, from `saleFacts` (§5.6). */
+  keepValue?: Readonly<Record<string, number>>;
 };
 
 /**
