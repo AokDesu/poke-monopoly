@@ -44,6 +44,22 @@ export function promiseActive(state: GameState, promise: NoAttackPromise): boole
 }
 
 /**
+ * Read-only window status for §8 reporting; does not settle promises or change trust.
+ * A finished game has ended its final turn, even if the last active seat is the promiser.
+ */
+export function promiseWindowStatus(
+  state: GameState,
+  promise: NoAttackPromise,
+): 'active' | 'expired' | 'closed_by_game_end' {
+  if (state.phase.kind === 'finished') {
+    return player(state, promise.promiserSeatIndex).ownTurnNo >= promise.closesOwnTurnNo
+      ? 'expired'
+      : 'closed_by_game_end';
+  }
+  return promiseActive(state, promise) ? 'active' : 'expired';
+}
+
+/**
  * §4.8 limits: one active promise per directed pair, no renewal (a new promise cannot be offered
  * while the old one is still active, including on its closing turn), and none that would close
  * after the game ends (§4.2 Final Table Round: nobody plays an own turn past `targetOwnTurnNo`).

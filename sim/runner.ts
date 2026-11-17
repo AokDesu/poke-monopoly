@@ -152,7 +152,6 @@ type GameResult = {
   illegalApplied: number;
   violations: number;
   policyCounts: Record<string, number>;
-  social: SocialSummary;
 };
 
 export async function runSim(
@@ -172,7 +171,6 @@ export async function runSim(
   let finalCoins = 0;
   const metrics = createMetrics();
   let policyCounts: Record<string, number> | undefined;
-  const social: SocialSummary = { promiseOffers: 0, promisesAccepted: 0, promisesRejected: 0 };
   for (let g = 0; g < options.games; g++) {
     // Game g of seed s uses seed s + g, so `--games 1 --seed <s + g>` replays it alone.
     const seed = options.seed + g;
@@ -182,8 +180,6 @@ export async function runSim(
       policyCounts ??= {};
       policyCounts[key] = (policyCounts[key] ?? 0) + n;
     }
-    for (const key of Object.keys(social) as (keyof SocialSummary)[])
-      social[key] += game.social[key];
     if (game.game) onGame(game.game);
     summary.illegalAppliedActionCount += game.illegalApplied;
     summary.invariantFailures += game.violations;
@@ -218,7 +214,13 @@ export async function runSim(
     Object.entries(summary.winners.byClass).map(([classId, wins]) => [classId, round2(wins)]),
   );
   Object.assign(summary, metrics.summary());
-  if (options.social) summary.social = social;
+  if (options.social) {
+    summary.social = {
+      promiseOffers: summary.promises.offered,
+      promisesAccepted: summary.promises.accepted,
+      promisesRejected: summary.promises.rejected,
+    };
+  }
   if (policyCounts) {
     summary.policyCounts = policyCounts;
     if ('decisions' in policyCounts) summary.jev = decisionRates(policyCounts);
@@ -323,12 +325,12 @@ async function playGame(
     illegalApplied: 0,
     violations: 0,
     policyCounts: {},
-    social: { promiseOffers: 0, promisesAccepted: 0, promisesRejected: 0 },
   };
   // Every seat of one game gets the same `PolicyGame`, so a policy can share per-game state.
   const policyGame = { seed };
   const deciders: { policy: Policy; rng: PolicyRng }[] = [];
   try {
+    metrics.startGame();
     for (const seat of seats) {
       deciders.push({
         // `--social`: seat 0 is the human, always played by the random policy (§4.8).
@@ -375,7 +377,20 @@ async function playGame(
           record,
         };
         result.violations += checkInvariants(state, record.action, applied).length;
-        metrics.step(state, record.action, automatic.state, automatic.events);
+        const decision = pendingDecision(state);
+        metrics.step(
+          state,
+          record.action,
+          automatic.state,
+          automatic.events,
+          decision
+            ? {
+                seatIndex: decision.seatIndex,
+                legal: engine.legalActions(state, decision.seatIndex),
+                personalityId: deciders[decision.seatIndex]!.policy.personality?.id ?? 'unassigned',
+              }
+            : undefined,
+        );
         game.records.push(record);
         state = automatic.state;
         continue;
@@ -404,12 +419,11 @@ async function playGame(
       result.violations += checkInvariants(state, action, applied).length;
       if ('rejected' in applied) continue;
       if (!enabled) result.illegalApplied++;
-      metrics.step(state, action, applied.state, applied.events);
-      for (const event of applied.events) {
-        if (event.kind === 'promise_offered') result.social.promiseOffers++;
-        if (event.kind === 'promise_accepted') result.social.promisesAccepted++;
-        if (event.kind === 'promise_rejected') result.social.promisesRejected++;
-      }
+      metrics.step(state, action, applied.state, applied.events, {
+        seatIndex,
+        legal,
+        personalityId: decider.policy.personality?.id ?? 'unassigned',
+      });
       game.records.push(applied.record);
       state = applied.state;
     }
