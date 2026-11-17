@@ -5,10 +5,18 @@ import { EncounterDialog } from '../board/EncounterDialog.tsx';
 import { SellPanel } from '../board/SellPanel.tsx';
 import { TableTalkPanel } from '../board/TableTalk.tsx';
 import { TurnPanel } from '../board/TurnPanel.tsx';
+import { WatchPanel } from '../board/WatchPanel.tsx';
 import { t, type MessageKey } from '../i18n/en.ts';
 import { className } from '../i18n/names.ts';
 import { pendingLine, SavePrompt } from '../SavePrompt.tsx';
-import { createScenes, STATIC_PLAYBACK, type GalleryFixtures, type Scene } from './scenes.ts';
+import type { TurnPlayback } from '../board/useTurnPlayback.ts';
+import {
+  createScenes,
+  STATIC_PLAYBACK,
+  type GalleryFixtures,
+  type Scene,
+  type WatchScene,
+} from './scenes.ts';
 
 export interface GalleryExample {
   readonly id: string;
@@ -51,6 +59,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
   const sellPhase = once(scenes.sellPhaseFullTeam);
   const wholeTeamSold = once(scenes.wholeTeamSold);
   const decisionOpen = once(scenes.rivalDecisionOpen);
+  const watchOpen = once(scenes.watchDecisionOpen);
   const rivalFallback = (reason: string, rivals: 1 | 2) =>
     once(() => scenes.rivalLeftShop({ source: 'fallback', fallbackReason: reason }, rivals));
   const timeoutOfOne = rivalFallback('timeout', 1);
@@ -88,6 +97,19 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
       actionError={false}
       onChoose={noop}
       {...extra}
+    />
+  );
+
+  const watchPanel = (
+    scene: Pick<WatchScene, 'view'>,
+    extra?: { notice?: string; status?: TurnPlayback['status'] },
+  ) => (
+    <WatchPanel
+      view={scene.view}
+      playback={{ ...STATIC_PLAYBACK, status: extra?.status ?? null }}
+      notice={extra?.notice}
+      savingOff={false}
+      onLeave={noop}
     />
   );
 
@@ -344,6 +366,58 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
         },
       ],
     },
+    {
+      id: 'watch-browser-closed',
+      specRow: 17,
+      label: 'gallery.row.watchBrowserClosed',
+      keys: ['save.pendingWatched', 'save.continue', 'game.resumedAiTurn'],
+      examples: [
+        {
+          id: 'continue-prompt',
+          caption: 'gallery.example.watchContinue',
+          render: () => (
+            <SavePrompt
+              kind="continue"
+              pending={pendingLine({
+                phase: watchOpen().view.observation.public.phase.kind,
+                waiting: 'decision',
+                seatIndex: watchOpen().view.observation.public.activeSeatIndex,
+                turn: watchOpen().view.observation.public.globalTurnNo,
+                aiDecision: true,
+              })}
+              onContinue={noop}
+              onNewGame={noop}
+            />
+          ),
+        },
+        {
+          id: 'after-continue',
+          caption: 'gallery.example.watchAfterContinue',
+          render: () => watchPanel(watchOpen(), { notice: t('game.resumedAiTurn') }),
+        },
+      ],
+    },
+    {
+      id: 'watch-all-backup',
+      specRow: 18,
+      label: 'gallery.row.watchAllBackup',
+      keys: ['ai.allBackupBanner', 'ai.backupBadge'],
+      examples: [
+        {
+          id: 'server-backup-only',
+          caption: 'gallery.example.watchAllBackup',
+          render: () =>
+            watchPanel(watchOpen(), {
+              status: {
+                jevEnabled: false,
+                backupOnly: true,
+                reason: 'disabled',
+                speech: { enabled: false, reason: 'disabled' },
+              },
+            }),
+        },
+      ],
+    },
   ];
 }
 /** Every §3.1 row not in `GALLERY_ROWS`. The test holds both lists to the spec's table. */
@@ -353,6 +427,4 @@ export const PENDING_ROWS: readonly PendingRow[] = [
   { specRow: 10, label: 'gallery.row.chatUnclassified', reason: 'gallery.pending.chat' },
   { specRow: 11, label: 'gallery.row.chatManipulation', reason: 'gallery.pending.chat' },
   { specRow: 14, label: 'gallery.row.eventDeckOut', reason: 'gallery.pending.eventDeck' },
-  { specRow: 17, label: 'gallery.row.watchBrowserClosed', reason: 'gallery.pending.watch' },
-  { specRow: 18, label: 'gallery.row.watchAllBackup', reason: 'gallery.pending.watch' },
 ];

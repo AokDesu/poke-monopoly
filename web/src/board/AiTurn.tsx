@@ -1,4 +1,4 @@
-import type { SeatView } from '../game/store.ts';
+import type { SeatView, SpectatorView } from '../game/store.ts';
 import type { AiDecision } from '../game/ai.ts';
 import { t, type MessageKey } from '../i18n/en.ts';
 import { Button } from '../ui/Button.tsx';
@@ -35,7 +35,35 @@ const UNAVAILABLE = new Set([
 const isBackup = (decision: AiDecision | undefined) =>
   decision?.source === 'fallback' && UNAVAILABLE.has(decision.fallbackReason ?? '');
 
-export function AiTurn({ view, playback }: { view: SeatView; playback: TurnPlayback }) {
+/** The pace control, shared by a player's turn panel and the watcher's control bar. */
+export function SpeedSelect({ playback }: { playback: TurnPlayback }) {
+  return (
+    <label className="ai-speed">
+      <span>{t('ai.speed')}</span>
+      <select
+        value={playback.speed}
+        onChange={(event) => playback.setSpeed(event.target.value as TurnSpeed)}
+      >
+        {(['normal', 'fast', 'instant'] as const).map((speed) => (
+          <option key={speed} value={speed}>
+            {t(`ai.speed.${speed}`)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+export function AiTurn({
+  view,
+  playback,
+  speed = true,
+}: {
+  view: SeatView | SpectatorView;
+  playback: TurnPlayback;
+  /** False when the screen shows the speed control elsewhere (the watcher's control bar). */
+  speed?: boolean;
+}) {
   const game = view.observation.public;
   const latest = new Map<number, AiDecision>();
   for (const entry of view.feed)
@@ -55,19 +83,7 @@ export function AiTurn({ view, playback }: { view: SeatView; playback: TurnPlayb
     NOTES[decision.fallbackReason ?? ''];
   return (
     <div className="ai-playback">
-      <label className="ai-speed">
-        <span>{t('ai.speed')}</span>
-        <select
-          value={playback.speed}
-          onChange={(event) => playback.setSpeed(event.target.value as TurnSpeed)}
-        >
-          {(['normal', 'fast', 'instant'] as const).map((speed) => (
-            <option key={speed} value={speed}>
-              {t(`ai.speed.${speed}`)}
-            </option>
-          ))}
-        </select>
-      </label>
+      {speed && <SpeedSelect playback={playback} />}
       {allBackup && (
         <p className="ai-backup-banner" role="status">
           {t('ai.allBackupBanner')}
