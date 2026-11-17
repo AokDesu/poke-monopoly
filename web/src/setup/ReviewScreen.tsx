@@ -1,3 +1,4 @@
+import { seatLabel } from '../board/labels.ts';
 import type { GameSetup } from '../game/setup.ts';
 import { MODES } from '../game/store.ts';
 import { className, speciesName } from '../i18n/names.ts';
@@ -31,7 +32,11 @@ function Chip({ children }: { children: React.ReactNode }) {
 export function ReviewScreen({ setup, failed, onRoll, onBack }: ReviewScreenProps) {
   const seats = [
     { label: t('seat.you'), choice: setup.human, opponent: undefined },
-    ...setup.opponents.map((opponent) => ({ label: t('seat.ai'), choice: opponent, opponent })),
+    ...setup.opponents.map((opponent, index) => ({
+      label: seatLabel(index + 1, 0),
+      choice: opponent,
+      opponent,
+    })),
   ];
   return (
     <Screen

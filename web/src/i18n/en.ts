@@ -48,7 +48,7 @@ export const en = {
   'home.body':
     'Roll the dice around the board, catch Pokémon with Balls, then keep them or sell them at Start. Whoever has the most coins at the end wins.',
   'home.newGame': 'New game',
-  'home.newGameHint': 'Pick a mode, a class and your AI rival, step by step.',
+  'home.newGameHint': 'Pick a mode, a class and one to three AI rivals, step by step.',
   'home.randomAll': 'Random All',
   'home.randomAllHint': 'Pick everything at random, then check it before you start.',
   'home.notEnoughClasses':
@@ -157,7 +157,7 @@ export const en = {
     'This step needs your answers from the earlier steps. Go back to Home and set up a new game.',
   'setup.step.mode': 'Mode',
   'setup.step.class': 'Class',
-  'setup.step.opponents': 'AI rival',
+  'setup.step.opponents': 'AI rivals',
   'setup.step.review': 'Review',
   'setup.step.firstPlayer': 'First roll',
 
@@ -182,19 +182,38 @@ export const en = {
   'class.comingLater': 'Coming later.',
   'class.passive.main-character': 'A bonus on your first catch roll each Lap.',
   'class.passive.researcher': 'A bonus on the first Pokémon you sell at Start each Lap.',
+  'class.passive.fisherman': 'A bonus on catch rolls against Water Pokémon.',
+  'class.passive.bug-catcher':
+    'A bonus on catch rolls against Bug Pokémon, and a bonus when you sell Bug Pokémon at Start.',
+  'class.passive.nurse-joy':
+    'You lose no coins when you lose a PvP battle, and your team recovers from Tired at the start of your turn.',
+  'class.closed.rival':
+    'Coming later. Its once-per-Lap forced battle needs the PvP controls, which are not built yet.',
+  'class.rivalHas':
+    '{rival} already has {class}. You can keep it and change that rival on the next step.',
 
-  'opponents.heading': 'Set up your AI rival',
+  'opponents.heading': 'Set up your AI rivals',
   'opponents.body':
-    'This test version has one AI rival. Choose its class, personality and difficulty. Personality does not depend on class.',
+    'Choose how many AI rivals you play against, then set each rival’s class, Starter, personality and difficulty. A choice changes only that rival. Personality does not depend on class.',
+  'opponents.count': 'Number of AI rivals',
+  'opponents.countOne': '1 AI rival',
+  'opponents.countMany': '{n} AI rivals',
+  'opponents.players': '{n} players in total.',
+  'opponents.countClosed':
+    'Only {open} classes are open and every player needs a different one, so a game has at most {max} AI rivals.',
+  'opponents.editing': 'Rival to set up',
+  'opponents.needsClass': 'Needs a different class',
   'opponents.class': 'Rival class',
-  'opponents.classTaken': 'You chose this class. Classes cannot repeat in one game.',
+  'opponents.classTaken': '{holder} has this class. Classes cannot repeat in one game.',
+  'opponents.fixClass':
+    '{rival} has a class another player has. Choose a different class for it to go on.',
   'opponents.starter': "Rival's Starter",
   'opponents.personality': 'Personality',
   'opponents.personalityClosed': 'Coming later.',
   'opponents.difficulty': 'Difficulty',
   'opponents.difficultyHint': 'Every difficulty sees only what its seat may see.',
   'opponents.noFreeClass':
-    'No class is left for the rival. Go back and choose a different class for yourself.',
+    'No class is left for a rival. Go back and choose a different class for yourself.',
   'opponents.next': 'Review setup',
 
   'personality.greedy': 'Greedy',
@@ -208,7 +227,6 @@ export const en = {
   'difficulty.normalHint': 'Gets more game information and always picks its top option.',
 
   'seat.you': 'You',
-  'seat.ai': 'AI rival',
 
   'review.heading': 'Review your setup',
   'review.body':
@@ -229,7 +247,7 @@ export const en = {
   'firstPlayer.yourTie': 'You tied for the top roll. Re-rolling to decide who goes first.',
   'firstPlayer.rollAgain': 'Roll again',
   'firstPlayer.youStart': 'You go first',
-  'firstPlayer.aiStarts': 'Your AI rival goes first',
+  'firstPlayer.aiStarts': '{name} goes first',
   'firstPlayer.thenSeatOrder': 'Then play follows seat order.',
   'firstPlayer.toBoard': 'Go to the board',
   'firstPlayer.quit': 'Quit this game',
@@ -282,6 +300,13 @@ export const en = {
   'save.pendingRoll': 'A die result is still waiting. It was not rolled before the save.',
   'save.pendingFinished': 'This game has already finished.',
   'save.pendingWatched': 'A watched game is in progress, turn {turn}.',
+  'save.rivals': 'AI rivals in this game',
+  'save.rivalRow': '{name}: {class}, {personality}, {difficulty}.',
+  'save.rivalSettingsMissing':
+    '{name}: {class}. Its saved personality or difficulty is not available in this build, so it plays as Greedy on Normal.',
+  'save.classClosed': '{class} is not open for new games in this build; this game keeps it.',
+  'save.personalityClosed':
+    '{personality} is not open for new games in this build; this game keeps it.',
   'save.mismatchHeading': 'This save cannot be loaded',
   'save.mismatchNext': 'New game starts a fresh game and removes this save from the browser.',
   'save.unreadable':

@@ -1,4 +1,5 @@
 import { useEffect, useSyncExternalStore } from 'react';
+import { seatLabel } from '../board/labels.ts';
 import { firstPlayerRoll } from '../game/firstPlayer.ts';
 import type { GameStore } from '../game/store.ts';
 import { className } from '../i18n/names.ts';
@@ -48,8 +49,6 @@ export function FirstPlayerScreen({ store, onToBoard, onQuit }: FirstPlayerScree
 
   const { attempts, firstSeat, humanToRoll } = firstPlayerRoll(view);
   const players = view.observation.public.players;
-  const seatName = (seatIndex: number) =>
-    seatIndex === view.seatIndex ? t('seat.you') : t('seat.ai');
   const seatClass = (seatIndex: number) =>
     className(players.find((player) => player.seatIndex === seatIndex)?.classId ?? '');
 
@@ -82,7 +81,9 @@ export function FirstPlayerScreen({ store, onToBoard, onQuit }: FirstPlayerScree
           </span>
           <span>
             <span className="block font-display text-3xl font-semibold">
-              {firstSeat === view.seatIndex ? t('firstPlayer.youStart') : t('firstPlayer.aiStarts')}
+              {firstSeat === view.seatIndex
+                ? t('firstPlayer.youStart')
+                : t('firstPlayer.aiStarts', { name: seatLabel(firstSeat, view.seatIndex) })}
             </span>
             <span className="text-ink-soft">{t('firstPlayer.thenSeatOrder')}</span>
           </span>
@@ -119,7 +120,7 @@ export function FirstPlayerScreen({ store, onToBoard, onQuit }: FirstPlayerScree
                     )}
                     <span className="flex-1">
                       <span className="block font-display text-lg font-semibold">
-                        {seatName(seatIndex)}
+                        {seatLabel(seatIndex, view.seatIndex)}
                       </span>
                       <span className="block text-sm text-ink-soft">{seatClass(seatIndex)}</span>
                     </span>
