@@ -6,7 +6,10 @@ import {
   DIFFICULTIES,
   MAX_RIVALS,
   maxRivals,
+  maxWatchAis,
   PERSONALITIES,
+  WATCH_MAX_AIS,
+  WATCH_MIN_AIS,
   withRivalCount,
   type ClassOption,
   type OpponentChoice,
@@ -17,6 +20,7 @@ import { t } from '../i18n/en.ts';
 import { Button } from '../ui/Button.tsx';
 import { ChoiceRadio } from '../ui/Choice.tsx';
 import { DisabledReason } from '../ui/DisabledReason.tsx';
+import { DieIcon } from '../ui/icons.tsx';
 import { Screen } from '../ui/Screen.tsx';
 import { SpeciesArt } from '../ui/SpeciesArt.tsx';
 import { SetupProgress } from './SetupProgress.tsx';
@@ -25,13 +29,32 @@ import { StarterPicker } from './StarterPicker.tsx';
 
 interface OpponentScreenProps {
   classes: readonly ClassOption[];
-  human: SeatChoice;
-  /** The rivals set up so far; empty only when no open class is left for one. */
+  /** The player's own choice; absent in a watched game, where every seat is an AI (spec §3). */
+  human?: SeatChoice;
+  /** The AIs set up so far; empty only when no open class is left for one. */
   rivals: readonly OpponentChoice[];
   onChange: (rivals: readonly OpponentChoice[]) => void;
+  /** Watch only: fills every AI at random and keeps their number. */
+  onRandomAll?: () => void;
   onNext: () => void;
   onBack: () => void;
 }
+
+const RIVAL_TEXT = {
+  count: 'opponents.count',
+  editing: 'opponents.editing',
+  class: 'opponents.class',
+  starter: 'opponents.starter',
+  noFreeClass: 'opponents.noFreeClass',
+} as const;
+
+const WATCH_TEXT = {
+  count: 'watchSetup.count',
+  editing: 'watchSetup.editing',
+  class: 'watchSetup.class',
+  starter: 'watchSetup.starter',
+  noFreeClass: 'watchSetup.noFreeClass',
+} as const;
 
 function Section({
   title,
@@ -63,32 +86,42 @@ export function OpponentScreen({
   human,
   rivals,
   onChange,
+  onRandomAll,
   onNext,
   onBack,
 }: OpponentScreenProps) {
   const reasonId = useId();
+  // Without a human the AIs hold seats 0 and up and nobody is "You" (spec §3 watch path).
+  const watch = human === undefined;
+  const label = (index: number) => seatLabel(index + (watch ? 0 : 1), watch ? undefined : 0);
+  const text = watch ? WATCH_TEXT : RIVAL_TEXT;
+  const counts = watch
+    ? Array.from({ length: WATCH_MAX_AIS - WATCH_MIN_AIS + 1 }, (_, index) => index + WATCH_MIN_AIS)
+    : Array.from({ length: MAX_RIVALS }, (_, index) => index + 1);
   // A rival that repeats a class after Back is the one to open on.
   const [editing, setEditing] = useState(() => classConflicts(human, rivals)[0] ?? 0);
   const playable = classes.filter((option) => option.playable);
-  const most = maxRivals(classes);
+  const most = watch ? maxWatchAis(classes) : maxRivals(classes);
   const at = Math.min(editing, rivals.length - 1);
   const rival = rivals[at];
   const rivalClass = playable.find((option) => option.id === rival?.classId);
   const conflicts = classConflicts(human, rivals);
   const blocked =
-    rivals.length === 0
-      ? t('opponents.noFreeClass')
+    rivals.length < (watch ? WATCH_MIN_AIS : 1)
+      ? t(text.noFreeClass)
       : conflicts[0] !== undefined
-        ? t('opponents.fixClass', { rival: seatLabel(conflicts[0] + 1, 0) })
+        ? t('opponents.fixClass', { rival: label(conflicts[0]) })
         : undefined;
   const update = (patch: Partial<OpponentChoice>) =>
     onChange(rivals.map((entry, index) => (index === at ? { ...entry, ...patch } : entry)));
 
   return (
     <Screen
-      before={<SetupProgress step="opponents" />}
-      heading={t('opponents.heading')}
-      body={t('opponents.body')}
+      before={
+        watch ? <SetupProgress flow="watch" step="ais" /> : <SetupProgress step="opponents" />
+      }
+      heading={t(watch ? 'watchSetup.heading' : 'opponents.heading')}
+      body={t(watch ? 'watchSetup.body' : 'opponents.body')}
       actions={
         <>
           <Button variant="secondary" onClick={onBack}>
@@ -101,7 +134,7 @@ export function OpponentScreen({
             aria-describedby={blocked ? reasonId : undefined}
             onClick={onNext}
           >
-            {t('opponents.next')}
+            {t(watch ? 'watchSetup.next' : 'opponents.next')}
           </Button>
           {blocked && (
             <span className="basis-full text-end">
@@ -111,21 +144,32 @@ export function OpponentScreen({
         </>
       }
     >
-      <Section title={t('opponents.count')}>
+      <Section title={t(text.count)}>
         <ul className="grid gap-4 sm:grid-cols-3">
-          {Array.from({ length: MAX_RIVALS }, (_, index) => index + 1).map((count) => (
+          {counts.map((count) => (
             <li key={count}>
               <ChoiceRadio
                 name="rival-count"
                 value={String(count)}
                 checked={rivals.length === count}
                 title={
-                  count === 1 ? t('opponents.countOne') : t('opponents.countMany', { n: count })
+                  watch
+                    ? t('watchSetup.countMany', { n: count })
+                    : count === 1
+                      ? t('opponents.countOne')
+                      : t('opponents.countMany', { n: count })
                 }
-                description={t('opponents.players', { n: count + 1 })}
+                description={
+                  watch
+                    ? t('watchSetup.seats', { n: count })
+                    : t('opponents.players', { n: count + 1 })
+                }
                 disabledReason={
                   count > most
-                    ? t('opponents.countClosed', { open: playable.length, max: most })
+                    ? t(watch ? 'watchSetup.countClosed' : 'opponents.countClosed', {
+                        open: playable.length,
+                        max: most,
+                      })
                     : undefined
                 }
                 onSelect={() => {
@@ -139,15 +183,22 @@ export function OpponentScreen({
             </li>
           ))}
         </ul>
+        {onRandomAll && (
+          <div className="mt-6">
+            <Button variant="reward" onClick={onRandomAll}>
+              <DieIcon className="size-6" />
+              {t('watchSetup.randomAll')}
+            </Button>
+            <p className="mt-2 text-sm text-ink-soft">{t('watchSetup.randomAllHint')}</p>
+          </div>
+        )}
       </Section>
 
       {rival && (
         <div key={at} className="mt-12">
           {rivals.length > 1 && (
             <fieldset className="mb-8">
-              <legend className="font-display text-xl font-semibold">
-                {t('opponents.editing')}
-              </legend>
+              <legend className="font-display text-xl font-semibold">{t(text.editing)}</legend>
               <div className="mt-4 flex flex-wrap gap-3">
                 {rivals.map((entry, index) => (
                   <label
@@ -166,7 +217,7 @@ export function OpponentScreen({
                       checked={index === at}
                       onChange={() => setEditing(index)}
                     />
-                    <span className="text-lg">{seatLabel(index + 1, 0)}</span>
+                    <span className="text-lg">{label(index)}</span>
                     <span className="text-sm font-normal">{className(entry.classId)}</span>
                     {conflicts.includes(index) && (
                       <span className="text-sm font-bold underline decoration-2 underline-offset-2">
@@ -178,10 +229,10 @@ export function OpponentScreen({
               </div>
             </fieldset>
           )}
-          <h2 className="text-2xl">{seatLabel(at + 1, 0)}</h2>
+          <h2 className="text-2xl">{label(at)}</h2>
 
           <div className="mt-6">
-            <Section title={t('opponents.class')} small>
+            <Section title={t(text.class)} small>
               <ul className="grid gap-6 lg:grid-cols-2">
                 {playable.map((option) => {
                   const holder = classHolder(human, rivals, option.id, at);
@@ -203,8 +254,7 @@ export function OpponentScreen({
                           holder === undefined
                             ? undefined
                             : t('opponents.classTaken', {
-                                holder:
-                                  holder === 'human' ? t('seat.you') : seatLabel(holder + 1, 0),
+                                holder: holder === 'human' ? t('seat.you') : label(holder),
                               })
                         }
                         onSelect={() =>
@@ -221,7 +271,7 @@ export function OpponentScreen({
               {rivalClass && rivalClass.starterSpeciesIds.length > 1 && (
                 <StarterPicker
                   name={`rival-${at}-starter`}
-                  legend={t('opponents.starter')}
+                  legend={t(text.starter)}
                   speciesIds={rivalClass.starterSpeciesIds}
                   chosen={rival.starterSpeciesId}
                   onChoose={(starterSpeciesId) => update({ starterSpeciesId })}

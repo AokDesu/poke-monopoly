@@ -73,14 +73,16 @@ export function BoardScreen({
         controls={controls}
         focus={focus}
         talk={
-          <TableTalkPanel
-            lines={talk.lines}
-            players={game.players}
-            viewerSeat={view.seatIndex}
-            hidden={talk.hidden}
-            onToggle={() => talk.setHidden(!talk.hidden)}
-            voiceOff={talk.voiceOff}
-          />
+          talk.enabled ? (
+            <TableTalkPanel
+              lines={talk.lines}
+              players={game.players}
+              viewerSeat={view.seatIndex}
+              hidden={talk.hidden}
+              onToggle={() => talk.setHidden(!talk.hidden)}
+              voiceOff={talk.voiceOff}
+            />
+          ) : undefined
         }
       />
       {humanTurn && game.phase.kind === 'encounter' && !game.phase.catchRoll && (

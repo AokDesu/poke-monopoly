@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import type { AiStatus } from '../../../engine/contract/decision.ts';
 import type { GameStore, SeatView, SpectatorView } from '../game/store.ts';
 import { AI_DECISION_MS } from '../game/ai.ts';
+import type { TurnSpeed } from '../game/setup.ts';
 import { en, t, type MessageKey } from '../i18n/en.ts';
 import { content } from '../game/content.ts';
 import { seatLabel } from './labels.ts';
 
-export type TurnSpeed = 'normal' | 'fast' | 'instant';
 /** Presentation pauses between rival actions, per speed. Normal is readable aloud (issue #123). */
 export const STEP_MS = { normal: 2000, fast: 250, instant: 0 } as const;
 /** Pause before a step that belongs to the human's own seat: never AI-paced (review on #127). */
@@ -37,7 +37,7 @@ export function useTurnPlayback(
   store: GameStore,
   view: SeatView | SpectatorView | null,
 ): TurnPlayback {
-  const [speed, setSpeed] = useState<TurnSpeed>('normal');
+  const [speed, setSpeed] = useState<TurnSpeed>(() => store.getWatchSettings()?.speed ?? 'normal');
   const [failure, setFailure] = useState<number | null>(null);
   const [retry, setRetry] = useState(0);
   const [requested, setRequested] = useState<number | null>(null);
