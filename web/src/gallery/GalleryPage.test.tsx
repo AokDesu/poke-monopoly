@@ -148,6 +148,29 @@ const SHOWN = [
     ],
   },
   {
+    id: 'promises',
+    specRow: 'promises',
+    keys: [
+      'promise.offers',
+      'promise.offerNote',
+      'promise.reason.active',
+      'promise.pending.waiting',
+      'promise.answer.accepted',
+      'promise.expires',
+      'promise.answer.refused',
+      'promise.offeredRow',
+      'promise.status.active',
+      'promise.memory.empty',
+      'promise.memory.accepted',
+      'promise.memory.refused',
+      'promise.memory.kept',
+      'promise.memory.broken',
+      'promise.evidence.pvp_declaration',
+      'promise.memory.closed_by_game_end',
+      'promise.trust',
+    ],
+  },
+  {
     id: 'abilities',
     specRow: 'abilities',
     keys: ['ability.heading', 'ability.planned', 'ability.choosePrompt', 'battle.heading.window'],
@@ -198,9 +221,11 @@ test('every §3.1 row that has a screen shows each of its catalog keys, labelled
           ? t('gallery.specBattle')
           : row.specRow === 'social'
             ? t('gallery.specSocial')
-            : row.specRow === 'abilities'
-              ? t('gallery.specAbilities')
-              : t('gallery.specRow', { row: row.specRow });
+            : row.specRow === 'promises'
+              ? t('gallery.specPromises')
+              : row.specRow === 'abilities'
+                ? t('gallery.specAbilities')
+                : t('gallery.specRow', { row: row.specRow });
     expect(within(el).getByText(label), row.id).toBeTruthy();
   }
 });

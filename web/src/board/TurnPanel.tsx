@@ -1,4 +1,5 @@
 import { inSocialWindow, sentThisTurn } from '../game/chat.ts';
+import { answerThisTurn, rivalOwesAnswer } from '../game/promises.ts';
 import type { SeatView, SpectatorView } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
@@ -124,7 +125,7 @@ export function TurnPanel({
   if (humanTurn && game.phase.kind === 'encounter' && view.legalActions.enabled.length > 1) {
     body = t('turn.encounterBody');
   }
-  if (socialOpen) body = t('turn.socialBody');
+  if (socialOpen) body = t(rivalOwesAnswer(view) ? 'turn.promiseBody' : 'turn.socialBody');
   if (choiceOpen) body = t('turn.choiceBody');
   if (opponentFailed) body = t('turn.opponentError');
   return (
@@ -210,6 +211,7 @@ export function TurnPanel({
           observation={view.observation}
           legalActions={view.legalActions}
           sent={sentThisTurn(view)}
+          answer={answerThisTurn(view.feed, game.globalTurnNo)}
           reply={social}
           onChoose={onChoose}
         />

@@ -3,6 +3,7 @@ import type { AiSpeechEvent } from '../../../engine/index.ts';
 import type { PublicGame, VoiceReason } from '../game/tableTalk.ts';
 import { EncounterDialog } from '../board/EncounterDialog.tsx';
 import { EventCard } from '../board/EventCard.tsx';
+import { PromisePanel } from '../board/PromisePanel.tsx';
 import { SellPanel } from '../board/SellPanel.tsx';
 import { TableTalkPanel } from '../board/TableTalk.tsx';
 import { TurnPanel } from '../board/TurnPanel.tsx';
@@ -135,6 +136,13 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
   const socialOpenTwo = once(() => scenes.socialWindowOpen(2));
   const socialOpenOne = once(() => scenes.socialWindowOpen(1));
   const socialSent = once(scenes.socialMessageSent);
+  const promiseBlocked = once(scenes.promiseOffersBlocked);
+  const promiseOffered = once(scenes.promiseOffered);
+  const promiseAccepted = once(() => scenes.promiseAnswered('accept'));
+  const promiseRefused = once(() => scenes.promiseAnswered('reject'));
+  const promiseKept = once(scenes.promiseKept);
+  const promiseBroken = once(scenes.promiseBroken);
+  const promiseGameEnd = once(scenes.promiseGameEnd);
   const reply = (state: ChatReplyState): ChatReplyControls => ({ state, retry: noop });
   const chatReply = (lineId: string, refused = false): ChatReply => ({
     fromSeatIndex: 0,
@@ -182,6 +190,10 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
       onChoose={noop}
       {...extra}
     />
+  );
+
+  const promisePanel = (scene: Pick<Scene, 'view'>) => (
+    <PromisePanel observation={scene.view.observation} feed={scene.view.feed} />
   );
 
   const watchPanel = (
@@ -778,6 +790,93 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
           caption: 'gallery.example.socialFailed',
           render: () =>
             turnPanel(socialSent(), { social: reply({ status: 'failed', reason: 'timeout' }) }),
+        },
+      ],
+    },
+    {
+      id: 'promises',
+      specRow: null,
+      spec: { id: 'promises', label: 'gallery.specPromises' },
+      label: 'gallery.row.promises',
+      keys: [
+        'promise.offers',
+        'promise.offerNote',
+        'promise.reason.active',
+        'promise.pending.waiting',
+        'promise.answer.accepted',
+        'promise.expires',
+        'promise.answer.refused',
+        'promise.offeredRow',
+        'promise.status.active',
+        'promise.memory.empty',
+        'promise.memory.accepted',
+        'promise.memory.refused',
+        'promise.memory.kept',
+        'promise.memory.broken',
+        'promise.evidence.pvp_declaration',
+        'promise.memory.closed_by_game_end',
+        'promise.trust',
+      ],
+      examples: [
+        {
+          id: 'offers',
+          caption: 'gallery.example.promiseOffers',
+          render: () => turnPanel(socialOpenOne()),
+        },
+        {
+          id: 'offers-blocked',
+          caption: 'gallery.example.promiseOffersBlocked',
+          render: () => turnPanel(promiseBlocked()),
+        },
+        {
+          id: 'pending',
+          caption: 'gallery.example.promisePending',
+          render: () => (
+            <>
+              {turnPanel(promiseOffered())}
+              {promisePanel(promiseOffered())}
+            </>
+          ),
+        },
+        {
+          id: 'accepted',
+          caption: 'gallery.example.promiseAccepted',
+          render: () => (
+            <>
+              {turnPanel(promiseAccepted())}
+              {promisePanel(promiseAccepted())}
+            </>
+          ),
+        },
+        {
+          id: 'refused',
+          caption: 'gallery.example.promiseRefused',
+          render: () => (
+            <>
+              {turnPanel(promiseRefused())}
+              {promisePanel(promiseRefused())}
+            </>
+          ),
+        },
+        {
+          id: 'empty',
+          caption: 'gallery.example.promiseEmpty',
+          render: () => promisePanel(socialOpenOne()),
+        },
+        {
+          id: 'kept',
+          caption: 'gallery.example.promiseKept',
+          render: () => promisePanel(promiseKept()),
+        },
+        {
+          id: 'broken',
+          caption: 'gallery.example.promiseBroken',
+          render: () => promisePanel(promiseBroken()),
+        },
+        {
+          id: 'game-end',
+          caption: 'gallery.example.promiseGameEnd',
+          render: () => promisePanel(promiseGameEnd()),
         },
       ],
     },

@@ -27,3 +27,9 @@ export const playerLabel = (observation: ViewedObservation, actorId: string) => 
   const player = observation.public.players.find((entry) => entry.actorId === actorId);
   return player ? seatLabel(player.seatIndex, ownSeatOf(observation)) : t('board.event.player');
 };
+
+/** "your" or "AI rival · seat 1’s": whose own turn a promise runs to. */
+export const possessive = (seatIndex: number, ownSeatIndex: number | undefined): string =>
+  seatIndex === ownSeatIndex
+    ? t('promise.possessive.you')
+    : t('promise.possessive.rival', { rival: seatLabel(seatIndex, ownSeatIndex) });
