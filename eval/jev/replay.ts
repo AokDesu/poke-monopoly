@@ -21,7 +21,13 @@ import {
   buildStrategyQuestion,
 } from '../../ai/questions/index.ts';
 import { command, resolveChoice } from '../../sim/runner.ts';
-import { fixtureSchema, requestHash, validateFixture, type Fixture } from './fixture.ts';
+import {
+  fixtureSchema,
+  requestHash,
+  SYNTHETIC_REQUEST_PREFIX,
+  validateFixture,
+  type Fixture,
+} from './fixture.ts';
 import { decideRequest, type EvalScenario } from './scenarios.ts';
 
 export interface ScenarioRun {
@@ -168,6 +174,7 @@ export function scenarioFixture(
     tags: { decisionPoint: run.decisionPoint, personality: scenario.personality.name },
     request,
     acceptable: run.acceptable,
+    ...(scenario.reason && { reason: scenario.reason }),
     synthetic,
     requestHash: requestHash(request),
     recorded,
@@ -208,7 +215,7 @@ export function placeholderResult(id: string, request: JevRequest): JevSuccess {
   return {
     ok: true,
     answers,
-    requestId: `synthetic-${id}`,
+    requestId: `${SYNTHETIC_REQUEST_PREFIX}${id}`,
     model: PINNED_JEV_MODEL,
     latencyMs: 0,
     usage: { inputTokens: 0, outputTokens: 0 },

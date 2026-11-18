@@ -46,6 +46,8 @@ export const parseFixture = (data: unknown, source: string): Fixture => {
 };
 export interface EvalRow {
   fixture: string;
+  /** The scenario's personality name, from the fixture's tags. */
+  personality: string;
   synthetic: boolean;
   question: string;
   answer: string;
@@ -69,6 +71,7 @@ const rowsFor = (fixture: Fixture, extra: Partial<EvalRow> = {}): EvalRow[] =>
     const id = answerId(answer);
     return {
       fixture: fixture.id,
+      personality: fixture.tags.personality,
       synthetic: fixture.synthetic,
       question: name,
       answer: id,
@@ -152,11 +155,44 @@ const mean = (values: number[]) =>
   values.length
     ? `${(values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(3)} (n=${values.length})`
     : 'n/a (n=0)';
+/** Spec §8: the eval set holds at least 60 decision scenarios, at least 15 per personality. */
+export const SCENARIO_TARGET = Object.freeze({ total: 60, perPersonality: 15 });
+
+/** One line per personality: how many scenarios it has, and how many are recorded or synthetic. */
+const personalityCounts = (rows: EvalRow[]): string => {
+  const fixtures = new Map(rows.map((row) => [row.fixture, row]));
+  const counts = new Map<string, { recorded: number; synthetic: number }>();
+  for (const { personality, synthetic } of fixtures.values()) {
+    const count = counts.get(personality) ?? { recorded: 0, synthetic: 0 };
+    count[synthetic ? 'synthetic' : 'recorded']++;
+    counts.set(personality, count);
+  }
+  const short = [...counts]
+    .filter(([, { recorded, synthetic }]) => recorded + synthetic < SCENARIO_TARGET.perPersonality)
+    .map(([name]) => name);
+  const met = fixtures.size >= SCENARIO_TARGET.total && short.length === 0;
+  return [
+    `Scenarios by personality: ${[...counts]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(
+        ([name, { recorded, synthetic }]) =>
+          `${name} ${recorded + synthetic} (${recorded} recorded, ${synthetic} synthetic)`,
+      )
+      .join(', ')}`,
+    `Spec §8 scenario set (at least ${SCENARIO_TARGET.total}, ${SCENARIO_TARGET.perPersonality} per personality): ${met ? 'met' : `NOT met${short.length ? `, short: ${short.join(', ')}` : ''}`}. Counts include synthetic placeholders until a person records them.`,
+  ].join('\n');
+};
+
+/**
+ * Accuracy and confidence cover recorded fixtures only. A synthetic placeholder answers from a
+ * seed, not from Jev, so scoring it would pass off a stand-in as evidence of Jev quality.
+ */
 export const formatReport = (rows: EvalRow[]): string => {
-  const correct = rows.filter((row) => row.correct).length;
+  const recorded = rows.filter((row) => !row.synthetic);
+  const correct = recorded.filter((row) => row.correct).length;
   const confidence = (right: boolean) =>
     mean(
-      rows.flatMap((row) =>
+      recorded.flatMap((row) =>
         row.correct === right && row.confidence !== undefined ? [row.confidence] : [],
       ),
     );
@@ -169,14 +205,15 @@ export const formatReport = (rows: EvalRow[]): string => {
   }
   const orchestrated = new Set(rows.flatMap((row) => (row.applied ? [row.fixture] : []))).size;
   return [
-    `Accuracy: ${correct}/${rows.length} (${((100 * correct) / rows.length).toFixed(1)}%) against the acceptable sets`,
-    `Mean confidence: correct ${confidence(true)}, incorrect ${confidence(false)}; Noul answers have none. Not a calibration claim.`,
-    `Fixtures: ${fixtures.size} (${fixtures.size - synthetic} recorded, ${synthetic} synthetic). Synthetic samples prove the harness; they are not evidence of Jev quality.`,
+    `Accuracy: ${correct}/${recorded.length} (${recorded.length ? ((100 * correct) / recorded.length).toFixed(1) : '0.0'}%) against the acceptable sets, recorded fixtures only`,
+    `Mean confidence: correct ${confidence(true)}, incorrect ${confidence(false)}; Noul answers have none. Recorded fixtures only. Not a calibration claim.`,
+    `Fixtures: ${fixtures.size} (${fixtures.size - synthetic} recorded, ${synthetic} synthetic). Synthetic placeholders prove the harness; they are seeded stand-ins, not Jev answers, and are left out of the accuracy and confidence above. A person with the key replaces them (${RECORD_COMMAND}).`,
+    personalityCounts(rows),
     `Orchestrator replays: ${orchestrated}, illegalAppliedActionCount 0, fallbacks: ${[...fallbacks].map(([reason, n]) => `${reason} ${n}`).join(', ') || 'none'}`,
     'Fixture | Question | Answer | Confidence | Correct | Applied | Fallback | Synthetic',
     ...rows.map(
       (row) =>
-        `${row.fixture} | ${row.question} | ${row.answer} | ${row.confidence?.toFixed(3) ?? 'n/a'} | ${row.correct ? 'yes' : 'no'} | ${row.applied ?? 'n/a'} | ${row.fallbackReason ?? (row.applied ? 'none' : 'n/a')} | ${row.synthetic ? 'yes' : 'no'}`,
+        `${row.fixture} | ${row.question} | ${row.answer} | ${row.confidence?.toFixed(3) ?? 'n/a'} | ${row.synthetic ? 'n/a (synthetic)' : row.correct ? 'yes' : 'no'} | ${row.applied ?? 'n/a'} | ${row.fallbackReason ?? (row.applied ? 'none' : 'n/a')} | ${row.synthetic ? 'yes' : 'no'}`,
     ),
   ].join('\n');
 };
