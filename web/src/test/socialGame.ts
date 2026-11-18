@@ -68,22 +68,56 @@ export function replyFor(request: ChatRequestBody, extra: Record<string, unknown
   };
 }
 
+/** What a request to `/api/ai/speak` with `kind: 'chat_reply'` carries, as far as these tests read it. */
+export interface ChatSpeechBody {
+  kind: 'chat_reply';
+  gameId: string;
+  seatIndex: number;
+  stateRevision: number;
+  addressedSeat: number;
+  topic: string;
+  decision: 'noncommittal' | 'refused';
+  personalityId: string;
+  turnKey: string;
+  observation: { public: unknown; own: Record<string, unknown> };
+}
+
+/** The speech route's answer when it has no line: generated speech is off. */
+export const speechOff = () =>
+  new Response(
+    JSON.stringify({
+      source: 'none',
+      fallbackReason: 'disabled',
+      requestId: 'speech-1',
+      latencyMs: 1,
+    }),
+  );
+
+/** The speech route's answer with the rival's own line. */
+export const speechLine = (text: string) =>
+  new Response(JSON.stringify({ source: 'haiku', text, requestId: 'speech-1', latencyMs: 1 }));
+
 export interface FakeServer {
   /** Request bodies sent to each route, in order. */
-  calls: { decide: unknown[]; chat: unknown[] };
+  calls: { decide: unknown[]; chat: unknown[]; speak: ChatSpeechBody[] };
 }
 
 /**
  * The local server, faked. Rivals take their first enabled action. `chat` answers the topic
- * route: by default a bank reply; pass a function to fail, hold or change it.
+ * route: by default a bank reply; pass a function to fail, hold or change it. `speak` answers the
+ * speech route the same way: by default no line and no named reason, as for a server that is down.
  */
 export function fakeServer(
   chat: (
     request: ChatRequestBody,
     init: RequestInit | undefined,
   ) => Response | Promise<Response> = (request) => new Response(JSON.stringify(replyFor(request))),
+  speak: (
+    request: ChatSpeechBody,
+    init: RequestInit | undefined,
+  ) => Response | Promise<Response> = () => new Response('', { status: 503 }),
 ): FakeServer {
-  const server: FakeServer = { calls: { decide: [], chat: [] } };
+  const server: FakeServer = { calls: { decide: [], chat: [], speak: [] } };
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
@@ -97,6 +131,10 @@ export function fakeServer(
       if (path === '/api/ai/chat') {
         server.calls.chat.push(body);
         return chat(body, init);
+      }
+      if (path === '/api/ai/speak') {
+        server.calls.speak.push(body);
+        return speak(body, init);
       }
       if (path === '/api/ai/decide') server.calls.decide.push(body);
       return new Response(

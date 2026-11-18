@@ -80,6 +80,7 @@ type SaveOffer =
       session: GameSession;
       opponents: SaveMeta['opponents'];
       watch: SaveMeta['watch'];
+      chatWords: SaveMeta['chatWords'];
       rivals: SavedRival[];
       summary: SaveSummary;
     }
@@ -112,6 +113,7 @@ function inspect(storage: SaveStorage | null): { offer: SaveOffer | null; unavai
       session: loaded.game,
       opponents: meta.opponents,
       watch: meta.watch,
+      chatWords: meta.chatWords,
       rivals: savedRivals(loaded.game, meta),
       summary: summarize(loaded.game, loaded.resumed),
     },
@@ -161,6 +163,7 @@ export function App({
             writeSave(storage, session, {
               opponents: store.getOpponents(),
               watch: store.getWatchSettings(),
+              chatWords: store.getChatWords(),
             });
           } else clearSave(storage);
           setSavingOff(false);
@@ -202,7 +205,7 @@ export function App({
   const continueSaved = () => {
     if (offer?.kind !== 'continue') return;
     try {
-      store.restore(offer.session, [...offer.opponents], offer.watch);
+      store.restore(offer.session, [...offer.opponents], offer.watch, offer.chatWords);
     } catch {
       setOffer({ kind: 'unreadable' });
       return;

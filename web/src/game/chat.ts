@@ -1,11 +1,20 @@
 import type { ChatMessage, ChatTopic, LegalAction, LegalActions } from '../../../engine/index.ts';
 import type { ChatReply, ChatReplyRequest } from '../../../engine/contract/chat-reply.ts';
+import type { ChatDecision } from '../../../engine/contract/speech.ts';
 import type { SeatView } from './store.ts';
+import type { VoiceReason } from './tableTalk.ts';
 
-export type { ChatReply, ChatReplyRequest };
+export type { ChatDecision, ChatReply, ChatReplyRequest };
 
 /** Presentation/network budget for a reply, not a game-rule number: nothing waits for it (spec §3.1). */
 export const CHAT_REPLY_MS = 3000;
+
+/**
+ * How long the rival's own words may take after its reply: above the server's 1,200 ms Haiku deadline,
+ * so a line the server delivers in time arrives in time. Presentation, not a game rule: nothing
+ * waits for it, and past it the line-bank reply stands (spec §5.7).
+ */
+export const CHAT_WORDS_MS = 1800;
 
 /** The five topic buttons, in the order the spec lists them (§4.8). */
 export const CHAT_TOPICS: readonly ChatTopic[] = [
@@ -135,4 +144,122 @@ export function sentThisTurn(view: Pick<SeatView, 'observation' | 'seatIndex'>) 
   return view.observation.own.chats?.findLast(
     (message) => message.fromSeatIndex === view.seatIndex && message.globalTurnNo === globalTurnNo,
   );
+}
+
+/** What the rival decided about the message, as its reply says: the words match it and never choose it. */
+export const decisionOf = (reply: Pick<ChatReply, 'refused'>): ChatDecision =>
+  reply.refused ? 'refused' : 'noncommittal';
+
+/** The rival's words for one message, as kept with the game (spec §5.7: never regenerated). */
+export interface SavedChatWords {
+  readonly fromSeatIndex: number;
+  readonly toSeatIndex: number;
+  readonly globalTurnNo: number;
+  readonly decision: ChatDecision;
+  readonly text: string;
+}
+
+/** Reads saved words from storage text: rows that are not whole are dropped, never repaired. */
+export function readSavedChatWords(value: unknown): SavedChatWords[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry: unknown): SavedChatWords[] => {
+    if (typeof entry !== 'object' || entry === null) return [];
+    const row = entry as Record<string, unknown>;
+    return isSeat(row.fromSeatIndex) &&
+      isSeat(row.toSeatIndex) &&
+      isSeat(row.globalTurnNo) &&
+      (row.decision === 'noncommittal' || row.decision === 'refused') &&
+      typeof row.text === 'string' &&
+      row.text.length > 0 &&
+      row.text.length <= 280
+      ? [
+          {
+            fromSeatIndex: row.fromSeatIndex,
+            toSeatIndex: row.toSeatIndex,
+            globalTurnNo: row.globalTurnNo,
+            decision: row.decision,
+            text: row.text,
+          },
+        ]
+      : [];
+  });
+}
+
+/**
+ * `POST /api/ai/speak`'s body for the rival's own words (`kind: 'chat_reply'`): the topic and the
+ * decision, the rival's seat and personality, and the public game. Like table talk, the rival's own
+ * hand, Balls, peek results and chats are never sent: `own` is empty, and neither the human's
+ * message details (a leader, an item) nor any other seat's view goes with it (spec §4.1, §4.8, §5.4).
+ */
+export function chatWordsBody(args: {
+  gameId: string;
+  view: Pick<SeatView, 'observation' | 'opponents'>;
+  message: ChatMessage;
+  decision: ChatDecision;
+}): unknown {
+  const { gameId, view, message, decision } = args;
+  const game = view.observation.public;
+  return {
+    kind: 'chat_reply',
+    gameId,
+    seatIndex: message.toSeatIndex,
+    stateRevision: game.stateRevision,
+    observation: {
+      public: game,
+      own: {
+        seatIndex: message.toSeatIndex,
+        items: [],
+        balls: { poke: 0, great: 0, ultra: 0 },
+        privateResults: [],
+      },
+    },
+    personalityId:
+      view.opponents.find((opponent) => opponent.seatIndex === message.toSeatIndex)?.personality ??
+      'greedy',
+    turnKey: `chat:${message.globalTurnNo}:${message.toSeatIndex}`,
+    addressedSeat: message.fromSeatIndex,
+    topic: message.topic,
+    decision,
+  };
+}
+
+/** The rival's own line, or why there is none; a missing line is never an error (the bank reply stands). */
+export type ChatWords =
+  | { readonly status: 'words'; readonly text: string }
+  | { readonly status: 'none'; readonly voiceOff: VoiceReason | null };
+
+const VOICE_REASONS: readonly string[] = ['disabled', 'missing_key', 'budget_exceeded'];
+
+/**
+ * Asks the speech route for the rival's own words. Never throws: a slow, failed, unreadable or
+ * aborted answer is `none`, and a line that arrives after `ms` is never used (spec §5.7). The route
+ * names why speech is off, which is the only thing a "Voice off" badge may say.
+ */
+export async function requestChatWords(
+  body: unknown,
+  signal: AbortSignal,
+  ms = CHAT_WORDS_MS,
+): Promise<ChatWords> {
+  const none = (voiceOff: VoiceReason | null = null): ChatWords => ({ status: 'none', voiceOff });
+  try {
+    const response = await fetch('/api/ai/speak', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      signal: AbortSignal.any([signal, AbortSignal.timeout(ms)]),
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) return none();
+    const value = (await response.json()) as Record<string, unknown> | null;
+    if (signal.aborted || typeof value !== 'object' || value === null) return none();
+    if (value.source === 'haiku' && typeof value.text === 'string') {
+      const text = value.text.trim();
+      return text.length > 0 && text.length <= 280 ? { status: 'words', text } : none();
+    }
+    const reason = value.fallbackReason;
+    return value.source === 'none' && typeof reason === 'string' && VOICE_REASONS.includes(reason)
+      ? none(reason as VoiceReason)
+      : none();
+  } catch {
+    return none();
+  }
 }

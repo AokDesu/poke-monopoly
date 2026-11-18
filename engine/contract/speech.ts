@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { observationSchema } from './schema.ts';
+import { chatTopicSchema, observationSchema } from './schema.ts';
 
 const id = z.string().min(1);
 const count = z.int().nonnegative();
@@ -76,6 +76,44 @@ export const replyRequestSchema = z
   });
 
 /**
+ * What the rival decided about a topic message, as code already knows it from `POST /api/ai/chat`
+ * (spec §4.8, §5.7): `refused` when the message was refused, `noncommittal` for the one generic
+ * answer. The words match it and never choose it.
+ */
+export const chatDecisionSchema = z.enum(['noncommittal', 'refused']);
+
+/**
+ * `POST /api/ai/speak` with `kind: 'chat_reply'` (spec §4.8, §5.7, issue #178): the rival's own
+ * words for the topic message a human sent it. `seatIndex` is the rival that speaks and `observation`
+ * its view (the browser sends the public game only), `addressedSeat` the human who wrote. The request
+ * carries the topic and the decision and nothing the human typed: there is no free text, so there is
+ * nothing to quote and no manipulation question to ask.
+ */
+export const chatSpeechRequestSchema = z
+  .strictObject({
+    kind: z.literal('chat_reply'),
+    gameId: id,
+    seatIndex: count,
+    stateRevision: count,
+    observation: observationSchema,
+    personalityId: id,
+    turnKey: id,
+    addressedSeat: count,
+    topic: chatTopicSchema,
+    decision: chatDecisionSchema,
+  })
+  .superRefine(matchesObservation)
+  .superRefine((request, ctx) => {
+    if (request.addressedSeat === request.seatIndex) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['addressedSeat'],
+        message: 'A rival cannot answer itself',
+      });
+    }
+  });
+
+/**
  * Why a line did not come from Haiku: the client's reasons, the output screen's rejections and the
  * route's own limits (spec §5.7, §9). Reasons only, never text.
  */
@@ -114,6 +152,8 @@ export const speakFallbackReasonSchema = z.enum([
   'manipulation',
   // A reply only: that question could not be asked or answered, so the line is not quoted.
   'gate_unavailable',
+  // A chat reply only: the words say the opposite of the decision they answer for.
+  'contradiction',
   'internal_error',
 ]);
 
@@ -156,6 +196,8 @@ export const replyResponseSchema = z.union([
 
 export type SpeakRequest = z.infer<typeof speakRequestSchema>;
 export type ReplyRequest = z.infer<typeof replyRequestSchema>;
+export type ChatSpeechRequest = z.infer<typeof chatSpeechRequestSchema>;
+export type ChatDecision = z.infer<typeof chatDecisionSchema>;
 export type ReplyResponse = z.infer<typeof replyResponseSchema>;
 export type SpeakFallbackReason = z.infer<typeof speakFallbackReasonSchema>;
 export type SpeakResponse = z.infer<typeof speakResponseSchema>;

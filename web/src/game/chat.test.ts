@@ -4,8 +4,11 @@ import { fakeServer, replyFor, socialGame, toHumanSocial } from '../test/socialG
 import {
   ChatReplyError,
   CHAT_TOPICS,
+  decisionOf,
   readChatReply,
+  readSavedChatWords,
   requestChatReply,
+  requestChatWords,
   type ChatReplyRequest,
 } from './chat.ts';
 
@@ -125,4 +128,76 @@ test('the request asks the recipient, from its own observation, and only once a 
   // Moving on leaves nothing to ask about.
   store.choose('skip');
   expect(store.chatReplyRequest()).toBeNull();
+});
+
+test("the decision is the chat route's: a refusal or the one generic answer, never agreement", () => {
+  expect(decisionOf({ refused: true })).toBe('refused');
+  expect(decisionOf({ refused: false })).toBe('noncommittal');
+});
+
+test("the rival's words are read only from a haiku line, and a missing line is never an error", async () => {
+  const signal = () => new AbortController().signal;
+  answer({ source: 'haiku', text: '  A plain line, friend.  ', requestId: 'r', latencyMs: 1 });
+  expect(await requestChatWords({}, signal())).toEqual({
+    status: 'words',
+    text: 'A plain line, friend.',
+  });
+  for (const body of [
+    { source: 'haiku', text: '', requestId: 'r', latencyMs: 1 },
+    { source: 'haiku', text: 'x'.repeat(281), requestId: 'r', latencyMs: 1 },
+    { source: 'haiku', requestId: 'r', latencyMs: 1 },
+    { source: 'bank', text: 'Hi', lineId: 'x', requestId: 'r', latencyMs: 1 },
+    { source: 'none', fallbackReason: 'timeout', requestId: 'r', latencyMs: 1 },
+    { source: 'none', fallbackReason: 'something_new', requestId: 'r', latencyMs: 1 },
+    null,
+    'text',
+  ]) {
+    answer(body);
+    expect(await requestChatWords({}, signal()), JSON.stringify(body)).toEqual({
+      status: 'none',
+      voiceOff: null,
+    });
+  }
+  // Only a reason the route gives for speech being off may reach the badge.
+  for (const reason of ['disabled', 'missing_key', 'budget_exceeded'] as const) {
+    answer({ source: 'none', fallbackReason: reason, requestId: 'r', latencyMs: 1 });
+    expect(await requestChatWords({}, signal())).toEqual({ status: 'none', voiceOff: reason });
+  }
+  answer({}, 503);
+  expect(await requestChatWords({}, signal())).toEqual({ status: 'none', voiceOff: null });
+});
+
+test('words that are slow or abandoned are dropped, even when they would have been valid', async () => {
+  vi.stubGlobal('fetch', (_url: RequestInfo | URL, init?: RequestInit) => {
+    const { promise, reject } = Promise.withResolvers<Response>();
+    init?.signal?.addEventListener('abort', () => reject(new DOMException('', 'AbortError')));
+    return promise;
+  });
+  expect(await requestChatWords({}, new AbortController().signal, 20)).toEqual({
+    status: 'none',
+    voiceOff: null,
+  });
+  const left = new AbortController();
+  vi.stubGlobal('fetch', async () => {
+    left.abort();
+    return new Response(
+      JSON.stringify({ source: 'haiku', text: 'Too late.', requestId: 'r', latencyMs: 1 }),
+    );
+  });
+  expect(await requestChatWords({}, left.signal)).toEqual({ status: 'none', voiceOff: null });
+});
+
+test('saved words are read as whole rows or not at all', () => {
+  expect(readSavedChatWords(undefined)).toEqual([]);
+  expect(readSavedChatWords({})).toEqual([]);
+  const row = {
+    fromSeatIndex: 0,
+    toSeatIndex: 1,
+    globalTurnNo: 3,
+    decision: 'refused',
+    text: 'Hi.',
+  };
+  expect(readSavedChatWords([row, { ...row, text: 7 }, { ...row, globalTurnNo: 1.5 }])).toEqual([
+    row,
+  ]);
 });

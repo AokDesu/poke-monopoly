@@ -6,6 +6,7 @@ import {
   type Resumed,
   type SavedGame,
 } from '../../../engine/index.ts';
+import { readSavedChatWords, type SavedChatWords } from './chat.ts';
 import {
   DIFFICULTIES,
   PERSONALITIES,
@@ -36,6 +37,8 @@ export interface SaveMeta {
   }[];
   /** Present only for a watched game: its talk setting and starting speed. */
   readonly watch?: WatchSettings;
+  /** The rivals' words for the human's topic messages, so a reload shows the same lines (spec §5.7). */
+  readonly chatWords?: readonly SavedChatWords[];
 }
 
 export type LoadResult =
@@ -63,7 +66,10 @@ export function readSaveText(storage: SaveStorage): string | null {
 
 export function writeSave(storage: SaveStorage, game: SavedGame, meta: SaveMeta): void {
   storage.setItem(SAVE_KEY, serialize(game));
-  storage.setItem(META_KEY, JSON.stringify({ opponents: meta.opponents, watch: meta.watch }));
+  storage.setItem(
+    META_KEY,
+    JSON.stringify({ opponents: meta.opponents, watch: meta.watch, chatWords: meta.chatWords }),
+  );
 }
 
 export function clearSave(storage: SaveStorage): void {
@@ -93,6 +99,7 @@ export function readMeta(storage: SaveStorage): SaveMeta {
         return [{ seatIndex: row.seatIndex, personality, difficulty }];
       }),
       ...(typeof talk === 'boolean' && startSpeed && { watch: { talk, speed: startSpeed } }),
+      ...('chatWords' in parsed && { chatWords: readSavedChatWords(parsed.chatWords) }),
     };
   } catch {
     return EMPTY_META;

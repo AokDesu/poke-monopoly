@@ -2,6 +2,7 @@ import { toEngineContent } from '../../content/schema.ts';
 import {
   replyResponseSchema,
   speakResponseSchema,
+  type ChatSpeechRequest,
   type ReplyRequest,
   type ReplyResponse,
   type SpeakFallbackReason,
@@ -21,6 +22,14 @@ import { speechStatus } from '../haiku/status.ts';
 import { SPEND_CONFIG, type SpendConfig, type UsageRecorder } from '../jev/spend.ts';
 import { LINES, type Situation } from '../lines.ts';
 import { CONTENT } from '../questions/content.ts';
+import {
+  CHAT_DECISION_TEXT,
+  CHAT_REPLY_RULES,
+  CHAT_TOPIC_TEXT,
+  chatSituation,
+  contradictsDecision,
+  echoesAny,
+} from './chat.ts';
 import type { ManipulationGate } from './gate.ts';
 import {
   buildSpeechBrief,
@@ -77,9 +86,19 @@ export interface Speaker {
    * Throws `InvalidSpeakRequest` like `speak`.
    */
   reply(request: ReplyRequest): Promise<ReplyResponse>;
+  /**
+   * The rival's own words for a topic message and the decision already made about it (spec §4.8,
+   * §5.7). No quote, so no gate: the line is screened like any other and must not contradict the
+   * decision. A haiku line or `none`, never a bank line (the browser holds the chat route's own).
+   * Throws `InvalidSpeakRequest` like `speak`.
+   */
+  chatReply(request: ChatSpeechRequest): Promise<ReplyResponse>;
   /** Output-screen rejections so far, by reason. */
-  rejections(): Partial<Record<SpeechRejection, number>>;
+  rejections(): Partial<Record<Rejection, number>>;
 }
+
+/** The output screen's reasons, and the one chat replies add. */
+type Rejection = SpeechRejection | 'contradiction';
 
 const isSituation = (name: string): name is Situation =>
   Object.hasOwn(LINES, name) && Object.hasOwn(VOICE.topics, name);
@@ -100,7 +119,7 @@ export const createSpeaker = ({
   log = (message) => console.info(message),
 }: SpeakerOptions): Speaker => {
   const quotas = new Map<string, SpeechQuota>();
-  const rejected: Partial<Record<SpeechRejection, number>> = {};
+  const rejected: Partial<Record<Rejection, number>> = {};
 
   const limitReason = (gameId: string): SpeakFallbackReason | undefined => {
     let quota = quotas.get(gameId);
@@ -116,7 +135,7 @@ export const createSpeaker = ({
     return undefined;
   };
 
-  const noteRejection = (reason: SpeechRejection) => {
+  const noteRejection = (reason: Rejection) => {
     const count = (rejected[reason] = (rejected[reason] ?? 0) + 1);
     log(`Speech line rejected: ${reason} (${count} so far).`);
   };
@@ -322,6 +341,71 @@ export const createSpeaker = ({
         if (!screened.ok) {
           noteRejection(screened.reason);
           return none(screened.reason);
+        }
+        return replyResponseSchema.parse({
+          source: 'haiku',
+          requestId: crypto.randomUUID(),
+          latencyMs: Math.round(performance.now() - started),
+          text: screened.text,
+        });
+      } catch {
+        return none('internal_error');
+      }
+    },
+
+    async chatReply(request) {
+      const started = performance.now();
+      const { gameId, observation, addressedSeat, topic, decision, turnKey } = request;
+
+      if (!Object.hasOwn(PERSONALITIES, request.personalityId)) {
+        throw new InvalidSpeakRequest('personalityId');
+      }
+      const personality = PERSONALITIES[request.personalityId as keyof typeof PERSONALITIES];
+      if (!observation.public.players.some((player) => player.seatIndex === addressedSeat)) {
+        throw new InvalidSpeakRequest('addressedSeat');
+      }
+      let brief;
+      try {
+        brief = buildSpeechBrief({
+          observation,
+          events: [],
+          situation: chatSituation(decision),
+          addressedSeat,
+          chat: { topic, decision },
+          personality,
+          content,
+          voice: VOICE,
+        });
+      } catch {
+        throw new InvalidSpeakRequest('observation');
+      }
+
+      const none = (fallbackReason: SpeakFallbackReason): ReplyResponse =>
+        replyResponseSchema.parse({
+          source: 'none',
+          requestId: crypto.randomUUID(),
+          latencyMs: Math.round(performance.now() - started),
+          fallbackReason,
+        });
+
+      try {
+        const generated = await generate({ gameId, turnKey, prompt: JSON.stringify(brief) });
+        if (!generated.ok) return none(generated.reason);
+        const screened = screenSpeech(generated.text, brief, content);
+        if (!screened.ok) {
+          noteRejection(screened.reason);
+          return none(screened.reason);
+        }
+        // The topic and decision text is data the writer was given; a line that repeats it, or says
+        // the opposite of the decision, is not shown.
+        const given = [CHAT_TOPIC_TEXT[topic], CHAT_DECISION_TEXT[decision], CHAT_REPLY_RULES];
+        if (echoesAny(screened.text, given)) {
+          noteRejection('echo');
+          return none('echo');
+        }
+        if (contradictsDecision(screened.text, decision)) {
+          noteRejection('contradiction');
+          return none('contradiction');
         }
         return replyResponseSchema.parse({
           source: 'haiku',

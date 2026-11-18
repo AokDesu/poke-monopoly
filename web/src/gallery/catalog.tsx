@@ -507,6 +507,8 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
         'social.noticeTruce',
         'social.continue',
         'talk.bank',
+        'talk.aiWritten',
+        'talk.voiceOff',
         'social.refused',
         'social.failed.timeout',
         'social.retry',
@@ -532,7 +534,38 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
           caption: 'gallery.example.socialReply',
           render: () =>
             turnPanel(socialSent(), {
-              social: reply({ status: 'ready', reply: chatReply('chat-reply-cautious-neutral-1') }),
+              social: reply({
+                status: 'ready',
+                reply: chatReply('chat-reply-cautious-neutral-1'),
+                words: null,
+                voiceOff: null,
+              }),
+            }),
+        },
+        {
+          id: 'reply-words',
+          caption: 'gallery.example.socialReplyWords',
+          render: () =>
+            turnPanel(socialSent(), {
+              social: reply({
+                status: 'ready',
+                reply: chatReply('chat-reply-cautious-neutral-1'),
+                words: 'Thank you for saying so. I would rather look at the road before I answer.',
+                voiceOff: null,
+              }),
+            }),
+        },
+        {
+          id: 'reply-voice-off',
+          caption: 'gallery.example.socialVoiceOff',
+          render: () =>
+            turnPanel(socialSent(), {
+              social: reply({
+                status: 'ready',
+                reply: chatReply('chat-reply-cautious-neutral-1'),
+                words: null,
+                voiceOff: 'disabled',
+              }),
             }),
         },
         {
@@ -543,6 +576,8 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
               social: reply({
                 status: 'ready',
                 reply: chatReply('manipulation-refused-greedy-neutral-2', true),
+                words: null,
+                voiceOff: null,
               }),
             }),
         },
