@@ -36,10 +36,13 @@ const fixtures = async () =>
     ),
   );
 
-test('spec §10 C2: 8 Strategy, 6 Encounter and 6 Sell scenarios, each one committed fixture', async () => {
+test('spec §10 C2: 8 Strategy, 6 Encounter and 6 Sell Greedy scenarios, each one committed fixture', async () => {
   const saved = await fixtures();
-  const count = (point: string) => saved.filter((f) => f.tags.decisionPoint === point).length;
+  const greedy = saved.filter((f) => f.tags.personality === 'Greedy');
+  const count = (point: string) => greedy.filter((f) => f.tags.decisionPoint === point).length;
   expect([count('strategy'), count('encounter'), count('sell')]).toEqual([8, 6, 6]);
+  // The original 20 are live recordings; the personality scenarios start as placeholders (#233).
+  expect(greedy.every((f) => !f.synthetic)).toBe(true);
   expect(saved.map((f) => f.id).sort()).toEqual(SCENARIOS.map((s) => s.id).sort());
   for (const fixture of saved) {
     expect(fixture.recorded.requestId).toBeTruthy();
