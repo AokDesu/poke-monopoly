@@ -1,4 +1,4 @@
-import type { GameState, LegalAction } from '../../../engine/index.ts';
+import type { GameState, LegalAction, PokemonInstance } from '../../../engine/index.ts';
 import type { TurnPlayback } from '../board/useTurnPlayback.ts';
 import type { AiDecision, OpponentAnswer } from '../game/ai.ts';
 import { content, engineContent } from '../game/content.ts';
@@ -70,6 +70,25 @@ function addRival(state: GameState, seatIndex: number): void {
     team: source.team.map((member) => ({ ...member, instanceId: `pokemon-${seatIndex}` })),
   });
   state.config.seats.push({ actorId, seatIndex, classId: 'researcher', controller: 'ai' });
+}
+
+/** A caught Pokémon of `speciesId` with a fresh instance ID, ready to use its Ability. */
+const caught = (speciesId: string, abilityReady = true) => ({
+  instanceId: `gallery:${speciesId}`,
+  speciesId,
+  origin: 'caught' as const,
+  evolutionStage: 0,
+  tired: false,
+  abilityReady,
+});
+
+/** The human (seat 0) opens Strategy at `globalTurnNo` 7 holding `team`, with every budget unspent. */
+function openStrategy(state: GameState, team: PokemonInstance[]): void {
+  state.phase = { kind: 'strategy' };
+  state.activeSeatIndex = 0;
+  state.globalTurnNo = 7;
+  state.turnBudgets = { tacticalAction: 1, catchAttempt: 1, pokemonAbility: 1 };
+  state.players[0]!.team = team;
 }
 
 type Edit = (state: GameState) => void;
@@ -490,6 +509,52 @@ export function createScenes(fixtures: GalleryFixtures) {
       const store = createFixtureStore(fixtures['shop-low-coins'], engineContent, openSocialWindow);
       const result = store.choose('chat:seat-1:truce');
       if ('rejected' in result) throw new Error(`Gallery: ${result.reason}`);
+      return sceneOf(store);
+    },
+
+    /**
+     * §4.5, Appendix C: Strategy with one Pokémon per Ability state: ready (Quick Flight), wrong
+     * timing (Blaze), used this Lap (Vine Pull) and not run by the engine yet (Scavenge).
+     */
+    abilityStrategy: (): Scene =>
+      sceneOf(
+        createFixtureStore(fixtures['shop-low-coins'], engineContent, (state) =>
+          openStrategy(state, [
+            caught('pidgey'),
+            caught('charmander'),
+            caught('bulbasaur', false),
+            caught('rattata'),
+          ]),
+        ),
+      ),
+
+    /**
+     * Appendix C.3: an AI rival challenges the human, who accepts. The human answers outside their
+     * own turn: Heal Pulse (a reaction) is ready, Calculate is not usable in this window.
+     */
+    abilityReaction: (): Scene => {
+      const store = createFixtureStore(fixtures['shop-low-coins'], engineContent, (state) => {
+        openStrategy(state, [
+          caught('chansey'),
+          { ...caught('pikachu'), tired: true },
+          caught('porygon'),
+        ]);
+        state.activeSeatIndex = 1;
+        state.players[1]!.team = [caught('rattata', false)];
+      });
+      const you = store.getView()!.observation.public.players[0]!;
+      const challenge = store.submit({
+        actorId: 'player-1',
+        kind: 'declare_pvp',
+        payload: { targetSeatIndex: 0 },
+      });
+      if ('rejected' in challenge) throw new Error(`Gallery: ${challenge.reason}`);
+      const accepted = store.submit({
+        actorId: you.actorId,
+        kind: 'respond_pvp',
+        payload: { accept: true },
+      });
+      if ('rejected' in accepted) throw new Error(`Gallery: ${accepted.reason}`);
       return sceneOf(store);
     },
   };

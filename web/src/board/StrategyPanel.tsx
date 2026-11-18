@@ -5,6 +5,7 @@ import { content, itemStatus } from '../game/content.ts';
 import { t } from '../i18n/en.ts';
 import { itemName, speciesName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
+import { AbilityPanel } from './AbilityPanel.tsx';
 import { ChallengePanel } from './ChallengePanel.tsx';
 import { ItemFacts } from './ItemFacts.tsx';
 import { seatLabel } from './labels.ts';
@@ -221,6 +222,7 @@ export function StrategyPanel({
           )}
         </>
       )}
+      <AbilityPanel observation={observation} legalActions={legalActions} onChoose={onChoose} />
       <ChallengePanel
         observation={observation}
         legalActions={legalActions}

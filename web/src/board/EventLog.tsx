@@ -1,4 +1,5 @@
 import type { SeatEvent } from '../../../engine/index.ts';
+import { squareOf } from '../game/content.ts';
 import type { SeatFeedEntry } from '../game/store.ts';
 import { t, type MessageKey } from '../i18n/en.ts';
 import { itemName } from '../i18n/names.ts';
@@ -42,11 +43,20 @@ export function eventMessage(
       return battleEventMessages(event, observation, before);
     // Spec §5.7: persisted dialogue annotations are not gameplay announcements.
     // An Event reward's identity is told by `event_resolved`, from the recipient's own copy.
-    case 'player_displaced':
-    case 'ball_gained':
     case 'item_gained':
     case 'line_selected':
       return [];
+    case 'player_displaced':
+      return message('board.event.displaced', {
+        target: playerLabel(observation, event.targetId),
+        position: squareOf(event.to),
+      });
+    // Told to the owner alone (§4.1): a Lucky Splash hit shows in no other seat's log.
+    case 'ball_gained':
+      return message('board.event.ballGained', {
+        owner: playerLabel(observation, event.ownerId),
+        ball: t(`board.ball.${event.ballType}`),
+      });
     // A chat is private to its two seats and shown in the Social window (#137), not in the shared field log.
     case 'chat_sent':
     case 'promise_offered':

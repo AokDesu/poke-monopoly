@@ -95,6 +95,23 @@ function Options({ view, onChoose }: { view: SeatView; onChoose: (id: string) =>
     ...legalActions.enabled.filter((action) => action.kind === 'activate_ability'),
     ...legalActions.enabled.filter((action) => action.kind !== 'activate_ability'),
   ];
+  // An Ability the engine lists as disabled stays on screen with its reason (§3.1), once per
+  // Pokémon, below the Abilities that can be used; one that is usable in this window is not repeated.
+  const blockedAbilities = legalActions.disabled
+    .filter(
+      (action): action is Extract<LegalActions['disabled'][number], { kind: 'activate_ability' }> =>
+        action.kind === 'activate_ability',
+    )
+    .filter(
+      (action, index, all) =>
+        all.findIndex((entry) => entry.payload.instanceId === action.payload.instanceId) ===
+          index &&
+        !enabled.some(
+          (usable) =>
+            usable.kind === 'activate_ability' &&
+            usable.payload.instanceId === action.payload.instanceId,
+        ),
+    );
   return (
     <ul className="battle-options">
       {legalActions.disabled
@@ -109,6 +126,19 @@ function Options({ view, onChoose }: { view: SeatView; onChoose: (id: string) =>
             </ActionButton>
           </li>
         ))}
+      {blockedAbilities.map((action) => (
+        <li key={action.id} data-ability-blocked={action.payload.instanceId}>
+          <ActionButton
+            enabled={false}
+            reasonText={t('action.engineReason', { reason: action.reasonText })}
+          >
+            {choiceLabel(
+              { ...action, payload: { instanceId: action.payload.instanceId } },
+              observation,
+            )}
+          </ActionButton>
+        </li>
+      ))}
       {enabled.map((action) => (
         <li key={action.id}>
           <ActionButton
