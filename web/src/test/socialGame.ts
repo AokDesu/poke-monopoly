@@ -105,7 +105,8 @@ export interface FakeServer {
 /**
  * The local server, faked. Rivals take their first enabled action. `chat` answers the topic
  * route: by default a bank reply; pass a function to fail, hold or change it. `speak` answers the
- * speech route the same way: by default no line and no named reason, as for a server that is down.
+ * speech route's `chat_reply` kind the same way: by default no line and no named reason, as for a
+ * server that is down. Table talk requests are not recorded and get no line.
  */
 export function fakeServer(
   chat: (
@@ -133,6 +134,9 @@ export function fakeServer(
         return chat(body, init);
       }
       if (path === '/api/ai/speak') {
+        // Table talk (the greeting, a round's banter) is a different request kind with its own
+        // tests; here it simply has no line, so only the rival's chat words are under test.
+        if (body.kind !== 'chat_reply') return new Response('', { status: 503 });
         server.calls.speak.push(body);
         return speak(body, init);
       }

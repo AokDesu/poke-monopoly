@@ -200,7 +200,8 @@ test('words on or off, the game is the same: state, log, budget, legality and ev
   // The words are kept with the game for a reload, and nowhere in the engine's own record.
   expect(on.store.getChatWords()).toHaveLength(1);
   expect(off.store.getChatWords()).toHaveLength(0);
-  expect(on.store.getSession()!.log.dialogueEvents).toBeUndefined();
+  // Table talk may save its own lines in the log; the chat words are never among them.
+  expect(JSON.stringify(on.store.getSession()!.log)).not.toContain(WORDS);
 });
 
 test('with generated speech off the bank line stands and the badge says why; the chat still works', async () => {

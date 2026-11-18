@@ -2,8 +2,6 @@ import type { AiStatus } from '../../../engine/contract/decision.ts';
 import type { AiSpeechEvent, Observation } from '../../../engine/index.ts';
 import { en, t, type MessageKey } from '../i18n/en.ts';
 import { className, speciesName } from '../i18n/names.ts';
-import { AI_DECISION_MS } from './ai.ts';
-import { content } from './content.ts';
 import type { SeatFeedEntry, SeatView, SpectatorView } from './store.ts';
 
 /**
