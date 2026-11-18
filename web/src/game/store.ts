@@ -607,10 +607,14 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
       }
       const enabledActions = legalActions(state, seatIndex).enabled;
       if (enabledActions.length <= 1) return false;
-      const decisionPoint = state.phase.kind;
+      // A promise question (§4.8) is asked of its responder at its own decision point, whatever
+      // phase the human's turn is in; the engine's pending record says so, not the phase.
+      const promiseQuestion = state.pendingResponse?.kind === 'promise_offer';
+      const decisionPoint = promiseQuestion ? 'promise_response' : state.phase.kind;
       if (
-        !['strategy', 'encounter', 'sell', 'shop'].includes(decisionPoint) ||
-        (state.phase.kind === 'encounter' && state.phase.catchRoll)
+        !promiseQuestion &&
+        (!['strategy', 'encounter', 'sell', 'shop'].includes(decisionPoint) ||
+          (state.phase.kind === 'encounter' && state.phase.catchRoll))
       ) {
         // Temporary #55 boundary: the decision API has no Gym, battle, Ability-window or reroll
         // questions yet (Stream B). Take the engine's first listed choice so play continues.

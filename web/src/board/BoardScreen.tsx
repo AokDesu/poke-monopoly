@@ -3,6 +3,7 @@ import type { GameStore } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { Screen } from '../ui/Screen.tsx';
 import { Board } from './Board.tsx';
+import { PromisePanel } from './PromisePanel.tsx';
 import { TableTalkPanel } from './TableTalk.tsx';
 import { useChatReply } from './useChatReply.ts';
 import { useTableTalk } from './useTableTalk.ts';
@@ -113,6 +114,11 @@ function PlayerBoardScreen({
               onToggle={() => talk.setHidden(!talk.hidden)}
               voiceOff={talk.voiceOff}
             />
+          ) : undefined
+        }
+        promises={
+          view.observation.own.promises !== undefined ? (
+            <PromisePanel observation={view.observation} feed={view.feed} />
           ) : undefined
         }
       />
