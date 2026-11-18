@@ -1,0 +1,98 @@
+[
+  {
+    "id": "coins-in-own-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Ah, coins coming my way! I love being paid."
+  },
+  {
+    "id": "coins-in-own-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Thank you for the coins. That is music to my ears."
+  },
+  {
+    "id": "coins-in-own-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Cha-ching! Poké-payday, my favourite day."
+  },
+  {
+    "id": "coins-in-own-greedy-neutral-4",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Another trainer paid me. Oh, today is lovely."
+  },
+  {
+    "id": "coins-in-own-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Paid by a rival! Winning really does pay."
+  },
+  {
+    "id": "coins-in-own-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Ha! Those coins belong to me now."
+  },
+  {
+    "id": "coins-in-own-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Thank you for the coins. I will put them to good use."
+  },
+  {
+    "id": "coins-in-own-aggressive-neutral-4",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "That is the sound of victory, friends!"
+  },
+  {
+    "id": "coins-in-own-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Thank you for the coins. I will keep them safe."
+  },
+  {
+    "id": "coins-in-own-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "A payment, good. I like a tidy ending."
+  },
+  {
+    "id": "coins-in-own-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Coins received. I will count them later, quietly."
+  },
+  {
+    "id": "coins-in-own-cautious-neutral-4",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "That was fair. Thank you, friend."
+  },
+  {
+    "id": "coins-in-own-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Thanks for the coins! You are a real Chansey, so generous."
+  },
+  {
+    "id": "coins-in-own-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Oh, a payment. How kind of you. I almost feel bad."
+  },
+  {
+    "id": "coins-in-own-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Coins in my pocket and a smile on my face."
+  },
+  {
+    "id": "coins-in-own-opportunist-neutral-4",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Much appreciated, friend. I will remember this."
+  }
+]

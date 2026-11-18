@@ -1,0 +1,98 @@
+[
+  {
+    "id": "coins-out-own-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Ouch, my coins! That really hurt."
+  },
+  {
+    "id": "coins-out-own-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "I paid, and I did not enjoy it at all."
+  },
+  {
+    "id": "coins-out-own-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Goodbye, coins. I will see you again soon, I hope."
+  },
+  {
+    "id": "coins-out-own-greedy-neutral-4",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "That was an expensive lesson. Poké-poor, but I will recover."
+  },
+  {
+    "id": "coins-out-own-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Fine, take the coins. I will take them back later!"
+  },
+  {
+    "id": "coins-out-own-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "I paid, but I am not done yet."
+  },
+  {
+    "id": "coins-out-own-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Those coins were a loan to the winner. I want them back!"
+  },
+  {
+    "id": "coins-out-own-aggressive-neutral-4",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Ugh. Enjoy the coins while you can."
+  },
+  {
+    "id": "coins-out-own-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Coins paid. A small loss, and I will not dwell."
+  },
+  {
+    "id": "coins-out-own-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "That was fair, I suppose. I will be more careful."
+  },
+  {
+    "id": "coins-out-own-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "I paid up. It could have been much worse."
+  },
+  {
+    "id": "coins-out-own-cautious-neutral-4",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Well, that stings a little. On we go."
+  },
+  {
+    "id": "coins-out-own-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "I paid, with a smile. Plenty more where that came from."
+  },
+  {
+    "id": "coins-out-own-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Take the coins, friend. I will take them back, charmingly."
+  },
+  {
+    "id": "coins-out-own-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "That was a pricey lesson. I am a fast learner."
+  },
+  {
+    "id": "coins-out-own-opportunist-neutral-4",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Paid up! A Pikachu never forgets a shock, though."
+  }
+]

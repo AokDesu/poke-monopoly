@@ -157,12 +157,14 @@ export interface GameStore {
   recordSpeech(event: AiSpeechEvent): boolean;
   /**
    * Replaces the session with a saved game. Applies nothing: dice stay as logged and the
-   * pending decision stays pending (spec §3.1, §6.9).
+   * pending decision stays pending (spec §3.1, §6.9). `gameId` is the one saved beside the game,
+   * so the server's per-game limits (spec §9) carry on across a reload; without one it is new.
    */
   restore(
     session: GameSession,
     settings?: readonly OpponentSettings[],
     watchSettings?: WatchSettings,
+    gameId?: string,
   ): void;
   /** Engine winner and coin/badge standings, or null until the game is finished. Stable. */
   getResults(): GameResults | null;
@@ -630,10 +632,11 @@ export function createGameStore(): GameStore {
       game: GameSession,
       settings: readonly OpponentSettings[] = [],
       watchSettings?: WatchSettings,
+      gameId?: string,
     ): void {
       opponents = settings;
       watch = watchSettings;
-      gameToken = crypto.randomUUID();
+      gameToken = gameId ?? crypto.randomUUID();
       publish(game, feedFrom(game.log, humanSeat(game.state)));
     },
     getResults(): GameResults | null {

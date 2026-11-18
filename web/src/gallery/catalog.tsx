@@ -120,6 +120,29 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
     timeoutOfTwo().view.observation.public.players.map((player) =>
       player.seatIndex === 2 ? { ...player, classId: 'researcher' } : player,
     );
+  /** A line-bank line as the table saves it: the addressed seat's class fills `{target}`. */
+  const casualLine = (
+    lineId: string,
+    speaker: number,
+    addressed: number | undefined,
+    turn: number,
+  ): AiSpeechEvent => {
+    const classId = exchangePlayers().find((player) => player.seatIndex === addressed)?.classId;
+    return {
+      kind: 'ai_speech',
+      speakerSeatIndex: speaker,
+      ...(addressed !== undefined && { addressedSeatIndex: addressed }),
+      source: 'bank',
+      lineId,
+      text: t(`ai.line.${lineId}` as MessageKey, classId ? { target: className(classId) } : {}),
+      globalTurnNo: turn,
+    };
+  };
+  // The bank speaks for an exchange that failed: a line to a rival and its retort.
+  const bankExchange = (): AiSpeechEvent[] => [
+    casualLine('roll-low-other-greedy-neutral-3', 2, 1, 12),
+    casualLine('table-retort-aggressive-neutral-2', 1, 2, 12),
+  ];
   const turnPanel = (scene: Pick<Scene, 'view'>, extra?: { notice?: string }) => (
     <TurnPanel
       view={scene.view}
@@ -389,7 +412,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
         {
           id: 'budget',
           caption: 'gallery.example.voiceBudget',
-          render: () => talk('budget_exceeded', []),
+          render: () => talk('budget_exceeded', [bankLine]),
         },
       ],
     },
@@ -415,7 +438,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
       id: 'ai-exchange',
       specRow: null,
       label: 'gallery.row.aiExchange',
-      keys: ['talk.aiWritten', 'talk.onlyWords', 'talk.empty'],
+      keys: ['talk.aiWritten', 'talk.bank', 'talk.onlyWords'],
       examples: [
         {
           id: 'exchange',
@@ -425,7 +448,36 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
         {
           id: 'exchange-dropped',
           caption: 'gallery.example.exchangeDropped',
-          render: () => talk(null, []),
+          render: () => talk(null, bankExchange(), exchangePlayers()),
+        },
+      ],
+    },
+    {
+      id: 'casual-talk',
+      specRow: null,
+      label: 'gallery.row.casualTalk',
+      keys: ['talk.bank', 'talk.toYou', 'talk.onlyWords'],
+      examples: [
+        {
+          id: 'greeting',
+          caption: 'gallery.example.casualGreeting',
+          render: () => talk(null, [casualLine('game-start-opportunist-neutral-4', 1, 0, 0)]),
+        },
+        {
+          id: 'own-turn',
+          caption: 'gallery.example.casualOwnTurn',
+          render: () =>
+            talk(null, [casualLine('roll-high-own-aggressive-neutral-1', 1, undefined, 3)]),
+        },
+        {
+          id: 'other-turn',
+          caption: 'gallery.example.casualOther',
+          render: () =>
+            talk(
+              null,
+              [casualLine('roll-low-other-cautious-neutral-2', 2, 1, 7)],
+              exchangePlayers(),
+            ),
         },
       ],
     },

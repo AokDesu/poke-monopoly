@@ -11,6 +11,23 @@ import promiseBroken from '../../../content/lines/en/promise_broken.json';
 import promiseKept from '../../../content/lines/en/promise_kept.json';
 import soldPokemon from '../../../content/lines/en/sold_pokemon.json';
 import tauntLeader from '../../../content/lines/en/taunt_leader.json';
+import rollHighOwn from '../../../content/lines/en/roll_high_own.json';
+import rollLowOwn from '../../../content/lines/en/roll_low_own.json';
+import battleWonOwn from '../../../content/lines/en/battle_won_own.json';
+import battleLostOwn from '../../../content/lines/en/battle_lost_own.json';
+import coinsInOwn from '../../../content/lines/en/coins_in_own.json';
+import coinsOutOwn from '../../../content/lines/en/coins_out_own.json';
+import catchOther from '../../../content/lines/en/catch_other.json';
+import missOther from '../../../content/lines/en/miss_other.json';
+import rollHighOther from '../../../content/lines/en/roll_high_other.json';
+import rollLowOther from '../../../content/lines/en/roll_low_other.json';
+import battleWonOther from '../../../content/lines/en/battle_won_other.json';
+import battleLostOther from '../../../content/lines/en/battle_lost_other.json';
+import coinsOther from '../../../content/lines/en/coins_other.json';
+import saleOther from '../../../content/lines/en/sale_other.json';
+import gymWinOther from '../../../content/lines/en/gym_win_other.json';
+import tableBanter from '../../../content/lines/en/table_banter.json';
+import tableRetort from '../../../content/lines/en/table_retort.json';
 
 const dialogue = Object.fromEntries(
   [
@@ -27,6 +44,23 @@ const dialogue = Object.fromEntries(
     ...promiseKept,
     ...soldPokemon,
     ...tauntLeader,
+    ...rollHighOwn,
+    ...rollLowOwn,
+    ...battleWonOwn,
+    ...battleLostOwn,
+    ...coinsInOwn,
+    ...coinsOutOwn,
+    ...catchOther,
+    ...missOther,
+    ...rollHighOther,
+    ...rollLowOther,
+    ...battleWonOther,
+    ...battleLostOther,
+    ...coinsOther,
+    ...saleOther,
+    ...gymWinOther,
+    ...tableBanter,
+    ...tableRetort,
   ].map((line) => [`ai.line.${line.id}`, line.text]),
 ) as Record<`ai.line.${string}`, string>;
 
@@ -558,7 +592,7 @@ export const en = {
   'talk.show': 'Show table talk',
   'talk.hidden': 'Table talk is hidden. No new lines are asked for while it is hidden.',
   'talk.empty':
-    'No table talk yet. An AI may comment, or speak to another AI that answers, after a rare catch, a big sale, a Gym win, a change in the lead or the final round.',
+    'No table talk yet. The AIs say hello when the game starts and chat at least once every round, with more after a roll, a catch, a battle, a payment, a sale or a Gym win.',
   'talk.exchange': 'An exchange: {from} speaks to {to}, who answers',
   'talk.onlyWords': 'Only words: table talk never changes a game number or an AI’s choice.',
   'talk.aiWritten': 'AI-written · only words',
@@ -567,11 +601,11 @@ export const en = {
   'talk.toYou': 'to you',
   'talk.voiceOff': 'Voice off',
   'talk.reason.disabled':
-    'AI-written speech is switched off on this server. Lines come from the line bank, or the table stays quiet.',
+    'AI-written speech is switched off on this server. The AIs still talk, with lines from the line bank.',
   'talk.reason.missing_key':
-    'AI-written speech is not set up on this server. Lines come from the line bank, or the table stays quiet.',
+    'AI-written speech is not set up on this server. The AIs still talk, with lines from the line bank.',
   'talk.reason.budget_exceeded':
-    'The AI-written speech spending limit has been reached. Lines come from the line bank, or the table stays quiet.',
+    'The AI-written speech spending limit has been reached. The AIs still talk, with lines from the line bank.',
   'ai.reason.stub': 'This decision uses the backup policy.',
   'ai.action.roll': '{name} rolled the die.',
   'ai.action.skip': '{name} continued past {phase}.',
@@ -670,15 +704,21 @@ export const en = {
   'gallery.example.badgeOneOfTwo': 'One of two rivals timed out',
   'gallery.example.voiceDisabled': 'Voice off: switched off on the server, a line from the bank',
   'gallery.example.voiceMissingKey': 'Voice off: no key on the server, a line from the bank',
-  'gallery.example.voiceBudget': 'Voice off: spending limit reached, no line for this moment',
+  'gallery.example.voiceBudget': 'Voice off: spending limit reached, the line bank speaks',
   'gallery.example.screenBank':
     'The text failed the screen: the bank line is shown, not labelled AI-written',
   'gallery.example.screenSilence':
-    'The text failed the screen and the bank has no line: nothing is shown',
+    'Before the first line: the panel says when the AIs talk, never a blank box',
   'gallery.example.exchange':
     'An exchange: the opening line, then the answer set in beneath it, each labelled AI-written',
   'gallery.example.exchangeDropped':
-    'An exchange the manipulation check refused or that ran out of time: nothing is shown or saved',
+    'An exchange the manipulation check refused or that ran out of time: the bank speaks in its place, as an exchange of two bank lines',
+  'gallery.row.casualTalk':
+    'The table talks every round: a greeting, a line about its own turn, a line to a rival',
+  'gallery.example.casualGreeting': 'The greeting before the first turn, from a line bank line',
+  'gallery.example.casualOwnTurn':
+    'A rival speaks about its own turn to the table: no "to" tag is shown',
+  'gallery.example.casualOther': 'A rival teases another seat by name about that seat’s turn',
   'gallery.example.badgeRateLimited': 'One of two rivals was rate limited',
 } as const satisfies Record<string, string>;
 
