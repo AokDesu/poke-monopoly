@@ -147,6 +147,26 @@ const SHOWN = [
       'social.retry',
     ],
   },
+  {
+    id: 'demo-scenes',
+    specRow: 'demo',
+    keys: [
+      'demo.scenes.heading',
+      'demo.scenes.body',
+      'demo.scene.ball.title',
+      'demo.scene.ball.description',
+      'demo.scene.pvp.title',
+      'demo.scene.pvp.description',
+      'demo.scene.reward.title',
+      'demo.scene.reward.description',
+      'demo.failed.heading',
+      'demo.failed.step',
+      'demo.failed.next',
+      'demo.scenes.none',
+      'demo.scene.banner',
+      'save.continue',
+    ],
+  },
 ] as const satisfies readonly { id: string; specRow: string; keys: readonly MessageKey[] }[];
 
 /** Rows with nothing for a player to see in this build (no free-text chat or deals screen, engine-only). */
@@ -193,7 +213,9 @@ test('every §3.1 row that has a screen shows each of its catalog keys, labelled
           ? t('gallery.specBattle')
           : row.specRow === 'social'
             ? t('gallery.specSocial')
-            : t('gallery.specRow', { row: row.specRow });
+            : row.specRow === 'demo'
+              ? t('gallery.specDemo')
+              : t('gallery.specRow', { row: row.specRow });
     expect(within(el).getByText(label), row.id).toBeTruthy();
   }
 });

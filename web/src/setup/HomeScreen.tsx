@@ -15,6 +15,8 @@ interface HomeScreenProps {
   onNewGame: () => void;
   onRandomAll: () => void;
   onWatch: () => void;
+  /** Present only in demo mode (`?demo`): opens the prepared scenarios. Absent, nothing mentions them. */
+  onDemo?: () => void;
 }
 
 export function HomeScreen({
@@ -24,6 +26,7 @@ export function HomeScreen({
   onNewGame,
   onRandomAll,
   onWatch,
+  onDemo,
 }: HomeScreenProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const focusHeading = useContext(FocusHeadingContext);
@@ -92,6 +95,14 @@ export function HomeScreen({
             </Button>
             <p className="mt-2 ps-2 text-sm text-ink-soft">{t('home.watchHint')}</p>
           </div>
+          {onDemo && (
+            <div>
+              <Button variant="secondary" className="w-full" onClick={onDemo}>
+                {t('demo.scenes.entry')}
+              </Button>
+              <p className="mt-2 ps-2 text-sm text-ink-soft">{t('demo.scenes.entryHint')}</p>
+            </div>
+          )}
           {!canStart && <DisabledReason id={reasonId}>{t('home.notEnoughClasses')}</DisabledReason>}
           {!canWatch && (
             <DisabledReason id={watchReasonId}>{t('home.watchNotEnough')}</DisabledReason>

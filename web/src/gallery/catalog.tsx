@@ -10,6 +10,9 @@ import { WatchPanel } from '../board/WatchPanel.tsx';
 import { t, type MessageKey } from '../i18n/en.ts';
 import { className } from '../i18n/names.ts';
 import { pendingLine, SavePrompt } from '../SavePrompt.tsx';
+import { DemoBanner } from '../DemoBanner.tsx';
+import { openScenes } from '../game/demoScenes.ts';
+import { DemoScreen } from '../setup/DemoScreen.tsx';
 import type { TurnPlayback } from '../board/useTurnPlayback.ts';
 import type { ChatReplyControls, ChatReplyState } from '../board/useChatReply.ts';
 import type { ChatReply } from '../game/chat.ts';
@@ -776,6 +779,74 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
           caption: 'gallery.example.socialFailed',
           render: () =>
             turnPanel(socialSent(), { social: reply({ status: 'failed', reason: 'timeout' }) }),
+        },
+      ],
+    },
+    {
+      id: 'demo-scenes',
+      specRow: null,
+      spec: { id: 'demo', label: 'gallery.specDemo' },
+      label: 'gallery.row.demoScenes',
+      keys: [
+        'demo.scenes.heading',
+        'demo.scenes.body',
+        'demo.scene.ball.title',
+        'demo.scene.ball.description',
+        'demo.scene.pvp.title',
+        'demo.scene.pvp.description',
+        'demo.scene.reward.title',
+        'demo.scene.reward.description',
+        'demo.failed.heading',
+        'demo.failed.step',
+        'demo.failed.next',
+        'demo.scenes.none',
+        'demo.scene.banner',
+        'save.continue',
+      ],
+      examples: [
+        {
+          id: 'list',
+          caption: 'gallery.example.demoList',
+          render: () => <DemoScreen scenes={openScenes()} onOpen={noop} onBack={noop} />,
+        },
+        {
+          id: 'failed',
+          caption: 'gallery.example.demoFailed',
+          render: () => (
+            <DemoScreen
+              scenes={openScenes()}
+              failure={{ kind: 'step', step: 3, total: 7 }}
+              onOpen={noop}
+              onBack={noop}
+            />
+          ),
+        },
+        {
+          id: 'none',
+          caption: 'gallery.example.demoNone',
+          render: () => <DemoScreen scenes={[]} onOpen={noop} onBack={noop} />,
+        },
+        {
+          id: 'banner',
+          caption: 'gallery.example.demoBanner',
+          render: () => (
+            <>
+              <DemoBanner />
+              <SavePrompt
+                kind="continue"
+                pending={pendingLine({
+                  phase: decisionOpen().view.observation.public.phase.kind,
+                  waiting: 'decision',
+                  seatIndex: decisionOpen().view.observation.public.activeSeatIndex,
+                  humanSeat: decisionOpen().view.seatIndex,
+                  turn: decisionOpen().view.observation.public.globalTurnNo,
+                  aiDecision: false,
+                })}
+                onContinue={noop}
+                onNewGame={noop}
+              />
+            </>
+          ),
         },
       ],
     },

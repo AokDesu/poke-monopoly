@@ -10,6 +10,14 @@ const FixtureRoute = lazy(() => import('./board/FixtureRoute.tsx'));
 // nothing in the player flow can reach it, and there is no URL to type.
 const GalleryPage = __UI_GALLERY__ ? lazy(() => import('./gallery/GalleryRoute.tsx')) : null;
 
+/**
+ * A playtest session's link carries its participant code as a bare key, such as `?P5-A01`
+ * (`docs/playtest/PROTOCOL.md`). Such a session never opens demo mode, whatever else the link says.
+ */
+const PARTICIPANT_CODE = /^[A-Z][A-Z0-9]*-[A-Z]\d{2}$/i;
+const hasParticipantCode = (params: URLSearchParams) =>
+  [...params.keys()].some((key) => PARTICIPANT_CODE.test(key));
+
 export function Root({ search, dev = __UI_GALLERY__ }: { search: string; dev?: boolean }) {
   const params = new URLSearchParams(search);
   const fixtureName = params.get('fixture');
@@ -20,7 +28,10 @@ export function Root({ search, dev = __UI_GALLERY__ }: { search: string; dev?: b
           <GalleryPage />
         </Suspense>
       ) : fixtureName === null ? (
-        <App seed={seedFromSearch(search)} demo={params.has('demo')} />
+        <App
+          seed={seedFromSearch(search)}
+          demo={params.has('demo') && !hasParticipantCode(params)}
+        />
       ) : (
         <Suspense fallback={<p className="p-8">{t('play.heading')}</p>}>
           <FixtureRoute name={fixtureName} />

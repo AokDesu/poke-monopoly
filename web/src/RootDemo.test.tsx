@@ -24,6 +24,9 @@ test.each([
   ['', false],
   ['?seed=3', false],
   ['?P5-A01', false],
+  ['?P5-A01&demo', false],
+  ['?demo&G1-C12', false],
+  ['?demo&p5-b03&seed=4', false],
   ['?demonstration=1', false],
   ['?gallery', false],
 ])('%s opens demo mode: %s', (search, demo) => {

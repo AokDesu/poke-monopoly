@@ -101,6 +101,18 @@ name and shape (proposed, `decisionDetailSchema`); until the server sends it onl
 decisions show. `game/fakeJevAnswer.ts` is a typed fake of that answer for tests and the dev
 gallery.
 
+Prepared scenarios (`?demo` without a participant code, issue #222) add a "Prepared scenarios"
+entry to Home. `game/demoScenes.ts` lists each scene as a seed plus a short script of legal engine
+actions (`{ engine: n }` applies pending dice or sole choices, `{ seat, choose }` takes an enabled
+action by its ID) that `buildScene` applies through the normal store after the first-player roll;
+nothing is hand-edited and no rule lives in the script. A scene opens only if its setup passes the
+setup screens' own check (`openScenes`), and a build that fails, a step the engine no longer allows
+or a game that ends away from its moment, shows the reason with a way back instead of a game. The
+scene's name is saved in the browser beside the game (`SaveMeta.scene`), never in the exported log,
+so every screen and a reload show the "Prepared scenario" banner (`DemoBanner.tsx`); without `?demo`
+a saved scene game is not offered. To add a scene, search seeds with a throwaway driver until the
+moment is reached in a few steps, then add its test row in `game/demoScenes.test.ts`.
+
 Tokens use the `position` already projected by `observe()` (including negative and multi-Lap
 progress). Lap counts are paid Laps completed, not a UI-computed current-Lap number. Square
 labels and icons remain DOM content even without WebGL; the static meadow reuses the

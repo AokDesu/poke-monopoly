@@ -107,6 +107,18 @@
       0 16px 26px -10px rgb(16 38 84 / 0.38);
   }
 
+  /* Demo mode: a slim strip on every screen of a prepared scenario (issue #222). */
+  .scene-banner {
+    padding: 0.5rem 0.9rem;
+    border-radius: 14px;
+    background: var(--color-reward);
+    color: var(--color-ink);
+    font-size: 0.95rem;
+    font-weight: 800;
+    line-height: 1.35;
+    text-wrap: pretty;
+  }
+
   /* A panel the player can pick. */
   .choice {
     display: block;
