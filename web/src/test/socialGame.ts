@@ -1,7 +1,12 @@
 import { vi } from 'vitest';
 import type { ChatMessage } from '../../../engine/index.ts';
 import { engineContent } from '../game/content.ts';
-import { configForSetup, createGameStore, type GameStore } from '../game/store.ts';
+import {
+  configForSetup,
+  createGameStore,
+  type GameStore,
+  type OpponentSettings,
+} from '../game/store.ts';
 
 /** Test helpers for the Social window: a human at seat 0 and one or two AI rivals. */
 
@@ -10,7 +15,12 @@ const RIVALS = [
   { classId: 'rival', starterSpeciesId: 'eevee' },
 ];
 
-export function socialGame(rivals: 1 | 2, seed: string | number = 'social-seed'): GameStore {
+export function socialGame(
+  rivals: 1 | 2,
+  seed: string | number = 'social-seed',
+  /** The settings the game starts with: every rival's by default; fewer to leave a seat without. */
+  settings?: readonly OpponentSettings[],
+): GameStore {
   const opponents = RIVALS.slice(0, rivals).map((choice) => ({
     ...choice,
     personality: 'greedy' as const,
@@ -30,11 +40,12 @@ export function socialGame(rivals: 1 | 2, seed: string | number = 'social-seed')
       lapTarget: 10,
     },
     engineContent,
-    opponents.map((_, index) => ({
-      seatIndex: index + 1,
-      personality: 'greedy',
-      difficulty: 'normal',
-    })),
+    settings ??
+      opponents.map((_, index) => ({
+        seatIndex: index + 1,
+        personality: 'greedy' as const,
+        difficulty: 'normal' as const,
+      })),
   );
   return store;
 }
