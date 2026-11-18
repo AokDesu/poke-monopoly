@@ -1,0 +1,98 @@
+[
+  {
+    "id": "gym-win-other-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "{target} won the Gym! I hope the reward was shiny."
+  },
+  {
+    "id": "gym-win-other-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Gym cleared, {target}. Now that is a good day of work."
+  },
+  {
+    "id": "gym-win-other-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Congrats, {target}. A badge looks lovely next to coins."
+  },
+  {
+    "id": "gym-win-other-greedy-neutral-4",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "{target} beat the Gym. I would like a small celebration, please."
+  },
+  {
+    "id": "gym-win-other-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{target} beat the Gym! I was going to do that."
+  },
+  {
+    "id": "gym-win-other-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Gym won, {target}. Now come battle me, champion!"
+  },
+  {
+    "id": "gym-win-other-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Nice win at the Gym, {target}. I am next, you know."
+  },
+  {
+    "id": "gym-win-other-aggressive-neutral-4",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{target} cleared the Gym. Pikachu would be proud."
+  },
+  {
+    "id": "gym-win-other-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Well done, {target}. A Gym is no small matter."
+  },
+  {
+    "id": "gym-win-other-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "{target} won the Gym. Congratulations, and rest well."
+  },
+  {
+    "id": "gym-win-other-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "A fine Gym win, {target}. I admire the preparation."
+  },
+  {
+    "id": "gym-win-other-cautious-neutral-4",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Gym cleared by {target}. I will study how it was done."
+  },
+  {
+    "id": "gym-win-other-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "{target} won the Gym! I will stand next to you in photos."
+  },
+  {
+    "id": "gym-win-other-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Gym champion {target}, my favourite trainer today."
+  },
+  {
+    "id": "gym-win-other-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Well done, {target}. Gyms love you, and so do I."
+  },
+  {
+    "id": "gym-win-other-opportunist-neutral-4",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "{target} cleared the Gym. I knew I picked a good friend."
+  }
+]

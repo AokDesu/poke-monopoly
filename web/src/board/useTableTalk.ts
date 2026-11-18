@@ -2,20 +2,27 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import type { AiSpeechEvent } from '../../../engine/index.ts';
 import type { GameStore, SeatView, SpectatorView } from '../game/store.ts';
 import {
-  canSpeakWithoutHaiku,
+  bankAnswer,
+  banterDue,
   detectMoment,
-  leaderOf,
   exchangeEvents,
+  greeting,
+  leaderOf,
   planTableTalk,
   replyBody,
   requestExchange,
   requestSpeech,
-  roundOf,
+  retortAnswer,
+  retortEvent,
   speakBody,
-  speedAllowsTalk,
   speechEvent,
+  speedAllowsTalk,
   spokenLines,
+  RECENT_LINES,
   voiceOff,
+  type Moment,
+  type PublicGame,
+  type TalkPlan,
   type VoiceReason,
 } from '../game/tableTalk.ts';
 import type { TurnPlayback } from './useTurnPlayback.ts';
@@ -36,18 +43,20 @@ interface Tracking {
   /** Feed entries already looked at: a game opened or reloaded never comments on its past. */
   handled: number;
   leader: number | null;
+  /** The public game before the latest entry: a sale names what was sold from it. */
+  game: PublicGame;
   pending: AbortController | null;
-  /** The last round an exchange was asked for, shown or not: one try per round, so a refused line is not retried. */
-  exchangeRound: number | null;
 }
 
 /**
- * Table talk beside the field log (spec §3, §5.7): after a public moment in the viewer's own feed,
- * one AI seat may say one line, or, when the moment is about another AI, speak to it and be
- * answered once. The request runs beside the game, never in front of it: a step
- * never waits, a slow or failed route shows nothing, and a line that arrives after the game has
- * been paused, hidden or sped up is dropped. Words never touch the engine; a shown line is only
- * saved as an `ai_speech` dialogue event.
+ * Table talk beside the field log (spec §3, §5.7). A game opens with a greeting; then every round
+ * has a line, a casual one when nothing happened, and a public moment in the viewer's own feed (a
+ * die, a catch, a battle, coins changing hands, a sale, a Gym win, a change at the top) gets one
+ * more, from any AI seat. When the line is addressed to another AI, that AI answers once. The
+ * request runs beside the game, never in front of it: a step never waits, a slow, failed or off
+ * route is answered from the line bank, and a line that arrives after the game has been paused,
+ * hidden or sped up is dropped. Words never touch the engine; a shown line is only saved as an
+ * `ai_speech` dialogue event.
  */
 export function useTableTalk(
   store: GameStore,
@@ -63,15 +72,15 @@ export function useTableTalk(
   // A watched game started with AI talk off never asks for a line (spec §3); other games talk.
   const enabled = store.getWatchSettings()?.talk ?? true;
   const off = voiceOff(playback.status);
-  // An exchange needs Jev for the manipulation check as well as Haiku for the words.
-  const exchangeOn = off === null && playback.status?.backupOnly !== true;
+  // An answer written by Haiku needs Jev for the manipulation check as well as Haiku for the words.
+  const answerOn = off === null && playback.status?.backupOnly !== true;
   const live = useRef({
     speed: playback.speed,
     paused: playback.paused,
     hidden,
     enabled,
     off,
-    exchangeOn,
+    answerOn,
     lines,
   });
   live.current = {
@@ -80,7 +89,7 @@ export function useTableTalk(
     hidden,
     enabled,
     off,
-    exchangeOn,
+    answerOn,
     lines,
   };
   const tracking = useRef<Tracking | null>(null);
@@ -89,86 +98,141 @@ export function useTableTalk(
     if (!view) return;
     const gameId = store.getGameId();
     const game = view.observation.public;
+    const seed = store.getSession()?.log.seed;
+
+    /** Plans a line for `moment` and runs it beside the game; false when nothing was asked for. */
+    const ask = (track: Tracking, moment: Moment, momentKey: number): boolean => {
+      if (seed === undefined || track.pending) return false;
+      const now = live.current;
+      const plan = planTableTalk({
+        view,
+        seed,
+        momentKey,
+        spoken: now.lines,
+        moment,
+        speed: now.speed,
+        paused: now.paused,
+        hidden: now.hidden || !now.enabled,
+      });
+      if (!plan) return false;
+      const controller = new AbortController();
+      track.pending = controller;
+      // The answer is dropped, never shown late, if the game moved on while the route worked.
+      const stillWanted = () => {
+        const latest = live.current;
+        return (
+          !controller.signal.aborted &&
+          store.getGameId() === gameId &&
+          store.getSession()?.state.phase.kind !== 'finished' &&
+          speedAllowsTalk(latest.speed) &&
+          !latest.paused &&
+          !latest.hidden
+        );
+      };
+      void speak({ plan, game, gameId, seed, momentKey, controller, stillWanted }).finally(() => {
+        if (track.pending === controller) track.pending = null;
+      });
+      return true;
+    };
+
+    /**
+     * One line, or an exchange when the line is addressed to an AI that may answer. Haiku's words
+     * are shown only whole and on time; otherwise the bank speaks, the answer included.
+     */
+    const speak = async (args: {
+      plan: TalkPlan;
+      game: PublicGame;
+      gameId: string;
+      seed: string | number;
+      momentKey: number;
+      controller: AbortController;
+      stillWanted: () => boolean;
+    }) => {
+      const { plan, game, gameId, seed, momentKey, controller, stillWanted } = args;
+      const { signal } = controller;
+      const { listener } = plan;
+      const generated = live.current.off === null;
+      const body = speakBody({ gameId, plan, game, momentKey });
+      if (listener && generated && live.current.answerOn) {
+        const exchange = { ...plan, listener };
+        const answer = await requestExchange(
+          body,
+          (quote) => replyBody({ gameId, plan: exchange, game, momentKey, quote }),
+          signal,
+        );
+        if (!stillWanted()) return;
+        const events = answer ? exchangeEvents(exchange, answer) : null;
+        // The two lines are saved together, opening first: an exchange is shown whole or not at all.
+        if (events) {
+          if (store.recordSpeech(events[0])) store.recordSpeech(events[1]);
+          return;
+        }
+      }
+      // A single line, asked of the route only while generated speech is on.
+      const route =
+        generated && !(listener && live.current.answerOn)
+          ? await requestSpeech(body, signal)
+          : null;
+      if (!stillWanted()) return;
+      // Only Haiku's own line is taken from the route: when it answers with a bank line, or with
+      // nothing, the table picks its own, steering clear of what was just said.
+      const recent = live.current.lines
+        .slice(-RECENT_LINES)
+        .flatMap((line) => (line.lineId ? [line.lineId] : []));
+      const fallback = bankAnswer(plan.situation, plan.personalityId, seed, momentKey, recent);
+      const opening =
+        (route?.source === 'haiku' && speechEvent(plan, route, game)) ||
+        (fallback && speechEvent(plan, fallback, game));
+      if (!opening || !store.recordSpeech(opening)) return;
+      // A line spoken to the table names no one to answer it; a Haiku line is answered only in an exchange.
+      if (!listener || opening.source !== 'bank' || opening.addressedSeatIndex !== listener.seat)
+        return;
+      const retort = retortAnswer(listener.personalityId, seed, momentKey, [
+        ...recent,
+        ...(opening.lineId ? [opening.lineId] : []),
+      ]);
+      const answer = retort && retortEvent({ ...plan, listener }, retort, game);
+      if (answer && stillWanted()) store.recordSpeech(answer);
+    };
+
     const track = tracking.current;
     if (!track || track.gameId !== gameId) {
       track?.pending?.abort();
-      tracking.current = {
+      const fresh: Tracking = {
         gameId,
         handled: view.feed.length,
         leader: leaderOf(game.players),
+        game,
         pending: null,
-        exchangeRound: null,
       };
+      tracking.current = fresh;
+      // A game that is just beginning opens with a greeting; a game that already has talk (a
+      // reload) or is past its first turn does not.
+      if (game.globalTurnNo <= 1 && live.current.lines.length === 0) ask(fresh, greeting(game), 0);
       return;
     }
     const previousLeader = track.leader;
+    const previous = track.game;
     track.leader = leaderOf(game.players);
-    const fresh = view.feed.length > track.handled;
+    track.game = game;
+    const isFresh = view.feed.length > track.handled;
     track.handled = view.feed.length;
     const entry = view.feed.at(-1);
-    if (!fresh || !entry) return;
-    const moment = detectMoment(entry, game, previousLeader);
-    const seed = store.getSession()?.log.seed;
-    if (!moment || seed === undefined || track.pending) return;
-    const now = live.current;
-    const round = roundOf(moment.turn, game.players.length);
-    const plan = planTableTalk({
-      view,
-      seed,
-      momentKey: view.feed.length,
-      spoken: now.lines,
-      moment,
-      speed: now.speed,
-      paused: now.paused,
-      hidden: now.hidden || !now.enabled,
-      exchangeAllowed: now.exchangeOn && track.exchangeRound !== round,
-    });
-    const { listener } = plan ?? {};
-    if (!plan || (!listener && now.off && !canSpeakWithoutHaiku(moment.situation))) return;
-    const controller = new AbortController();
-    track.pending = controller;
+    if (!isFresh || !entry) return;
     const momentKey = view.feed.length;
-    const body = speakBody({ gameId, plan, game, momentKey });
-    // The answer is dropped, never shown late, if the game moved on while the route worked.
-    const stillWanted = () => {
-      const latest = live.current;
-      return (
-        !controller.signal.aborted &&
-        store.getGameId() === gameId &&
-        speedAllowsTalk(latest.speed) &&
-        !latest.paused &&
-        !latest.hidden
-      );
-    };
-    const settle = () => {
-      if (track.pending === controller) track.pending = null;
-    };
-    if (listener) {
-      track.exchangeRound = round;
-      const exchange = { ...plan, listener };
-      void requestExchange(
-        body,
-        (quote) => replyBody({ gameId, plan: exchange, game, momentKey, quote }),
-        controller.signal,
-      ).then((answer) => {
-        settle();
-        const events = answer && stillWanted() ? exchangeEvents(exchange, answer) : null;
-        // The two lines are saved together, opening first: an exchange is shown whole or not at all.
-        if (events && store.recordSpeech(events[0])) store.recordSpeech(events[1]);
-      });
-      return;
-    }
-    void requestSpeech(body, controller.signal).then((answer) => {
-      settle();
-      if (!answer || !stillWanted()) return;
-      const event = speechEvent(plan, answer, game);
-      if (event) store.recordSpeech(event);
-    });
+    const moment = detectMoment(entry, game, previousLeader, previous);
+    if (moment && ask(track, moment, momentKey)) return;
+    // Nothing to say about this step, or nobody to say it: a round still gets its line.
+    const banter = banterDue(game, live.current.lines);
+    if (banter) ask(track, banter, momentKey);
   }, [store, view]);
 
+  // A cleanup also ends the request in flight, so the next mount starts from nothing: it looks at
+  // the game as it finds it, never at a past moment, and greets a game that has not spoken yet.
   useEffect(
     () => () => {
       tracking.current?.pending?.abort();
+      tracking.current = null;
     },
     [],
   );

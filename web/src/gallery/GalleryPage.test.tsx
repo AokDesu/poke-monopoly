@@ -66,7 +66,12 @@ const SHOWN = [
   {
     id: 'ai-exchange',
     specRow: 'ai-turns',
-    keys: ['talk.aiWritten', 'talk.onlyWords', 'talk.empty'],
+    keys: ['talk.aiWritten', 'talk.bank', 'talk.onlyWords'],
+  },
+  {
+    id: 'casual-talk',
+    specRow: 'ai-turns',
+    keys: ['talk.bank', 'talk.toYou', 'talk.onlyWords'],
   },
   {
     id: 'watch-browser-closed',

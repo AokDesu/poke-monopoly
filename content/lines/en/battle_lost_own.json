@@ -1,0 +1,98 @@
+[
+  {
+    "id": "battle-lost-own-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "I lost that battle. My team and I need a rest."
+  },
+  {
+    "id": "battle-lost-own-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Ouch. That battle cost me. I will win it back."
+  },
+  {
+    "id": "battle-lost-own-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "A loss. Well, at least I learned something. Not much, but something."
+  },
+  {
+    "id": "battle-lost-own-greedy-neutral-4",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "That battle was rough. No pain, no Poké-gain."
+  },
+  {
+    "id": "battle-lost-own-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "I lost? Impossible! I demand a rematch."
+  },
+  {
+    "id": "battle-lost-own-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Fine, you won this time. The next battle will be mine!"
+  },
+  {
+    "id": "battle-lost-own-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "That loss only makes my team angrier."
+  },
+  {
+    "id": "battle-lost-own-aggressive-neutral-4",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Ugh! I will train harder and come back stronger."
+  },
+  {
+    "id": "battle-lost-own-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "A loss. I should have been more careful."
+  },
+  {
+    "id": "battle-lost-own-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "I lost the battle, but I learned a lot."
+  },
+  {
+    "id": "battle-lost-own-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "That battle did not go my way. I will be ready next time."
+  },
+  {
+    "id": "battle-lost-own-cautious-neutral-4",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Oh dear. Good battle, truly. I will rest my team."
+  },
+  {
+    "id": "battle-lost-own-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "I lost? How rude of the dice. I will remember this."
+  },
+  {
+    "id": "battle-lost-own-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "A loss, but I smile anyway. The game is long."
+  },
+  {
+    "id": "battle-lost-own-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Well fought, you. I will pretend I let you win."
+  },
+  {
+    "id": "battle-lost-own-opportunist-neutral-4",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Down but not out. Even Magikarp wins in the end."
+  }
+]
