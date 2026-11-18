@@ -62,6 +62,10 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
   const reshuffled = once(scenes.eventAfterReshuffle);
   const decisionOpen = once(scenes.rivalDecisionOpen);
   const watchOpen = once(scenes.watchDecisionOpen);
+  const choseBall = once(scenes.rivalChoseBall);
+  const choseItem = once(scenes.rivalChoseItem);
+  const choseSale = once(scenes.rivalChoseSale);
+  const choseBackup = once(scenes.rivalBackupAtEncounter);
   const rivalFallback = (reason: string, rivals: 1 | 2) =>
     once(() => scenes.rivalLeftShop({ source: 'fallback', fallbackReason: reason }, rivals));
   const timeoutOfOne = rivalFallback('timeout', 1);
@@ -478,6 +482,42 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
               [casualLine('roll-low-other-cautious-neutral-2', 2, 1, 7)],
               exchangePlayers(),
             ),
+        },
+      ],
+    },
+    {
+      id: 'jev-panel',
+      specRow: null,
+      label: 'gallery.row.jevPanel',
+      keys: [
+        'demo.heading',
+        'demo.banner',
+        'demo.chosen',
+        'demo.confidence',
+        'demo.sellNote',
+        'demo.byBackup',
+        'ai.reason.timeout',
+      ],
+      examples: [
+        {
+          id: 'ball',
+          caption: 'gallery.example.jevPanelCatch',
+          render: () => turnPanel(choseBall()),
+        },
+        {
+          id: 'item',
+          caption: 'gallery.example.jevPanelItem',
+          render: () => turnPanel(choseItem()),
+        },
+        {
+          id: 'sell',
+          caption: 'gallery.example.jevPanelSell',
+          render: () => turnPanel(choseSale()),
+        },
+        {
+          id: 'backup',
+          caption: 'gallery.example.jevPanelBackup',
+          render: () => turnPanel(choseBackup()),
         },
       ],
     },

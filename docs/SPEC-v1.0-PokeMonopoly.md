@@ -115,6 +115,7 @@ Watch path: Home → Watch AIs → choose Quick → choose 2–4 AIs → set eac
 - The game can be finished without ever typing in chat.
 - A "Backup bot mode" badge shows truthfully while Jev is unavailable for an AI (`disabled`, `missing_key`, `budget_exceeded`, `timeout`, `network`, `rate_limited`, `server_error`, `auth`); the "every AI in backup mode" banner follows the same rule. A fallback during normal play (an invalid answer, a revision mismatch or low confidence) shows the §3.1 per-turn note on that AI turn instead, and a decision with only one legal action (`auto`) shows nothing.
 - A “Voice off” badge shows truthfully while Haiku is unavailable (`disabled`, `missing_key`, `budget_exceeded`, `timeout`, `network`, `rate_limited`, `server_error`, `auth`); the game itself is unchanged.
+- **Demo mode (`?demo`):** a "What Jev chose" panel (§11 step 3) sits under a rival's decision in a one-human game. It lists the options that rival was given in plain words, Jev's probability for each exactly as the server sent it, Jev's confidence, the option taken, who decided (Jev or the backup bot) and the game's own record of what followed. A backup-bot decision shows its reason and no probabilities; a decision with only one legal action shows nothing. The options are the rival's private ones (§1), so the panel carries a banner that says so, and it exists only when the page is opened with `?demo`: a normal game, a watched game and a playtest session show none of it, ask for none of it and keep none of it. The numbers come from an optional detail on the decision answer that only a server in demo mode sends (`decisionDetailSchema`, proposed, stream B owns it); until the server sends it the panel shows only backup-bot decisions. It is presentation: saves and exported logs are the same with or without it.
 - The player-facing UI, line bank and chat are in English (captain, 2026-10-21; replaces the Thai UI of earlier drafts). UI strings in this document are the English source; the web catalog is `web/src/i18n/en.ts`.
 
 ### 3.1 Decisions you never made
@@ -747,7 +748,7 @@ Never cut playing to completion, the fallback, the hard gates, or the core conve
 
 1. Open setup and choose 1–3 AIs with class and personality.
 2. Load a demo scenario announced as prepared, and show two legal options.
-3. The AI chooses a Ball/Ability/Item, with a "What Jev chose" panel showing the options, probabilities and confidence. The actual result comes from the engine.
+3. The AI chooses a Ball/Ability/Item, with a "What Jev chose" panel showing the options, probabilities and confidence (demo mode only, §3 AI turns). The actual result comes from the engine.
 4. Issue a PvP challenge and show the accept or decline, or a rule-based force.
 5. Win, choose coins or evolution, and show the new form's stats and Ability.
 6. Show memory from a kept or broken promise and its effect on negotiation.

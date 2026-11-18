@@ -634,6 +634,30 @@ export const en = {
   'ai.allBackupBanner':
     'Every AI rival is using the backup bot. The game goes on under the same rules.',
 
+  // The demo-only "What Jev chose" panel (spec §3 AI turns, §11 step 3, issue #220).
+  'demo.heading': 'What Jev chose',
+  'demo.banner': 'Demo view: this shows a rival’s private options. A normal game never shows them.',
+  'demo.decision': '{name} · {phase}',
+  'demo.options': 'Options Jev was given, most likely first',
+  'demo.col.option': 'Option',
+  'demo.col.probability': 'Jev’s probability',
+  'demo.chosen': 'Chosen',
+  'demo.confidence': 'Jev’s confidence: {value}',
+  'demo.sellNote':
+    'At the Sell Phase Jev answers once per Pokémon, so these chances do not add up to 1.',
+  'demo.byJev': 'Jev decided.',
+  'demo.byBackup': 'The backup bot decided, so there are no probabilities to show.',
+  'demo.result': 'What the game recorded',
+  'demo.option.useItem': 'Use {item}',
+  'demo.option.useItemOn': 'Use {item} on {target}',
+  'demo.option.useItemOnPokemon': 'Use {item} on {pokemon}',
+  'demo.option.skip': 'Skip item use',
+  'demo.option.catch': 'Throw a {ball}',
+  'demo.option.release': 'Release {pokemon}',
+  'demo.option.sell': 'Sell {pokemon}',
+  'demo.option.challenge': 'Challenge {target}',
+  'demo.option.other': 'Another option',
+
   'chat.unclassified':
     'That message could not be understood. Try a chat topic or write it more plainly. The AI’s plan has not changed.',
   'chat.manipulationRefused':
@@ -720,6 +744,11 @@ export const en = {
     'A rival speaks about its own turn to the table: no "to" tag is shown',
   'gallery.example.casualOther': 'A rival teases another seat by name about that seat’s turn',
   'gallery.example.badgeRateLimited': 'One of two rivals was rate limited',
+  'gallery.row.jevPanel': 'Demo mode: the "What Jev chose" panel under a rival’s decision',
+  'gallery.example.jevPanelCatch': 'Jev chose a Ball at an encounter',
+  'gallery.example.jevPanelItem': 'Jev chose among its items and targets',
+  'gallery.example.jevPanelSell': 'Jev answered the Sell Phase, one chance per Pokémon',
+  'gallery.example.jevPanelBackup': 'The backup bot decided: its reason, no probabilities',
 } as const satisfies Record<string, string>;
 
 export type MessageKey = keyof typeof en | keyof typeof dialogue;

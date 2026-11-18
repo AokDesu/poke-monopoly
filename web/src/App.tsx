@@ -64,6 +64,8 @@ import { FocusHeadingContext, Screen } from './ui/Screen.tsx';
 export interface AppProps {
   /** Test-only fixed game seed from `?seed=`; never shown to players. */
   seed?: number | string;
+  /** Demo mode (`?demo`): shows the "What Jev chose" panel on a rival's decision (issue #220). */
+  demo?: boolean;
   /** Random All's source of choices. */
   random?: () => number;
   store?: GameStore;
@@ -123,11 +125,12 @@ function inspect(storage: SaveStorage | null): { offer: SaveOffer | null; unavai
 
 export function App({
   seed,
+  demo = false,
   random = Math.random,
   store: givenStore,
   storage: givenStorage,
 }: AppProps) {
-  const [store] = useState(() => givenStore ?? createGameStore());
+  const [store] = useState(() => givenStore ?? createGameStore({ demo }));
   const [storage] = useState(() => (givenStorage === undefined ? browserStorage() : givenStorage));
   const [opened] = useState(() => inspect(storage));
   // A reload keeps an unfinished watch setup, unless a saved game is waiting on the Home screen.

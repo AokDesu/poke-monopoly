@@ -75,6 +75,19 @@ const SHOWN = [
     keys: ['talk.bank', 'talk.toYou', 'talk.onlyWords'],
   },
   {
+    id: 'jev-panel',
+    specRow: 'ai-turns',
+    keys: [
+      'demo.heading',
+      'demo.banner',
+      'demo.chosen',
+      'demo.confidence',
+      'demo.sellNote',
+      'demo.byBackup',
+      'ai.reason.timeout',
+    ],
+  },
+  {
     id: 'watch-browser-closed',
     specRow: '17',
     keys: ['save.pendingWatched', 'save.continue', 'game.resumedAiTurn'],
@@ -193,5 +206,19 @@ test('an invalid answer, revision mismatch or low confidence shows a per-turn no
   }
   for (const id of ['backup-badge', 'all-backup']) {
     expect(examples(id).textContent!, id).toContain(t('ai.backupBadge'));
+  }
+});
+
+test('the "What Jev chose" panel lives only in its own row, and every example of it carries the private-options banner', () => {
+  render(<GalleryPage fixtures={fixtures} />);
+  for (const row of SHOWN) {
+    const found = examples(row.id).querySelectorAll('.jev-panel');
+    if (row.id !== 'jev-panel') {
+      expect(found.length, row.id).toBe(0);
+      expect(examples(row.id).textContent!, row.id).not.toContain(t('demo.heading'));
+    } else {
+      expect(found.length).toBe(4);
+      for (const panel of found) expect(panel.textContent).toContain(t('demo.banner'));
+    }
   }
 });
