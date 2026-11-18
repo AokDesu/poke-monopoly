@@ -4,6 +4,7 @@ import { CHAT_TOPICS, chatChoices, type ChatChoice } from '../game/chat.ts';
 import { en, t, type MessageKey } from '../i18n/en.ts';
 import { className, itemName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
+import { voiceReasonText } from '../game/tableTalk.ts';
 import { backupReasonText } from './AiTurn.tsx';
 import { seatLabel } from './labels.ts';
 import type { ChatReplyControls } from './useChatReply.ts';
@@ -329,19 +330,36 @@ function Reply({
   reply: ChatReplyControls;
   rivalName: (seatIndex: number) => string;
 }) {
+  const { state } = reply;
+  if (state.status === 'none') return null;
+  // One live region for every state, so the reply that replaces "waiting" is announced.
+  return (
+    <div role="status">
+      <ReplyBody observation={observation} toSeat={toSeat} reply={reply} rivalName={rivalName} />
+    </div>
+  );
+}
+
+function ReplyBody({
+  observation,
+  toSeat,
+  reply,
+  rivalName,
+}: {
+  observation: Observation;
+  toSeat: number;
+  reply: ChatReplyControls;
+  rivalName: (seatIndex: number) => string;
+}) {
   const rival = rivalName(toSeat);
   const { state } = reply;
   if (state.status === 'none') return null;
   if (state.status === 'waiting') {
-    return (
-      <p className="social-reply-status" role="status">
-        {t('social.waiting', { rival })}
-      </p>
-    );
+    return <p className="social-reply-status">{t('social.waiting', { rival })}</p>;
   }
   if (state.status === 'failed') {
     return (
-      <div className="social-reply-status" role="status" data-reply="failed">
+      <div className="social-reply-status" data-reply="failed">
         <p>
           {t(`social.failed.${state.reason === 'stale' ? 'invalid' : state.reason}`, { rival })}
         </p>
@@ -355,12 +373,19 @@ function Reply({
     (player) => player.seatIndex === observation.own.seatIndex,
   );
   const key = `ai.line.${state.reply.lineId}` as MessageKey;
-  const text = Object.hasOwn(en, key) ? t(key, { target: className(you?.classId ?? '') }) : '';
-  // A line ID the catalog does not know, or one with an unfilled slot, is never shown as dialogue.
+  const bank = Object.hasOwn(en, key) ? t(key, { target: className(you?.classId ?? '') }) : '';
+  // The rival's own words, when they came in time. Otherwise the bank line; a line ID the catalog
+  // does not know, or one with an unfilled slot, is never shown as dialogue.
+  const words = state.words;
+  const text = words ?? bank;
   const usable = text !== '' && !/[{}]/.test(text);
   const backup = backupReasonText(state.reply);
   return (
-    <div className="social-reply" data-reply="ready" data-source={state.reply.source}>
+    <div
+      className="social-reply"
+      data-reply="ready"
+      data-source={words ? 'haiku' : state.reply.source}
+    >
       <span className="seat-disc" data-seat={toSeat} aria-hidden="true">
         {toSeat}
       </span>
@@ -371,12 +396,18 @@ function Reply({
         {usable ? (
           <>
             <p className="social-reply-text">{text}</p>
-            <p className="social-reply-label">{t('talk.bank')}</p>
+            <p className="social-reply-label">{t(words ? 'talk.aiWritten' : 'talk.bank')}</p>
           </>
         ) : (
           <p className="social-reply-text">{t('social.replyNoLine', { rival })}</p>
         )}
         {state.reply.refused && <p className="panel-note">{t('social.refused', { rival })}</p>}
+        {!words && state.voiceOff && (
+          <p className="social-reply-backup" data-voice-reason={state.voiceOff}>
+            <strong className="ai-backup-badge">{t('talk.voiceOff')}</strong>{' '}
+            <span>{voiceReasonText(state.voiceOff)}</span>
+          </p>
+        )}
         {backup && (
           <p className="social-reply-backup">
             <strong className="ai-backup-badge">{t('ai.backupBadge')}</strong> <span>{backup}</span>

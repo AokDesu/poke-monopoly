@@ -805,6 +805,10 @@ export const en = {
     'Social window open against one rival: pointing at the leader needs a third player',
   'gallery.example.socialWaiting': 'The message is sent and the rival has not answered yet',
   'gallery.example.socialReply': 'The rival’s answer, a line from the bank, only words',
+  'gallery.example.socialReplyWords':
+    'The rival’s own words for the same answer, AI-written and only words',
+  'gallery.example.socialVoiceOff':
+    'The answer is the bank line and says why the rival’s own words are off',
   'gallery.example.socialRefused': 'The answer is a refusal; willingness and trust do not change',
   'gallery.example.socialFailed': 'The answer did not arrive: ask again or continue',
   'gallery.row.jevPanel': 'Demo mode: the "What Jev chose" panel under a rival’s decision',

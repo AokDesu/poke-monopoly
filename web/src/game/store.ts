@@ -39,7 +39,7 @@ import {
   type SeatActionRecord,
   type SeatEvent,
 } from '../../../engine/index.ts';
-import type { ChatReplyRequest } from './chat.ts';
+import type { ChatReplyRequest, SavedChatWords } from './chat.ts';
 import { reportOutcome, requestOpponent, type AiDecision } from './ai.ts';
 import { demoChoiceOf } from './demoChoice.ts';
 import type { DifficultyId, GameSetup, PersonalityId, WatchSettings, WatchSetup } from './setup.ts';
@@ -153,6 +153,14 @@ export interface GameStore {
    * that seat. Null unless the human has sent a message in this Social window.
    */
   chatReplyRequest(): ChatReplyRequest | null;
+  /**
+   * The rival's own words for a topic message, kept with the game so a reload shows the same line
+   * and never asks for a second one (spec §5.7: a generated line is never regenerated). Words only:
+   * the engine log, its revision and every seat's view are untouched.
+   */
+  getChatWords(): readonly SavedChatWords[];
+  /** Saves one shown line; false when it does not fit the game. Notifies so the save is rewritten. */
+  recordChatWords(words: SavedChatWords): boolean;
   /** Setup saved beside the engine log so a resumed AI decision uses the same personality. */
   getOpponents(): readonly OpponentSettings[];
   /** A watched game's talk and starting-speed settings, kept with the game; absent otherwise. */
@@ -174,6 +182,7 @@ export interface GameStore {
     settings?: readonly OpponentSettings[],
     watchSettings?: WatchSettings,
     gameId?: string,
+    chatWords?: readonly SavedChatWords[],
   ): void;
   /** Engine winner and coin/badge standings, or null until the game is finished. Stable. */
   getResults(): GameResults | null;
@@ -237,6 +246,28 @@ export function rematchConfig(config: GameConfig, seed: GameConfig['seed']): Gam
     lapTarget: config.lapTarget,
     ...(config.socialWindow !== undefined && { socialWindow: config.socialWindow }),
   });
+}
+
+/**
+ * Whether saved words belong to this game: a human's message to an AI seat that the engine kept,
+ * on the turn it was sent, one short line. Anything else is dropped, never shown.
+ */
+function fitsGame(words: SavedChatWords, state: GameState): boolean {
+  const human = humanSeat(state);
+  const rival = state.config.seats.find((seat) => seat.seatIndex === words.toSeatIndex);
+  return (
+    human !== undefined &&
+    words.fromSeatIndex === human &&
+    rival?.controller === 'ai' &&
+    words.text.length > 0 &&
+    words.text.length <= 280 &&
+    (observe(state, human).own.chats ?? []).some(
+      (message) =>
+        message.fromSeatIndex === words.fromSeatIndex &&
+        message.toSeatIndex === words.toSeatIndex &&
+        message.globalTurnNo === words.globalTurnNo,
+    )
+  );
 }
 
 function humanSeat(state: GameState): number | undefined {
@@ -314,6 +345,7 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
   let results: GameResults | null = null;
   let opponents: readonly OpponentSettings[] = [];
   let watch: WatchSettings | undefined;
+  let chatWords: readonly SavedChatWords[] = [];
   let gameToken = '';
   const listeners = new Set<() => void>();
 
@@ -463,6 +495,7 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
       gameToken = crypto.randomUUID();
       opponents = settings;
       watch = watchSettings;
+      chatWords = [];
       shownFeed = [];
       commit({ state, log: createGameLog(state) }, state, []);
     },
@@ -665,6 +698,20 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
     getGameId(): string {
       return gameToken;
     },
+    getChatWords(): readonly SavedChatWords[] {
+      return chatWords;
+    },
+    recordChatWords(words: SavedChatWords): boolean {
+      const game = session;
+      if (!game || !fitsGame(words, game.state)) return false;
+      const same = (entry: SavedChatWords) =>
+        entry.fromSeatIndex === words.fromSeatIndex &&
+        entry.toSeatIndex === words.toSeatIndex &&
+        entry.globalTurnNo === words.globalTurnNo;
+      chatWords = [...chatWords.filter((entry) => !same(entry)), words];
+      for (const listener of listeners) listener();
+      return true;
+    },
     recordSpeech(event: AiSpeechEvent): boolean {
       const game = session;
       const parsed = aiSpeechEventSchema.safeParse(event);
@@ -691,9 +738,12 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
       settings: readonly OpponentSettings[] = [],
       watchSettings?: WatchSettings,
       gameId?: string,
+      savedWords: readonly SavedChatWords[] = [],
     ): void {
       opponents = settings;
       watch = watchSettings;
+      // Only words that fit this game: a save from another one cannot lend it a line.
+      chatWords = savedWords.filter((entry) => fitsGame(entry, game.state));
       gameToken = gameId ?? crypto.randomUUID();
       publish(game, feedFrom(game.log, humanSeat(game.state)));
     },
@@ -708,6 +758,7 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
       results = null;
       opponents = [];
       watch = undefined;
+      chatWords = [];
       gameToken = '';
       for (const listener of listeners) listener();
     },

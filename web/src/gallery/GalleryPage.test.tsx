@@ -111,6 +111,8 @@ const SHOWN = [
       'social.noticeTruce',
       'social.continue',
       'talk.bank',
+      'talk.aiWritten',
+      'talk.voiceOff',
       'social.refused',
       'social.failed.timeout',
       'social.retry',

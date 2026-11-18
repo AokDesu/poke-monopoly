@@ -12,7 +12,11 @@ import {
   chatReplySchema,
   type ChatReply,
 } from '../engine/contract/chat-reply.ts';
-import { replyRequestSchema, speakRequestSchema } from '../engine/contract/speech.ts';
+import {
+  chatSpeechRequestSchema,
+  replyRequestSchema,
+  speakRequestSchema,
+} from '../engine/contract/speech.ts';
 import {
   fallbackAnswer,
   policyAnswer,
@@ -180,21 +184,27 @@ export const createApp = ({
       } catch {
         return c.json({ error: 'invalid_json' }, 400);
       }
-      // A reply names its kind; a line for the table or one seat has none.
-      const isReply =
-        typeof body === 'object' && body !== null && 'kind' in body && body.kind === 'reply';
-      const parsed = isReply
-        ? replyRequestSchema.safeParse(body)
-        : speakRequestSchema.safeParse(body);
+      // A reply and a chat reply name their kind; a line for the table or one seat has none.
+      const kind =
+        typeof body === 'object' && body !== null && 'kind' in body ? body.kind : undefined;
+      const parsed =
+        kind === 'reply'
+          ? replyRequestSchema.safeParse(body)
+          : kind === 'chat_reply'
+            ? chatSpeechRequestSchema.safeParse(body)
+            : speakRequestSchema.safeParse(body);
       if (!parsed.success) {
         const paths = parsed.error.issues.map((issue) => issue.path.join('.'));
         return c.json({ error: 'invalid_request', paths }, 400);
       }
       try {
+        const request = parsed.data;
         return c.json(
-          'kind' in parsed.data
-            ? await speaker.reply(parsed.data)
-            : await speaker.speak(parsed.data),
+          !('kind' in request)
+            ? await speaker.speak(request)
+            : request.kind === 'reply'
+              ? await speaker.reply(request)
+              : await speaker.chatReply(request),
         );
       } catch (error) {
         if (error instanceof InvalidSpeakRequest) {

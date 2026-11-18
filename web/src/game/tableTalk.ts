@@ -1,6 +1,6 @@
 import type { AiStatus } from '../../../engine/contract/decision.ts';
 import type { AiSpeechEvent, Observation } from '../../../engine/index.ts';
-import { en, t } from '../i18n/en.ts';
+import { en, t, type MessageKey } from '../i18n/en.ts';
 import { className, speciesName } from '../i18n/names.ts';
 import type { SeatFeedEntry, SeatView, SpectatorView } from './store.ts';
 
@@ -728,6 +728,15 @@ export function retortEvent(
 }
 
 export type VoiceReason = 'disabled' | 'missing_key' | 'budget_exceeded';
+
+const VOICE_REASON_TEXT: Record<VoiceReason, MessageKey> = {
+  disabled: 'talk.reason.disabled',
+  missing_key: 'talk.reason.missing_key',
+  budget_exceeded: 'talk.reason.budget_exceeded',
+};
+
+/** The "Voice off" badge's explanation: what the status route and the speech route may say (spec §3.1, §9). */
+export const voiceReasonText = (reason: VoiceReason): string => t(VOICE_REASON_TEXT[reason]);
 
 /**
  * Why generated speech is off, from `GET /api/ai/status`: only a reason the server gave (spec §3,
