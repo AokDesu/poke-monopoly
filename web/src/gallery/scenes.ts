@@ -5,9 +5,9 @@ import { content, engineContent } from '../game/content.ts';
 import { demoChoiceOf } from '../game/demoChoice.ts';
 import { fakeJevAnswer, type FakeJevAnswerOptions } from '../game/fakeJevAnswer.ts';
 import { readJevDetail } from '../game/jevDetailAdapter.ts';
+import { seatDecision } from './seatDecision.ts';
 import {
   createFixtureStore,
-  seatDecision,
   type Command,
   type GameStore,
   type SeatView,

@@ -536,6 +536,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
         'demo.banner',
         'demo.chosen',
         'demo.confidence',
+        'demo.modelNote',
         'demo.sellNote',
         'demo.byBackup',
         'ai.reason.timeout',
