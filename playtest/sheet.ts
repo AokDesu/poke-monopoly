@@ -45,7 +45,7 @@ const FREE_TEXT: ReadonlySet<Column> = new Set([
 export function placeholder(what: string): string {
   return `<<fill: ${what}>>`;
 }
-const PLACEHOLDER = /<<.*>>|\b(?:TODO|TBD|FIXME)\b/i;
+export const PLACEHOLDER = /<<.*>>|\b(?:TODO|TBD|FIXME)\b/i;
 
 export type CsvRecord = {
   /** 1-based line where the record starts, and where it ends (a quoted newline spans lines). */

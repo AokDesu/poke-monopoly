@@ -167,7 +167,7 @@ export default defineConfig([
       ],
     },
   },
-  // The playtest tools read files only (spec §8, §9): no server code, no browser code, no Jev SDK.
+  // The playtest tools work on files only (spec §8, §9): no server code, no browser code, no Jev SDK.
   {
     files: ['playtest/**/*.{ts,tsx}'],
     rules: {

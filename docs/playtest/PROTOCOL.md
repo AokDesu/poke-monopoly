@@ -43,7 +43,7 @@ Do one dry run of the whole protocol with a teammate before the first real sessi
 code: G1-A01   date:        seed:        commit:
 play starts (clock):        play ends (clock):
 hesitations:  type (sell_keep | ball) | Lap/turn | pause or said | ...
-confusion, bugs, restarts, Backup bot badge, jev live/off:
+confusion, bugs, restarts, Backup bot badge, Jev live/off, Voice on/off:
 ```
 
 ## 4. Scripts: consent and briefing
@@ -193,7 +193,13 @@ Question 3 counts the participant's own chats only. AI table talk never changes 
    ```
 
    It reads each file you name and prints `file:line: column: problem` for every cell that is missing, inconsistent or looks like personal data, then exits with a non-zero status if there was any. It checks that the header equals `docs/playtest/session-sheet.csv`; one line per row; no empty cell and no `<<fill: ...>>` placeholder; the code matches `<round>-<host><nn>`; the date, commit, seed, game length, drop-off cells and counts have the form section 8 gives; `hesitation_decisions` holds only `sell_keep` or `ball`, as many as `hesitation_count`, and `none` only when the count is 0; `drop_off_point` and `drop_off_reason` are both `none` or neither; question cells start with `yes`, `no`, `unsure` or `n/a`; the four answers and `notes` are 200 characters or fewer; and no cell holds an `@`, a link or a phone-like number (the pattern at the end of section 8). A cell may be `n/a` only where section 8 allows it, so a sheet that used `n/a` for a number is reported. The check proves nothing about names, so read every cell yourself and the reviewer reads the file again.
-5. **Analysis** reads the committed sheets, nothing else: for G1, the report `docs/playtest/g1/G1-report.md` (issue #54).
+5. **Analysis** reads the committed sheets, nothing else. Make the result tables with n and their charts with:
+
+   ```bash
+   npm run playtest:report -- docs/playtest/g1/session-sheet-A.csv docs/playtest/g1/session-sheet-B.csv
+   ```
+
+   Name the sheets of one round, which sit in one folder. It writes `results.md` and three SVG charts (`results-outcomes.svg`, `results-hesitation.svg`, `results-answers.svg`) next to them, and nothing else. Every figure is "x of n". An `n/a` cell is shown as unobserved, listed apart from the zeros and left out of every median. It prints no percentage and runs no test, because the Human layer has no threshold (spec §8). It refuses, and writes nothing, for a sheet with a cell that looks like personal data, an empty cell, a placeholder, a value of the wrong form or a repeated code. It accepts `n/a` as unobserved in `game_length_min`, `meaningful_choices`, `drop_off_point` with `drop_off_reason`, and `hesitation_count` with `hesitation_decisions` (each pair both `n/a` or both filled), which is how the committed G1 rows record what the facilitator could not see, although `playtest:check` still reports those cells. Running it again on the same sheets writes the same files. For G1, the report `docs/playtest/g1/G1-report.md` (issue #54) uses these tables.
 
 ## 8. The sheet columns
 
@@ -215,7 +221,7 @@ The file is UTF-8, comma separated, one row per session, one line per row. A cel
 |`q2_opponent_personality`|The same format as question 1, or `n/a`.|
 |`q3_conversation_changed_game`|The same format as question 1, or `n/a`.|
 |`q4_boring_moment`|`none`, or the moment or screen in a few words, then ` - ` and a short paraphrase or quote.|
-|`notes`|Bugs and confusion with issue numbers, hesitations at decisions that did not count, restarts, Jev live or off, Backup bot badge seen. Codes only.|
+|`notes`|Bugs and confusion with issue numbers, hesitations at decisions that did not count, restarts, Jev live or off, Voice on or off, Backup bot badge seen. Codes only. Write Jev and Voice as the words `Jev live` or `Jev off` and `Voice on` or `Voice off`: the results command reads them from here. A statement marked as assumed or not observed counts as unobserved.|
 
 Example row, invented to show the format only:
 
