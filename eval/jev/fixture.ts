@@ -53,6 +53,8 @@ export const scenarioSchema = z.strictObject({
     questions: z.record(z.string(), question).refine((v) => Object.keys(v).length > 0),
   }),
   acceptable: z.record(z.string(), z.array(z.string().min(1)).min(1)),
+  /** Why the acceptable answers fit the personality, citing its weights (issue #233). */
+  reason: z.string().min(1).optional(),
   synthetic: z.boolean(),
 });
 // The full JevClient success includes replay metadata, never SDK headers.
@@ -107,8 +109,18 @@ export const validateScenario = (scenario: Scenario): void => {
     );
   }
 };
+/** The `requestId` prefix that only a synthetic placeholder carries (issue #233). */
+export const SYNTHETIC_REQUEST_PREFIX = 'synthetic-';
 export const validateFixture = (fixture: Fixture): void => {
   validateScenario(fixture);
+  // A placeholder can never pass for a recording, nor a recording for a placeholder.
+  if (
+    fixture.synthetic !==
+    (fixture.recorded.requestId?.startsWith(SYNTHETIC_REQUEST_PREFIX) ?? false)
+  )
+    throw new Error(
+      `${fixture.id}: schema error: synthetic must be true exactly when requestId starts with "${SYNTHETIC_REQUEST_PREFIX}"`,
+    );
   if (requestHash(fixture.request) !== fixture.requestHash)
     throw new Error(`${fixture.id}: request changed, re-record`);
   const names = Object.keys(fixture.request.questions);

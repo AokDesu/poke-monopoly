@@ -1,0 +1,114 @@
+{
+  "id": "cautious-strategy-repel-leader-near-start",
+  "description": "Cautious: Holds Repel; the coin leader is a few squares from Start income and selling.",
+  "tags": { "decisionPoint": "strategy", "personality": "Cautious" },
+  "request": {
+    "state": {
+      "phase": "strategy",
+      "active_seat_id": 0,
+      "final_table_round": false,
+      "board": [
+        { "space_id": 0, "kind": "start", "name": "Start" },
+        { "space_id": 1, "kind": "wild", "name": "Wild" },
+        { "space_id": 2, "kind": "event", "name": "Event" },
+        { "space_id": 3, "kind": "wild", "name": "Wild" },
+        { "space_id": 4, "kind": "shop", "name": "Shop" },
+        { "space_id": 5, "kind": "wild", "name": "Wild" },
+        { "space_id": 6, "kind": "gym", "name": "Gym" },
+        { "space_id": 7, "kind": "wild", "name": "Wild" },
+        { "space_id": 8, "kind": "event", "name": "Event" },
+        { "space_id": 9, "kind": "wild", "name": "Wild" },
+        { "space_id": 10, "kind": "shop", "name": "Shop" },
+        { "space_id": 11, "kind": "wild", "name": "Wild" },
+        { "space_id": 12, "kind": "gym", "name": "Gym" },
+        { "space_id": 13, "kind": "wild", "name": "Wild" },
+        { "space_id": 14, "kind": "event", "name": "Event" },
+        { "space_id": 15, "kind": "shop", "name": "Shop" },
+        { "space_id": 16, "kind": "wild", "name": "Wild" },
+        { "space_id": 17, "kind": "event", "name": "Event" },
+        { "space_id": 18, "kind": "gym", "name": "Gym" },
+        { "space_id": 19, "kind": "wild", "name": "Wild" },
+        { "space_id": 20, "kind": "shop", "name": "Shop" },
+        { "space_id": 21, "kind": "wild", "name": "Wild" },
+        { "space_id": 22, "kind": "event", "name": "Event" },
+        { "space_id": 23, "kind": "wild", "name": "Wild" }
+      ],
+      "you": {
+        "id": "P1",
+        "seat_id": 0,
+        "class_id": "main-character",
+        "lap": "2 of 2",
+        "squares_to_start": "far",
+        "team_count": "one",
+        "item_count": "one",
+        "coins_rank": "2nd of 2",
+        "ability_ready": true,
+        "team": [
+          {
+            "id": "starter:0",
+            "species_id": "charmander",
+            "origin": "original_starter",
+            "tired": false,
+            "ability_ready": true
+          }
+        ],
+        "items": [{ "id": "bought:0:0", "item_id": "repel", "name": "Repel" }],
+        "balls": { "poke": "many", "great": "one", "ultra": "none" },
+        "private_results": [],
+        "personality": "Cautious: Plays safe and steady; avoids fights and gambles, and keeps promises to protect a lead."
+      },
+      "opponents": [
+        {
+          "id": "P2",
+          "lap": "2 of 2",
+          "squares_to_start": "near",
+          "team_count": "one",
+          "item_count": "one",
+          "coins_vs_you": "far ahead",
+          "seat_id": 1,
+          "class_id": "rival",
+          "ability_ready": true,
+          "team": [
+            {
+              "id": "starter:1",
+              "species_id": "eevee",
+              "origin": "original_starter",
+              "tired": false,
+              "ability_ready": true
+            }
+          ],
+          "known_items": [{ "id": "class-item:1", "item_id": "lucky-egg", "name": "Lucky Egg" }]
+        }
+      ]
+    },
+    "questions": {
+      "strategy": {
+        "type": "choice",
+        "instructions": "Pick the ONE action that best fits `you.personality` right now. Only the listed actions are allowed. Each option states its effect and what is unknown when you choose it.",
+        "criteria": {
+          "a1": "Use your Repel on P2, the target. Repel effect: Target's next move −2 (minimum 1). This uses up the item and your tactical action for this turn. P2 will learn that you used it on them. How far P2 would roll on their next move is unknown.",
+          "skip": "Do nothing this phase and keep all your items. Your tactical action for this turn stays unused."
+        }
+      }
+    }
+  },
+  "acceptable": { "strategy": ["skip"] },
+  "reason": "Cautious: loyalty 0.8 and aggression 0.2: Repel is a hostile item that earns nothing now, and a steady player keeps the goodwill rather than slow the leader.",
+  "synthetic": false,
+  "requestHash": "0201b236f6f0c8c98e3f7ab8f7ed8b4806ae23bc1b95dc1cb3a9cd60bb0cb478",
+  "recorded": {
+    "ok": true,
+    "answers": {
+      "strategy": {
+        "type": "choice",
+        "choice": "a1",
+        "confidence": 0.32,
+        "probabilities": { "a1": 0.66, "skip": 0.34 }
+      }
+    },
+    "requestId": "req_01a1edc25d817ac98c9e576b7eda3717",
+    "model": "jev-1.13.0",
+    "latencyMs": 278,
+    "usage": { "inputTokens": 1511, "outputTokens": 33 }
+  }
+}
