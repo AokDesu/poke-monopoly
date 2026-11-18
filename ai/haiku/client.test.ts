@@ -279,7 +279,8 @@ describe('failures become fallback reasons, each logged once with no tokens spen
       });
     });
 
-    test('the deadline defaults to 1,200 ms: a request is still open at 1,199 ms', async () => {
+    test('the deadline defaults to 3,000 ms: a request is still open at 2,999 ms', async () => {
+      expect(HAIKU_DEADLINE_MS).toBe(3000);
       const { client } = setup(() => new Promise<Response>(() => {}));
       let settled = false;
       const pending = client.write(REQUEST).then((result) => {

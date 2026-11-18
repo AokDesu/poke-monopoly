@@ -1,5 +1,5 @@
 {
-  "world": "The game is set in a lively harbor town and the countryside around it. Trainers walk a looping road, pass the town square to collect their pay, and catch wild creatures in the tall grass. Friends tease one another, but nobody here is cruel. Talk is friendly, short and plain, and it stays about the game at the table.",
+  "world": "The game is set in a lively harbor town and the countryside around it. Trainers walk a looping road, pass the town square to collect their pay, and catch wild creatures in the tall grass. Friends tease one another with a wink and the odd creature-catching pun, but nobody here is cruel. Talk is friendly, short and light, and it stays about the game at the table.",
   "classHints": {
     "main-character": "A hopeful newcomer on a first big journey, curious and brave, quick to cheer a good moment.",
     "rival": "A confident challenger who loves a contest and likes to stay a step ahead of the others.",
@@ -12,16 +12,33 @@
   },
   "topics": {
     "game_start": "The game is just starting and everyone has taken a seat.",
-    "catch_success": "A wild creature was just caught.",
-    "catch_fail": "A catch attempt just failed.",
-    "sold_pokemon": "A creature was just sold at Start.",
+    "catch_success": "The speaker has just caught a wild creature on their own turn.",
+    "catch_fail": "The speaker's own catch attempt has just failed and the creature got away.",
+    "sold_pokemon": "The speaker has just sold a creature at the start square for a good sum.",
     "deal_accept": "A deal between two trainers was just accepted.",
     "deal_reject": "A deal between two trainers was just turned down.",
     "promise_kept": "A trainer just kept a promise made earlier at the table.",
     "promise_broken": "A trainer just broke a promise made earlier at the table.",
-    "gym_win": "A trainer just won a gym battle.",
+    "gym_win": "The speaker has just won a gym battle on their own turn.",
     "taunt_leader": "A trainer is teasing the player who is currently in the lead.",
     "manipulation_refused": "A trainer just refused a pushy attempt to sway their choice.",
-    "chat_reply": "Another trainer just spoke to you at the table, and you answer in words only."
+    "chat_reply": "Another trainer just spoke to you at the table, and you answer in words only.",
+    "roll_high_own": "The speaker has just rolled a very high number on the die on their own turn.",
+    "roll_low_own": "The speaker has just rolled a very low number on the die on their own turn.",
+    "battle_won_own": "The speaker has just won a battle against another trainer.",
+    "battle_lost_own": "The speaker has just lost a battle.",
+    "coins_in_own": "Another trainer has just paid coins to the speaker.",
+    "coins_out_own": "The speaker has just paid coins to another trainer.",
+    "catch_other": "The addressed trainer has just caught a wild creature.",
+    "miss_other": "The addressed trainer's catch attempt has just failed and the creature got away.",
+    "roll_high_other": "The addressed trainer has just rolled a very high number on the die.",
+    "roll_low_other": "The addressed trainer has just rolled a very low number on the die.",
+    "battle_won_other": "The addressed trainer has just won a battle.",
+    "battle_lost_other": "The addressed trainer has just lost a battle.",
+    "coins_other": "The addressed trainer has just been paid coins by another trainer.",
+    "sale_other": "The addressed trainer has just sold a creature at the start square for a big sum.",
+    "gym_win_other": "The addressed trainer has just won a gym battle.",
+    "table_banter": "Nothing special has happened. The speaker chats and teases lightly, as friends do at a game table.",
+    "table_retort": "The addressed trainer has just said something friendly to the speaker at the table, and the speaker answers with a quick, good-humoured reply."
   }
 }

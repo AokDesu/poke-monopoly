@@ -65,7 +65,7 @@ Spec §5.4, §5.7: `content/voice/en.json` is everything Haiku is told about the
 
 Spec §5.5: create `content/personalities/<name>.json` with `name`, an English `description` (inserted into instructions), `weights` (`risk`, `aggression`, `liquidity`, `loyalty`, each 0 to 1) and `lineStyle` (a kebab-case line-bank style id). Decide it once in the file; do not tie it to a betrayal rate. Keep hidden information out of it (house rule 3).
 
-`parsePersonality(id, json)` in `content/personality-schema.ts` is pure: it validates the file with the zod `personalitySchema` (unknown keys are refused), throws one readable `Error` naming each bad path, and adds the Sell Phase `sellThreshold`, derived from `liquidity` alone so a more liquid personality never sells less eagerly. Register the file in `PERSONALITIES` in `ai/fallback/index.ts`; `ai/fallback/fallback.test.ts` validates every file in the folder and pins which ones exist. Only Greedy (Appendix B) ships this cycle.
+`parsePersonality(id, json)` in `content/personality-schema.ts` is pure: it validates the file with the zod `personalitySchema` (unknown keys are refused), throws one readable `Error` naming each bad path, and adds the Sell Phase `sellThreshold`, derived from `liquidity` alone so a more liquid personality never sells less eagerly. Register the file in `PERSONALITIES` in `ai/fallback/index.ts`; `ai/fallback/fallback.test.ts` validates every file in the folder and pins which ones exist. All four personalities ship and are open in setup.
 
 ## Checks that run
 

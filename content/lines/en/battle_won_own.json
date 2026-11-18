@@ -1,0 +1,98 @@
+[
+  {
+    "id": "battle-won-own-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "I won the battle! Winning pays better than losing."
+  },
+  {
+    "id": "battle-won-own-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Victory is sweet, and so are the rewards."
+  },
+  {
+    "id": "battle-won-own-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Battle won. My team earned its keep today."
+  },
+  {
+    "id": "battle-won-own-greedy-neutral-4",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Another battle, another win. That is how you level up your savings."
+  },
+  {
+    "id": "battle-won-own-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "I won! That is what a real trainer looks like."
+  },
+  {
+    "id": "battle-won-own-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Victory! Who is next in line?"
+  },
+  {
+    "id": "battle-won-own-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Battle won! My team evolved into a champion today."
+  },
+  {
+    "id": "battle-won-own-aggressive-neutral-4",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Ha, I told you so! Another win for me."
+  },
+  {
+    "id": "battle-won-own-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "I won the battle. Careful preparation pays off."
+  },
+  {
+    "id": "battle-won-own-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "A win! I am glad I checked everything twice."
+  },
+  {
+    "id": "battle-won-own-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Phew, battle won. My team did very well."
+  },
+  {
+    "id": "battle-won-own-cautious-neutral-4",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Victory, and not a moment too soon. Good game."
+  },
+  {
+    "id": "battle-won-own-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "I won! Nothing personal. Well, a little personal."
+  },
+  {
+    "id": "battle-won-own-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Battle won. Funny how it always goes my way."
+  },
+  {
+    "id": "battle-won-own-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "A win for me! Thank you for the lovely battle."
+  },
+  {
+    "id": "battle-won-own-opportunist-neutral-4",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Victory is mine, friends. Do not look so sad, it does not suit you."
+  }
+]

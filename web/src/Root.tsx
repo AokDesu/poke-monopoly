@@ -20,7 +20,7 @@ export function Root({ search, dev = __UI_GALLERY__ }: { search: string; dev?: b
           <GalleryPage />
         </Suspense>
       ) : fixtureName === null ? (
-        <App seed={seedFromSearch(search)} />
+        <App seed={seedFromSearch(search)} demo={params.has('demo')} />
       ) : (
         <Suspense fallback={<p className="p-8">{t('play.heading')}</p>}>
           <FixtureRoute name={fixtureName} />

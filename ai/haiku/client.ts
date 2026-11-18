@@ -11,8 +11,11 @@ import { haikuApiKey, haikuEnabled } from './status.ts';
 // Spec §5.2, §9: one pinned model, one fixed host. The ID is the published one, read 15 Nov 2026.
 export const PINNED_HAIKU_MODEL = 'claude-haiku-5-5';
 export const HAIKU_ENDPOINT = 'https://api.anthropic.com/v1/messages';
-/** One line of speech has 1,200 ms; a late answer is discarded. */
-export const HAIKU_DEADLINE_MS = 1200;
+/**
+ * One line of speech has 3,000 ms (issue #214: table talk may wait about 3 s; it never holds up a
+ * decision, which keeps Jev's own 1,000 ms and 1,500 ms deadlines); a late answer is discarded.
+ */
+export const HAIKU_DEADLINE_MS = 3000;
 /** A line is at most 140 characters, so a small ceiling; thinking is off, so none of it is spent thinking. */
 export const MAX_OUTPUT_TOKENS = 80;
 /** A reply is one short message; anything larger is not one. */

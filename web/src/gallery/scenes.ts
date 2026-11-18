@@ -1,9 +1,14 @@
-import type { GameState } from '../../../engine/index.ts';
+import type { GameState, LegalAction } from '../../../engine/index.ts';
 import type { TurnPlayback } from '../board/useTurnPlayback.ts';
-import type { AiDecision } from '../game/ai.ts';
+import type { AiDecision, OpponentAnswer } from '../game/ai.ts';
 import { content, engineContent } from '../game/content.ts';
+import { demoChoiceOf } from '../game/demoChoice.ts';
+import { fakeJevAnswer, type FakeJevAnswerOptions } from '../game/fakeJevAnswer.ts';
+import { readJevDetail } from '../game/jevDetailAdapter.ts';
 import {
   createFixtureStore,
+  seatDecision,
+  type Command,
   type GameStore,
   type SeatView,
   type SpectatorView,
@@ -67,6 +72,64 @@ function addRival(state: GameState, seatIndex: number): void {
   state.config.seats.push({ actorId, seatIndex, classId: 'researcher', controller: 'ai' });
 }
 
+/**
+ * Demo mode (issue #220): seat 1 (an AI) has just decided and the panel's data is made the way
+ * the browser makes it, from a fake answer of the proposed shape over that seat's real options.
+ * `pick` names the answer from the seat's engine-listed actions; `then` lets the engine play on.
+ */
+function rivalChose(
+  store: GameStore,
+  decisionPoint: 'encounter' | 'strategy' | 'sell',
+  pick: (actions: readonly LegalAction[]) => FakeJevAnswerOptions | 'backup',
+  then?: () => void,
+): Scene {
+  const { enabledActions, observation } = seatDecision(store, 1);
+  const picked = pick(enabledActions);
+  let wire: OpponentAnswer;
+  if (picked === 'backup') {
+    wire = { source: 'fallback', fallbackReason: 'timeout', choice: enabledActions[0]!.id };
+  } else {
+    const fake = fakeJevAnswer(picked);
+    wire = {
+      source: 'jev',
+      ...('choice' in fake ? { choice: fake.choice } : { sellUids: fake.sellUids }),
+      detail: readJevDetail(fake),
+    };
+  }
+  const demo = demoChoiceOf({
+    answer: wire,
+    detail: wire.detail,
+    decisionPoint,
+    enabledActions,
+    observation,
+    viewerSeat: 0,
+  });
+  const before = store.getView()!.feed.length;
+  let command: Command;
+  if ('sellUids' in wire) {
+    command = { actorId: 'player-1', kind: 'sell', payload: { pokemonInstanceIds: wire.sellUids } };
+  } else {
+    const action = enabledActions.find((entry) => entry.id === wire.choice)!;
+    command = { actorId: 'player-1', kind: action.kind, payload: action.payload } as Command;
+  }
+  const result = store.submit(command);
+  if ('rejected' in result) throw new Error(`Gallery: ${result.reason}`);
+  then?.();
+  const view = store.getView()!;
+  const decision: AiDecision = {
+    source: wire.source,
+    ...(wire.fallbackReason && { fallbackReason: wire.fallbackReason }),
+    ...(demo && { demo }),
+  };
+  return {
+    store,
+    view: {
+      ...view,
+      feed: view.feed.map((entry, index) => (index === before ? { ...entry, decision } : entry)),
+    },
+  };
+}
+
 export function createScenes(fixtures: GalleryFixtures) {
   return {
     /** §3.1: a wild Pokémon appears and the pouch holds no Ball. The only legal action is Release. */
@@ -101,6 +164,30 @@ export function createScenes(fixtures: GalleryFixtures) {
       ),
 
     /**
+     * §3.1: the Event deck runs out. Seat 0 lands on an Event square twice: the first draw fills
+     * the deck, the second finds the draw pile empty and the engine shuffles the discard pile back
+     * in. Both draws are real engine records; the view's feed holds them in play order.
+     */
+    eventAfterReshuffle: (): Scene => {
+      const landOnEvent = (drawPile: string[], discardPile: string[]) => {
+        const store = createFixtureStore(fixtures['shop-low-coins'], engineContent, (state) => {
+          state.phase = { kind: 'resolve' };
+          state.players[0]!.routeProgress = 2;
+          state.eventDeck = { drawPile, discardPile };
+        });
+        if (!store.advance({ human: true })) throw new Error('Gallery: the Event did not draw');
+        return store;
+      };
+      const first = landOnEvent([], []);
+      const second = landOnEvent(
+        [],
+        engineContent.events!.map(({ id }) => id),
+      );
+      const view = second.getView()!;
+      return { store: second, view: { ...view, feed: [...first.getView()!.feed, ...view.feed] } };
+    },
+
+    /**
      * Seat 1 (an AI) has just left the Shop. `answer` is how its decision reached the engine and
      * `rivals` is how many AI seats the game has.
      */
@@ -128,6 +215,97 @@ export function createScenes(fixtures: GalleryFixtures) {
         state.activeSeatIndex = 1;
       });
       return { store, view: store.getSpectatorView()! };
+    },
+
+    /** Demo mode: seat 1 threw its Great Ball at a wild Pokémon, and the engine rolled the catch. */
+    rivalChoseBall: (): Scene => {
+      const store = createFixtureStore(fixtures['encounter-no-ball'], engineContent, (state) => {
+        state.activeSeatIndex = 1;
+        state.players[1]!.balls = { poke: 3, great: 1, ultra: 0 };
+      });
+      return rivalChose(
+        store,
+        'encounter',
+        (actions) => {
+          const great = actions.find((a) => a.kind === 'catch' && a.payload.ballType === 'great')!;
+          const poke = actions.find((a) => a.kind === 'catch' && a.payload.ballType === 'poke')!;
+          const release = actions.find((a) => a.kind === 'release')!;
+          return {
+            questionId: 'encounter',
+            confidence: 0.58,
+            choice: great.id,
+            options: [
+              { id: poke.id, probability: 0.25 },
+              { id: great.id, probability: 0.65 },
+              { id: release.id, probability: 0.1 },
+            ],
+          };
+        },
+        () => store.advance({ human: true }),
+      );
+    },
+
+    /** Demo mode: seat 1 holds two private items at Strategy and chose to use one. */
+    rivalChoseItem: (): Scene => {
+      const store = createFixtureStore(fixtures['shop-low-coins'], engineContent, (state) => {
+        state.activeSeatIndex = 1;
+        state.phase = { kind: 'strategy' };
+        state.players[1]!.items = ['repel', 'price-shield'].map((itemId, n) => ({
+          instanceId: `rival-item-${n}`,
+          itemId,
+          name: content.items.find((item) => item.id === itemId)!.name,
+          visibility: 'secret' as const,
+        }));
+      });
+      return rivalChose(store, 'strategy', (actions) => {
+        const [repel, shield, skip] = ['rival-item-0', 'rival-item-1', 'skip'].map((part) =>
+          actions.find((a) => a.id.includes(part))!,
+        );
+        return {
+          questionId: 'strategy',
+          confidence: 0.41,
+          choice: shield!.id,
+          options: [
+            { id: repel!.id, probability: 0.3 },
+            { id: shield!.id, probability: 0.45 },
+            { id: skip!.id, probability: 0.25 },
+          ],
+        };
+      });
+    },
+
+    /** Demo mode: seat 1 at its Sell Phase with three Pokémon, one chance of selling for each. */
+    rivalChoseSale: (): Scene => {
+      const store = createFixtureStore(
+        fixtures['sell-phase-three-pokemon'],
+        engineContent,
+        (state) => {
+          state.activeSeatIndex = 1;
+          const [, second, third] = state.players[0]!.team;
+          state.players[1]!.team.push(
+            { ...structuredClone(second!), instanceId: 'rival-pokemon-2' },
+            { ...structuredClone(third!), instanceId: 'rival-pokemon-3' },
+          );
+        },
+      );
+      return rivalChose(store, 'sell', () => ({
+        questionId: 'sell',
+        confidence: 0.55,
+        sellUids: ['rival-pokemon-3'],
+        options: [
+          { id: 'pokemon-1', probability: 0.2 },
+          { id: 'rival-pokemon-2', probability: 0.35 },
+          { id: 'rival-pokemon-3', probability: 0.8 },
+        ],
+      }));
+    },
+
+    /** Demo mode: the same encounter, but Jev did not answer in time, so the backup bot decided. */
+    rivalBackupAtEncounter: (): Scene => {
+      const store = createFixtureStore(fixtures['encounter-no-ball'], engineContent, (state) => {
+        state.activeSeatIndex = 1;
+      });
+      return rivalChose(store, 'encounter', () => 'backup');
     },
 
     /** Seat 1 (an AI) holds a decision that is still open: what a resumed save asks again. */
