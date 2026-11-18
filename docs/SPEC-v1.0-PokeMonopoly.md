@@ -108,6 +108,7 @@ Watch path: Home → Watch AIs → choose Quick → choose 2–4 AIs → set eac
 - Arrows and turn-order numbers.
 - Team cards, our items, opponents' coins/position/team, opponents' item counts, chat and the event log.
 - Catch and win chances, and item effects, are shown before confirming; every number comes from the engine.
+- **How to play (#221):** a short walkthrough of a turn and of how a game ends, opened only by the player from a "How to play" button on Home, in the board header and inside the Sell Phase and encounter dialogs. It never opens by itself, shows each rule number from the content or the engine, describes only features whose screen is on main, holds the game where it stands while open, and returns focus to its opener on Close.
 
 **AI turns**
 

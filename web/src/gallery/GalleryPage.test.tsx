@@ -152,6 +152,11 @@ const SHOWN = [
     specRow: 'abilities',
     keys: ['ability.heading', 'ability.planned', 'ability.choosePrompt', 'battle.heading.window'],
   },
+  {
+    id: 'how-to-play',
+    specRow: 'howToPlay',
+    keys: ['howToPlay.heading', 'howToPlay.firstStep', 'howToPlay.lastStep'],
+  },
 ] as const satisfies readonly { id: string; specRow: string; keys: readonly MessageKey[] }[];
 
 /** Rows with nothing for a player to see in this build (no free-text chat or deals screen, engine-only). */
@@ -200,7 +205,9 @@ test('every §3.1 row that has a screen shows each of its catalog keys, labelled
             ? t('gallery.specSocial')
             : row.specRow === 'abilities'
               ? t('gallery.specAbilities')
-              : t('gallery.specRow', { row: row.specRow });
+              : row.specRow === 'howToPlay'
+                ? t('gallery.specHowToPlay')
+                : t('gallery.specRow', { row: row.specRow });
     expect(within(el).getByText(label), row.id).toBeTruthy();
   }
 });

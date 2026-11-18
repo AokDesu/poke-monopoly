@@ -7,6 +7,8 @@ import { SellPanel } from '../board/SellPanel.tsx';
 import { TableTalkPanel } from '../board/TableTalk.tsx';
 import { TurnPanel } from '../board/TurnPanel.tsx';
 import { WatchPanel } from '../board/WatchPanel.tsx';
+import { HowToPlay } from '../howToPlay/HowToPlay.tsx';
+import { buildSteps } from '../howToPlay/steps.ts';
 import { t, type MessageKey } from '../i18n/en.ts';
 import { className } from '../i18n/names.ts';
 import { pendingLine, SavePrompt } from '../SavePrompt.tsx';
@@ -797,6 +799,25 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
           id: 'reaction',
           caption: 'gallery.example.abilityReaction',
           render: () => turnPanel(abilityReaction()),
+        },
+      ],
+    },
+    {
+      id: 'how-to-play',
+      specRow: null,
+      spec: { id: 'howToPlay', label: 'gallery.specHowToPlay' },
+      label: 'gallery.row.howToPlay',
+      keys: ['howToPlay.heading', 'howToPlay.firstStep', 'howToPlay.lastStep'],
+      examples: [
+        {
+          id: 'first-step',
+          caption: 'gallery.example.howToPlayFirst',
+          render: () => <HowToPlay inline onClose={noop} />,
+        },
+        {
+          id: 'last-step',
+          caption: 'gallery.example.howToPlayLast',
+          render: () => <HowToPlay inline onClose={noop} initialStep={buildSteps().length - 1} />,
         },
       ],
     },
