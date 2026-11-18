@@ -129,13 +129,13 @@ const problems: {
     expected: { kind: 'duplicate', classId: 'researcher' },
   },
   {
-    name: 'a personality that is greyed',
+    name: 'a personality that is not open',
     preset: {
       ...sample,
-      rivals: [{ ...sample.rivals[0]!, personality: 'aggressive' }, sample.rivals[1]!],
+      rivals: [{ ...sample.rivals[0]!, personality: 'reckless' as never }, sample.rivals[1]!],
     },
     classes: classOptions,
-    expected: { kind: 'personality', personality: 'aggressive' },
+    expected: { kind: 'personality', personality: 'reckless' },
   },
   {
     name: 'a difficulty that is closed',
@@ -162,9 +162,7 @@ const problems: {
   {
     name: 'too few open classes for three rivals',
     preset: SETUP_PRESETS[2]!,
-    classes: closed('fisherman').map((option) =>
-      option.id === 'nurse-joy' ? { ...option, playable: false } : option,
-    ),
+    classes: classOptions.map((option, index) => ({ ...option, playable: index < 3 })),
     expected: { kind: 'seats', needed: 3, open: 3 },
   },
 ];

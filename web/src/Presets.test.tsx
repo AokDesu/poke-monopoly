@@ -5,6 +5,7 @@ import { expect, test, vi } from 'vitest';
 import { App } from './App.tsx';
 import { classOptions } from './game/content.ts';
 import { SETUP_PRESETS } from './game/presets.ts';
+import { PERSONALITIES } from './game/setup.ts';
 import { META_KEY, SAVE_KEY, type SaveStorage } from './game/save.ts';
 import { createGameStore } from './game/store.ts';
 import { t } from './i18n/en.ts';
@@ -105,7 +106,11 @@ test('Three rivals, random fills three seats with four different classes before 
   );
   expect(names.every(Boolean)).toBe(true);
   expect(new Set(names.map((option) => option.id)).size).toBe(4);
-  expect(rows.slice(1).every((text) => /Greedy/.test(text!))).toBe(true);
+  expect(
+    rows
+      .slice(1)
+      .every((text) => PERSONALITIES.some((entry) => text!.includes(t(`personality.${entry.id}`)))),
+  ).toBe(true);
 });
 
 test('a game started from a preset saves and resumes like any other (§6.7, #157)', async () => {
