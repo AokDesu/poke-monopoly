@@ -96,7 +96,7 @@
   },
   "acceptable": { "encounter": ["ultra_ball"] },
   "reason": "Aggressive: risk 0.8 and liquidity 0.3: the rare Pokémon is the big win and the Ball price barely counts, so the best catch chance, the Ultra Ball, is right.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "6d2b2fa46eb861263bb7b7d1d86c46908f9944138a0a7a8ab5b523906e8768c8",
   "recorded": {
     "ok": true,
@@ -104,13 +104,13 @@
       "encounter": {
         "type": "choice",
         "choice": "ultra_ball",
-        "confidence": 0.586,
-        "probabilities": { "poke_ball": 0.221, "ultra_ball": 0.724, "release": 0.055 }
+        "confidence": 0.73,
+        "probabilities": { "poke_ball": 0.17, "ultra_ball": 0.82, "release": 0.01 }
       }
     },
-    "requestId": "synthetic-aggressive-encounter-rare-snorlax-ultra",
+    "requestId": "req_01a1edc2524e7582af63f3766a733736",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 248,
+    "usage": { "inputTokens": 1787, "outputTokens": 45 }
   }
 }

@@ -127,17 +127,17 @@
   },
   "acceptable": { "sell_team_0": ["false"], "sell_team_1": ["false"] },
   "reason": "Cautious: the sale is low and liquidity 0.5 gives no urgency, while a steady player (risk 0.2) keeps a Pokémon that costs nothing to hold, so it keeps the Magikarp.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "0f85393cd8ab93e2561275feb85e48d87384b73ab664d6b14b4178ef22fb5789",
   "recorded": {
     "ok": true,
     "answers": {
-      "sell_team_0": { "type": "noul", "noul": 0.8 },
-      "sell_team_1": { "type": "noul", "noul": 0.98 }
+      "sell_team_0": { "type": "noul", "noul": 0.22 },
+      "sell_team_1": { "type": "noul", "noul": 0.59 }
     },
-    "requestId": "synthetic-cautious-sell-magikarp-low-sale-high-keep",
+    "requestId": "req_01a1edc26acc7c4e97e36af5ed259a29",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 271,
+    "usage": { "inputTokens": 2020, "outputTokens": 42 }
   }
 }

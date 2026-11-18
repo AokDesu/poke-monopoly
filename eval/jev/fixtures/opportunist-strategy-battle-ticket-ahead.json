@@ -94,7 +94,7 @@
   },
   "acceptable": { "strategy": ["skip"] },
   "reason": "Opportunist: liquidity 0.7 wants coins now and the opponent has few, so a forced battle pays little; with risk 0.6 and aggression 0.5 only middling it holds.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "cfff9f2d62fe43a022f35d0070e91f633313329f8ae0fb9ad009ae4186f9cd11",
   "recorded": {
     "ok": true,
@@ -102,13 +102,13 @@
       "strategy": {
         "type": "choice",
         "choice": "a1",
-        "confidence": 0.3,
-        "probabilities": { "a1": 0.65, "skip": 0.35 }
+        "confidence": 0.8,
+        "probabilities": { "a1": 0.9, "skip": 0.1 }
       }
     },
-    "requestId": "synthetic-opportunist-strategy-battle-ticket-ahead",
+    "requestId": "req_01a1edc274417892baef229251c4e115",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 268,
+    "usage": { "inputTokens": 1488, "outputTokens": 33 }
   }
 }

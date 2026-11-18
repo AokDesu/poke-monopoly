@@ -96,7 +96,7 @@
   },
   "acceptable": { "encounter": ["great_ball"] },
   "reason": "Aggressive: liquidity 0.3 barely counts one extra coin and risk 0.8 wants the throw to land, so the Great Ball.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "4070cfd119c3071fe3e4a4f0cfb5ed9f445a492e262f8a987f9390f800ec83ae",
   "recorded": {
     "ok": true,
@@ -104,13 +104,13 @@
       "encounter": {
         "type": "choice",
         "choice": "poke_ball",
-        "confidence": 0.547,
-        "probabilities": { "poke_ball": 0.698, "great_ball": 0.001, "release": 0.301 }
+        "confidence": 0.67,
+        "probabilities": { "poke_ball": 0.78, "great_ball": 0.11, "release": 0.11 }
       }
     },
-    "requestId": "synthetic-aggressive-encounter-weedle-poke-or-great",
+    "requestId": "req_01a1edc2535b7447b7b8ab699d069d2a",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 278,
+    "usage": { "inputTokens": 1788, "outputTokens": 43 }
   }
 }

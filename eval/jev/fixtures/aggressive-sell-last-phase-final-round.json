@@ -148,18 +148,18 @@
   },
   "acceptable": { "sell_team_0": ["true"], "sell_team_1": ["true"], "sell_team_2": ["true"] },
   "reason": "Aggressive: this is the last Sell Phase, so a kept Pokémon is sold later for less with no class bonus; whatever aggression 0.9 or liquidity 0.3 says, nothing is gained by keeping, so it sells all.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "d42437afb86c97498e1aa35d7deac297db5dc837c8cf03b04f33bf25531636c9",
   "recorded": {
     "ok": true,
     "answers": {
-      "sell_team_0": { "type": "noul", "noul": 0.06 },
-      "sell_team_1": { "type": "noul", "noul": 0.62 },
-      "sell_team_2": { "type": "noul", "noul": 0.27 }
+      "sell_team_0": { "type": "noul", "noul": 0.5 },
+      "sell_team_1": { "type": "noul", "noul": 0.77 },
+      "sell_team_2": { "type": "noul", "noul": 0.86 }
     },
-    "requestId": "synthetic-aggressive-sell-last-phase-final-round",
+    "requestId": "req_01a1edc255937b88b73926dbaee263f0",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 311,
+    "usage": { "inputTokens": 2378, "outputTokens": 61 }
   }
 }

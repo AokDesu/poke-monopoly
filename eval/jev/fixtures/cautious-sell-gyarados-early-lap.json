@@ -127,17 +127,17 @@
   },
   "acceptable": { "sell_team_0": ["false"], "sell_team_1": ["false"] },
   "reason": "Cautious: risk 0.2 and loyalty 0.8 favour a steady strong team, and a high keep value means a large loss of Battle points, so liquidity 0.5 does not outweigh keeping it.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "df4a1a808b38f8ec927cb773247a468d676760c74acefdd3214d3fed0a551f10",
   "recorded": {
     "ok": true,
     "answers": {
-      "sell_team_0": { "type": "noul", "noul": 0.38 },
-      "sell_team_1": { "type": "noul", "noul": 0 }
+      "sell_team_0": { "type": "noul", "noul": 0.39 },
+      "sell_team_1": { "type": "noul", "noul": 0.31 }
     },
-    "requestId": "synthetic-cautious-sell-gyarados-early-lap",
+    "requestId": "req_01a1edc268b378738a9ddb4a8a4c4333",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 263,
+    "usage": { "inputTokens": 2020, "outputTokens": 42 }
   }
 }

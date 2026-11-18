@@ -127,17 +127,17 @@
   },
   "acceptable": { "sell_team_0": ["false"], "sell_team_1": ["false"] },
   "reason": "Aggressive: liquidity 0.3 does not need a reduced sale now and aggression 0.9 wants the Pokémon recovered and fighting, so it keeps the Eevee.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "19cbaf40c9b16c1f77210f9ba63836e37278572634e1f344d4d9ce2d1f0e26a1",
   "recorded": {
     "ok": true,
     "answers": {
-      "sell_team_0": { "type": "noul", "noul": 0.74 },
-      "sell_team_1": { "type": "noul", "noul": 0.02 }
+      "sell_team_0": { "type": "noul", "noul": 0.22 },
+      "sell_team_1": { "type": "noul", "noul": 0.63 }
     },
-    "requestId": "synthetic-aggressive-sell-tired-eevee",
+    "requestId": "req_01a1edc259097bf9bf0f7e8de66a7b66",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 312,
+    "usage": { "inputTokens": 2020, "outputTokens": 42 }
   }
 }

@@ -95,7 +95,7 @@
   },
   "acceptable": { "encounter": ["ultra_ball", "release"] },
   "reason": "Opportunist: liquidity 0.7 weighs the dearest Ball against the small sale of a common Pokémon, so releasing is as good as throwing; risk 0.6 does not tip it either way.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "7ed6784e789654e08769464bc367de909b4786ffa00089899f8f6da792c9fc41",
   "recorded": {
     "ok": true,
@@ -103,13 +103,13 @@
       "encounter": {
         "type": "choice",
         "choice": "ultra_ball",
-        "confidence": 0.036,
-        "probabilities": { "ultra_ball": 0.518, "release": 0.482 }
+        "confidence": 0.2,
+        "probabilities": { "ultra_ball": 0.6, "release": 0.4 }
       }
     },
-    "requestId": "synthetic-opportunist-encounter-magikarp-only-ultra",
+    "requestId": "req_01a1edc2754b77c6aa1da4181132b830",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 276,
+    "usage": { "inputTokens": 1684, "outputTokens": 37 }
   }
 }

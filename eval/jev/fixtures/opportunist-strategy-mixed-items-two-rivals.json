@@ -123,28 +123,28 @@
   },
   "acceptable": { "strategy": ["a1"] },
   "reason": "Opportunist: liquidity 0.7 and loyalty 0.2: Pickpocket on the rich rival pays coins right now, which beats Repel (no coins) and the Lucky Egg (an unknown payoff).",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "cd80678ae57913b28e330991112c54b28eaa2ce43a9edeb3b8f35907c739329d",
   "recorded": {
     "ok": true,
     "answers": {
       "strategy": {
         "type": "choice",
-        "choice": "a2",
-        "confidence": 0.189,
+        "choice": "a1",
+        "confidence": 0.82,
         "probabilities": {
-          "a1": 0.185,
-          "a2": 0.324,
-          "a3": 0.14,
-          "a4": 0.042,
-          "a5": 0.282,
-          "skip": 0.028
+          "a1": 0.85,
+          "a2": 0.03,
+          "a3": 0.05,
+          "a4": 0.01,
+          "a5": 0.05,
+          "skip": 0.01
         }
       }
     },
-    "requestId": "synthetic-opportunist-strategy-mixed-items-two-rivals",
+    "requestId": "req_01a1edc2720d78829bd00855ddcbec52",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 300,
+    "usage": { "inputTokens": 2038, "outputTokens": 65 }
   }
 }

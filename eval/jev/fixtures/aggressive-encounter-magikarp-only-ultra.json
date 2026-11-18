@@ -95,7 +95,7 @@
   },
   "acceptable": { "encounter": ["ultra_ball"] },
   "reason": "Aggressive: liquidity 0.3 barely counts the Ball price and risk 0.8 takes the throw, and the catch is near certain, so it throws the Ultra Ball rather than let the Pokémon go.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "45dff7ee483700e7c566a22733749386da6fe332be7eab3c857fdd8b346e7e3c",
   "recorded": {
     "ok": true,
@@ -103,13 +103,13 @@
       "encounter": {
         "type": "choice",
         "choice": "ultra_ball",
-        "confidence": 0.996,
-        "probabilities": { "ultra_ball": 0.998, "release": 0.002 }
+        "confidence": 0.62,
+        "probabilities": { "ultra_ball": 0.81, "release": 0.19 }
       }
     },
-    "requestId": "synthetic-aggressive-encounter-magikarp-only-ultra",
+    "requestId": "req_01a1edc2513f7879863dfa27916ab9ed",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 259,
+    "usage": { "inputTokens": 1686, "outputTokens": 37 }
   }
 }

@@ -127,17 +127,17 @@
   },
   "acceptable": { "sell_team_0": ["false"], "sell_team_1": ["true", "false"] },
   "reason": "Opportunist: liquidity 0.7 takes any cash now, but the sale is low, so a Pokémon that adds nothing to the team may be sold or kept; risk 0.6 does not break the tie.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "db1bfad413da07e59a46475a2512fb1f287a9b7baacb10977a21cebacd5bb576",
   "recorded": {
     "ok": true,
     "answers": {
-      "sell_team_0": { "type": "noul", "noul": 0.04 },
-      "sell_team_1": { "type": "noul", "noul": 0.76 }
+      "sell_team_0": { "type": "noul", "noul": 0.26 },
+      "sell_team_1": { "type": "noul", "noul": 0.61 }
     },
-    "requestId": "synthetic-opportunist-sell-magikarp-low-sale-high-keep",
+    "requestId": "req_01a1edc27dce7f00ae9344c1cd6554f0",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 287,
+    "usage": { "inputTokens": 2019, "outputTokens": 42 }
   }
 }

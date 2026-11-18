@@ -96,21 +96,21 @@
   },
   "acceptable": { "encounter": ["great_ball"] },
   "reason": "Cautious: risk 0.2 does not want a miss when one more coin makes the catch certain, and liquidity 0.5 allows the small extra cost, so the Great Ball.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "04bc427b19c27827b72153fdb0b7d08a53e47378804af167acc4b7a7d6de36c5",
   "recorded": {
     "ok": true,
     "answers": {
       "encounter": {
         "type": "choice",
-        "choice": "great_ball",
-        "confidence": 0.265,
-        "probabilities": { "poke_ball": 0.144, "great_ball": 0.51, "release": 0.346 }
+        "choice": "release",
+        "confidence": 0.28,
+        "probabilities": { "poke_ball": 0.4, "great_ball": 0.08, "release": 0.52 }
       }
     },
-    "requestId": "synthetic-cautious-encounter-weedle-poke-or-great",
+    "requestId": "req_01a1edc26413794ca0bd62022f2ecde1",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 344,
+    "usage": { "inputTokens": 1787, "outputTokens": 42 }
   }
 }

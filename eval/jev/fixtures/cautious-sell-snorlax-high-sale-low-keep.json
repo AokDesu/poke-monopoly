@@ -127,17 +127,17 @@
   },
   "acceptable": { "sell_team_0": ["false"], "sell_team_1": ["true", "false"] },
   "reason": "Cautious: liquidity 0.5 sits near its own sale threshold, and the Snorlax sells high but also protects a lead in battle (risk 0.2 and loyalty 0.8 favour a steady team), so selling and keeping are both defensible.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "b3f297c190c4b488c74370d45fe292cee6dfa2471dc31832feb20110eadfc46c",
   "recorded": {
     "ok": true,
     "answers": {
-      "sell_team_0": { "type": "noul", "noul": 0.98 },
-      "sell_team_1": { "type": "noul", "noul": 0.22 }
+      "sell_team_0": { "type": "noul", "noul": 0.35 },
+      "sell_team_1": { "type": "noul", "noul": 0.61 }
     },
-    "requestId": "synthetic-cautious-sell-snorlax-high-sale-low-keep",
+    "requestId": "req_01a1edc267a973ad9ab547c7cb403680",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 270,
+    "usage": { "inputTokens": 2020, "outputTokens": 42 }
   }
 }

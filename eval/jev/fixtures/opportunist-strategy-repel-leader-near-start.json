@@ -94,7 +94,7 @@
   },
   "acceptable": { "strategy": ["a1", "skip"] },
   "reason": "Opportunist: aggression 0.5 is a middling pull and Repel pays no coins now (liquidity 0.7 wants cash), but loyalty 0.2 leaves no brake, so slowing the leader or holding are both reasonable.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "2fbc7ec5de2d6293e20c5e3498b6d7822afea98593d66ff3c728a36eb371a6ad",
   "recorded": {
     "ok": true,
@@ -102,13 +102,13 @@
       "strategy": {
         "type": "choice",
         "choice": "a1",
-        "confidence": 0.854,
-        "probabilities": { "a1": 0.927, "skip": 0.073 }
+        "confidence": 0.78,
+        "probabilities": { "a1": 0.89, "skip": 0.11 }
       }
     },
-    "requestId": "synthetic-opportunist-strategy-repel-leader-near-start",
+    "requestId": "req_01a1edc2e9d3707bb1edf9292706c81d",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 405,
+    "usage": { "inputTokens": 1510, "outputTokens": 33 }
   }
 }

@@ -94,7 +94,7 @@
   },
   "acceptable": { "strategy": ["a1"] },
   "reason": "Aggressive: aggression 0.9 strikes first at the leader, and Repel stops it reaching Start income; loyalty 0.4 and risk 0.8 put nothing in the way.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "f385c9022fa9eb72f1bee5eb6b8f117f0a522ce83f3c74f1b9ad339c3ab2a4c1",
   "recorded": {
     "ok": true,
@@ -102,13 +102,13 @@
       "strategy": {
         "type": "choice",
         "choice": "a1",
-        "confidence": 0.924,
-        "probabilities": { "a1": 0.962, "skip": 0.038 }
+        "confidence": 0.96,
+        "probabilities": { "a1": 0.98, "skip": 0.02 }
       }
     },
-    "requestId": "synthetic-aggressive-strategy-repel-leader-near-start",
+    "requestId": "req_01a1edc24cee77f3a83c60d4ce592bd5",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 259,
+    "usage": { "inputTokens": 1512, "outputTokens": 33 }
   }
 }

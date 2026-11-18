@@ -127,17 +127,17 @@
   },
   "acceptable": { "sell_team_0": ["false"], "sell_team_1": ["false"] },
   "reason": "Cautious: a steady player (risk 0.2, loyalty 0.8) does not sell at a reduced price when waiting recovers it, and liquidity 0.5 gives no urgency, so it keeps the Eevee.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "5a18652eab2f50841aa76d383de6066e3fa072dc6ee2f6c2f7769c3bf998b0e8",
   "recorded": {
     "ok": true,
     "answers": {
-      "sell_team_0": { "type": "noul", "noul": 0.95 },
-      "sell_team_1": { "type": "noul", "noul": 0.73 }
+      "sell_team_0": { "type": "noul", "noul": 0.21 },
+      "sell_team_1": { "type": "noul", "noul": 0.64 }
     },
-    "requestId": "synthetic-cautious-sell-tired-eevee",
+    "requestId": "req_01a1edc269be7ad1af1f9afbd0530ca1",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 258,
+    "usage": { "inputTokens": 2019, "outputTokens": 42 }
   }
 }

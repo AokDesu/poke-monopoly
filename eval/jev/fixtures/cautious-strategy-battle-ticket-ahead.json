@@ -94,21 +94,21 @@
   },
   "acceptable": { "strategy": ["skip"] },
   "reason": "Cautious: aggression 0.2 and risk 0.2 plus a lead to protect: a forced PvP can only put the lead at risk, so it holds the Ticket.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "6f5975cc13ded3b2e90e416550f8873143dfea93cf6b089ff76490cd6976edf4",
   "recorded": {
     "ok": true,
     "answers": {
       "strategy": {
         "type": "choice",
-        "choice": "a1",
-        "confidence": 0.594,
-        "probabilities": { "a1": 0.797, "skip": 0.203 }
+        "choice": "skip",
+        "confidence": 0.98,
+        "probabilities": { "a1": 0.01, "skip": 0.99 }
       }
     },
-    "requestId": "synthetic-cautious-strategy-battle-ticket-ahead",
+    "requestId": "req_01a1edc260c9794c9263bd5057877be5",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 265,
+    "usage": { "inputTokens": 1489, "outputTokens": 32 }
   }
 }

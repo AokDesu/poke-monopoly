@@ -127,17 +127,17 @@
   },
   "acceptable": { "sell_team_0": ["false"], "sell_team_1": ["true"] },
   "reason": "Opportunist: liquidity 0.7 takes a high sale now, and nothing in aggression 0.5 asks it to hold a team for later, so it sells the Snorlax.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "27c7b03b0bc22206b1c4406ad036beecb5bbb6c047fc8e07693ae8262b4661b4",
   "recorded": {
     "ok": true,
     "answers": {
-      "sell_team_0": { "type": "noul", "noul": 0.65 },
-      "sell_team_1": { "type": "noul", "noul": 0.67 }
+      "sell_team_0": { "type": "noul", "noul": 0.35 },
+      "sell_team_1": { "type": "noul", "noul": 0.7 }
     },
-    "requestId": "synthetic-opportunist-sell-snorlax-high-sale-low-keep",
+    "requestId": "req_01a1edc27a8c7518a7c01fd916383650",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 284,
+    "usage": { "inputTokens": 2019, "outputTokens": 42 }
   }
 }

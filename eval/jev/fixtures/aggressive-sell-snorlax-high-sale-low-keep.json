@@ -127,17 +127,17 @@
   },
   "acceptable": { "sell_team_0": ["false"], "sell_team_1": ["false"] },
   "reason": "Aggressive: aggression 0.9 keeps its best fighters to hunt with, and liquidity 0.3 does not need the coins, so it keeps the Snorlax; its sale threshold is the highest of the four (liquidity 0.3).",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "ffbd07a7df0f70f846df99ab5f3c4eee812e0aa380db8366e331a631e73421a1",
   "recorded": {
     "ok": true,
     "answers": {
-      "sell_team_0": { "type": "noul", "noul": 0.33 },
-      "sell_team_1": { "type": "noul", "noul": 0.02 }
+      "sell_team_0": { "type": "noul", "noul": 0.37 },
+      "sell_team_1": { "type": "noul", "noul": 0.66 }
     },
-    "requestId": "synthetic-aggressive-sell-snorlax-high-sale-low-keep",
+    "requestId": "req_01a1edc256da7d78a1b085464c07d23e",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 280,
+    "usage": { "inputTokens": 2021, "outputTokens": 42 }
   }
 }

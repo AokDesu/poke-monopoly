@@ -94,21 +94,21 @@
   },
   "acceptable": { "strategy": ["a1", "skip"] },
   "reason": "Opportunist: risk 0.6 and aggression 0.5 are middling, loyalty 0.2 leaves no brake, but a forced battle pays only if it is won (liquidity 0.7 wants coins now), so use or skip both fit.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "cbb59b98ee26c36c31a2962ecf20772016dfe105990e42c3a701e4bcce490f8d",
   "recorded": {
     "ok": true,
     "answers": {
       "strategy": {
         "type": "choice",
-        "choice": "skip",
-        "confidence": 0.854,
-        "probabilities": { "a1": 0.073, "skip": 0.927 }
+        "choice": "a1",
+        "confidence": 0.8,
+        "probabilities": { "a1": 0.9, "skip": 0.1 }
       }
     },
-    "requestId": "synthetic-opportunist-strategy-battle-ticket-leader",
+    "requestId": "req_01a1edc2732d7cde88fa3619997b1036",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 254,
+    "usage": { "inputTokens": 1488, "outputTokens": 33 }
   }
 }
