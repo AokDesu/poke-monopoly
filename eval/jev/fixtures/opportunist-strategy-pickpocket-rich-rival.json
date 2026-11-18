@@ -1,0 +1,114 @@
+{
+  "id": "opportunist-strategy-pickpocket-rich-rival",
+  "description": "Opportunist: Holds Pickpocket; the only opponent is far ahead in coins.",
+  "tags": { "decisionPoint": "strategy", "personality": "Opportunist" },
+  "request": {
+    "state": {
+      "phase": "strategy",
+      "active_seat_id": 0,
+      "final_table_round": false,
+      "board": [
+        { "space_id": 0, "kind": "start", "name": "Start" },
+        { "space_id": 1, "kind": "wild", "name": "Wild" },
+        { "space_id": 2, "kind": "event", "name": "Event" },
+        { "space_id": 3, "kind": "wild", "name": "Wild" },
+        { "space_id": 4, "kind": "shop", "name": "Shop" },
+        { "space_id": 5, "kind": "wild", "name": "Wild" },
+        { "space_id": 6, "kind": "gym", "name": "Gym" },
+        { "space_id": 7, "kind": "wild", "name": "Wild" },
+        { "space_id": 8, "kind": "event", "name": "Event" },
+        { "space_id": 9, "kind": "wild", "name": "Wild" },
+        { "space_id": 10, "kind": "shop", "name": "Shop" },
+        { "space_id": 11, "kind": "wild", "name": "Wild" },
+        { "space_id": 12, "kind": "gym", "name": "Gym" },
+        { "space_id": 13, "kind": "wild", "name": "Wild" },
+        { "space_id": 14, "kind": "event", "name": "Event" },
+        { "space_id": 15, "kind": "shop", "name": "Shop" },
+        { "space_id": 16, "kind": "wild", "name": "Wild" },
+        { "space_id": 17, "kind": "event", "name": "Event" },
+        { "space_id": 18, "kind": "gym", "name": "Gym" },
+        { "space_id": 19, "kind": "wild", "name": "Wild" },
+        { "space_id": 20, "kind": "shop", "name": "Shop" },
+        { "space_id": 21, "kind": "wild", "name": "Wild" },
+        { "space_id": 22, "kind": "event", "name": "Event" },
+        { "space_id": 23, "kind": "wild", "name": "Wild" }
+      ],
+      "you": {
+        "id": "P1",
+        "seat_id": 0,
+        "class_id": "main-character",
+        "lap": "2 of 2",
+        "squares_to_start": "far",
+        "team_count": "one",
+        "item_count": "one",
+        "coins_rank": "2nd of 2",
+        "ability_ready": true,
+        "team": [
+          {
+            "id": "starter:0",
+            "species_id": "charmander",
+            "origin": "original_starter",
+            "tired": false,
+            "ability_ready": true
+          }
+        ],
+        "items": [{ "id": "bought:0:0", "item_id": "pickpocket", "name": "Pickpocket" }],
+        "balls": { "poke": "many", "great": "one", "ultra": "none" },
+        "private_results": [],
+        "personality": "Opportunist: Reads the table and takes whatever pays right now; a steady friend only while it suits."
+      },
+      "opponents": [
+        {
+          "id": "P2",
+          "lap": "2 of 2",
+          "squares_to_start": "far",
+          "team_count": "one",
+          "item_count": "one",
+          "coins_vs_you": "far ahead",
+          "seat_id": 1,
+          "class_id": "rival",
+          "ability_ready": true,
+          "team": [
+            {
+              "id": "starter:1",
+              "species_id": "eevee",
+              "origin": "original_starter",
+              "tired": false,
+              "ability_ready": true
+            }
+          ],
+          "known_items": [{ "id": "class-item:1", "item_id": "lucky-egg", "name": "Lucky Egg" }]
+        }
+      ]
+    },
+    "questions": {
+      "strategy": {
+        "type": "choice",
+        "instructions": "Pick the ONE action that best fits `you.personality` right now. Only the listed actions are allowed. Each option states its effect and what is unknown when you choose it.",
+        "criteria": {
+          "a1": "Use your Pickpocket on P2, the target. Pickpocket effect: Take up to 5 coins from the target. This uses up the item and your tactical action for this turn. P2 will learn that you used it on them.",
+          "skip": "Do nothing this phase and keep all your items. Your tactical action for this turn stays unused."
+        }
+      }
+    }
+  },
+  "acceptable": { "strategy": ["a1"] },
+  "reason": "Opportunist: liquidity 0.7 takes the coins on offer now and loyalty 0.2 leaves no goodwill to protect, so Pickpocket on the far richer rival pays right now.",
+  "synthetic": true,
+  "requestHash": "c23f61df8c06ff14a62ad618ab82d82c2f581cfe05137908c630a13e75706a11",
+  "recorded": {
+    "ok": true,
+    "answers": {
+      "strategy": {
+        "type": "choice",
+        "choice": "a1",
+        "confidence": 0.052,
+        "probabilities": { "a1": 0.526, "skip": 0.474 }
+      }
+    },
+    "requestId": "synthetic-opportunist-strategy-pickpocket-rich-rival",
+    "model": "jev-1.13.0",
+    "latencyMs": 0,
+    "usage": { "inputTokens": 0, "outputTokens": 0 }
+  }
+}

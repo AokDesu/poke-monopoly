@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 import { FixtureJevClient, requestHash } from './jev/fixture.ts';
 import { formatReport, parseFixture, recordFixture, runOffline } from './jev/index.ts';
+import { SCENARIOS } from './jev/scenarios.ts';
 import { createFakeJevClient } from '../ai/jev/fake.ts';
 import { SpendLedger, type UsageLine } from '../ai/jev/spend.ts';
 
@@ -51,10 +52,12 @@ test(
       }),
     );
     const rows = await runOffline();
-    expect(new Set(rows.map((row) => row.fixture)).size).toBe(20);
+    expect(new Set(rows.map((row) => row.fixture)).size).toBe(SCENARIOS.length);
     expect(rows.every((row) => row.applied !== undefined)).toBe(true);
     const report = formatReport(rows);
-    expect(report).toMatch(/^Accuracy: \d+\/28 \(\d+\.\d%\) against the acceptable sets$/m);
+    expect(report).toMatch(
+      /^Accuracy: \d+\/28 \(\d+\.\d%\) against the acceptable sets, recorded fixtures only$/m,
+    );
     expect(report).toMatch(/^Mean confidence: correct \S+ \(n=\d+\), incorrect \S+ \(n=\d+\)/m);
     expect(report).toContain('illegalAppliedActionCount 0');
     expect(report).toContain('Confidence | Correct');
@@ -110,6 +113,9 @@ test.each(['request', 'schema', 'illegal', 'json'])('run fails for %s corruption
 test('legal but unacceptable answers reduce accuracy without failing the run', async () => {
   const fixture = await sample();
   fixture.acceptable.strategy = ['challenge'];
+  // Accuracy counts recorded fixtures only, so score the sample as a recording.
+  fixture.synthetic = false;
+  fixture.recorded.requestId = 'req_recorded';
   const dir = await directory();
   await write(fixture, dir);
   expect(formatReport(await runOffline(dir, []))).toContain('Accuracy: 0/1 (0.0%)');
