@@ -576,6 +576,39 @@ test('a rival that attacks the player after promising breaks it; an attack from 
   expect(trust.value).toBeLessThan(0);
 });
 
+test('a broken promise whose attack the seat never saw is still shown as broken, with no evidence made up', async () => {
+  fakeServer(undefined, undefined, accept);
+  const store = socialGame(1);
+  expect(await toHumanSocial(store)).toBe(true);
+  await makePromise(store, 1, 'ask');
+  expect(await playUntil(store, promiseSettled)).toBe(true);
+  expect(promisesOf(store)[0]!.settled!.outcome).toBe('broken');
+  const view = store.getView()!;
+  // The same feed, as a seat would hold it had the engine not shown it the attack itself.
+  const unseen = view.feed.map((item) => ({
+    ...item,
+    record: {
+      ...item.record,
+      events: item.record.events.filter((event) => event.kind !== 'attack_attempt'),
+    },
+  }));
+  const broken = memoryEntries(view.observation, unseen).filter((entry) => entry.kind === 'broken');
+  expect(broken).toHaveLength(1);
+  const [entry] = broken;
+  if (entry?.kind !== 'broken') throw new Error('no broken entry');
+  expect(entry.evidence).toEqual([]);
+  expect(entry.turn).toBe(entry.settledTurn);
+
+  render(<PromisePanel observation={view.observation} feed={unseen} />);
+  const item = memory().querySelector('[data-memory="broken"]')!;
+  expect(item.textContent).toContain(
+    t('promise.memory.broken', { promiser: rivalSeat, recipient: you, turn: entry.settledTurn }),
+  );
+  expect(item.textContent).toContain(t('promise.memory.settled', { turn: entry.settledTurn }));
+  expect(item.querySelector('[data-attack]')).toBeNull();
+  expect(item.querySelector('.promise-evidence')).toBeNull();
+});
+
 /** A rival's kept promise to the player, with or without a public chance for it to attack. */
 async function keptByRival(withChance: boolean) {
   fakeServer(undefined, undefined, quiet);

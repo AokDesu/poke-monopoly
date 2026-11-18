@@ -128,22 +128,27 @@ function MemoryItem({ entry, own }: { entry: MemoryEntry; own: number }) {
       <p>{t(`promise.memory.${entry.kind}`, values)}</p>
       {entry.kind === 'broken' && (
         <>
-          <ul className="promise-evidence">
-            {entry.evidence.map((attack) => (
-              <li key={attack.attackId} data-attack={attack.attackId}>
-                <span>
-                  {t(`promise.evidence.${attack.source}`, {
-                    actor: seatLabel(attack.actorSeatIndex, own),
-                    target: seatLabel(attack.targetSeatIndex, own),
-                    turn: attack.turn,
-                  })}
-                </span>{' '}
-                <span className="promise-ref">
-                  {t('promise.evidence.ref', { attackId: attack.attackId, record: attack.record })}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {entry.evidence.length > 0 && (
+            <ul className="promise-evidence">
+              {entry.evidence.map((attack) => (
+                <li key={attack.attackId} data-attack={attack.attackId}>
+                  <span>
+                    {t(`promise.evidence.${attack.source}`, {
+                      actor: seatLabel(attack.actorSeatIndex, own),
+                      target: seatLabel(attack.targetSeatIndex, own),
+                      turn: attack.turn,
+                    })}
+                  </span>{' '}
+                  <span className="promise-ref">
+                    {t('promise.evidence.ref', {
+                      attackId: attack.attackId,
+                      record: attack.record,
+                    })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
           <p className="promise-ref">{t('promise.memory.settled', { turn: entry.settledTurn })}</p>
         </>
       )}

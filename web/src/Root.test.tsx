@@ -25,7 +25,7 @@ afterEach(() => {
 test('a dev build opens the gallery at ?gallery', async () => {
   render(<Root search="?gallery" dev />);
   // The lazy gallery chunk renders every screen state once, which takes most of a second cold.
-  expect(await screen.findByTestId('ui-gallery', undefined, { timeout: 10_000 })).toBeTruthy();
+  expect(await screen.findByTestId('ui-gallery', undefined, { timeout: 2_000 })).toBeTruthy();
   expect(screen.getByRole('heading', { level: 1, name: t('gallery.title') })).toBeTruthy();
 });
 
