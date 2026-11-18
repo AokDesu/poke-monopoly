@@ -165,9 +165,34 @@ Question 3 counts the participant's own chats only. AI table talk never changes 
    ```
 
    Use your own stream letter in the file name. One file per facilitator means three people never edit one file at once. For a later round, use a new folder named for the round and say so in that round's issue.
+
+   **Draft the cells the log can count.** Get the game log first, and keep it outside the repository (section 2, rule 7).
+
+   - A game that reached the results screen: choose **Export log** there. The browser saves `poke-monopoly-log.json`.
+   - A game that stopped before the results screen: while the page still offers Continue, open the browser console (F12) and run `copy(localStorage.getItem('poke-monopoly.save'))`, then paste the text into a file. This is the same save the Export log button writes. Do it before another game is started in that browser, because a new game replaces it.
+
+   Then run the row command with the participant code:
+
+   ```bash
+   npm run playtest:row -- ~/poke-monopoly-log.json --code G1-A01
+   ```
+
+   It reads the file only. It prints one CSV row on standard output, so you can append it with `>> docs/playtest/g1/session-sheet-A.csv`, and a few lines on standard error:
+
+   - **Filled for you:** `participant_code`; `seed`, from the log header; `meaningful_choices`, the accepted actions of the human seat that are not `auto: true` (section 6; dice rolls, one-option steps and a reload never add one); and `drop_off_point`, which is `none` for a finished game, otherwise a candidate from the saved state: `setup` (the first-player roll was not finished), `final_round` (the Final Table Round was announced), or `lap1` to `lap3`, the Lap being played, one more than the paid Laps the board shows (`0 / 2` is `lap1`). `drop_off_reason` is `none` for a finished game. Confirm the point against what you saw.
+   - **Printed to cross-check your scratch note:** the number of Sell Phase decisions (`sell_keep`) and Ball decisions at encounters (`ball`) the human seat made. The log has no clock and cannot tell a pause from a quick choice, so it never fills `hesitation_count` or `hesitation_decisions`. Shop Ball purchases are not counted here, because section 6 counts them only when the player weighed Balls.
+   - **Left as `<<fill: ...>>` for you:** date, build commit, game length, `drop_off_reason` for an unfinished game, both hesitation cells, the four answers and `notes`. The checker refuses every one until you replace it.
+
+   The command refuses, and prints no row, for a file that is not a game log, a log from another engine, content or RNG version, a log whose saved state does not replay, a game with no human seat (a watched game) or with more than one, and a code that is not `<round>-<host><nn>`.
 2. **Destroy the scratch note** once the row is written: shred the paper or delete the file.
 3. **File issues** for bugs or confusion, titled with the code only (for example `G1-A01: ...`), and list the issue numbers in the row's `notes`.
-4. **Check the file** (see the end of section 8), then commit it on a branch and open a pull request that cites spec §8 and §9. A teammate reviews it before merge, as for every pull request (spec §7).
+4. **Check the file**, then commit it on a branch and open a pull request that cites spec §8 and §9. A teammate reviews it before merge, as for every pull request (spec §7).
+
+   ```bash
+   npm run playtest:check -- docs/playtest/g1/session-sheet-A.csv
+   ```
+
+   It reads each file you name and prints `file:line: column: problem` for every cell that is missing, inconsistent or looks like personal data, then exits with a non-zero status if there was any. It checks that the header equals `docs/playtest/session-sheet.csv`; one line per row; no empty cell and no `<<fill: ...>>` placeholder; the code matches `<round>-<host><nn>`; the date, commit, seed, game length, drop-off cells and counts have the form section 8 gives; `hesitation_decisions` holds only `sell_keep` or `ball`, as many as `hesitation_count`, and `none` only when the count is 0; `drop_off_point` and `drop_off_reason` are both `none` or neither; question cells start with `yes`, `no`, `unsure` or `n/a`; the four answers and `notes` are 200 characters or fewer; and no cell holds an `@`, a link or a phone-like number (the pattern at the end of section 8). A cell may be `n/a` only where section 8 allows it, so a sheet that used `n/a` for a number is reported. The check proves nothing about names, so read every cell yourself and the reviewer reads the file again.
 5. **Analysis** reads the committed sheets, nothing else: for G1, the report `docs/playtest/g1/G1-report.md` (issue #54).
 
 ## 8. The sheet columns
