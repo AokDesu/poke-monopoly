@@ -193,12 +193,15 @@ export function readSavedChatWords(value: unknown): SavedChatWords[] {
  */
 export function chatWordsBody(args: {
   gameId: string;
-  view: Pick<SeatView, 'observation' | 'opponents'>;
+  /** The chat route's request for this message: the recipient's own observation and personality. */
+  request: Pick<ChatReplyRequest, 'observation' | 'personalityId'>;
   message: ChatMessage;
   decision: ChatDecision;
 }): unknown {
-  const { gameId, view, message, decision } = args;
-  const game = view.observation.public;
+  const { gameId, request, message, decision } = args;
+  // The recipient's own public view: its revision counts only what it saw, and its attack history
+  // is its own, not the human's (spec §4.8). Nothing else of the request goes with it.
+  const game = request.observation.public;
   return {
     kind: 'chat_reply',
     gameId,
@@ -213,9 +216,7 @@ export function chatWordsBody(args: {
         privateResults: [],
       },
     },
-    personalityId:
-      view.opponents.find((opponent) => opponent.seatIndex === message.toSeatIndex)?.personality ??
-      'greedy',
+    personalityId: request.personalityId,
     turnKey: `chat:${message.globalTurnNo}:${message.toSeatIndex}`,
     addressedSeat: message.fromSeatIndex,
     topic: message.topic,

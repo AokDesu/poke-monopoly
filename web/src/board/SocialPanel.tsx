@@ -330,19 +330,36 @@ function Reply({
   reply: ChatReplyControls;
   rivalName: (seatIndex: number) => string;
 }) {
+  const { state } = reply;
+  if (state.status === 'none') return null;
+  // One live region for every state, so the reply that replaces "waiting" is announced.
+  return (
+    <div role="status">
+      <ReplyBody observation={observation} toSeat={toSeat} reply={reply} rivalName={rivalName} />
+    </div>
+  );
+}
+
+function ReplyBody({
+  observation,
+  toSeat,
+  reply,
+  rivalName,
+}: {
+  observation: Observation;
+  toSeat: number;
+  reply: ChatReplyControls;
+  rivalName: (seatIndex: number) => string;
+}) {
   const rival = rivalName(toSeat);
   const { state } = reply;
   if (state.status === 'none') return null;
   if (state.status === 'waiting') {
-    return (
-      <p className="social-reply-status" role="status">
-        {t('social.waiting', { rival })}
-      </p>
-    );
+    return <p className="social-reply-status">{t('social.waiting', { rival })}</p>;
   }
   if (state.status === 'failed') {
     return (
-      <div className="social-reply-status" role="status" data-reply="failed">
+      <div className="social-reply-status" data-reply="failed">
         <p>
           {t(`social.failed.${state.reason === 'stale' ? 'invalid' : state.reason}`, { rival })}
         </p>

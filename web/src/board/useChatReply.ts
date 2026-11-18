@@ -61,14 +61,10 @@ export function useChatReply(store: GameStore, view: SeatView | null): ChatReply
     const answer = async (): Promise<Extract<ChatReplyState, { status: 'ready' }>> => {
       const reply = await requestChatReply(request, message, signal);
       const decision = decisionOf(reply);
-      const saved = store
-        .getChatWords()
-        .find((entry) => messageKey(entry) === messageKey(message) && entry.decision === decision);
+      const saved = store.getChatWords().find((entry) => messageKey(entry) === messageKey(message));
       if (saved) return { status: 'ready', reply, words: saved.text, voiceOff: null };
-      const game = store.getView();
-      if (!game) return { status: 'ready', reply, words: null, voiceOff: null };
       const outcome = await requestChatWords(
-        chatWordsBody({ gameId: store.getGameId(), view: game, message, decision }),
+        chatWordsBody({ gameId: store.getGameId(), request, message, decision }),
         signal,
       );
       if (signal.aborted) throw new ChatReplyError('stale');

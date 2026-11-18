@@ -331,23 +331,71 @@ test('a reload after the reply keeps the same words and asks for no new ones', a
   expect(within(panel()).queryByRole('button', { name: t('social.topic.truce') })).toBeNull();
 });
 
-test('saved words are used only for the decision they were written for', async () => {
+test('a reload that decides differently reuses the saved line and asks for no second one', async () => {
   const { server, store } = await open(1, undefined, () => speechLine(WORDS));
   send(store, 'trade', 1);
   render(<BoardScreen store={store} />);
   await settle();
   cleanup();
   expect(store.getChatWords()[0]).toMatchObject({ decision: 'noncommittal', text: WORDS });
+  expect(server.calls.speak).toHaveLength(1);
 
-  // After the reload the chat route decides a refusal: the saved noncommittal words are not shown.
+  // After the reload the chat route decides a refusal. The words belong to the message, so the
+  // saved line stands (words never change a decision) and no second line is bought.
   fakeServer(refusedReply, () => speechLine('I keep to my own road, friend.'));
   const reloaded = createGameStore();
   reloaded.restore(store.getSession()!, store.getOpponents(), undefined, store.getChatWords());
   render(<BoardScreen store={reloaded} />);
   await settle();
-  expect(panel().textContent).not.toContain(WORDS);
-  expect(panel().textContent).toContain('I keep to my own road, friend.');
+  expect(panel().textContent).toContain(WORDS);
+  expect(panel().textContent).not.toContain('I keep to my own road, friend.');
+  expect(panel().textContent).toContain(t('social.refused', { rival: rivalOne }));
   expect(server.calls.speak).toHaveLength(1);
+});
+
+test("the speech request is built from the rival's own view, not the human's", async () => {
+  const { server, store } = await open(2, undefined, () => speechLine(WORDS));
+  // A chat with seat 1 is a record seat 2 never sees, so its revision runs behind the human's.
+  send(store, 'trade', 1);
+  const leave = store.getView()!.legalActions.enabled.find((action) => action.kind === 'skip')!;
+  expect('rejected' in store.choose(leave.id)).toBe(false);
+  expect(await toHumanSocial(store)).toBe(true);
+  send(store, 'trade', 2);
+  const { state } = store.getSession()!;
+  const human = observe(state, 0).public;
+  const recipient = observe(state, 2).public;
+  expect(recipient.stateRevision).toBeLessThan(human.stateRevision);
+  render(<BoardScreen store={store} />);
+  await settle();
+
+  expect(server.calls.speak).toHaveLength(1);
+  const body = server.calls.speak[0]!;
+  expect(body.seatIndex).toBe(2);
+  expect(body.stateRevision).toBe(recipient.stateRevision);
+  expect(body.observation.public).toEqual(recipient);
+  expect(body.observation.public).not.toEqual(human);
+});
+
+test('the reply is announced: waiting and the ready reply share one live region', async () => {
+  const gate = Promise.withResolvers<void>();
+  const { store } = await open(1, undefined, async () => {
+    await gate.promise;
+    return speechLine(WORDS);
+  });
+  send(store, 'trade', 1);
+  render(<BoardScreen store={store} />);
+  await settle();
+  const region = within(panel())
+    .getAllByRole('status')
+    .find((node) => node.textContent?.includes(t('social.waiting', { rival: rivalOne })))!;
+  expect(region).toBeDefined();
+  expect(region.textContent).not.toContain(WORDS);
+  gate.resolve();
+  await settle();
+  // The same element now holds the reply, so a screen reader announces the change.
+  expect(region.isConnected).toBe(true);
+  expect(region.textContent).toContain(WORDS);
+  expect(region.textContent).toContain(t('talk.aiWritten'));
 });
 
 test('saved words that do not belong to the game are never lent to it', async () => {
