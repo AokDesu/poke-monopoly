@@ -244,9 +244,14 @@ export const en = {
     'This preset gives {class} to two players, and classes cannot repeat in one game.',
   'presets.problem.personality':
     'This preset needs the {personality} personality, which is not open yet.',
+  'presets.problem.noPersonality':
+    'No AI personality is open yet, so this preset cannot pick one for each rival.',
   'presets.problem.difficulty': 'This preset needs {difficulty} difficulty, which is closed.',
   'presets.problem.seats':
-    'This preset needs {needed} AI rivals, but only {open} classes are open and every player needs a different one.',
+    'This preset needs {rivals}, but {open} and every player needs a different one.',
+  'presets.openNone': 'no class is open',
+  'presets.openOne': 'only 1 class is open',
+  'presets.openMany': 'only {n} classes are open',
   'presets.problem.byHand':
     'It has not been changed for you. Use New game to choose your seats yourself.',
   'preset.one-rival-easy.name': 'One rival, easy',
@@ -256,8 +261,6 @@ export const en = {
   'preset.three-rivals-random.name': 'Three rivals, random',
   'preset.three-rivals-random.hint':
     'You and three AIs. Every class, Starter, personality and difficulty is picked at random.',
-  'preset.random-all.name': 'Random All',
-  'preset.random-all.hint': 'Everything picked at random, including how many AIs you play.',
 
   'mode.heading': 'Choose a mode',
   'mode.body': 'The mode sets how many Laps of the board it takes to end the game.',

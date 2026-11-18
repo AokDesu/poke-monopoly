@@ -53,6 +53,8 @@ test('Home offers the presets and Random All and New game stay reachable without
   for (const preset of SETUP_PRESETS) {
     expect(presetButton(preset.id), preset.id).toHaveProperty('disabled', false);
   }
+  // Random All keeps its one entry, on Home.
+  expect(screen.queryByRole('button', { name: new RegExp(t('home.randomAll')) })).toBeNull();
   await user.click(button(t('nav.back')));
   expect(heading().textContent).toBe(t('home.heading'));
 });
@@ -181,4 +183,82 @@ test('with every class closed no preset is offered as usable and the screen stil
     expect(control).toHaveProperty('disabled', true);
   }
   expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(t('presets.heading'));
+});
+
+const reasonOf = (id: (typeof SETUP_PRESETS)[number]['id']) =>
+  document.getElementById(presetButton(id).getAttribute('aria-describedby')!)!.textContent!;
+
+test('a closed personality or difficulty is named by its label, not its id (§3.1, #157)', () => {
+  const some = {
+    personalities: PERSONALITIES.map((entry) => ({ ...entry, enabled: entry.id !== 'greedy' })),
+    difficulties: ['normal'],
+  };
+  render(
+    <PresetScreen
+      classes={classOptions}
+      openModes={['quick']}
+      choices={some}
+      onApply={() => {}}
+      onBack={() => {}}
+    />,
+  );
+  expect(reasonOf('one-rival-easy')).toContain(
+    t('presets.problem.personality', { personality: 'Greedy' }),
+  );
+  expect(reasonOf('one-rival-easy')).not.toContain('greedy');
+  expect(presetButton('three-rivals-random')).toHaveProperty('disabled', false);
+  cleanup();
+
+  render(
+    <PresetScreen
+      classes={classOptions}
+      openModes={['quick']}
+      choices={{ ...some, personalities: PERSONALITIES }}
+      onApply={() => {}}
+      onBack={() => {}}
+    />,
+  );
+  expect(reasonOf('one-rival-easy')).toContain(
+    t('presets.problem.difficulty', { difficulty: 'Easy' }),
+  );
+});
+
+test('a random preset with no open personality is greyed with its reason (§3.1, #157)', () => {
+  render(
+    <PresetScreen
+      classes={classOptions}
+      openModes={['quick']}
+      choices={{
+        personalities: PERSONALITIES.map((entry) => ({ ...entry, enabled: false })),
+        difficulties: ['easy', 'normal'],
+      }}
+      onApply={() => {}}
+      onBack={() => {}}
+    />,
+  );
+  expect(presetButton('three-rivals-random')).toHaveProperty('disabled', true);
+  expect(reasonOf('three-rivals-random')).toContain(t('presets.problem.noPersonality'));
+});
+
+test('the seat shortage reads 1 class and 2 classes, and never "1 AI rivals" (#157)', () => {
+  const only = (count: number) =>
+    classOptions.map((option, index) => ({ ...option, playable: index < count }));
+  for (const [count, words] of [
+    [1, 'only 1 class is open'],
+    [2, 'only 2 classes are open'],
+    [0, 'no class is open'],
+  ] as const) {
+    render(
+      <PresetScreen
+        classes={only(count)}
+        openModes={['quick']}
+        onApply={() => {}}
+        onBack={() => {}}
+      />,
+    );
+    const reason = reasonOf('three-rivals-random');
+    expect(reason, `${count}`).toContain(`3 AI rivals, but ${words}`);
+    expect(reason).not.toMatch(/\b1 AI rivals/);
+    cleanup();
+  }
 });

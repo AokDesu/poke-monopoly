@@ -15,10 +15,10 @@ import {
 /**
  * Presets for a quick start (spec §3): named arrangements that fill every seat in one tap. They are
  * plain data with no number in them; the engine still checks the finished setup in `createGame`.
- * A fixed preset names every seat; a random one reuses Random All for every seat.
+ * A fixed preset names every seat; a random one reuses Random All's path for every seat. Random All
+ * itself is not a preset: it keeps its own button on Home.
  */
-export type PresetId =
-  'one-rival-easy' | 'two-rivals-normal' | 'three-rivals-random' | 'random-all';
+export type PresetId = 'one-rival-easy' | 'two-rivals-normal' | 'three-rivals-random';
 
 export type SetupPreset =
   | {
@@ -31,8 +31,7 @@ export type SetupPreset =
   | {
       readonly id: PresetId;
       readonly kind: 'random';
-      /** Fixed number of AI rivals; absent, Random All picks the number too. */
-      readonly rivalCount?: number;
+      readonly rivalCount: number;
     };
 
 export const SETUP_PRESETS: readonly SetupPreset[] = [
@@ -71,7 +70,6 @@ export const SETUP_PRESETS: readonly SetupPreset[] = [
     ],
   },
   { id: 'three-rivals-random', kind: 'random', rivalCount: 3 },
-  { id: 'random-all', kind: 'random' },
 ];
 
 /** Why a preset cannot be used today. It is shown to the player; the preset is never repaired. */
@@ -81,23 +79,38 @@ export type PresetProblem =
   | { readonly kind: 'starter'; readonly classId: string; readonly starterSpeciesId: string }
   | { readonly kind: 'duplicate'; readonly classId: string }
   | { readonly kind: 'personality'; readonly personality: string }
+  | { readonly kind: 'noPersonality' }
   | { readonly kind: 'difficulty'; readonly difficulty: string }
   | { readonly kind: 'seats'; readonly needed: number; readonly open: number };
+
+/** The personalities and difficulties setup offers today; a test passes its own to close one. */
+export interface OpenRivalChoices {
+  readonly personalities: readonly { readonly id: string; readonly enabled: boolean }[];
+  readonly difficulties: readonly string[];
+}
+
+export const OPEN_RIVAL_CHOICES: OpenRivalChoices = {
+  personalities: PERSONALITIES,
+  difficulties: DIFFICULTIES,
+};
 
 /**
  * The first reason `preset` is not legal against today's open modes and classes, or undefined when
  * it is. A preset is legal when its mode is open, every class is open and used once, every Starter
- * belongs to its class, and every personality and difficulty is open.
+ * belongs to its class, and every personality and difficulty is open. A random preset needs an
+ * open mode, at least one open personality and enough open classes.
  */
 export function presetProblem(
   preset: SetupPreset,
   classes: readonly ClassOption[],
   openModes: readonly ModeId[],
+  choices: OpenRivalChoices = OPEN_RIVAL_CHOICES,
 ): PresetProblem | undefined {
   const open = classes.filter((option) => option.playable).length;
   if (preset.kind === 'random') {
     if (openModes.length === 0) return { kind: 'mode' };
-    const needed = preset.rivalCount ?? 1;
+    if (!choices.personalities.some((entry) => entry.enabled)) return { kind: 'noPersonality' };
+    const needed = preset.rivalCount;
     return maxRivals(classes) < needed ? { kind: 'seats', needed, open } : undefined;
   }
   if (!openModes.includes(preset.mode)) return { kind: 'mode', mode: preset.mode };
@@ -115,10 +128,10 @@ export function presetProblem(
     seen.add(seat.classId);
   }
   for (const rival of preset.rivals) {
-    if (!PERSONALITIES.some((entry) => entry.enabled && entry.id === rival.personality)) {
+    if (!choices.personalities.some((entry) => entry.enabled && entry.id === rival.personality)) {
       return { kind: 'personality', personality: rival.personality };
     }
-    if (!DIFFICULTIES.some((id) => id === rival.difficulty)) {
+    if (!choices.difficulties.some((id) => id === rival.difficulty)) {
       return { kind: 'difficulty', difficulty: rival.difficulty };
     }
   }
@@ -139,8 +152,9 @@ export function applyPreset(
   classes: readonly ClassOption[],
   openModes: readonly ModeId[],
   random: () => number,
+  choices: OpenRivalChoices = OPEN_RIVAL_CHOICES,
 ): AppliedPreset {
-  const problem = presetProblem(preset, classes, openModes);
+  const problem = presetProblem(preset, classes, openModes, choices);
   if (problem) return { ok: false, problem };
   if (preset.kind === 'random') {
     const setup = randomSetup(classes, openModes, random, preset.rivalCount);

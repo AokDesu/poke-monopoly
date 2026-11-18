@@ -1,8 +1,14 @@
 import { expect, test } from 'vitest';
 import { createGame } from '../../../engine/index.ts';
 import { classOptions, engineContent } from './content.ts';
-import { applyPreset, presetProblem, SETUP_PRESETS, type SetupPreset } from './presets.ts';
-import { MAX_RIVALS, type ClassOption, type ModeId } from './setup.ts';
+import {
+  applyPreset,
+  presetProblem,
+  SETUP_PRESETS,
+  type OpenRivalChoices,
+  type SetupPreset,
+} from './presets.ts';
+import { DIFFICULTIES, MAX_RIVALS, PERSONALITIES, type ClassOption, type ModeId } from './setup.ts';
 import { configForSetup } from './store.ts';
 
 const OPEN: readonly ModeId[] = ['quick'];
@@ -46,17 +52,16 @@ test('every preset is legal today and its seats start a Quick game in the engine
   }
 });
 
-test('the set holds one-rival, two-rival and three-rival arrangements and a Random All (#157)', () => {
+test('the set holds one-rival, two-rival and three-rival arrangements and no copy of Random All (#157)', () => {
   expect(SETUP_PRESETS.map((preset) => preset.id)).toEqual([
     'one-rival-easy',
     'two-rivals-normal',
     'three-rivals-random',
-    'random-all',
   ]);
   const counts = SETUP_PRESETS.map((preset) =>
     preset.kind === 'fixed' ? preset.rivals.length : preset.rivalCount,
   );
-  expect(counts).toEqual([1, 2, 3, undefined]);
+  expect(counts).toEqual([1, 2, 3]);
 });
 
 test('a fixed preset fills every seat exactly and editing the result never reaches the preset', () => {
@@ -74,15 +79,11 @@ test('a fixed preset fills every seat exactly and editing the result never reach
   expect(second.ok && second.setup.human).toEqual(sample.human);
 });
 
-test('Three rivals, random keeps three AIs and Random All varies the count (§3)', () => {
-  const counts = new Set<number>();
+test('Three rivals, random keeps three AIs (§3)', () => {
   for (let seed = 1; seed <= 60; seed++) {
     const three = applyPreset(SETUP_PRESETS[2]!, classOptions, OPEN, seeded(seed));
     expect(three.ok && three.setup.opponents.length).toBe(3);
-    const all = applyPreset(SETUP_PRESETS[3]!, classOptions, OPEN, seeded(seed));
-    if (all.ok) counts.add(all.setup.opponents.length);
   }
-  expect([...counts].sort()).toEqual([1, 2, 3]);
 });
 
 const problems: {
@@ -154,7 +155,7 @@ const problems: {
   },
   {
     name: 'no open mode for a random preset',
-    preset: SETUP_PRESETS[3]!,
+    preset: SETUP_PRESETS[2]!,
     classes: classOptions,
     modes: [],
     expected: { kind: 'mode' },
@@ -181,5 +182,51 @@ test('a preset that no longer fits does not hide the ones that still do', () => 
   const classes = closed('fisherman');
   expect(presetProblem(SETUP_PRESETS[0]!, classes, OPEN)).toBeDefined();
   expect(presetProblem(SETUP_PRESETS[1]!, classes, OPEN)).toBeUndefined();
-  expect(presetProblem(SETUP_PRESETS[3]!, classes, OPEN)).toBeUndefined();
+  expect(presetProblem(SETUP_PRESETS[2]!, classes, OPEN)).toBeUndefined();
+});
+
+/** Today's open choices with one personality set to `enabled: false` (what a closed file looks like). */
+const closing = (id: string, difficulties: readonly string[] = DIFFICULTIES): OpenRivalChoices => ({
+  personalities: PERSONALITIES.map((entry) => ({ ...entry, enabled: entry.id !== id })),
+  difficulties,
+});
+
+test('a personality set to disabled makes only the presets that name it illegal (§3.1, #157)', () => {
+  const choices = closing('greedy');
+  // Both fixed presets name Greedy rivals: each is explained, and apply fills nothing.
+  for (const preset of [SETUP_PRESETS[0]!, SETUP_PRESETS[1]!]) {
+    const expected = { kind: 'personality', personality: 'greedy' };
+    expect(presetProblem(preset, classOptions, OPEN, choices), preset.id).toEqual(expected);
+    expect(applyPreset(preset, classOptions, OPEN, seeded(1), choices)).toEqual({
+      ok: false,
+      problem: expected,
+    });
+  }
+  // A random preset still has the other personalities to pick from.
+  expect(presetProblem(SETUP_PRESETS[2]!, classOptions, OPEN, choices)).toBeUndefined();
+});
+
+test('a closed difficulty is explained through the injected list too (#157)', () => {
+  expect(presetProblem(SETUP_PRESETS[0]!, classOptions, OPEN, closing('none', ['normal']))).toEqual(
+    {
+      kind: 'difficulty',
+      difficulty: 'easy',
+    },
+  );
+});
+
+test('a random preset with no open personality is explained, never filled (§3.1, #157)', () => {
+  const none: OpenRivalChoices = {
+    personalities: PERSONALITIES.map((entry) => ({ ...entry, enabled: false })),
+    difficulties: DIFFICULTIES,
+  };
+  const expected = { kind: 'noPersonality' };
+  expect(presetProblem(SETUP_PRESETS[2]!, classOptions, OPEN, none)).toEqual(expected);
+  expect(applyPreset(SETUP_PRESETS[2]!, classOptions, OPEN, seeded(1), none)).toEqual({
+    ok: false,
+    problem: expected,
+  });
+  expect(
+    presetProblem(SETUP_PRESETS[2]!, classOptions, OPEN, { ...none, personalities: [] }),
+  ).toEqual(expected);
 });

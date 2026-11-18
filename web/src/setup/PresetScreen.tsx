@@ -1,21 +1,24 @@
 import { seatLabel } from '../board/labels.ts';
 import {
+  OPEN_RIVAL_CHOICES,
   presetProblem,
+  type OpenRivalChoices,
   SETUP_PRESETS,
   type PresetProblem,
   type SetupPreset,
 } from '../game/presets.ts';
 import type { ClassOption, ModeId } from '../game/setup.ts';
 import { t } from '../i18n/en.ts';
-import { className, speciesName } from '../i18n/names.ts';
+import { className, difficultyName, personalityName, speciesName } from '../i18n/names.ts';
 import { Button } from '../ui/Button.tsx';
 import { ChoiceButton } from '../ui/Choice.tsx';
-import { DieIcon } from '../ui/icons.tsx';
 import { Screen } from '../ui/Screen.tsx';
 
 interface PresetScreenProps {
   classes: readonly ClassOption[];
   openModes: readonly ModeId[];
+  /** The personalities and difficulties that are open; defaults to what setup offers. */
+  choices?: OpenRivalChoices;
   /** Fills every seat and goes to the review; only called for a preset that is legal today. */
   onApply: (preset: SetupPreset) => void;
   onBack: () => void;
@@ -48,11 +51,24 @@ function problemText(problem: PresetProblem): string {
       case 'duplicate':
         return t('presets.problem.duplicate', { class: className(problem.classId) });
       case 'personality':
-        return t('presets.problem.personality', { personality: problem.personality });
+        return t('presets.problem.personality', {
+          personality: personalityName(problem.personality),
+        });
+      case 'noPersonality':
+        return t('presets.problem.noPersonality');
       case 'difficulty':
-        return t('presets.problem.difficulty', { difficulty: problem.difficulty });
+        return t('presets.problem.difficulty', { difficulty: difficultyName(problem.difficulty) });
       case 'seats':
-        return t('presets.problem.seats', { needed: problem.needed, open: problem.open });
+        return t('presets.problem.seats', {
+          rivals: t(problem.needed === 1 ? 'opponents.countOne' : 'opponents.countMany', {
+            n: problem.needed,
+          }),
+          open: [
+            t('presets.openNone'),
+            t('presets.openOne'),
+            t('presets.openMany', { n: problem.open }),
+          ][Math.min(problem.open, 2)]!,
+        });
     }
   })();
   return `${why} ${t('presets.problem.byHand')}`;
@@ -66,8 +82,8 @@ function PresetSeats({ preset }: { preset: SetupPreset }) {
       label: seatLabel(index + 1, 0),
       text: [
         className(rival.classId),
-        t(`personality.${rival.personality}`),
-        t(`difficulty.${rival.difficulty}`),
+        personalityName(rival.personality),
+        difficultyName(rival.difficulty),
       ].join(' · '),
     })),
   ];
@@ -87,7 +103,13 @@ function PresetSeats({ preset }: { preset: SetupPreset }) {
  * exact choices and Back reaches the per-seat editor. A preset that is not legal today stays here,
  * greyed with the reason; it is never swapped for another arrangement.
  */
-export function PresetScreen({ classes, openModes, onApply, onBack }: PresetScreenProps) {
+export function PresetScreen({
+  classes,
+  openModes,
+  choices = OPEN_RIVAL_CHOICES,
+  onApply,
+  onBack,
+}: PresetScreenProps) {
   return (
     <Screen
       heading={t('presets.heading')}
@@ -100,22 +122,15 @@ export function PresetScreen({ classes, openModes, onApply, onBack }: PresetScre
     >
       <ul className="grid gap-6 lg:grid-cols-2">
         {SETUP_PRESETS.map((preset) => {
-          const problem = presetProblem(preset, classes, openModes);
-          // A random preset names a number of rivals or none.
+          const problem = presetProblem(preset, classes, openModes, choices);
           const rivals = preset.kind === 'fixed' ? preset.rivals.length : preset.rivalCount;
           return (
             <li key={preset.id}>
               <ChoiceButton
                 art={
                   <span aria-hidden="true" className="medal size-20 sm:size-24">
-                    {rivals === undefined ? (
-                      <DieIcon className="size-10 sm:size-12" />
-                    ) : (
-                      <>
-                        <span className="text-4xl sm:text-5xl">{rivals}</span>
-                        <span className="-mt-3 text-sm">{t('presets.rivalsUnit')}</span>
-                      </>
-                    )}
+                    <span className="text-4xl sm:text-5xl">{rivals}</span>
+                    <span className="-mt-3 text-sm">{t('presets.rivalsUnit')}</span>
                   </span>
                 }
                 title={t(`preset.${preset.id}.name`)}

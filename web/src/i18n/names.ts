@@ -21,3 +21,15 @@ export function classClosedReason(id: string): string {
   const key = `class.closed.${id}`;
   return Object.hasOwn(en, key) ? t(key as MessageKey) : t('class.comingLater');
 }
+
+/** An AI personality's label from the catalog; an id the catalog no longer has stays as it is. */
+export function personalityName(id: string): string {
+  const key = `personality.${id}`;
+  return Object.hasOwn(en, key) ? t(key as MessageKey) : id;
+}
+
+/** An AI difficulty's label from the catalog; an id the catalog no longer has stays as it is. */
+export function difficultyName(id: string): string {
+  const key = `difficulty.${id}`;
+  return Object.hasOwn(en, key) ? t(key as MessageKey) : id;
+}
