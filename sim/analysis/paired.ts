@@ -9,11 +9,19 @@
  * personalities), and only that block's focal seat is scored. The other seats of a game are context.
  * Seats of one game are therefore never counted as independent observations: n is complete blocks.
  *
+ * Incomplete pairs are never scored, only counted and listed: a block with one arm missing, a block
+ * where either arm aborted, and a block where either arm recorded an invariant failure.
+ *
+ * Results are reported per seat count. The all-seat-counts figure is labelled
+ * `pooledAcrossSeatCounts`, never presented as the overall result.
+ *
  * Uncertainty: a stratified percentile bootstrap over paired blocks. A resample redraws whole
  * blocks, so both arms of a block stay together and the arm correlation is kept. Blocks are
  * redrawn inside each (seat count, focal seat) cell, so every resample keeps the seat rotation of
  * the original design. The resampling RNG is seeded from `analysisSeed`, so a result is
- * reproducible. A cell with one block contributes no variance, so read intervals next to n.
+ * reproducible. A cell with fewer than two blocks contributes no variance, so any estimate whose
+ * resampling cells include one gets null bounds (counts and means only). Blocks are processed in
+ * blockId order, so the input row order does not change a result.
  */
 import { createRng, int, type RngState } from '../../engine/index.ts';
 import { EVAL_SEED_FLOOR } from '../runner.ts';
@@ -59,7 +67,7 @@ export type PairedGameRecord = {
 export type PairedOptions = {
   /** Seeds the resampling RNG. Default {@link DEFAULT_ANALYSIS_SEED}. */
   analysisSeed?: number;
-  /** Bootstrap resamples per estimate. Default 2000. */
+  /** Bootstrap resamples per estimate. Default {@link DEFAULT_RESAMPLES}. */
   resamples?: number;
   /** Central interval mass, in (0, 1). Default 0.95. */
   confidence?: number;
@@ -67,14 +75,14 @@ export type PairedOptions = {
   seedSet?: PairedSeedSet;
 };
 
-export const DEFAULT_ANALYSIS_SEED = 61;
-const DEFAULT_RESAMPLES = 2000;
+export const DEFAULT_ANALYSIS_SEED = 610004;
+export const DEFAULT_RESAMPLES = 10_000;
 const DEFAULT_CONFIDENCE = 0.95;
 
 export type MetricEstimate = {
   /** Mean over complete blocks of treatment minus control. */
   mean: number;
-  /** Percentile interval bounds; `null` below two complete blocks. */
+  /** Percentile interval bounds; `null` when any resampling cell has under two blocks. */
   lo: number | null;
   hi: number | null;
 };
@@ -109,14 +117,35 @@ export type StratumResult = {
   effectSize: { score: number | null; coins: number | null };
 };
 
-export type StratumDimension = 'seats' | 'focalSeat' | 'focalClass' | 'focalPersonality';
+/**
+ * `backgroundPersonality` is the personality of the non-focal seats (distinct values joined with
+ * `+`, `none` at a one-seat table); the focal seat's own personality is not a stratum.
+ */
+export type StratumDimension = 'focalSeat' | 'focalClass' | 'backgroundPersonality';
+
+export type SeatCountResult = {
+  overall: StratumResult;
+  strata: Record<StratumDimension, Record<string, StratumResult>>;
+};
 
 export type ComparisonResult = {
   treatmentPolicy: string;
   controlPolicy: string;
-  counts: { blocks: number; completePairs: number; abortedPairs: number };
-  overall: StratumResult;
-  strata: Record<StratumDimension, Record<string, StratumResult>>;
+  counts: {
+    /** Blocks with both arms recorded. */
+    blocks: number;
+    completePairs: number;
+    /** Blocks where either arm aborted (and no arm recorded an invariant failure). */
+    abortedPairs: number;
+    /** Blocks where either arm recorded an invariant failure; not scored. */
+    invariantPairs: number;
+    /** Aborted records per arm across this comparison's blocks, so dropping them cannot hide a policy effect. */
+    abortedByArm: Record<PairedArm, number>;
+  };
+  /** Keyed by seat count. Each seat count is analysed on its own. */
+  bySeatCount: Record<string, SeatCountResult>;
+  /** All seat counts together. Pooled: seat counts differ in difficulty, so read `bySeatCount` first. */
+  pooledAcrossSeatCounts: StratumResult;
 };
 
 export type PairedReport = {
@@ -135,10 +164,16 @@ export type PairedReport = {
     /** Blocks with only one arm recorded. */
     missingPairs: number;
     missingBlockIds: string[];
-    /** Blocks with both arms where either arm aborted. */
+    /** Blocks with both arms, no invariant failure, where either arm aborted. */
     abortedPairs: number;
     abortedBlockIds: string[];
+    /** Blocks with both arms where either arm recorded an invariant failure. */
+    invariantPairs: number;
+    invariantBlockIds: string[];
     abortReasons: Record<string, number>;
+    /** Abort reasons per arm over every record, matched or not. */
+    abortsByArm: Record<PairedArm, Record<string, number>>;
+    /** Total invariant failures over every record. */
     invariantFailures: number;
   };
   comparisons: ComparisonResult[];
@@ -149,6 +184,9 @@ const LIMITATIONS = [
   'Only the focal seat of each block is scored; other seats of a game are context, never extra n.',
   'Both arms share a seed, but their trajectories diverge after the first different decision.',
   'Intervals resample whole blocks within (seat count, focal seat) cells and assume blocks are independent.',
+  'An estimate with a resampling cell of fewer than two blocks has no interval; read its counts and mean only.',
+  'Pairs with an aborted arm or an invariant failure are not scored; read the abort counts per arm.',
+  'Results are per seat count; the pooled figure mixes seat counts and is labelled as pooled.',
   'No universal pass threshold is applied: read effects by context, with n and uncertainty.',
 ];
 
@@ -179,48 +217,60 @@ export function analyzePaired(
   const complete: Pair[] = [];
   const missingBlockIds: string[] = [];
   const abortedBlockIds: string[] = [];
-  for (const [blockId, block] of blocks) {
+  const invariantBlockIds: string[] = [];
+  const comparisons = new Map<string, ComparisonEntry>();
+  const comparisonOf = (treatment: string, control: string) => {
+    const key = JSON.stringify([treatment, control]);
+    let entry = comparisons.get(key);
+    if (!entry) {
+      entry = {
+        treatment,
+        control,
+        pairs: [],
+        aborted: 0,
+        invariant: 0,
+        abortedByArm: { treatment: 0, control: 0 },
+      };
+      comparisons.set(key, entry);
+    }
+    return entry;
+  };
+  // Blocks are visited in blockId order so that nothing below depends on the input row order.
+  const sortedBlocks = [...blocks].sort((a, b) => compareText(a[0], b[0]));
+  for (const [blockId, block] of sortedBlocks) {
     if (!block.treatment || !block.control) {
       missingBlockIds.push(blockId);
       continue;
     }
     checkMatched(blockId, block.treatment, block.control);
-    if (block.treatment.status === 'aborted' || block.control.status === 'aborted') {
+    const entry = comparisonOf(block.treatment.policy, block.control.policy);
+    for (const arm of ARMS) if (block[arm]!.status === 'aborted') entry.abortedByArm[arm] += 1;
+    if (
+      block.treatment.diagnostics.invariantFailures > 0 ||
+      block.control.diagnostics.invariantFailures > 0
+    ) {
+      invariantBlockIds.push(blockId);
+      entry.invariant += 1;
+    } else if (block.treatment.status === 'aborted' || block.control.status === 'aborted') {
       abortedBlockIds.push(blockId);
-      continue;
+      entry.aborted += 1;
+    } else {
+      const pair = { blockId, treatment: block.treatment, control: block.control };
+      complete.push(pair);
+      entry.pairs.push(pair);
     }
-    complete.push({ blockId, treatment: block.treatment, control: block.control });
   }
 
   const abortReasons: Record<string, number> = {};
+  const abortsByArm: Record<PairedArm, Record<string, number>> = { treatment: {}, control: {} };
   let invariantFailures = 0;
   for (const record of records) {
     invariantFailures += record.diagnostics.invariantFailures;
     if (record.status === 'aborted') {
       const reason = record.diagnostics.abortReason ?? 'unknown';
       abortReasons[reason] = (abortReasons[reason] ?? 0) + 1;
+      abortsByArm[record.arm][reason] = (abortsByArm[record.arm][reason] ?? 0) + 1;
     }
-  }
-
-  const comparisons = new Map<
-    string,
-    { treatment: string; control: string; pairs: Pair[]; aborted: number }
-  >();
-  const comparisonOf = (treatment: string, control: string) => {
-    const key = JSON.stringify([treatment, control]);
-    let entry = comparisons.get(key);
-    if (!entry) {
-      entry = { treatment, control, pairs: [], aborted: 0 };
-      comparisons.set(key, entry);
-    }
-    return entry;
-  };
-  for (const pair of complete) {
-    comparisonOf(pair.treatment.policy, pair.control.policy).pairs.push(pair);
-  }
-  for (const blockId of abortedBlockIds) {
-    const block = blocks.get(blockId)!;
-    comparisonOf(block.treatment!.policy, block.control!.policy).aborted += 1;
   }
 
   const results = [...comparisons.values()]
@@ -229,38 +279,41 @@ export function analyzePaired(
       const seedKey = `${analysisSeed}|${entry.treatment}|${entry.control}`;
       const estimate = (pairs: Pair[], label: string) =>
         estimateStratum(pairs, `${seedKey}|${label}`, resamples, confidence);
-      const strata: ComparisonResult['strata'] = {
-        seats: {},
-        focalSeat: {},
-        focalClass: {},
-        focalPersonality: {},
-      };
       const dimensions: Record<StratumDimension, (pair: Pair) => string> = {
-        seats: (pair) => String(pair.treatment.seats),
         focalSeat: (pair) => String(pair.treatment.focalSeat),
         focalClass: (pair) => pair.treatment.classBySeat[pair.treatment.focalSeat]!,
-        focalPersonality: (pair) => pair.treatment.personalityBySeat[pair.treatment.focalSeat]!,
+        backgroundPersonality: (pair) => backgroundPersonality(pair.treatment),
       };
-      for (const dimension of Object.keys(dimensions) as StratumDimension[]) {
-        const groups = new Map<string, Pair[]>();
-        for (const pair of entry.pairs) {
-          const value = dimensions[dimension](pair);
-          groups.set(value, [...(groups.get(value) ?? []), pair]);
+      const bySeatCount: Record<string, SeatCountResult> = {};
+      const seatGroups = groupBy(entry.pairs, (pair) => String(pair.treatment.seats));
+      for (const [seats, seatPairs] of [...seatGroups].sort(
+        (a, b) => Number(a[0]) - Number(b[0]),
+      )) {
+        const strata: SeatCountResult['strata'] = {
+          focalSeat: {},
+          focalClass: {},
+          backgroundPersonality: {},
+        };
+        for (const dimension of Object.keys(dimensions) as StratumDimension[]) {
+          const groups = groupBy(seatPairs, dimensions[dimension]);
+          for (const [value, pairs] of [...groups].sort((a, b) => compareText(a[0], b[0]))) {
+            strata[dimension][value] = estimate(pairs, `seats=${seats}|${dimension}=${value}`);
+          }
         }
-        for (const [value, pairs] of [...groups].sort((a, b) => compareText(a[0], b[0]))) {
-          strata[dimension][value] = estimate(pairs, `${dimension}=${value}`);
-        }
+        bySeatCount[seats] = { overall: estimate(seatPairs, `seats=${seats}|overall`), strata };
       }
       return {
         treatmentPolicy: entry.treatment,
         controlPolicy: entry.control,
         counts: {
-          blocks: entry.pairs.length + entry.aborted,
+          blocks: entry.pairs.length + entry.aborted + entry.invariant,
           completePairs: entry.pairs.length,
           abortedPairs: entry.aborted,
+          invariantPairs: entry.invariant,
+          abortedByArm: entry.abortedByArm,
         },
-        overall: estimate(entry.pairs, 'overall'),
-        strata,
+        bySeatCount,
+        pooledAcrossSeatCounts: estimate(entry.pairs, 'pooled'),
       };
     });
 
@@ -280,18 +333,48 @@ export function analyzePaired(
       missingBlockIds,
       abortedPairs: abortedBlockIds.length,
       abortedBlockIds,
+      invariantPairs: invariantBlockIds.length,
+      invariantBlockIds,
       abortReasons,
+      abortsByArm,
       invariantFailures,
     },
     comparisons: results,
   };
 }
 
+const ARMS = ['treatment', 'control'] as const;
+
 type Pair = { blockId: string; treatment: PairedGameRecord; control: PairedGameRecord };
+type ComparisonEntry = {
+  treatment: string;
+  control: string;
+  pairs: Pair[];
+  aborted: number;
+  invariant: number;
+  abortedByArm: Record<PairedArm, number>;
+};
 type Block = { treatment?: PairedGameRecord; control?: PairedGameRecord };
 
 function compareText(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
+}
+
+function groupBy<T>(items: readonly T[], key: (item: T) => string): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const k = key(item);
+    const group = groups.get(k);
+    if (group) group.push(item);
+    else groups.set(k, [item]);
+  }
+  return groups;
+}
+
+/** The non-focal seats' personalities: distinct values joined with `+`; `none` with no other seat. */
+function backgroundPersonality(record: PairedGameRecord): string {
+  const others = record.personalityBySeat.filter((_, seat) => seat !== record.focalSeat);
+  return others.length === 0 ? 'none' : [...new Set(others)].sort(compareText).join('+');
 }
 
 function validateRecord(record: PairedGameRecord): void {
@@ -446,7 +529,10 @@ function estimateStratum(
   const cellList = [...cells.entries()].sort((a, b) => compareText(a[0], b[0])).map(([, v]) => v);
 
   const means = METRICS.map((_, m) => (n === 0 ? 0 : sumOf(rows.map((row) => row[m]!)) / n));
-  const bounds = n < 2 ? null : bootstrap(rows, cellList, seedKey, resamples, confidence);
+  const bounds =
+    n < 2 || cellList.some((cell) => cell.length < 2)
+      ? null
+      : bootstrap(rows, cellList, seedKey, resamples, confidence);
 
   const estimate = (metric: Metric): MetricEstimate => {
     const m = METRICS.indexOf(metric);

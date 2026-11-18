@@ -14,6 +14,8 @@ type Spec = {
   seedSet?: 'tune' | 'eval';
   classes?: readonly string[];
   personalities?: readonly string[];
+  invariantFailures?: number;
+  abortReason?: string;
 };
 
 /** Builds one game record; the defaults describe a 2-seat tune game with focal seat 0. */
@@ -33,7 +35,11 @@ function rec(spec: Spec): PairedGameRecord {
     status: spec.status ?? 'completed',
     winnerSeats: aborted ? [] : (spec.winners ?? [0]),
     finalCoins: spec.coins ?? Array.from({ length: seats }, () => 100),
-    diagnostics: { steps: 50, abortReason: aborted ? 'step-limit' : null, invariantFailures: 0 },
+    diagnostics: {
+      steps: 50,
+      abortReason: aborted ? (spec.abortReason ?? 'step-limit') : null,
+      invariantFailures: spec.invariantFailures ?? 0,
+    },
   };
 }
 
@@ -51,7 +57,7 @@ describe('paired outcome scoring', () => {
   it('scores 1/k co-winner credit and differences per complete block', () => {
     const report = analyzePaired(twoBlocks());
     expect(report.comparisons).toHaveLength(1);
-    const { overall } = report.comparisons[0]!;
+    const { overall } = report.comparisons[0]!.bySeatCount['2']!;
 
     expect(overall.n).toBe(2);
     expect(overall.arms.treatment).toMatchObject({ wins: 1, ties: 1, losses: 0 });
@@ -69,7 +75,7 @@ describe('paired outcome scoring', () => {
   });
 
   it('reports the spec tie rate as the share of completed games with co-winners', () => {
-    const { overall } = analyzePaired(twoBlocks()).comparisons[0]!;
+    const { overall } = analyzePaired(twoBlocks()).comparisons[0]!.bySeatCount['2']!;
     expect(overall.arms.treatment.tieRate).toBeCloseTo(0.5);
     expect(overall.arms.control.tieRate).toBe(0);
   });
@@ -105,8 +111,47 @@ describe('incomplete pairs', () => {
     expect(counts.abortedPairs).toBe(1);
     expect(counts.abortedBlockIds).toEqual(['b4']);
     expect(counts.abortReasons).toEqual({ 'step-limit': 2 });
-    expect(comparisons[0]!.overall.n).toBe(2);
-    expect(comparisons[0]!.counts).toEqual({ blocks: 3, completePairs: 2, abortedPairs: 1 });
+    expect(comparisons[0]!.pooledAcrossSeatCounts.n).toBe(2);
+    expect(comparisons[0]!.counts).toMatchObject({ blocks: 3, completePairs: 2, abortedPairs: 1 });
+  });
+});
+
+describe('checker failures and aborts per arm', () => {
+  it('treats a pair with an invariant failure as incomplete: not scored, counted and reported', () => {
+    const records = [
+      ...twoBlocks(),
+      rec({ block: 'bad', seed: 3, arm: 'treatment', invariantFailures: 2 }),
+      rec({ block: 'bad', seed: 3, arm: 'control', winners: [1] }),
+    ];
+    const { counts, comparisons } = analyzePaired(records);
+    expect(counts.completePairs).toBe(2);
+    expect(counts.invariantPairs).toBe(1);
+    expect(counts.invariantBlockIds).toEqual(['bad']);
+    expect(counts.invariantFailures).toBe(2);
+    expect(comparisons[0]!.counts).toMatchObject({
+      blocks: 3,
+      completePairs: 2,
+      invariantPairs: 1,
+    });
+    expect(comparisons[0]!.pooledAcrossSeatCounts.n).toBe(2);
+  });
+
+  it('reports aborts per arm so complete-case dropping cannot hide policy-caused stops', () => {
+    const records = [
+      ...twoBlocks(),
+      rec({ block: 'a1', seed: 3, arm: 'treatment', status: 'aborted' }),
+      rec({ block: 'a1', seed: 3, arm: 'control' }),
+      rec({ block: 'a2', seed: 4, arm: 'treatment', status: 'aborted', abortReason: 'stalled' }),
+      rec({ block: 'a2', seed: 4, arm: 'control' }),
+      rec({ block: 'a3', seed: 5, arm: 'treatment' }),
+      rec({ block: 'a3', seed: 5, arm: 'control', status: 'aborted' }),
+    ];
+    const { counts, comparisons } = analyzePaired(records);
+    expect(counts.abortsByArm).toEqual({
+      treatment: { 'step-limit': 1, stalled: 1 },
+      control: { 'step-limit': 1 },
+    });
+    expect(comparisons[0]!.counts.abortedByArm).toEqual({ treatment: 2, control: 1 });
   });
 });
 
@@ -203,26 +248,27 @@ function manyBlocks(
 describe('paired uncertainty', () => {
   it('is reproducible for one analysis seed and changes with another', () => {
     const records = manyBlocks(20, { gain: 40, winsAbove: 12 });
-    const a = analyzePaired(records, { analysisSeed: 7 });
-    const b = analyzePaired(records, { analysisSeed: 7 });
-    const c = analyzePaired(records, { analysisSeed: 8 });
+    const a = analyzePaired(records, { analysisSeed: 7, resamples: 50 });
+    const b = analyzePaired(records, { analysisSeed: 7, resamples: 50 });
+    const c = analyzePaired(records, { analysisSeed: 8, resamples: 50 });
     expect(b).toEqual(a);
     expect(a.analysisSeed).toBe(7);
-    expect(c.comparisons[0]!.overall.differences.coins).not.toEqual(
-      a.comparisons[0]!.overall.differences.coins,
+    expect(c.comparisons[0]!.bySeatCount['2']!.overall.differences.coins).not.toEqual(
+      a.comparisons[0]!.bySeatCount['2']!.overall.differences.coins,
     );
   });
 
   it('reports a default analysis seed, resample count and method', () => {
     const report = analyzePaired(manyBlocks(4, { gain: 0, winsAbove: 0 }));
-    expect(report.analysisSeed).toBe(61);
-    expect(report.resamples).toBe(2000);
+    expect(report.analysisSeed).toBe(610004);
+    expect(report.resamples).toBe(10000);
     expect(report.confidence).toBe(0.95);
     expect(report.method).toMatch(/paired block/i);
   });
 
   it('excludes zero for a consistent positive paired difference', () => {
-    const { overall } = analyzePaired(manyBlocks(20, { gain: 40, winsAbove: 20 })).comparisons[0]!;
+    const { overall } = analyzePaired(manyBlocks(20, { gain: 40, winsAbove: 20 })).comparisons[0]!
+      .bySeatCount['2']!;
     expect(overall.differences.coins.mean).toBeGreaterThan(40);
     expect(overall.differences.coins.lo).toBeGreaterThan(40);
     expect(overall.differences.score.lo).toBeGreaterThan(0);
@@ -239,7 +285,7 @@ describe('paired uncertainty', () => {
         rec({ block: `z${i}`, seed: 900 + i, arm: 'control', winners, coins }),
       );
     }
-    const { overall } = analyzePaired(records).comparisons[0]!;
+    const { overall } = analyzePaired(records).comparisons[0]!.bySeatCount['2']!;
     expect(overall.differences.score).toMatchObject({ mean: 0, lo: 0, hi: 0 });
     expect(overall.differences.coins).toMatchObject({ mean: 0, lo: 0, hi: 0 });
     expect(overall.differences.score.lo).toBeLessThanOrEqual(0);
@@ -256,17 +302,32 @@ describe('paired uncertainty', () => {
         rec({ block: `c${i}`, seed: 300 + i, arm: 'control', winners: [1], coins: [base, 100] }),
       );
     }
-    const { coins } = analyzePaired(records).comparisons[0]!.overall.differences;
+    const { coins } = analyzePaired(records).comparisons[0]!.bySeatCount['2']!.overall.differences;
     expect(coins.mean).toBeCloseTo(10);
     expect(coins.lo).toBeCloseTo(10);
     expect(coins.hi).toBeCloseTo(10);
+  });
+
+  it('pins the paired standardized effect: block differences 1 and -0.5 give 0.2357', () => {
+    const { overall } = analyzePaired(twoBlocks()).comparisons[0]!.bySeatCount['2']!;
+    // mean 0.25, sample SD sqrt(((0.75)^2 + (0.75)^2) / 1) = 1.0607
+    expect(overall.effectSize.score).toBeCloseTo(0.2357, 4);
+    // coins: differences 200 and -50, mean 75, SD 176.78
+    expect(overall.effectSize.coins).toBeCloseTo(0.4243, 4);
+  });
+
+  it('does not depend on the order of the input rows', () => {
+    const records = manyBlocks(20, { gain: 40, winsAbove: 12 });
+    const shuffled = [...records].reverse();
+    shuffled.push(shuffled.splice(3, 1)[0]!);
+    expect(analyzePaired(shuffled)).toEqual(analyzePaired(records));
   });
 
   it('gives no interval below two complete pairs', () => {
     const { overall } = analyzePaired([
       rec({ block: 'only', seed: 1, arm: 'treatment' }),
       rec({ block: 'only', seed: 1, arm: 'control', winners: [1] }),
-    ]).comparisons[0]!;
+    ]).comparisons[0]!.bySeatCount['2']!;
     expect(overall.n).toBe(1);
     expect(overall.differences.score.mean).toBe(1);
     expect(overall.differences.score.lo).toBeNull();
@@ -287,7 +348,7 @@ describe('strata and seat rotations', () => {
         const seed = seats * 1000 + focalSeat * 100 + i;
         const classes = Array.from({ length: seats }, (_, s) => (s === focalSeat ? 'tank' : 'x'));
         const personalities = Array.from({ length: seats }, (_, s) =>
-          s === focalSeat ? 'careful' : 'unassigned',
+          s === focalSeat ? 'greedy' : 'careful',
         );
         records.push(
           rec({
@@ -316,35 +377,61 @@ describe('strata and seat rotations', () => {
     return records;
   }
 
-  it('reports complete-pair n per seat count, focal seat, class and personality', () => {
-    const { overall, strata } = analyzePaired(rotated()).comparisons[0]!;
-    expect(overall.n).toBe(8);
-    expect(Object.fromEntries(Object.entries(strata.seats).map(([k, v]) => [k, v.n]))).toEqual({
-      '2': 6,
-      '3': 2,
-    });
-    expect(Object.fromEntries(Object.entries(strata.focalSeat).map(([k, v]) => [k, v.n]))).toEqual({
-      '0': 3,
-      '1': 3,
-      '2': 2,
-    });
-    expect(Object.fromEntries(Object.entries(strata.focalClass).map(([k, v]) => [k, v.n]))).toEqual(
-      {
-        tank: 8,
-      },
-    );
-    expect(
-      Object.fromEntries(Object.entries(strata.focalPersonality).map(([k, v]) => [k, v.n])),
-    ).toEqual({ careful: 8 });
+  it('reports n per seat count, never silently pooled across seat counts', () => {
+    const { bySeatCount, pooledAcrossSeatCounts } = analyzePaired(rotated()).comparisons[0]!;
+    const counts = (group: Record<string, { n: number }>) =>
+      Object.fromEntries(Object.entries(group).map(([key, value]) => [key, value.n]));
+
+    expect(Object.keys(bySeatCount)).toEqual(['2', '3']);
+    expect(bySeatCount['2']!.overall.n).toBe(6);
+    expect(bySeatCount['3']!.overall.n).toBe(2);
+    expect(counts(bySeatCount['2']!.strata.focalSeat)).toEqual({ '0': 3, '1': 3 });
+    expect(counts(bySeatCount['3']!.strata.focalSeat)).toEqual({ '2': 2 });
+    expect(counts(bySeatCount['2']!.strata.focalClass)).toEqual({ tank: 6 });
+    expect(pooledAcrossSeatCounts.n).toBe(8);
+  });
+
+  it('strata by the background personality, not the focal seat', () => {
+    const { bySeatCount } = analyzePaired(rotated()).comparisons[0]!;
+    expect(Object.keys(bySeatCount['2']!.strata.backgroundPersonality)).toEqual(['careful']);
+    expect(Object.keys(bySeatCount['3']!.strata.backgroundPersonality)).toEqual(['careful']);
+    expect(bySeatCount['2']!.strata).not.toHaveProperty('focalPersonality');
   });
 
   it('treats the blocks, not the seats of a game, as the sample size', () => {
     // 3 seats per game still give one observation per block: the focal seat only.
-    const { overall } = analyzePaired(rotated()).comparisons[0]!;
-    expect(overall.n).toBe(8);
+    const { bySeatCount } = analyzePaired(rotated()).comparisons[0]!;
+    const { overall } = bySeatCount['3']!;
+    expect(overall.n).toBe(2);
     expect(
       overall.arms.treatment.wins + overall.arms.treatment.ties + overall.arms.treatment.losses,
-    ).toBe(8);
+    ).toBe(2);
+  });
+
+  it('gives null bounds when any resampling cell has fewer than 2 blocks', () => {
+    const records: PairedGameRecord[] = [];
+    for (const [focalSeat, count] of [
+      [0, 4],
+      [1, 1],
+    ] as const) {
+      for (let i = 0; i < count; i++) {
+        const block = `r${focalSeat}-${i}`;
+        const seed = 700 + focalSeat * 10 + i;
+        const winners = i % 2 === 0 ? [focalSeat] : [1 - focalSeat];
+        records.push(
+          rec({ block, seed, focalSeat, arm: 'treatment', winners }),
+          rec({ block, seed, focalSeat, arm: 'control', winners: [1 - focalSeat] }),
+        );
+      }
+    }
+    const two = analyzePaired(records).comparisons[0]!.bySeatCount['2']!;
+    expect(two.overall.n).toBe(5);
+    expect(two.overall.differences.score.mean).toBeCloseTo(0.6);
+    expect(two.overall.differences.score.lo).toBeNull();
+    expect(two.overall.differences.score.hi).toBeNull();
+    // the focal-seat-1 stratum has one block; the focal-seat-0 stratum has four.
+    expect(two.strata.focalSeat['1']!.differences.score.lo).toBeNull();
+    expect(two.strata.focalSeat['0']!.differences.score.lo).not.toBeNull();
   });
 
   it('separates comparisons by policy pair', () => {
@@ -354,7 +441,7 @@ describe('strata and seat rotations', () => {
       rec({ block: 'x1', seed: 11, arm: 'control', policy: 'baseline', winners: [1] }),
     ];
     const { comparisons } = analyzePaired(records);
-    expect(comparisons.map((c) => [c.treatmentPolicy, c.overall.n])).toEqual([
+    expect(comparisons.map((c) => [c.treatmentPolicy, c.pooledAcrossSeatCounts.n])).toEqual([
       ['always-pvp', 2],
       ['never-negotiate', 1],
     ]);
