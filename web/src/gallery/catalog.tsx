@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { AiSpeechEvent } from '../../../engine/index.ts';
 import type { PublicGame, VoiceReason } from '../game/tableTalk.ts';
 import { EncounterDialog } from '../board/EncounterDialog.tsx';
+import { EventCard } from '../board/EventCard.tsx';
 import { SellPanel } from '../board/SellPanel.tsx';
 import { TableTalkPanel } from '../board/TableTalk.tsx';
 import { TurnPanel } from '../board/TurnPanel.tsx';
@@ -58,6 +59,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
   const itemsFull = once(scenes.shopItemsFull);
   const sellPhase = once(scenes.sellPhaseFullTeam);
   const wholeTeamSold = once(scenes.wholeTeamSold);
+  const reshuffled = once(scenes.eventAfterReshuffle);
   const decisionOpen = once(scenes.rivalDecisionOpen);
   const watchOpen = once(scenes.watchDecisionOpen);
   const rivalFallback = (reason: string, rivals: 1 | 2) =>
@@ -348,6 +350,21 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
       ],
     },
     {
+      id: 'event-deck-out',
+      specRow: 14,
+      label: 'gallery.row.eventDeckOut',
+      keys: ['event.card.heading', 'event.deckReshuffled'],
+      examples: [
+        {
+          id: 'reshuffled',
+          caption: 'gallery.example.deckReshuffled',
+          render: () => (
+            <EventCard observation={reshuffled().view.observation} feed={reshuffled().view.feed} />
+          ),
+        },
+      ],
+    },
+    {
       id: 'haiku-off',
       specRow: 15,
       label: 'gallery.row.haikuOff',
@@ -472,5 +489,4 @@ export const PENDING_ROWS: readonly PendingRow[] = [
   { specRow: 6, label: 'gallery.row.jevTimeoutDeal', reason: 'gallery.pending.dealsBadge' },
   { specRow: 10, label: 'gallery.row.chatUnclassified', reason: 'gallery.pending.chat' },
   { specRow: 11, label: 'gallery.row.chatManipulation', reason: 'gallery.pending.chat' },
-  { specRow: 14, label: 'gallery.row.eventDeckOut', reason: 'gallery.pending.eventDeck' },
 ];

@@ -51,6 +51,7 @@ const SHOWN = [
     keys: ['save.pendingDecision', 'save.continue', 'game.resumedAiTurn'],
   },
   { id: 'team-empty', specRow: '13', keys: ['sell.rescuePreview', 'sell.rescueStarter'] },
+  { id: 'event-deck-out', specRow: '14', keys: ['event.card.heading', 'event.deckReshuffled'] },
   {
     id: 'haiku-off',
     specRow: '15',
@@ -76,8 +77,8 @@ const SHOWN = [
   { id: 'watch-all-backup', specRow: '18', keys: ['ai.allBackupBanner', 'ai.backupBadge'] },
 ] as const satisfies readonly { id: string; specRow: string; keys: readonly MessageKey[] }[];
 
-/** Rows with nothing for a player to see in this build (no chat, deals or event-deck screen, engine-only). */
-const PENDING = ['2', '6', '10', '11', '14'];
+/** Rows with nothing for a player to see in this build (no chat or deals screen, engine-only). */
+const PENDING = ['2', '6', '10', '11'];
 
 /** A catalog message as a pattern, so templated values (`{value}`) match whatever the engine says. */
 function shown(root: HTMLElement, key: MessageKey): boolean {

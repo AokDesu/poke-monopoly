@@ -101,6 +101,30 @@ export function createScenes(fixtures: GalleryFixtures) {
       ),
 
     /**
+     * §3.1: the Event deck runs out. Seat 0 lands on an Event square twice: the first draw fills
+     * the deck, the second finds the draw pile empty and the engine shuffles the discard pile back
+     * in. Both draws are real engine records; the view's feed holds them in play order.
+     */
+    eventAfterReshuffle: (): Scene => {
+      const landOnEvent = (drawPile: string[], discardPile: string[]) => {
+        const store = createFixtureStore(fixtures['shop-low-coins'], engineContent, (state) => {
+          state.phase = { kind: 'resolve' };
+          state.players[0]!.routeProgress = 2;
+          state.eventDeck = { drawPile, discardPile };
+        });
+        if (!store.advance({ human: true })) throw new Error('Gallery: the Event did not draw');
+        return store;
+      };
+      const first = landOnEvent([], []);
+      const second = landOnEvent(
+        [],
+        engineContent.events!.map(({ id }) => id),
+      );
+      const view = second.getView()!;
+      return { store: second, view: { ...view, feed: [...first.getView()!.feed, ...view.feed] } };
+    },
+
+    /**
      * Seat 1 (an AI) has just left the Shop. `answer` is how its decision reached the engine and
      * `rivals` is how many AI seats the game has.
      */
