@@ -55,8 +55,12 @@ test(
     expect(new Set(rows.map((row) => row.fixture)).size).toBe(SCENARIOS.length);
     expect(rows.every((row) => row.applied !== undefined)).toBe(true);
     const report = formatReport(rows);
+    const recordedRows = rows.filter((row) => !row.synthetic).length;
     expect(report).toMatch(
-      /^Accuracy: \d+\/28 \(\d+\.\d%\) against the acceptable sets, recorded fixtures only$/m,
+      new RegExp(
+        `^Accuracy: \\d+/${recordedRows} \\(\\d+\\.\\d%\\) against the acceptable sets, recorded fixtures only$`,
+        'm',
+      ),
     );
     expect(report).toMatch(/^Mean confidence: correct \S+ \(n=\d+\), incorrect \S+ \(n=\d+\)/m);
     expect(report).toContain('illegalAppliedActionCount 0');

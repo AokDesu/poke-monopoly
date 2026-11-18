@@ -191,22 +191,32 @@ test('every new fixture is a marked synthetic placeholder or a live recording, n
     if (fixture!.synthetic)
       expect(fixture!.recorded.usage, scenario.id).toEqual({ inputTokens: 0, outputTokens: 0 });
   }
-  const [any] = [...saved.values()].filter((fixture) => fixture.synthetic);
   // A placeholder passed off as a recording, and a recording marked synthetic, both fail the load.
-  expect(() => validateFixture({ ...any!, synthetic: false })).toThrow('synthetic must be true');
+  const [base] = [...saved.values()];
+  const placeholder = {
+    ...base!,
+    synthetic: true,
+    recorded: { ...base!.recorded, requestId: `${SYNTHETIC_REQUEST_PREFIX}${base!.id}` },
+  };
+  expect(() => validateFixture(placeholder)).not.toThrow();
+  expect(() => validateFixture({ ...placeholder, synthetic: false })).toThrow(
+    'synthetic must be true',
+  );
   expect(() =>
-    validateFixture({ ...any!, recorded: { ...any!.recorded, requestId: 'req_real' } }),
+    validateFixture({
+      ...placeholder,
+      recorded: { ...placeholder.recorded, requestId: 'req_real' },
+    }),
   ).toThrow('synthetic must be true');
 });
 
-test('the README lists every synthetic fixture a person must record, one id per line', async () => {
+test('the README lists every synthetic fixture a person still has to record', async () => {
   const readme = await readFile(join(import.meta.dirname, 'README.md'), 'utf8');
-  const block = /Fixtures to record[^\n]*\n\n```text\n([\s\S]*?)```/.exec(readme)?.[1];
-  expect(block).toBeDefined();
-  const listed = block!.trim().split('\n');
-  expect(new Set(listed).size).toBe(listed.length);
-  expect(listed.every((id) => SCENARIOS.some((scenario) => scenario.id === id))).toBe(true);
-  const synthetic = (await fixtures()).filter((fixture) => fixture.synthetic).map((f) => f.id);
-  for (const id of synthetic) expect(listed, id).toContain(id);
   expect(readme).toContain('npm run eval:jev -- --record');
+  const synthetic = (await fixtures()).filter((fixture) => fixture.synthetic).map((f) => f.id);
+  const section = /Fixtures still to record:([\s\S]*?)(?=\n## )/.exec(readme)?.[1];
+  expect(section).toBeDefined();
+  // Once none is synthetic the section says so; otherwise it names each one.
+  if (synthetic.length === 0) expect(section).toContain('none');
+  for (const id of synthetic) expect(section, id).toContain(id);
 });

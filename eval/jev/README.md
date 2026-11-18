@@ -8,7 +8,7 @@ Spec §8 asks for at least 60 decision scenarios, 15 per personality, each with 
 npm run eval:jev -- --offline   # replays every fixture: no key, no network
 ```
 
-The report counts the scenarios per personality, and splits recorded fixtures from synthetic ones (see below).
+The report counts the scenarios per personality, and splits recorded fixtures from synthetic ones (see below). All 65 are recorded; see the results.
 
 ## The scenarios
 
@@ -38,17 +38,49 @@ Some states are agreement controls (every personality gives the same answer), so
 
 **PvP.** Spec §5.3 (the temporary #55 exception) keeps `declare_pvp` out of Strategy questions until Stream B adds PvP questions, and there is no PvP response question yet. The PvP contrast is therefore expressed through the Battle Ticket item, which is a real Strategy option that forces PvP. When the PvP questions arrive, add scenarios for them here.
 
+## Results of the recording
+
+The captain recorded all 45 personality scenarios live on 2026-11-18 (`jev-1.13.0`, one request each, through the orchestrator). With the 20 Greedy recordings the set is **65 fixtures, 65 recorded, 0 synthetic**. These figures come from `npm run eval:jev -- --offline` on that set; counts are Jev answers (Choice and Noul rows) scored against the acceptable sets, with n as shown:
+
+| Measure                              | Result                                          |
+| ------------------------------------ | ----------------------------------------------- |
+| Accuracy, recorded fixtures          | 78/91 (85.7%)                                   |
+| `illegalAppliedActionCount`          | 0                                               |
+| Fallbacks (`low_confidence`)         | 16 of 65 decisions                              |
+| Mean confidence, correct / incorrect | 0.688 (n=37) / 0.480 (n=7); Noul rows have none |
+
+| Personality | Fixtures | Rows correct / total | Strategy | Encounter |  Sell |
+| ----------- | -------: | -------------------: | -------: | --------: | ----: |
+| Greedy      |       20 |                27/28 |      8/8 |       6/6 | 13/14 |
+| Aggressive  |       15 |                16/21 |      5/6 |       3/4 |  8/11 |
+| Cautious    |       15 |                15/21 |      5/6 |       1/4 |  9/11 |
+| Opportunist |       15 |                20/21 |      5/6 |       4/4 | 11/11 |
+
+These are small counts, not a general claim about Jev or the personalities, and the acceptable sets are themselves judgements. The misses below are inputs for #59: tuning the personality instructions, or correcting an acceptable set, whichever the evidence favours. They are not failures of this change.
+
+- **Cautious Encounter, 3 of 4 missed.** Jev answered `release` on `pidgey-poke-or-great`, `weedle-poke-or-great` and `rare-snorlax-ultra` at low confidence (0.35, 0.28 and 0.19). Each fell below the floor, so the fallback policy chose a catch (Poké Ball, Poké Ball, Ultra Ball), which is acceptable. The set expects a catch for all three.
+- **Aggressive and Cautious Sell, 5 rows.** Jev's Noul was `true` (sell) where the set expects `false` (keep): Aggressive on `magikarp-low-sale-high-keep` (0.59), `snorlax-high-sale-low-keep` (0.66) and `tired-eevee` (0.63); Cautious on `magikarp-low-sale-high-keep` (0.59) and `tired-eevee` (0.64). None was applied: each Noul is below that personality's sell threshold (0.92 Aggressive, 0.8 Cautious), so nothing was sold. Cautious on `snorlax-high-sale-low-keep` accepts either answer and is not a miss.
+- **Aggressive, `strategy-mixed-items-two-rivals`.** Jev picked Pickpocket on the rich rival (confidence 0.75, applied); the set expects Repel on that rival.
+- **Aggressive, `encounter-weedle-poke-or-great`.** Jev picked the Poké Ball (0.67, applied); the set expects the Great Ball.
+- **Opportunist, `strategy-battle-ticket-ahead`.** Jev used the Battle Ticket while far ahead (0.80, applied); the set expects skip.
+- **Cautious, `strategy-repel-leader-near-start`.** Jev chose Repel on the leader at 0.32; the fallback applied skip, which is the acceptable answer.
+- **Greedy, `sell-researcher-class-bonus`.** The one earlier miss (recorded before this change).
+
+Still out of scope: tuning the confidence floors and pinning a baseline.
+
 ## Synthetic placeholders
 
-The 45 personality scenarios start as **synthetic placeholders** so the offline run, the counts and the guards work before anyone records them. A placeholder is a seeded stand-in, not a Jev answer. It cannot be mistaken for a recording:
+A new scenario starts as a **synthetic placeholder** so the offline run, the counts and the guards work before anyone records it. A placeholder is a seeded stand-in, not a Jev answer. It cannot be mistaken for a recording:
 
 - the fixture has `"synthetic": true`, and its `recorded.requestId` starts with `synthetic-`; the loader rejects a fixture where those two disagree, in either direction;
 - the report counts it as synthetic, shows `n/a (synthetic)` in the Correct column, and leaves it out of accuracy and mean confidence;
 - `npm run eval:jev -- --record` replaces every synthetic fixture and never touches a current recording.
 
 ```sh
-npm run eval:jev -- --placeholders   # writes missing or stale placeholders, offline, no key
+npm run eval:jev -- --placeholders   # writes placeholders for scenarios with no fixture; offline, no key
 ```
+
+No fixture is synthetic now. Never run `--placeholders` expecting it to change a recording: it does not replace one.
 
 ## Recording (needs the key; a person does it)
 
@@ -58,62 +90,12 @@ An agent never records. Someone with `TYPESAFE_API_KEY` in `.env` runs this on a
 npm run eval:jev -- --record
 ```
 
-It makes one request per scenario that has no current recording (45 here), through the orchestrator, and writes each fixture with `synthetic: false`. Requests are logged to the usage ledger and stop at the spend cap or daily budget (spec §9). A scenario whose request changed (for example after a wording change) is recorded again; a current recording is kept. Afterwards run `npm run eval:jev -- --offline` and commit the changed fixtures.
+It makes one request per scenario that is missing, synthetic or stale, through the orchestrator, and writes each fixture with `synthetic: false`. Requests are logged to the usage ledger and stop at the spend cap or daily budget (spec §9). A scenario whose request changed (for example after a wording change) is stale and recorded again; a current recording is kept. Afterwards run `npm run eval:jev -- --offline` and commit the changed fixtures.
 
-Fixtures to record (45, one per line; each is `eval/jev/fixtures/<id>.json`):
-
-```text
-aggressive-strategy-battle-ticket-ahead
-aggressive-strategy-battle-ticket-leader
-aggressive-strategy-mixed-items-two-rivals
-aggressive-strategy-pickpocket-rich-rival
-aggressive-strategy-pickpocket-richer-target
-aggressive-strategy-repel-leader-near-start
-aggressive-encounter-magikarp-only-ultra
-aggressive-encounter-pidgey-poke-or-great
-aggressive-encounter-rare-snorlax-ultra
-aggressive-encounter-weedle-poke-or-great
-aggressive-sell-gyarados-early-lap
-aggressive-sell-last-phase-final-round
-aggressive-sell-magikarp-low-sale-high-keep
-aggressive-sell-snorlax-high-sale-low-keep
-aggressive-sell-tired-eevee
-cautious-strategy-battle-ticket-ahead
-cautious-strategy-battle-ticket-leader
-cautious-strategy-mixed-items-two-rivals
-cautious-strategy-pickpocket-rich-rival
-cautious-strategy-pickpocket-richer-target
-cautious-strategy-repel-leader-near-start
-cautious-encounter-magikarp-only-ultra
-cautious-encounter-pidgey-poke-or-great
-cautious-encounter-rare-snorlax-ultra
-cautious-encounter-weedle-poke-or-great
-cautious-sell-gyarados-early-lap
-cautious-sell-last-phase-final-round
-cautious-sell-magikarp-low-sale-high-keep
-cautious-sell-snorlax-high-sale-low-keep
-cautious-sell-tired-eevee
-opportunist-strategy-battle-ticket-ahead
-opportunist-strategy-battle-ticket-leader
-opportunist-strategy-mixed-items-two-rivals
-opportunist-strategy-pickpocket-rich-rival
-opportunist-strategy-pickpocket-richer-target
-opportunist-strategy-repel-leader-near-start
-opportunist-encounter-magikarp-only-ultra
-opportunist-encounter-pidgey-poke-or-great
-opportunist-encounter-rare-snorlax-ultra
-opportunist-encounter-weedle-poke-or-great
-opportunist-sell-gyarados-early-lap
-opportunist-sell-last-phase-final-round
-opportunist-sell-magikarp-low-sale-high-keep
-opportunist-sell-snorlax-high-sale-low-keep
-opportunist-sell-tired-eevee
-```
-
-Out of scope here: tuning the confidence floors and pinning a baseline, which come after the recording.
+Fixtures still to record: none. Any synthetic fixture added later must be listed here by ID, one per line, until it is recorded.
 
 ## Adding a scenario
 
 1. Add a group in `personality-scenarios.ts`: the table state, and for each personality the acceptable set and a `reason` that cites its weights.
-2. Run `npm run eval:jev -- --placeholders`, then add the new IDs to the list above.
+2. Run `npm run eval:jev -- --placeholders`, then list the new IDs under "Fixtures still to record" until a person records them.
 3. Run `npm test` and `npm run eval:jev -- --offline`.
