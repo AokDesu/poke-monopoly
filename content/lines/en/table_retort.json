@@ -1,0 +1,98 @@
+[
+  {
+    "id": "table-retort-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Thanks, {target}! Kind words are free, and I like free."
+  },
+  {
+    "id": "table-retort-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Ha, good one, {target}. That earned a smile, and smiles are almost coins."
+  },
+  {
+    "id": "table-retort-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Right back at you, {target}! You make this table a lot more fun."
+  },
+  {
+    "id": "table-retort-greedy-neutral-4",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Well said, {target}. Everyone here is a Poké-pro, I think."
+  },
+  {
+    "id": "table-retort-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Ha, bold words, {target}! I like that fire."
+  },
+  {
+    "id": "table-retort-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Ooh, {target}, nice one! Try to keep up next turn."
+  },
+  {
+    "id": "table-retort-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Right back at you, {target}! This table just got louder."
+  },
+  {
+    "id": "table-retort-aggressive-neutral-4",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Ha! I was hoping you would say that, {target}. Let us battle on."
+  },
+  {
+    "id": "table-retort-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Thank you, {target}. That was kind, and I appreciate it."
+  },
+  {
+    "id": "table-retort-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Ha, that was a good one, {target}. I will smile quietly."
+  },
+  {
+    "id": "table-retort-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Same to you, {target}. A friendly table is the best kind."
+  },
+  {
+    "id": "table-retort-cautious-neutral-4",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Well said, {target}. Gentle words and a gentle laugh."
+  },
+  {
+    "id": "table-retort-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Oh, {target}, you flatter me. Please, do go on."
+  },
+  {
+    "id": "table-retort-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Ha! Good one, {target}. I like you more every round."
+  },
+  {
+    "id": "table-retort-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "You are too kind, {target}. I am a Psyduck with a plan."
+  },
+  {
+    "id": "table-retort-opportunist-neutral-4",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Right back at you, {target}! We make a charming table."
+  }
+]

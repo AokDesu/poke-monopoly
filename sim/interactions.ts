@@ -1,10 +1,8 @@
 import {
   attackTarget,
-  promiseWindowStatus,
   type EngineEvent,
   type GameState,
   type LegalActions,
-  type NoAttackPromise,
 } from '../engine/index.ts';
 
 export type DecisionEvidence = {
@@ -33,7 +31,7 @@ export type PromiseSummary = {
   keptWithOpportunity: number;
   keptWithoutOpportunity: number;
   closedByGameEnd: number;
-  /** Accepted promises with at least one enabled attack against their recipient. */
+  /** Accepted promises whose promiser held a public hostile item or hostile Ability chance against the recipient. */
   breachOpportunity: number;
   /** Accepted promises still unresolved, including those in aborted games. */
   pending: number;
@@ -63,15 +61,15 @@ export function emptyPromiseSummary(): PromiseSummary {
   };
 }
 
-type TrackedPromise = { promise: NoAttackPromise; opportunity: boolean };
-
-/** Reporting counts only; gameplay numbers and legal attack classification come from engine/. */
+/**
+ * Reporting counts only; gameplay numbers and legal attack classification come from engine/. Promise outcomes and
+ * the breach-opportunity flag are read from the engine's own records (`state.promises`), never re-derived here.
+ */
 export function createInteractionMetrics() {
   const hostility = emptyHostilitySummary();
   const promises = emptyPromiseSummary();
   const rows = new Map<string, HostilityRow>();
   const turns = new Set<string>();
-  const active = new Set<TrackedPromise>();
 
   function decisionEvidence(
     before: GameState,
@@ -83,16 +81,6 @@ export function createInteractionMetrics() {
       const attack = attackTarget(before, seatIndex, choice);
       return attack ? [attack] : [];
     });
-    for (const tracked of active) {
-      if (
-        !tracked.opportunity &&
-        tracked.promise.promiserSeatIndex === seatIndex &&
-        attacks.some((attack) => attack.targetSeatIndex === tracked.promise.recipientSeatIndex)
-      ) {
-        tracked.opportunity = true;
-        promises.breachOpportunity++;
-      }
-    }
     const used = events.filter(
       (event) =>
         event.kind === 'attack_attempt' &&
@@ -127,7 +115,6 @@ export function createInteractionMetrics() {
   return {
     startGame() {
       turns.clear();
-      active.clear();
     },
     step(
       before: GameState,
@@ -142,45 +129,24 @@ export function createInteractionMetrics() {
         if (event.kind === 'promise_accepted') {
           promises.accepted++;
           promises.pending++;
-          active.add({
-            promise: {
-              promiserSeatIndex: event.promiserSeatIndex,
-              recipientSeatIndex: event.recipientSeatIndex,
-              closesOwnTurnNo: event.closesOwnTurnNo,
-              createdGlobalTurnNo: after.globalTurnNo,
-            },
-            opportunity: false,
-          });
-        }
-        if (event.kind === 'attack_attempt') {
-          for (const tracked of active) {
-            const { promise } = tracked;
-            const promiser = before.players.find(
-              (player) => player.seatIndex === promise.promiserSeatIndex,
-            )!;
-            const recipient = before.players.find(
-              (player) => player.seatIndex === promise.recipientSeatIndex,
-            )!;
-            if (event.actorId === promiser.actorId && event.targetId === recipient.actorId) {
-              promises.broken++;
-              promises.pending--;
-              active.delete(tracked);
-            }
-          }
         }
       }
-      for (const tracked of active) {
-        const status = promiseWindowStatus(after, tracked.promise);
-        if (status === 'active') continue;
-        if (status === 'closed_by_game_end') promises.closedByGameEnd++;
+      // The engine appends promises and records each one's outcome and chance once, so the step's changes are the
+      // records that differ from `before`.
+      (after.promises ?? []).forEach((promise, index) => {
+        const was = before.promises?.[index];
+        if (promise.chance && !was?.chance) promises.breachOpportunity++;
+        if (!promise.settled || was?.settled) return;
+        promises.pending--;
+        const { outcome } = promise.settled;
+        if (outcome === 'broken') promises.broken++;
+        else if (outcome === 'closed_by_game_end') promises.closedByGameEnd++;
         else {
           promises.kept++;
-          if (tracked.opportunity) promises.keptWithOpportunity++;
+          if (outcome === 'kept_with_chance') promises.keptWithOpportunity++;
           else promises.keptWithoutOpportunity++;
         }
-        promises.pending--;
-        active.delete(tracked);
-      }
+      });
     },
     summary(): { hostility: HostilitySummary; promises: PromiseSummary } {
       const rate = (counts: HostilityCounts) =>

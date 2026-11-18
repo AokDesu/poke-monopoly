@@ -170,12 +170,43 @@ export const chatMessageSchema = z.strictObject({
   globalTurnNo: count,
 });
 /** `no_attack` (§4.8): the promiser will not attack the recipient until `closesOwnTurnNo` ends. */
+export const promiseOutcomeSchema = z.enum([
+  'broken',
+  'kept_with_chance',
+  'kept_without_chance',
+  'closed_by_game_end',
+]);
+/** What a pair is told: `kept` hides whether the promiser had a chance to attack (§4.8 Privacy). */
+export const promiseClosedOutcomeSchema = z.enum(['kept', 'broken', 'closed_by_game_end']);
 export const noAttackPromiseSchema = z.strictObject({
   promiserSeatIndex: count,
   recipientSeatIndex: count,
   createdGlobalTurnNo: count,
   // The promiser's `ownTurnNo` whose end closes it: their `ownTurnNo` at confirmation plus 1.
   closesOwnTurnNo: count,
+  // Engine-internal, never sent to a seat: the confirming record's sequence, which counts hidden chats (§6.3).
+  acceptedActionSeq: count,
+  // Engine-internal and private (§4.8 Privacy): the promiser had a public chance to attack the recipient in
+  // the window. Set at most once, only from public facts (Q3, docs/engine-contract.md); absent otherwise.
+  chance: z.literal(true).optional(),
+  // Set once at End of the closing turn (or at game end); absent while the promise is open.
+  settled: z.strictObject({ outcome: promiseOutcomeSchema, globalTurnNo: count }).optional(),
+});
+/** A promise as a seat sees it: no sequence, no opportunity flag, no kept-with/without-chance split. */
+export const seatPromiseSchema = z.strictObject({
+  promiserSeatIndex: count,
+  recipientSeatIndex: count,
+  createdGlobalTurnNo: count,
+  closesOwnTurnNo: count,
+  closed: z.strictObject({ outcome: promiseClosedOutcomeSchema, globalTurnNo: count }).optional(),
+});
+/** Directed trust (§4.8): how far `fromSeatIndex` (the recipient of a promise) trusts `toSeatIndex` (its promiser). */
+export const trustSchema = z.strictObject({
+  fromSeatIndex: count,
+  toSeatIndex: count,
+  value: z.int().min(-3).max(3),
+  // Trust gained from kept promises with a chance, capped at 2 per pair per game.
+  keptGain: z.int().min(0).max(2),
 });
 export const promiseDirectionSchema = z.enum(['offer', 'ask']);
 /**
@@ -434,6 +465,8 @@ export const gameStateSchema = z.strictObject({
   pendingResponse: pendingResponseSchema.optional(),
   // Every confirmed `no_attack` promise, oldest first; absent until a first one is accepted.
   promises: z.array(noAttackPromiseSchema).optional(),
+  // Directed trust per pair that has settled a promise, clamped to -3..3 (§4.8); absent until the first.
+  trust: z.array(trustSchema).optional(),
   // The last 3 chat messages of each pair, `seats` ordered low to high; absent until a first message.
   chats: z
     .array(
@@ -735,6 +768,14 @@ export const engineEventSchema = z.discriminatedUnion('kind', [
     promiserSeatIndex: count,
     recipientSeatIndex: count,
   }),
+  // The two parties' alone, at End of the promiser's closing turn or at game end: memory evidence (§4.8).
+  z.strictObject({
+    kind: z.literal('promise_closed'),
+    promiserSeatIndex: count,
+    recipientSeatIndex: count,
+    outcome: promiseClosedOutcomeSchema,
+    globalTurnNo: count,
+  }),
 ]);
 export const observationSchema = z.strictObject({
   public: z.strictObject({
@@ -776,7 +817,9 @@ export const observationSchema = z.strictObject({
     // Only messages this seat sent or received; present only when `config.socialWindow` is on.
     chats: z.array(chatMessageSchema).optional(),
     // Only promises this seat made or received, and the question it is part of; Social window only.
-    promises: z.array(noAttackPromiseSchema).optional(),
+    promises: z.array(seatPromiseSchema).optional(),
+    // This seat's trust in every other seat, -3..3 (§4.8); Social window only. Never another seat's trust.
+    trust: z.array(z.strictObject({ seatIndex: count, value: z.int().min(-3).max(3) })).optional(),
     pendingResponse: pendingResponseSchema.optional(),
   }),
 });
@@ -845,6 +888,9 @@ export type ChatMessage = z.infer<typeof chatMessageSchema>;
 export type RewardRequest = z.infer<typeof rewardRequestSchema>;
 export type RewardChoice = z.infer<typeof rewardChoiceSchema>;
 export type NoAttackPromise = z.infer<typeof noAttackPromiseSchema>;
+export type SeatPromise = z.infer<typeof seatPromiseSchema>;
+export type PromiseOutcome = z.infer<typeof promiseOutcomeSchema>;
+export type Trust = z.infer<typeof trustSchema>;
 export type PendingResponse = z.infer<typeof pendingResponseSchema>;
 export type ItemInstance = z.infer<typeof itemInstanceSchema>;
 export type BallPouch = z.infer<typeof ballPouchSchema>;

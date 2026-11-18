@@ -1,0 +1,98 @@
+[
+  {
+    "id": "battle-lost-other-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Oof, {target} lost. That will cost some coins and some pride."
+  },
+  {
+    "id": "battle-lost-other-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Poor {target}. A loss is never good for business."
+  },
+  {
+    "id": "battle-lost-other-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "{target} lost the battle. Better luck next time!"
+  },
+  {
+    "id": "battle-lost-other-greedy-neutral-4",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Tough battle, {target}. Better luck at the next Gym."
+  },
+  {
+    "id": "battle-lost-other-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{target} lost! Better train harder, my friend."
+  },
+  {
+    "id": "battle-lost-other-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Ha, {target}, that battle was a Magikarp splash."
+  },
+  {
+    "id": "battle-lost-other-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{target} lost the battle. Do not worry, losing builds character."
+  },
+  {
+    "id": "battle-lost-other-aggressive-neutral-4",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Oh, {target}. Even a Psyduck has headaches like that."
+  },
+  {
+    "id": "battle-lost-other-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Oh dear, {target}. A tough battle, but you did your best."
+  },
+  {
+    "id": "battle-lost-other-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "{target} lost. Take a rest and be careful next time."
+  },
+  {
+    "id": "battle-lost-other-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Sorry about the loss, {target}. Heal up and try again."
+  },
+  {
+    "id": "battle-lost-other-cautious-neutral-4",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Hard luck, {target}. Every trainer loses sometimes."
+  },
+  {
+    "id": "battle-lost-other-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Aww, {target} lost. I will try to look sad about it."
+  },
+  {
+    "id": "battle-lost-other-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "{target} lost the battle. How awfully convenient for me."
+  },
+  {
+    "id": "battle-lost-other-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Tough luck, {target}. I will sit nearby, just in case."
+  },
+  {
+    "id": "battle-lost-other-opportunist-neutral-4",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "{target} fell in battle. Do not worry, you are still my favourite trainer."
+  }
+]

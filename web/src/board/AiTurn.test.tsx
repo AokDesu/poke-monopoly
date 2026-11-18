@@ -308,7 +308,9 @@ test('a human automatic step commits on the human pause, not the slower AI norma
   await act(async () => {
     await vi.advanceTimersByTimeAsync(HUMAN_STEP_MS.normal - 1);
   });
-  expect(store.getSession()).toBe(before);
+  // A greeting may be saved beside the game meanwhile; the game itself has not moved.
+  expect(store.getSession()!.state).toBe(before.state);
+  expect(store.getSession()!.log.actions).toBe(before.log.actions);
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1);
   });

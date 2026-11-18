@@ -21,9 +21,13 @@ export const SPEND_CONFIG = Object.freeze({
   estimatedInputTokensPerRequest: 3240,
   /** The repository owner's 15 Nov 2026 board answer: Haiku's own hard stop, inside the total cap. */
   haikuCapThb: 150,
-  /** The same answer, per game (spec §9): past either limit that game speaks from the line bank. */
-  haikuMaxCallsPerGame: 60,
-  haikuMaxInputTokensPerGame: 80_000,
+  /**
+   * The same answer, per game (spec §9): past either limit that game speaks from the line bank. Raised
+   * from 60 calls and 80,000 tokens on 18 Nov 2026 (issue #214), the same share of tokens per call, so
+   * every round can have table talk; the THB 150 cap above is unchanged.
+   */
+  haikuMaxCallsPerGame: 150,
+  haikuMaxInputTokensPerGame: 200_000,
   /** Published Haiku prices, per model; the Jev prices above apply to every `jev-1.*` release. */
   haikuModelPrices: {
     'claude-haiku-5-5': { inputUsdPerMillionTokens: 0.1, outputUsdPerMillionTokens: 0.5 },

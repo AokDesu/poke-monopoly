@@ -190,7 +190,13 @@ test('accepting creates the promise, closing at the promiser’s next turn, for 
   const pending = offer(social()).state;
   const { state, events } = answer(pending, 'accept');
   expect(state.promises).toEqual([
-    { promiserSeatIndex: 0, recipientSeatIndex: 1, createdGlobalTurnNo: 1, closesOwnTurnNo: 2 },
+    {
+      promiserSeatIndex: 0,
+      recipientSeatIndex: 1,
+      createdGlobalTurnNo: 1,
+      closesOwnTurnNo: 2,
+      acceptedActionSeq: 2,
+    },
   ]);
   expect(events).toEqual([
     { kind: 'promise_accepted', promiserSeatIndex: 0, recipientSeatIndex: 1, closesOwnTurnNo: 2 },
@@ -212,7 +218,13 @@ test('asking reverses the roles: the AI promises the human, closing on the AI’
   state.players[1]!.ownTurnNo = 4;
   const accept = answer(offer(state, 1, 'ask').state, 'accept').state;
   expect(accept.promises).toEqual([
-    { promiserSeatIndex: 1, recipientSeatIndex: 0, createdGlobalTurnNo: 1, closesOwnTurnNo: 5 },
+    {
+      promiserSeatIndex: 1,
+      recipientSeatIndex: 0,
+      createdGlobalTurnNo: 1,
+      closesOwnTurnNo: 5,
+      acceptedActionSeq: 2,
+    },
   ]);
   const refused = answer(offer(state, 1, 'ask').state, 'reject').state;
   expect(refused.promises).toBeUndefined();
@@ -345,7 +357,13 @@ test('a promise is visible to its two parties only (§4.8 Privacy, §5.4)', () =
   for (const seat of [0, 1]) {
     expect(eventsVisibleTo(before, offered.events, seat)).toEqual(offered.events);
     expect(eventsVisibleTo(pending, answered.events, seat)).toEqual(answered.events);
-    expect(observe(state, seat).own.promises).toEqual(state.promises);
+    expect(observe(state, seat).own.promises).toEqual(
+      state.promises!.map((promise) => {
+        const seen: Record<string, unknown> = { ...promise };
+        delete seen.acceptedActionSeq;
+        return seen;
+      }),
+    );
   }
   expect(observe(pending, 0).own.pendingResponse).toEqual(pending.pendingResponse);
   expect(observe(pending, 1).own.pendingResponse).toEqual(pending.pendingResponse);

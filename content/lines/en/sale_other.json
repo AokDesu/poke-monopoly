@@ -1,0 +1,98 @@
+[
+  {
+    "id": "sale-other-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "{target} sold big! That is what I call a Poké-profit."
+  },
+  {
+    "id": "sale-other-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "A big sale, {target}! You have a merchant heart."
+  },
+  {
+    "id": "sale-other-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Look at {target} counting coins. I love it."
+  },
+  {
+    "id": "sale-other-greedy-neutral-4",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Great sale, {target}. Now teach me your ways."
+  },
+  {
+    "id": "sale-other-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{target} sold big. Do not spend it all at once!"
+  },
+  {
+    "id": "sale-other-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Nice sale, {target}. I hope you use it to battle."
+  },
+  {
+    "id": "sale-other-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{target} cashed out. Let us see if it helps you win."
+  },
+  {
+    "id": "sale-other-aggressive-neutral-4",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Big sale, {target}! Now try to beat me with it."
+  },
+  {
+    "id": "sale-other-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "A big sale, {target}. Sensible, I think."
+  },
+  {
+    "id": "sale-other-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "{target} sold a creature. I hope it found a good home."
+  },
+  {
+    "id": "sale-other-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Well sold, {target}. Do not spend it all at once."
+  },
+  {
+    "id": "sale-other-cautious-neutral-4",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "{target} made a big sale. A careful trainer, I see."
+  },
+  {
+    "id": "sale-other-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Big sale, {target}! Funny how the coins always find you."
+  },
+  {
+    "id": "sale-other-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "{target} cashed in. I will be your friend today, I think."
+  },
+  {
+    "id": "sale-other-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Nice sale, {target}. Care to evolve our friendship?"
+  },
+  {
+    "id": "sale-other-opportunist-neutral-4",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "A big sale! {target} has a talent for it. I am taking notes."
+  }
+]

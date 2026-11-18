@@ -18,6 +18,24 @@
     "text": "Ready. The most coins wins, and I want them."
   },
   {
+    "id": "game-start-greedy-neutral-4",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Good luck, {target}! May your Poké Balls fly true and your coins pile high."
+  },
+  {
+    "id": "game-start-greedy-neutral-5",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Welcome to the table, {target}. Let us see who evolves the biggest bank."
+  },
+  {
+    "id": "game-start-greedy-neutral-6",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Hello, {target}! I hope you brought a big wallet. I did."
+  },
+  {
     "id": "game-start-aggressive-neutral-1",
     "personality": "aggressive",
     "trust": "neutral",
@@ -34,6 +52,24 @@
     "personality": "aggressive",
     "trust": "neutral",
     "text": "Let us start. I want the lead."
+  },
+  {
+    "id": "game-start-aggressive-neutral-4",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Ready, {target}? I am going to catch everything, including the win."
+  },
+  {
+    "id": "game-start-aggressive-neutral-5",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Hello, {target}! Try to keep up, I am a Machop in a hurry."
+  },
+  {
+    "id": "game-start-aggressive-neutral-6",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Welcome, {target}. May the best trainer win. It is me."
   },
   {
     "id": "game-start-cautious-neutral-1",
@@ -54,6 +90,24 @@
     "text": "Ready. A steady game suits me."
   },
   {
+    "id": "game-start-cautious-neutral-4",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Welcome, {target}. Let us play nicely and catch carefully."
+  },
+  {
+    "id": "game-start-cautious-neutral-5",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Good luck, {target}! I packed everything I need, and a snack."
+  },
+  {
+    "id": "game-start-cautious-neutral-6",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Hello, {target}. A calm game and a friendly one, I hope."
+  },
+  {
     "id": "game-start-opportunist-neutral-1",
     "personality": "opportunist",
     "trust": "neutral",
@@ -70,5 +124,23 @@
     "personality": "opportunist",
     "trust": "neutral",
     "text": "Ready. I will take what comes my way."
+  },
+  {
+    "id": "game-start-opportunist-neutral-4",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Hello, {target}! I have a feeling we will be great friends. For now."
+  },
+  {
+    "id": "game-start-opportunist-neutral-5",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Welcome, {target}. May the best trainer win, and may I be nearby."
+  },
+  {
+    "id": "game-start-opportunist-neutral-6",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Good luck, {target}! I will be catching more than Pokémon, you know. Hearts too."
   }
 ]

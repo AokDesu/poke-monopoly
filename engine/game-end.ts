@@ -1,4 +1,5 @@
 import type { EngineEvent, GameState } from './contract/schema.ts';
+import { closePromisesAtGameEnd } from './promises.ts';
 import { saleBasis } from './selling.ts';
 
 /**
@@ -48,6 +49,7 @@ export function finishGame(next: GameState): EngineEvent[] {
     }
     player.team = player.team.filter((pokemon) => pokemon.origin === 'rescue_starter');
   }
+  events.push(...closePromisesAtGameEnd(next));
   next.phase = { kind: 'finished' };
   return [...events, { kind: 'phase_changed', from: 'end', to: 'finished' }];
 }
