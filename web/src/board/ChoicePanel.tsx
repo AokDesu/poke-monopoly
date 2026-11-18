@@ -3,10 +3,13 @@ import { currentForm } from '../game/content.ts';
 import { t } from '../i18n/en.ts';
 import { speciesName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
+import { AbilityPanel } from './AbilityPanel.tsx';
 
 /**
  * Plain words for an engine-listed choice that has no dedicated panel yet: Gym entry, battle
- * responses, Ability windows, rerolls and battle rewards (#55). Every option is the engine's own.
+ * responses, window passes, rerolls and battle rewards (#55). Every option is the engine's own.
+ * Outside a battle, Ability activations have their own section (`AbilityPanel`); a battle panel
+ * lists them as plain buttons and labels them here.
  */
 export function choiceLabel(action: LegalAction, observation: Observation): string {
   const own = observation.public.players.find(
@@ -73,10 +76,17 @@ export function ChoicePanel({
   legalActions: LegalActions;
   onChoose: (id: string) => void;
 }) {
+  const choices = legalActions.enabled.filter((action) => action.kind !== 'activate_ability');
+  const abilities = [...legalActions.enabled, ...legalActions.disabled].some(
+    (action) => action.kind === 'activate_ability',
+  );
   return (
     <div className="decision-panel choice-panel">
+      {abilities && (
+        <AbilityPanel observation={observation} legalActions={legalActions} onChoose={onChoose} />
+      )}
       <ul className="choice-list">
-        {legalActions.enabled.map((action) => (
+        {choices.map((action) => (
           <li key={action.id}>
             <ActionButton enabled onClick={() => onChoose(action.id)}>
               {choiceLabel(action, observation)}

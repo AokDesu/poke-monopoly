@@ -77,7 +77,7 @@ export {
   type EngineDecisionPoint,
 } from './decisions.ts';
 
-export { ABILITY_EFFECTS, type AbilityEffect } from './abilities.ts';
+export { ABILITY_EFFECTS, abilityCosts, type AbilityEffect } from './abilities.ts';
 export { itemEffectStatus, type ItemEffectStatus } from './items.ts';
 export { attackTarget } from './attack-facts.ts';
 export { promiseWindowStatus } from './promises.ts';

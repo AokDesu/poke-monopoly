@@ -71,6 +71,8 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
   const gymNoReady = once(scenes.gymNoBattleReady);
   const gymNoReadyAuto = once(scenes.gymNoBattleReadyAuto);
   const watchOpen = once(scenes.watchDecisionOpen);
+  const abilityStrategy = once(scenes.abilityStrategy);
+  const abilityReaction = once(scenes.abilityReaction);
   const choseBall = once(scenes.rivalChoseBall);
   const choseItem = once(scenes.rivalChoseItem);
   const choseSale = once(scenes.rivalChoseSale);
@@ -779,6 +781,25 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
           caption: 'gallery.example.socialFailed',
           render: () =>
             turnPanel(socialSent(), { social: reply({ status: 'failed', reason: 'timeout' }) }),
+        },
+      ],
+    },
+    {
+      id: 'abilities',
+      specRow: null,
+      spec: { id: 'abilities', label: 'gallery.specAbilities' },
+      label: 'gallery.row.abilities',
+      keys: ['ability.heading', 'ability.planned', 'ability.choosePrompt', 'battle.heading.window'],
+      examples: [
+        {
+          id: 'strategy',
+          caption: 'gallery.example.abilityStrategy',
+          render: () => turnPanel(abilityStrategy()),
+        },
+        {
+          id: 'reaction',
+          caption: 'gallery.example.abilityReaction',
+          render: () => turnPanel(abilityReaction()),
         },
       ],
     },

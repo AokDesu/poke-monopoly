@@ -574,6 +574,11 @@ export const reasonCodeSchema = z.enum([
   'NOT_YOUR_TURN',
   'ALREADY_USED_THIS_TURN',
   'NO_VALID_TARGET',
+  // Ability reasons (§4.5, C.3, D10): the instance's Lap use and the player's per-turn allowance
+  // stay distinct, and a window the Ability's timing does not cover is its own reason.
+  'ABILITY_USED_THIS_LAP',
+  'ABILITY_USED_THIS_GLOBAL_TURN',
+  'ABILITY_WRONG_TIMING',
 ]);
 export const disabledActionSchema = legalActionSchema.and(
   z.object({ reasonCode: reasonCodeSchema, reasonText: id }),

@@ -174,6 +174,8 @@ export const en = {
   'board.logEmpty': 'No events yet. The next game event will appear here.',
   'board.event.randomRoll': 'The die rolled {result}.',
   'board.event.randomDraw': 'The game resolved a random draw.',
+  'board.event.displaced': '{target} was pushed back to square {position}.',
+  'board.event.ballGained': '{owner} gained a {ball}.',
   'board.event.coins': '{source} paid {amount} coins to {destination}. {reason}',
   'board.event.bank': 'The bank',
   'board.event.player': 'A player',
@@ -477,7 +479,7 @@ export const en = {
   'turn.noAvailableOptions': 'There is nothing to choose in this step. The game moves on.',
 
   'turn.actions': 'Turn actions',
-  'turn.strategyBody': 'Use an item before moving, or keep your items and skip.',
+  'turn.strategyBody': 'Use an item or an Ability before moving, or skip.',
   'turn.opponent': 'Opponent turn',
   'turn.opponentError':
     'The opponent could not complete this step. Check the server connection and retry.',
@@ -627,6 +629,9 @@ export const en = {
   'action.reason.NOT_YOUR_TURN': 'Not your turn',
   'action.reason.ALREADY_USED_THIS_TURN': 'Already used this turn',
   'action.reason.NO_VALID_TARGET': 'No valid target',
+  'action.reason.ABILITY_USED_THIS_LAP': 'Already used this Lap',
+  'action.reason.ABILITY_USED_THIS_GLOBAL_TURN': 'You already used an Ability this turn',
+  'action.reason.ABILITY_WRONG_TIMING': 'Not usable in this window',
   'action.engineReason': '{reason}',
 
   'encounter.catch': 'Catch',
@@ -675,6 +680,32 @@ export const en = {
   'strategy.potion.chooseTarget': 'Choose a Pokémon to preview its healing. Nothing is spent yet.',
   'strategy.potion.staleSelection':
     'The available actions changed. Choose your Potion and Pokémon again before confirming.',
+
+  'ability.heading': 'Abilities',
+  'ability.source': '{pokemon} · {instanceId}',
+  'ability.planned': 'Not active yet: this build does not run this Ability.',
+  'ability.targets': 'Choose an opponent',
+  'ability.members': 'Choose a Pokémon to heal',
+  'ability.scopes': 'Choose what to boost',
+  'ability.scope.catch': 'Catch rolls',
+  'ability.scope.combat': 'Battle rolls',
+  'ability.member': '{pokemon} · {instanceId}',
+  'ability.choosePrompt': 'Choose an Ability to preview it. Nothing is spent yet.',
+  'ability.chooseOption': 'Choose an option to preview this Ability. Nothing is spent yet.',
+  'ability.preview': 'Ability preview',
+  'ability.previewSource': 'Source: {ability} · {pokemon} ({instanceId})',
+  'ability.previewEffect': 'Effect: {effect}',
+  'ability.previewTarget': 'Target: {target}',
+  'ability.previewMember': 'Target: {member}',
+  'ability.previewScope': 'Boosts: {scope}',
+  'ability.cost': 'Spends this Pokémon’s Ability for the Lap and your Ability for this turn.',
+  'ability.costTactical': 'Also spends your tactical action to start the battle.',
+  'ability.hostile': 'Hostile: counts as an attack attempt, and an armed Price Shield blocks it.',
+  'ability.confirm': 'Confirm {ability}',
+  'ability.cancel': 'Cancel',
+  'ability.stale':
+    'The available actions changed. Nothing was spent. Choose your Ability again before confirming.',
+  'ability.peek': 'Top Event card you looked at: {text}',
 
   'sell.coins': '{amount} coins',
   'sell.price': '{basePrice} coins',
@@ -870,6 +901,9 @@ export const en = {
   'gallery.specAiTurns': 'Spec §3, AI turns',
   'gallery.specBattle': 'Spec §4.4, PvP and Gym',
   'gallery.specSocial': 'Spec §4.8, Chat',
+  'gallery.specAbilities': 'Spec §4.5, Abilities',
+  'gallery.row.abilities':
+    'Abilities that are ready, and Abilities that cannot be used, with the reason',
   'gallery.specDemo': 'Spec §3, Demo mode, and §11',
   'gallery.pendingHeading': 'Rows with no screen yet',
   'gallery.pendingIntro':
@@ -929,6 +963,9 @@ export const en = {
   'gallery.example.watchAfterContinue': 'Watch board after Continue, the AI deciding again',
   'gallery.example.watchAllBackup': 'Every AI in the watched game decided with the backup bot',
   'gallery.example.badgeOneOfTwo': 'One of two rivals timed out',
+  'gallery.example.abilityStrategy':
+    'Strategy: one Ability ready, one at the wrong timing, one used this Lap, one not run yet',
+  'gallery.example.abilityReaction': 'Answering a battle outside your own turn',
   'gallery.example.voiceDisabled': 'Voice off: switched off on the server, a line from the bank',
   'gallery.example.voiceMissingKey': 'Voice off: no key on the server, a line from the bank',
   'gallery.example.voiceBudget': 'Voice off: spending limit reached, the line bank speaks',

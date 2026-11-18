@@ -148,6 +148,11 @@ const SHOWN = [
     ],
   },
   {
+    id: 'abilities',
+    specRow: 'abilities',
+    keys: ['ability.heading', 'ability.planned', 'ability.choosePrompt', 'battle.heading.window'],
+  },
+  {
     id: 'demo-scenes',
     specRow: 'demo',
     keys: [
@@ -213,9 +218,11 @@ test('every §3.1 row that has a screen shows each of its catalog keys, labelled
           ? t('gallery.specBattle')
           : row.specRow === 'social'
             ? t('gallery.specSocial')
-            : row.specRow === 'demo'
-              ? t('gallery.specDemo')
-              : t('gallery.specRow', { row: row.specRow });
+            : row.specRow === 'abilities'
+              ? t('gallery.specAbilities')
+              : row.specRow === 'demo'
+                ? t('gallery.specDemo')
+                : t('gallery.specRow', { row: row.specRow });
     expect(within(el).getByText(label), row.id).toBeTruthy();
   }
 });
