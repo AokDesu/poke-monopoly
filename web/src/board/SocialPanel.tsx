@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { ChatMessage, ChatTopic, LegalActions, Observation } from '../../../engine/index.ts';
 import { CHAT_TOPICS, chatChoices, type ChatChoice } from '../game/chat.ts';
 import { en, t, type MessageKey } from '../i18n/en.ts';
@@ -34,6 +34,7 @@ export function SocialPanel({
   reply,
   onChoose,
 }: SocialPanelProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
   const ownSeat = observation.own.seatIndex;
   const players = observation.public.players;
   const chats = chatChoices(legalActions);
@@ -53,10 +54,20 @@ export function SocialPanel({
     </div>
   );
   const done = chats.length === 0;
+  // Send remounts this window (its key is the state revision) and drops the pressed button, so focus
+  // would fall to the page body. Keep a keyboard or screen-reader player's place on Continue; the
+  // reply is announced by its live region. Focus that is anywhere else is left alone.
+  const keepPlace = done && sent !== undefined;
+  useEffect(() => {
+    const active = document.activeElement;
+    if (!keepPlace || (active && active !== document.body)) return;
+    panelRef.current?.querySelector<HTMLElement>('[data-social-continue]')?.focus();
+  }, [keepPlace]);
   const continueButton = skip && (
     <ActionButton
       enabled
       variant={sent ? 'primary' : 'secondary'}
+      data-social-continue=""
       onClick={() => onChoose(skip.id)}
     >
       {t(done ? 'social.continue' : 'social.skip')}
@@ -65,7 +76,12 @@ export function SocialPanel({
 
   if (done) {
     return (
-      <div className="decision-panel social-panel" aria-label={t('social.panel')} role="group">
+      <div
+        ref={panelRef}
+        className="decision-panel social-panel"
+        aria-label={t('social.panel')}
+        role="group"
+      >
         {sent ? (
           <>
             <p className="social-sent">

@@ -328,3 +328,56 @@ test('asking for an item looks the same whatever a rival holds, and lists conten
     }
   }
 });
+
+test('after Send, keyboard focus stays in the window on Continue, never on the page body', async () => {
+  const gate = Promise.withResolvers<void>();
+  await openWindow(1, async (request) => {
+    await gate.promise;
+    return new Response(JSON.stringify(replyFor(request)));
+  });
+  press(t('social.topic.trade'));
+  const send = within(panel()).getByRole('button', { name: t('social.send', { rival: rivalOne }) });
+  send.focus();
+  expect(document.activeElement).toBe(send);
+  fireEvent.click(send);
+  await settle();
+  const next = () => within(panel()).getByRole('button', { name: t('social.continue') });
+  expect(panel().textContent).toContain(t('social.waiting', { rival: rivalOne }));
+  expect(document.activeElement).toBe(next());
+  // The reply arriving does not take focus away from where the player is.
+  gate.resolve();
+  await settle();
+  expect(panel().textContent).toContain(line);
+  expect(document.activeElement).toBe(next());
+});
+
+test('focus that is already elsewhere is left alone when the window shows a sent message', async () => {
+  const { store } = await openWindow(1);
+  press(t('social.topic.trade'));
+  fireEvent.click(
+    within(panel()).getByRole('button', { name: t('social.send', { rival: rivalOne }) }),
+  );
+  cleanup();
+  const outside = document.body.appendChild(document.createElement('button'));
+  outside.focus();
+  render(<BoardScreen store={store} />);
+  await settle();
+  expect(document.activeElement).toBe(outside);
+  outside.remove();
+});
+
+test('a rival with no settings gets no request: the reply fails visibly, the message stays and Continue works', async () => {
+  const server = fakeServer();
+  const store = socialGame(1, 'social-seed', []);
+  expect(await toHumanSocial(store)).toBe(true);
+  render(<BoardScreen store={store} />);
+  press(t('social.topic.trade'));
+  press(t('social.send', { rival: rivalOne }));
+  await settle();
+  expect(server.calls.chat).toHaveLength(0);
+  expect(chatsIn(store)).toHaveLength(1);
+  expect(panel().textContent).toContain(t('social.failed.invalid', { rival: rivalOne }));
+  expect(panel().textContent).not.toContain(line);
+  fireEvent.click(within(panel()).getByRole('button', { name: t('social.continue') }));
+  expect(phaseOf(store)).toBe('strategy');
+});

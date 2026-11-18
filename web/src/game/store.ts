@@ -44,7 +44,7 @@ import {
   type SeatActionRecord,
   type SeatEvent,
 } from '../../../engine/index.ts';
-import type { ChatReplyRequest, SavedChatWords } from './chat.ts';
+import { ChatReplyError, type ChatReplyRequest, type SavedChatWords } from './chat.ts';
 import { reportOutcome, requestOpponent, type AiDecision } from './ai.ts';
 import { demoChoiceOf } from './demoChoice.ts';
 import type { DifficultyId, GameSetup, PersonalityId, WatchSettings, WatchSetup } from './setup.ts';
@@ -582,15 +582,18 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
         (entry) => entry.fromSeatIndex === seatIndex && entry.globalTurnNo === state.globalTurnNo,
       );
       if (!message) return null;
+      const rival = opponents.find((opponent) => opponent.seatIndex === message.toSeatIndex);
+      // restore() gives every AI seat settings, so a missing one is a bug to surface, never a Greedy rival.
+      if (!rival) {
+        throw new ChatReplyError('invalid', `No opponent settings for seat ${message.toSeatIndex}`);
+      }
       const observation = observe(state, message.toSeatIndex);
       return {
         gameId: gameToken,
         seatIndex: message.toSeatIndex,
         stateRevision: observation.public.stateRevision,
         observation,
-        personalityId:
-          opponents.find((opponent) => opponent.seatIndex === message.toSeatIndex)?.personality ??
-          'greedy',
+        personalityId: rival.personality,
         turnKey: `${state.globalTurnNo}:${message.toSeatIndex}`,
       };
     },
@@ -775,7 +778,21 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
       gameId?: string,
       savedWords: readonly SavedChatWords[] = [],
     ): void {
-      opponents = settings;
+      // A save that lacks a rival's settings plays it as Greedy on Normal, as the save prompt says.
+      opponents = [
+        ...settings,
+        ...game.state.config.seats
+          .filter(
+            (seat) =>
+              seat.controller === 'ai' &&
+              !settings.some((entry) => entry.seatIndex === seat.seatIndex),
+          )
+          .map((seat): OpponentSettings => ({
+            seatIndex: seat.seatIndex,
+            personality: 'greedy',
+            difficulty: 'normal',
+          })),
+      ];
       watch = watchSettings;
       // Only words that fit this game: a save from another one cannot lend it a line.
       chatWords = savedWords.filter((entry) => fitsGame(entry, game.state));
