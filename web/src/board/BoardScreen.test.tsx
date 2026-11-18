@@ -70,7 +70,13 @@ const tick = () =>
 function clickDecision() {
   const area =
     screen.queryByRole('dialog') ?? screen.getByRole('region', { name: t('turn.actions') });
-  const pass = [t('shop.skip'), t('strategy.skip'), t('sell.keep')]
+  const pass = [
+    t('shop.skip'),
+    t('strategy.skip'),
+    t('sell.keep'),
+    t('social.skip'),
+    t('social.continue'),
+  ]
     .map((name) => within(area).queryByRole('button', { name }))
     .find((button) => button !== null);
   if (pass) {
@@ -115,8 +121,10 @@ test('20 seeded human turns have reachable choices, automatic single steps, visi
       }
     }
     if (view.observation.public.players[0]!.ownTurnNo > 20) break;
-    clickDecision();
+    // A click may end in the next human decision (Social, then Strategy), which waits for the
+    // player; the turn still has to have moved on since before it.
     const revision = store.getView()!.observation.public.stateRevision;
+    clickDecision();
     await tick();
     expect(store.getView()!.observation.public.stateRevision).toBeGreaterThan(revision);
   }

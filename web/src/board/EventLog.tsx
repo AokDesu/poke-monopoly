@@ -47,7 +47,7 @@ export function eventMessage(
     case 'item_gained':
     case 'line_selected':
       return [];
-    // Chat has its own screen (#57); the flag keeping the Social window closed is off until then.
+    // A chat is private to its two seats and shown in the Social window (#137), not in the shared field log.
     case 'chat_sent':
     case 'promise_offered':
     case 'promise_accepted':
