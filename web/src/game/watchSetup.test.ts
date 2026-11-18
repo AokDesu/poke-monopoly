@@ -91,9 +91,8 @@ describe('completing a watch setup (§3, §3.1)', () => {
 
   test.each([
     ['one AI', [ai('fisherman')]],
-    ['five AIs', open.map((option) => ai(option.id)).concat(ai('rival'))],
+    ['five AIs', open.slice(0, 5).map((option) => ai(option.id))],
     ['a repeated class', [ai('fisherman'), ai('fisherman')]],
-    ['a class the browser cannot play', [ai('fisherman'), ai('rival')]],
     [
       'a personality without a file',
       [ai('fisherman'), ai('researcher', { personality: 'sneaky' as never })],

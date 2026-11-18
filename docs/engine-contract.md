@@ -646,10 +646,38 @@ Spec: §4.2 social window, §4.4 attack counting, §4.8 evidence only, §5.2/5.3
 Not yet integrated (Streams B/C): the decision wire schema (`engine/contract/decision.ts`) still
 accepts only `strategy`, `encounter` and `sell`; Jev Strategy and Encounter questions filter out
 `declare_pvp` and `activate_ability`; the fallback policy scores both −1 in Strategy and scores
-other new points evenly. The browser lists the human's choices at the new points in a generic
-panel, and for an AI seat takes the engine's first listed choice, logged as a fallback with reason
+other new points evenly. The browser gives the human's PvP and Gym decisions their own panels
+(issue #135, [Battle preview](#battle-preview-issue-135)) and lists the other new points
+(Porygon's move and catch rerolls) in a generic panel, and for an AI seat takes the engine's first
+listed choice, logged as a fallback with reason
 `unsupported_decision_point`. The Shop still offers only Lucky Egg, Repel and Pickpocket (§4.6 C2
 scope), so Battle Ticket and bought Price Shields or Sticky Webs are not yet reachable in play.
+
+## Battle preview (issue #135)
+
+Spec: §3, §4.4, §4.1 (secret items and shields), Appendix C.3 D4/D5, C.4 D6.
+
+Two read-only exports on `engine/index.ts` give the PvP and Gym screens the chances the real roll
+will use, so no screen computes an odds figure or an Ability number. They change no state, spend
+nothing, draw no die and add no rule; both build on the S05 snapshot and resolver code.
+
+- `battlePreview(state, viewerSeat)` returns the pending PvP or Gym battle's `snapshot` and
+  exact `odds` (the challenger's: PvP attacker, Gym challenger), `battleId`, and `frozen`. Once
+  confirmation froze the terms (`attacker_roll` onward, Gym `roll` onward) it returns that
+  snapshot unchanged. Before that (response, window steps, Gym entry) it returns the snapshot the
+  battle would freeze if every open window closed now: the same `sideModifiers` the confirmation
+  uses, including Adaptability's turn-long bonus. `choices` is filled only for a viewer holding an
+  open pre-roll window and lists, per enabled `activate_ability` choice ID, the terms after taking
+  it: the activation is applied to a copy through `applyAction`, so Blaze, Dragon Rush, Adaptability
+  and Intimidate use the executor's own numbers. It is `null` with no battle pending or when a side
+  has no battle-ready Pokémon.
+- `challengeOdds(state, attackerSeat, defenderSeat)` returns the same terms for a challenge the
+  attacker could declare in Strategy, or `null` when either team has no battle-ready Pokémon.
+
+Privacy: item use is secret (§4.1) and an armed shield is secret until it blocks something (D6). A
+preview that is not frozen yet leaves out the Lucky Egg term unless the viewer is the active seat, and
+`choices` are computed with every other seat's shield removed from the copy, so a preview never shows
+whether Intimidate would be blocked. The frozen snapshot is public with the phase, as before.
 
 ## Invariant ledger and the 2/3/4-seat gate (issue #55 S16)
 
@@ -681,7 +709,7 @@ peek) and by the 200-game replay property test.
 
 Spec: §4.2, §4.8 Chat, §5.4, §9.
 
-**Flag.** `GameConfig.socialWindow` is optional. Absent or `false`, Social offers only `skip` to every seat, a `chat` command is rejected as `illegal_action`, no budget key exists and `observe` has no `own.chats`: behaviour is exactly as before, so the browser keeps skipping Social. Stream C turns the flag on together with the chat screen (#57); this slice does not.
+**Flag.** `GameConfig.socialWindow` is optional. Absent or `false`, Social offers only `skip` to every seat, a `chat` command is rejected as `illegal_action`, no budget key exists and `observe` has no `own.chats`: behaviour is exactly as before. The browser turns the flag on for every game it creates with a human seat (`configForSetup`, #137), so the human's Social window offers the topic buttons and the game waits there for the player; watched games and saves made without the flag keep skipping Social.
 
 **Command.** `chat` has the payload `{ targetSeatIndex, topic, leaderSeatIndex?, itemId? }`, with `topic` one of `truce`, `trade`, `point_leader`, `use_item`, `hold_item`. Free text is not part of this slice. It is accepted only from the active **human** seat in Social while the flag is on and the turn's social interaction is unspent. AI seats are never offered one (§4.2: the human starts conversations). Validity is decided by `validChat` in [engine/social.ts](../engine/social.ts) over exactly the set `legalActions` enumerates (id `chat:seat-<target>:<topic>[:seat-<leader>|:<itemId>]`):
 

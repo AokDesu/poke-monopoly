@@ -258,32 +258,36 @@ function defending(team: readonly PokemonInstance[]): GameSession {
   return { state, log };
 }
 
-test('a human defender reaches the Ability window outside their own turn, reacts, and the battle goes on without a blank screen (C.3, D4)', () => {
+test('a human defender reaches the Ability window outside their own turn, sees what is blocked and why, reacts, and the battle goes on without a blank screen (C.3, D4)', () => {
   const { state, log: initial } = defending([
     member('chansey'),
     { ...member('pikachu'), tired: true },
+    member('porygon'),
   ]);
   expect(state.phase).toMatchObject({ kind: 'pvp', battle: { step: 'defender_window' } });
   expect(pendingDecision(state)!.seatIndex).toBe(0);
   const store = open(state, initial);
-  expect(screen.getByRole('heading', { name: t('turn.reaction') })).toBeTruthy();
-  expect(screen.getByText(t('turn.reactionBody'))).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: 'Heal Pulse' }));
-  const members = within(screen.getByRole('group', { name: t('ability.members') }));
-  expect(members.getAllByRole('button')).toHaveLength(1);
-  fireEvent.click(members.getByRole('button', { name: /Pikachu/ }));
-  fireEvent.click(
-    screen.getByRole('button', { name: t('ability.confirm', { ability: 'Heal Pulse' }) }),
-  );
+  expect(screen.getByRole('heading', { name: t('battle.heading.window') })).toBeTruthy();
+  // Calculate cannot be used in this window: it stays listed, disabled, with the engine's reason.
+  const blocked = screen.getByRole('button', { name: /Calculate/ });
+  expect(blocked.hasAttribute('disabled')).toBe(true);
+  expect(blocked.closest('li')!.textContent).toContain('Calculate');
+  const reason = legalActions(state, 0).disabled.find(
+    (action) => action.kind === 'activate_ability' && action.payload.instanceId === 't:porygon',
+  )!.reasonText;
+  expect(blocked.closest('li')!.textContent).toContain(reason);
+  const heal = screen.getAllByRole('button', { name: /Heal Pulse/ });
+  expect(heal).toHaveLength(1);
+  expect(heal[0]!.textContent).toMatch(/Pikachu/);
+  fireEvent.click(heal[0]!);
   const { state: after, log } = store.getSession()!;
   expect(log.actions.at(-1)!.action).toMatchObject({
     kind: 'activate_ability',
     payload: { instanceId: 't:chansey', targetPokemonInstanceId: 't:pikachu' },
   });
-  expect(after.players[0]!.team.map((pokemon) => pokemon.tired)).toEqual([false, false]);
+  expect(after.players[0]!.team.map((pokemon) => pokemon.tired)).toEqual([false, false, false]);
   // The window closed for the human; the board still shows a turn panel for the engine's next step.
   expect(screen.getByLabelText(t('turn.actions'))).toBeTruthy();
-  expect(screen.queryByLabelText(t('ability.heading'))).toBeNull();
 });
 
 test('a reload at the defender window restores the same decision from the saved game (§3.1, §6.9)', () => {
@@ -297,8 +301,8 @@ test('a reload at the defender window restores the same decision from the saved 
     { seatIndex: 2, personality: 'greedy', difficulty: 'normal' },
   ]);
   render(<BoardScreen store={reloaded} />);
-  expect(screen.getByRole('heading', { name: t('turn.reaction') })).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Heal Pulse' }).hasAttribute('disabled')).toBe(false);
+  expect(screen.getByRole('heading', { name: t('battle.heading.window') })).toBeTruthy();
+  expect(screen.getByRole('button', { name: /Heal Pulse/ }).hasAttribute('disabled')).toBe(false);
   expect(screen.getByRole('button', { name: t('choice.noAbility') })).toBeTruthy();
   // Choosing none in the window spends nothing and lets the battle go on.
   fireEvent.click(screen.getByRole('button', { name: t('choice.noAbility') }));
@@ -389,7 +393,7 @@ test('Start credit makes every Ability ready again and the field log says so (§
   });
   expect(store.getSession()!.state.players[0]!.team[0]!.abilityReady).toBe(true);
   expect(
-    screen.getAllByText(t('board.event.abilitiesReset', { owner: t('seat.you') })).length,
+    screen.getAllByText(t('board.event.abilitiesReset', { name: t('seat.you') })).length,
   ).toBeGreaterThan(0);
 });
 

@@ -24,14 +24,16 @@ export function GalleryPage({ fixtures }: { fixtures: GalleryFixtures }) {
             className="gallery-row"
             aria-labelledby={`gallery-${row.id}`}
             data-gallery-row={row.id}
-            data-spec-row={row.specRow}
+            data-spec-row={row.specRow ?? row.spec?.id ?? 'ai-turns'}
           >
             <header className="gallery-row-head">
               <h2 id={`gallery-${row.id}`}>{t(row.label)}</h2>
               <p className="gallery-spec">
-                {typeof row.specRow === 'number'
+                {row.specRow !== null
                   ? t('gallery.specRow', { row: row.specRow })
-                  : t(row.specRow === 'ai-turns' ? 'gallery.specAiTurns' : 'gallery.specAbilities')}
+                  : row.spec
+                    ? t(row.spec.label)
+                    : t('gallery.specAiTurns')}
               </p>
             </header>
             <div className="gallery-examples">

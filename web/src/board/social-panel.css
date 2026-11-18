@@ -1,0 +1,105 @@
+/* The Social window (spec §4.8): topic buttons, one rival, one message, one reply. */
+.social-panel {
+  display: grid;
+  gap: 0.9rem;
+}
+.social-panel .action-control {
+  margin-top: 0;
+}
+.social-open,
+.social-sent {
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.social-sent {
+  font-weight: 800;
+}
+.social-notice {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  background: var(--color-panel-tint);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.social-notice strong {
+  color: var(--color-ink);
+}
+.social-group {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+.social-group legend {
+  margin-bottom: 0.4rem;
+  padding: 0;
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+.social-choices {
+  display: grid;
+  gap: 0.6rem;
+}
+.social-choices .btn {
+  min-height: 2.75rem;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+.social-choices [aria-pressed='true'] {
+  outline: 3px solid var(--color-reward-lip);
+  outline-offset: 3px;
+}
+.social-to {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.6rem;
+  font-size: 0.9rem;
+}
+.social-preview {
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+.social-reply,
+.social-reply-status {
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.social-reply {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--color-line);
+}
+.social-reply .seat-disc {
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: 0.85rem;
+}
+.social-reply-text {
+  margin-top: 0.15rem;
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+.social-reply-label {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--color-ink-soft);
+}
+.social-reply-backup {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--color-ink-soft);
+}
+.turn-panel .social-panel .social-reply-status .action-control {
+  margin-top: 0.75rem;
+}
+@media (min-width: 30rem) {
+  .social-choices:not(.social-topics) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

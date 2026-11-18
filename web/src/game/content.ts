@@ -66,19 +66,16 @@ export function ballItemId(ballType: 'poke' | 'great' | 'ultra'): string {
 
 /**
  * Core classes in content order; stretch classes stay out until after G2 (spec §1). A class is
- * open when its whole kit works in the browser. Rival's once-per-Lap forced PvP is a Strategy
- * choice the board has no control for until the PvP screens land (issue #135), so offering the
- * class would misrepresent its passive. Remove it from this list with that change.
+ * open when its whole kit works in the browser: a class is playable once the engine implements
+ * its passive, and Rival's once-per-Lap forced challenge now has its control in Strategy.
  */
-const NEEDS_PVP_CONTROLS: readonly string[] = ['rival'];
-
 export const classOptions: readonly ClassOption[] = content.classes
   .filter((entry) => !entry.stretch)
   .map((entry) => ({
     id: entry.id,
     starterSpeciesIds: entry.starterSpeciesIds,
     classItemId: entry.classItemId,
-    playable: entry.passive !== undefined && !NEEDS_PVP_CONTROLS.includes(entry.id),
+    playable: entry.passive !== undefined,
   }));
 
 /**

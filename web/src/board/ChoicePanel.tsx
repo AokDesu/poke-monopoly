@@ -1,4 +1,5 @@
 import type { LegalAction, LegalActions, Observation } from '../../../engine/index.ts';
+import { currentForm } from '../game/content.ts';
 import { t } from '../i18n/en.ts';
 import { speciesName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
@@ -7,7 +8,8 @@ import { AbilityPanel } from './AbilityPanel.tsx';
 /**
  * Plain words for an engine-listed choice that has no dedicated panel yet: Gym entry, battle
  * responses, window passes, rerolls and battle rewards (#55). Every option is the engine's own.
- * Ability activations have their own section (`AbilityPanel`) and are not labelled here.
+ * Outside a battle, Ability activations have their own section (`AbilityPanel`); a battle panel
+ * lists them as plain buttons and labels them here.
  */
 export function choiceLabel(action: LegalAction, observation: Observation): string {
   const own = observation.public.players.find(
@@ -27,6 +29,33 @@ export function choiceLabel(action: LegalAction, observation: Observation): stri
         pokemon: pokemon ? speciesName(pokemon.speciesId) : instanceId,
         form: speciesName(nextFormId),
       });
+    }
+    case 'activate_ability': {
+      const pokemon = own.team.find((entry) => entry.instanceId === action.payload.instanceId);
+      const form = pokemon ? currentForm(pokemon.speciesId) : undefined;
+      let label = t('choice.ability', {
+        ability: form?.ability?.name ?? action.payload.instanceId,
+        pokemon: form?.name ?? action.payload.instanceId,
+      });
+      // Heal Pulse lists one choice per Pokémon it can heal; name the member, with its Team ID so
+      // two of one species stay apart.
+      const target = own.team.find(
+        (entry) => entry.instanceId === action.payload.targetPokemonInstanceId,
+      );
+      if (target) {
+        label = t('choice.abilityTarget', {
+          label,
+          target: t('strategy.potion.member', {
+            pokemon: speciesName(target.speciesId),
+            instanceId: target.instanceId,
+          }),
+        });
+      }
+      // Adaptability lists one choice per scope; name the scope so the options differ.
+      const scope = action.payload.scope;
+      if (scope === 'catch') return t('choice.abilityCatch', { label });
+      if (scope === 'combat') return t('choice.abilityCombat', { label });
+      return label;
     }
     case 'skip':
       if (phase.kind === 'gym' && phase.battle.step === 'entry') return t('choice.skipGym');
