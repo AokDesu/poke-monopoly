@@ -133,6 +133,17 @@ Review at 1440×900 and 1024×768; the board is height-bounded at desktop sizes 
 loop remains visible without horizontal scrolling. Long panels and the event log remain
 available by vertical scrolling.
 
+## Players area
+
+The right-hand column lists every seat as one compact row, so no seat needs scrolling to read:
+name and class, coins, square, lap, items held, team size with the first Pokémon, and a Turn
+badge with a seat-colour ring on the acting seat. A watched game adds each AI's personality and
+difficulty. A row opens that seat's team (and, for your own seat only, the Ball pouch and items)
+under it; one seat is open at a time, Enter or Space toggles it and Escape closes it. Opening is
+a local view choice that never reaches the game, and a seat shows nothing it did not show
+before. `PlayersArea.test.tsx` covers the rows, the open/close behaviour, the keyboard and
+the privacy of every seat.
+
 ## UI states gallery (dev only)
 
 Run `npm run dev:web` and open `/?gallery` (for example `http://localhost:5173/?gallery`). The
