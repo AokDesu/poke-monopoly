@@ -123,7 +123,7 @@
   },
   "acceptable": { "strategy": ["a3"] },
   "reason": "Aggressive: aggression 0.9 prefers to slow the leader with Repel over taking its coins (liquidity 0.3 values cash little), and the one rich rival is that leader.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "047352b890fabaf538658a22831dc019a1f8b959252e1e7303663d76613ebf1d",
   "recorded": {
     "ok": true,
@@ -131,20 +131,13 @@
       "strategy": {
         "type": "choice",
         "choice": "a1",
-        "confidence": 0.154,
-        "probabilities": {
-          "a1": 0.295,
-          "a2": 0.078,
-          "a3": 0.218,
-          "a4": 0.069,
-          "a5": 0.078,
-          "skip": 0.261
-        }
+        "confidence": 0.75,
+        "probabilities": { "a1": 0.79, "a2": 0, "a3": 0.2, "a4": 0, "a5": 0.01, "skip": 0 }
       }
     },
-    "requestId": "synthetic-aggressive-strategy-mixed-items-two-rivals",
+    "requestId": "req_01a1edc24df67468b1ee4085fe3f6f72",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 259,
+    "usage": { "inputTokens": 2040, "outputTokens": 65 }
   }
 }

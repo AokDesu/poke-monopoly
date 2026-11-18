@@ -118,21 +118,21 @@
   },
   "acceptable": { "strategy": ["a1"] },
   "reason": "Aggressive: aggression 0.9 targets the leader, the rich rival, never the nearly broke one; loyalty 0.4 does not hold it back.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "3a314e41a7015201e3690f4d31dd90ffe4f258d11b529c2b41abf3ec11b67431",
   "recorded": {
     "ok": true,
     "answers": {
       "strategy": {
         "type": "choice",
-        "choice": "a2",
-        "confidence": 0.76,
-        "probabilities": { "a1": 0.002, "a2": 0.84, "skip": 0.158 }
+        "choice": "a1",
+        "confidence": 1,
+        "probabilities": { "a1": 1, "a2": 0, "skip": 0 }
       }
     },
-    "requestId": "synthetic-aggressive-strategy-pickpocket-richer-target",
+    "requestId": "req_01a1edc24bd574beb3308edefe3aeec1",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 265,
+    "usage": { "inputTokens": 1752, "outputTokens": 41 }
   }
 }

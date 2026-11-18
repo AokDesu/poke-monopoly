@@ -121,21 +121,21 @@
   },
   "acceptable": { "strategy": ["a3", "skip"] },
   "reason": "Cautious: loyalty 0.8 rules out both hostile items and aggression 0.2 gives no push to use them; only the Lucky Egg, used on itself (risk 0.2, a weak pull), or skipping fits a cautious player.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "0698245497e971e4a009745006250c342efe147ff651f691a085e6ec93c1f4c7",
   "recorded": {
     "ok": true,
     "answers": {
       "strategy": {
         "type": "choice",
-        "choice": "a1",
-        "confidence": 0.331,
-        "probabilities": { "a1": 0.498, "a2": 0.211, "a3": 0, "skip": 0.291 }
+        "choice": "skip",
+        "confidence": 0.47,
+        "probabilities": { "a1": 0.06, "a2": 0.3, "a3": 0.04, "skip": 0.6 }
       }
     },
-    "requestId": "synthetic-cautious-strategy-mixed-items-two-rivals",
+    "requestId": "req_01a1edc25e9a770fbb0a612053b4407d",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 269,
+    "usage": { "inputTokens": 1899, "outputTokens": 48 }
   }
 }

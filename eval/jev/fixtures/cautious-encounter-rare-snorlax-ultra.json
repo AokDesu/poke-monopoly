@@ -96,21 +96,21 @@
   },
   "acceptable": { "encounter": ["ultra_ball"] },
   "reason": "Cautious: risk 0.2 wants the likeliest catch and a rare Pokémon sells for far more than the Ball costs even at liquidity 0.5, so the Ultra Ball.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "2d0cf446fb50d70ce5978c696224c94c45316a3549f92a4c75a3187cbd1e762c",
   "recorded": {
     "ok": true,
     "answers": {
       "encounter": {
         "type": "choice",
-        "choice": "ultra_ball",
-        "confidence": 0.24,
-        "probabilities": { "poke_ball": 0.157, "ultra_ball": 0.493, "release": 0.349 }
+        "choice": "release",
+        "confidence": 0.19,
+        "probabilities": { "poke_ball": 0.21, "ultra_ball": 0.33, "release": 0.46 }
       }
     },
-    "requestId": "synthetic-cautious-encounter-rare-snorlax-ultra",
+    "requestId": "req_01a1edc26310727ea8540996639312ec",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 273,
+    "usage": { "inputTokens": 1786, "outputTokens": 43 }
   }
 }

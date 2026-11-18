@@ -94,21 +94,21 @@
   },
   "acceptable": { "strategy": ["a1", "skip"] },
   "reason": "Cautious: loyalty 0.8 makes a hostile item costly and aggression 0.2 and risk 0.2 mean holding steady is fine, yet Pickpocket needs no battle and the rival is far ahead, so either use or skip is defensible.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "0bdc57b00545990c45bc25427b476d92cf5fd3d7888c0d360a82ee45cd332396",
   "recorded": {
     "ok": true,
     "answers": {
       "strategy": {
         "type": "choice",
-        "choice": "a1",
-        "confidence": 0.442,
-        "probabilities": { "a1": 0.721, "skip": 0.279 }
+        "choice": "skip",
+        "confidence": 0.58,
+        "probabilities": { "a1": 0.21, "skip": 0.79 }
       }
     },
-    "requestId": "synthetic-cautious-strategy-pickpocket-rich-rival",
+    "requestId": "req_01a1edc25b5f7a1ea92c0c3cd938fc5b",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 267,
+    "usage": { "inputTokens": 1505, "outputTokens": 32 }
   }
 }

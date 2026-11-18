@@ -127,17 +127,17 @@
   },
   "acceptable": { "sell_team_0": ["false"], "sell_team_1": ["true", "false"] },
   "reason": "Opportunist: liquidity 0.7 takes cash now, but the tired price is lower than it will be after recovery and risk 0.6 can wait, so selling and keeping are both defensible.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "373a77698c597779ed6c7600a8eec33a1e4af9e8be193efc67758ad9fd713f6e",
   "recorded": {
     "ok": true,
     "answers": {
-      "sell_team_0": { "type": "noul", "noul": 0.83 },
-      "sell_team_1": { "type": "noul", "noul": 0.42 }
+      "sell_team_0": { "type": "noul", "noul": 0.25 },
+      "sell_team_1": { "type": "noul", "noul": 0.7 }
     },
-    "requestId": "synthetic-opportunist-sell-tired-eevee",
+    "requestId": "req_01a1edc27cab715ca2e2ce3b8f8508d3",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 273,
+    "usage": { "inputTokens": 2018, "outputTokens": 42 }
   }
 }

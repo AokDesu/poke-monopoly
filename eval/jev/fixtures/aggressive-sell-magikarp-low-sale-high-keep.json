@@ -127,17 +127,17 @@
   },
   "acceptable": { "sell_team_0": ["false"], "sell_team_1": ["false"] },
   "reason": "Aggressive: liquidity 0.3 does not chase a low sale, and aggression 0.9 keeps every Pokémon that can grow; it keeps the Magikarp.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "22db7d9ca26f438f6938921d42d51c0c3802391c14bbef85826da983f2d56676",
   "recorded": {
     "ok": true,
     "answers": {
-      "sell_team_0": { "type": "noul", "noul": 0.35 },
-      "sell_team_1": { "type": "noul", "noul": 0.67 }
+      "sell_team_0": { "type": "noul", "noul": 0.22 },
+      "sell_team_1": { "type": "noul", "noul": 0.59 }
     },
-    "requestId": "synthetic-aggressive-sell-magikarp-low-sale-high-keep",
+    "requestId": "req_01a1edc25a427a06a202c94cb531765a",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 277,
+    "usage": { "inputTokens": 2021, "outputTokens": 42 }
   }
 }

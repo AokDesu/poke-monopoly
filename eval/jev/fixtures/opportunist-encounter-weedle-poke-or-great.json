@@ -96,7 +96,7 @@
   },
   "acceptable": { "encounter": ["poke_ball", "great_ball"] },
   "reason": "Opportunist: liquidity 0.7 says one extra coin is hard to earn back on a common Pokémon, so the cheaper Poké Ball is fine, but risk 0.6 also allows the Great Ball.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "1a1463b2f8a87f238bb283b9eb159dbafe7b2cd95e4e279e1c9b2bfea6cb8946",
   "recorded": {
     "ok": true,
@@ -104,13 +104,13 @@
       "encounter": {
         "type": "choice",
         "choice": "poke_ball",
-        "confidence": 0.408,
-        "probabilities": { "poke_ball": 0.605, "great_ball": 0.219, "release": 0.176 }
+        "confidence": 0.7,
+        "probabilities": { "poke_ball": 0.8, "great_ball": 0.09, "release": 0.11 }
       }
     },
-    "requestId": "synthetic-opportunist-encounter-weedle-poke-or-great",
+    "requestId": "req_01a1edc27774793c8b527ecb4c41e669",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 247,
+    "usage": { "inputTokens": 1786, "outputTokens": 43 }
   }
 }

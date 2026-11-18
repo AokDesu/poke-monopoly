@@ -96,7 +96,7 @@
   },
   "acceptable": { "encounter": ["poke_ball", "great_ball"] },
   "reason": "Cautious: the catch is already near certain with either Ball, so risk 0.2 gains nothing from the dearer one and liquidity 0.5 keeps the cheaper Ball, but a Great Ball is not wrong.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "01006fccfd860ec43923ea1ea2a2891bda0e65320b0c5dc971565a5f20a1e61a",
   "recorded": {
     "ok": true,
@@ -104,13 +104,13 @@
       "encounter": {
         "type": "choice",
         "choice": "release",
-        "confidence": 0.26,
-        "probabilities": { "poke_ball": 0.491, "great_ball": 0.002, "release": 0.507 }
+        "confidence": 0.35,
+        "probabilities": { "poke_ball": 0.23, "great_ball": 0.2, "release": 0.57 }
       }
     },
-    "requestId": "synthetic-cautious-encounter-pidgey-poke-or-great",
+    "requestId": "req_01a1edc2657472d59bd588f7b0a20312",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 269,
+    "usage": { "inputTokens": 1785, "outputTokens": 42 }
   }
 }

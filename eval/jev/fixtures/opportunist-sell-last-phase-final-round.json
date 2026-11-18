@@ -148,18 +148,18 @@
   },
   "acceptable": { "sell_team_0": ["true"], "sell_team_1": ["true"], "sell_team_2": ["true"] },
   "reason": "Opportunist: this is the last Sell Phase, so liquidity 0.7 takes the full price now instead of the lower automatic sale, and it sells all.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "beff9cdb6f928046772f934a30c25caa5bb38df9c0a87e865a2e1013d41e711b",
   "recorded": {
     "ok": true,
     "answers": {
-      "sell_team_0": { "type": "noul", "noul": 0.49 },
-      "sell_team_1": { "type": "noul", "noul": 0.59 },
-      "sell_team_2": { "type": "noul", "noul": 0.62 }
+      "sell_team_0": { "type": "noul", "noul": 0.54 },
+      "sell_team_1": { "type": "noul", "noul": 0.79 },
+      "sell_team_2": { "type": "noul", "noul": 0.88 }
     },
-    "requestId": "synthetic-opportunist-sell-last-phase-final-round",
+    "requestId": "req_01a1edc2796f7685ada5c4af9b1b8341",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 287,
+    "usage": { "inputTokens": 2376, "outputTokens": 61 }
   }
 }

@@ -94,21 +94,21 @@
   },
   "acceptable": { "strategy": ["a1"] },
   "reason": "Aggressive: aggression 0.9 hunts the leader and the only rival is far ahead; loyalty 0.4 puts little weight on the goodwill a hostile item costs, so Pickpocket on the leader is right and skipping wastes the lead to hunt.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "b9bf82dccf5a9447bec6719db2f84a1ae56e610c5f7ca9a0a193e70184b1b5c7",
   "recorded": {
     "ok": true,
     "answers": {
       "strategy": {
         "type": "choice",
-        "choice": "skip",
-        "confidence": 0.254,
-        "probabilities": { "a1": 0.373, "skip": 0.627 }
+        "choice": "a1",
+        "confidence": 0.98,
+        "probabilities": { "a1": 0.99, "skip": 0.01 }
       }
     },
-    "requestId": "synthetic-aggressive-strategy-pickpocket-rich-rival",
+    "requestId": "req_01a1edc24a747b91a25393d330ed489a",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 503,
+    "usage": { "inputTokens": 1506, "outputTokens": 33 }
   }
 }

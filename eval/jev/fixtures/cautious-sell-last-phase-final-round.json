@@ -148,18 +148,18 @@
   },
   "acceptable": { "sell_team_0": ["true"], "sell_team_1": ["true"], "sell_team_2": ["true"] },
   "reason": "Cautious: this is the last Sell Phase, so keeping only lowers the sale price; even loyalty 0.8 and risk 0.2, which favour a steady team, give no reason to hold, so it sells all.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "642684460be8c9ca376bcd97c12973998846aa3eb3d355367fbe43a33c1d58cd",
   "recorded": {
     "ok": true,
     "answers": {
-      "sell_team_0": { "type": "noul", "noul": 0.51 },
-      "sell_team_1": { "type": "noul", "noul": 0.8 },
-      "sell_team_2": { "type": "noul", "noul": 0.42 }
+      "sell_team_0": { "type": "noul", "noul": 0.5 },
+      "sell_team_1": { "type": "noul", "noul": 0.73 },
+      "sell_team_2": { "type": "noul", "noul": 0.86 }
     },
-    "requestId": "synthetic-cautious-sell-last-phase-final-round",
+    "requestId": "req_01a1edc26694795ab3412ab55842ca3f",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 262,
+    "usage": { "inputTokens": 2377, "outputTokens": 61 }
   }
 }

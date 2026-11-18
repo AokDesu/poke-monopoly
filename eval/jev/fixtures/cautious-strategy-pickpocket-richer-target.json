@@ -117,21 +117,21 @@
   },
   "acceptable": { "strategy": ["a1", "skip"] },
   "reason": "Cautious: loyalty 0.8 and aggression 0.2 favour holding, but if it uses the item at all it takes from the rich rival, because the broke one has nothing to take; either that or skip.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "428087d7a64b14a782df051ee23e3da4212a88341eb61e06526c6e36ee7330e3",
   "recorded": {
     "ok": true,
     "answers": {
       "strategy": {
         "type": "choice",
-        "choice": "a1",
-        "confidence": 0.332,
-        "probabilities": { "a1": 0.666, "skip": 0.334 }
+        "choice": "skip",
+        "confidence": 0.6,
+        "probabilities": { "a1": 0.2, "skip": 0.8 }
       }
     },
-    "requestId": "synthetic-cautious-strategy-pickpocket-richer-target",
+    "requestId": "req_01a1edc25c6f730dba7bfd8da774175b",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 248,
+    "usage": { "inputTokens": 1686, "outputTokens": 32 }
   }
 }

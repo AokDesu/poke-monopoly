@@ -94,7 +94,7 @@
   },
   "acceptable": { "strategy": ["a1"] },
   "reason": "Opportunist: liquidity 0.7 takes the coins on offer now and loyalty 0.2 leaves no goodwill to protect, so Pickpocket on the far richer rival pays right now.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "c23f61df8c06ff14a62ad618ab82d82c2f581cfe05137908c630a13e75706a11",
   "recorded": {
     "ok": true,
@@ -102,13 +102,13 @@
       "strategy": {
         "type": "choice",
         "choice": "a1",
-        "confidence": 0.052,
-        "probabilities": { "a1": 0.526, "skip": 0.474 }
+        "confidence": 0.96,
+        "probabilities": { "a1": 0.98, "skip": 0.02 }
       }
     },
-    "requestId": "synthetic-opportunist-strategy-pickpocket-rich-rival",
+    "requestId": "req_01a1edc26bdd7e8c8034a359977089dc",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 249,
+    "usage": { "inputTokens": 1504, "outputTokens": 33 }
   }
 }

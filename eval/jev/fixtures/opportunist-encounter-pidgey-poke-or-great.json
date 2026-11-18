@@ -96,21 +96,21 @@
   },
   "acceptable": { "encounter": ["poke_ball", "great_ball"] },
   "reason": "Opportunist: the catch is already near certain with either Ball, so liquidity 0.7 prefers the cheaper Poké Ball, and the Great Ball is not wrong at risk 0.6.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "557e4d15d93c53986443c6b1b381fcd965655d08805b2bb113603e769876e2d9",
   "recorded": {
     "ok": true,
     "answers": {
       "encounter": {
         "type": "choice",
-        "choice": "great_ball",
-        "confidence": 0.401,
-        "probabilities": { "poke_ball": 0.172, "great_ball": 0.601, "release": 0.227 }
+        "choice": "poke_ball",
+        "confidence": 0.53,
+        "probabilities": { "poke_ball": 0.69, "great_ball": 0.24, "release": 0.07 }
       }
     },
-    "requestId": "synthetic-opportunist-encounter-pidgey-poke-or-great",
+    "requestId": "req_01a1edc2786d76f0a0f818454cb1fc6f",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 240,
+    "usage": { "inputTokens": 1784, "outputTokens": 43 }
   }
 }

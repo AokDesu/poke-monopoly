@@ -94,21 +94,21 @@
   },
   "acceptable": { "strategy": ["skip"] },
   "reason": "Cautious: aggression 0.2 and risk 0.2: avoids fights and gambles, and a forced PvP is an unknown-outcome fight; loyalty 0.8 also protects goodwill.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "5ff51fbd668ed1e42a9d1883fdc403db3e01ea50f52dc158ae2064ee96f82633",
   "recorded": {
     "ok": true,
     "answers": {
       "strategy": {
         "type": "choice",
-        "choice": "a1",
-        "confidence": 0.128,
-        "probabilities": { "a1": 0.564, "skip": 0.436 }
+        "choice": "skip",
+        "confidence": 0.96,
+        "probabilities": { "a1": 0.02, "skip": 0.98 }
       }
     },
-    "requestId": "synthetic-cautious-strategy-battle-ticket-leader",
+    "requestId": "req_01a1edc25fa67218ad3f1f21e7ac0740",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 277,
+    "usage": { "inputTokens": 1489, "outputTokens": 32 }
   }
 }

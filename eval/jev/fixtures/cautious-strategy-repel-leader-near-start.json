@@ -94,7 +94,7 @@
   },
   "acceptable": { "strategy": ["skip"] },
   "reason": "Cautious: loyalty 0.8 and aggression 0.2: Repel is a hostile item that earns nothing now, and a steady player keeps the goodwill rather than slow the leader.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "0201b236f6f0c8c98e3f7ab8f7ed8b4806ae23bc1b95dc1cb3a9cd60bb0cb478",
   "recorded": {
     "ok": true,
@@ -102,13 +102,13 @@
       "strategy": {
         "type": "choice",
         "choice": "a1",
-        "confidence": 0.096,
-        "probabilities": { "a1": 0.548, "skip": 0.452 }
+        "confidence": 0.32,
+        "probabilities": { "a1": 0.66, "skip": 0.34 }
       }
     },
-    "requestId": "synthetic-cautious-strategy-repel-leader-near-start",
+    "requestId": "req_01a1edc25d817ac98c9e576b7eda3717",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 278,
+    "usage": { "inputTokens": 1511, "outputTokens": 33 }
   }
 }

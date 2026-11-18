@@ -96,21 +96,21 @@
   },
   "acceptable": { "encounter": ["ultra_ball"] },
   "reason": "Opportunist: liquidity 0.7 still pays for the Ultra Ball because a rare Pokémon sells for far more than the Ball costs; risk 0.6 does not change that.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "105e3171316e36b4216de176045c7ead5850f45012b4256ced845608328aad26",
   "recorded": {
     "ok": true,
     "answers": {
       "encounter": {
         "type": "choice",
-        "choice": "poke_ball",
-        "confidence": 0.444,
-        "probabilities": { "poke_ball": 0.629, "ultra_ball": 0.015, "release": 0.356 }
+        "choice": "ultra_ball",
+        "confidence": 0.67,
+        "probabilities": { "poke_ball": 0.21, "ultra_ball": 0.78, "release": 0.01 }
       }
     },
-    "requestId": "synthetic-opportunist-encounter-rare-snorlax-ultra",
+    "requestId": "req_01a1edc2766d7344bf7a4544ce8c271a",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 262,
+    "usage": { "inputTokens": 1785, "outputTokens": 45 }
   }
 }
