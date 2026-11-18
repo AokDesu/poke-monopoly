@@ -4,7 +4,7 @@ import { t, type MessageKey } from '../i18n/en.ts';
 import { itemName } from '../i18n/names.ts';
 import { ownSeatOf, phaseLabel, playerLabel, reasonLabel, seatLabel } from './labels.ts';
 import type { ViewedObservation } from './labels.ts';
-import { eventCardText, eventResultMessage } from './eventCard.ts';
+import { eventCardText, eventResultMessage, type TeamPokemon } from './eventCard.ts';
 import { turnMessages } from './turnMessages.ts';
 
 /** `entryEvents`: the records of the same accepted action; `reshuffled`: a deck refill after the first. */
@@ -13,6 +13,7 @@ function eventMessage(
   observation: ViewedObservation,
   entryEvents: readonly SeatEvent[],
   reshuffled: boolean,
+  pokemon?: readonly TeamPokemon[],
 ): { key: MessageKey; text: string }[] {
   const seat = (index: number) => seatLabel(index, ownSeatOf(observation));
   const message = (key: MessageKey, values?: Record<string, string | number>) => [
@@ -56,7 +57,7 @@ function eventMessage(
         text: eventCardText(event.eventId),
       });
     case 'event_resolved':
-      return [eventResultMessage(observation, event, entryEvents)];
+      return [eventResultMessage(observation, event, entryEvents, pokemon)];
     case 'random_result':
       if (event.purpose.startsWith('line:')) return [];
       // Strings/arrays may be internal draw IDs or deck order in historical fixtures. Never dump them.
@@ -120,14 +121,20 @@ export function EventLog({
 }) {
   // The first `event_deck_shuffled` of a game fills the deck; every later one is the deck running out.
   let fills = 0;
-  const announce = (list: readonly SeatEvent[]) =>
+  const announce = (list: readonly SeatEvent[], pokemon?: readonly TeamPokemon[]) =>
     list.flatMap((event) =>
-      eventMessage(event, observation, list, event.kind === 'event_deck_shuffled' && fills++ > 0),
+      eventMessage(
+        event,
+        observation,
+        list,
+        event.kind === 'event_deck_shuffled' && fills++ > 0,
+        pokemon,
+      ),
     );
   const rows = feed
     ? feed.flatMap((entry) => [
         ...turnMessages(entry, ownSeatOf(observation)),
-        ...announce(entry.record.events),
+        ...announce(entry.record.events, entry.before.pokemon),
       ])
     : announce(events);
   return (
