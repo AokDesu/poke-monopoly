@@ -1,0 +1,98 @@
+[
+  {
+    "id": "catch-other-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Nice catch, {target}! That one will sell nicely."
+  },
+  {
+    "id": "catch-other-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "{target} caught a new friend. I see coins, too."
+  },
+  {
+    "id": "catch-other-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Good throw, {target}! That ball was well spent."
+  },
+  {
+    "id": "catch-other-greedy-neutral-4",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "{target} caught something. Please do not sell it too cheap."
+  },
+  {
+    "id": "catch-other-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Great catch, {target}! Now put it to work."
+  },
+  {
+    "id": "catch-other-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{target} caught a wild one. Let us battle it out!"
+  },
+  {
+    "id": "catch-other-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Nice throw, {target}. That creature will fight for you."
+  },
+  {
+    "id": "catch-other-aggressive-neutral-4",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Caught! Good for you, {target}. I will catch better."
+  },
+  {
+    "id": "catch-other-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Nice catch, {target}. Take good care of it."
+  },
+  {
+    "id": "catch-other-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "{target} caught a wild creature. Gentle hands, please."
+  },
+  {
+    "id": "catch-other-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Well done, {target}. A careful throw makes a happy catch."
+  },
+  {
+    "id": "catch-other-cautious-neutral-4",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "{target} caught one. I hope it likes its new team."
+  },
+  {
+    "id": "catch-other-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Nice catch, {target}! You do have the Poké-touch."
+  },
+  {
+    "id": "catch-other-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "{target} caught a new friend. Make room for me too."
+  },
+  {
+    "id": "catch-other-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Great throw, {target}. Do teach me how, friend."
+  },
+  {
+    "id": "catch-other-opportunist-neutral-4",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Look at {target}, gotta catch them all. Well, some."
+  }
+]

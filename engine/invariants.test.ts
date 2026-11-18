@@ -169,7 +169,7 @@ describe('registry (spec §8)', () => {
       'rescue-starter-no-coin-loop': 'active',
       'tired-and-nurse-joy-useful': 'active',
       'evolution-keeps-cooldowns': 'active',
-      'promise-closes-on-own-turn': 'pending',
+      'promise-closes-on-own-turn': 'active',
       'deals-atomic': 'pending',
       'battle-reward-coins-or-evolution': 'active',
     });
@@ -716,5 +716,128 @@ describe('rescue-starter-no-coin-loop (#55 S16)', () => {
     expect(checkInvariants(before, action, tradeable).map((v) => v.invariant)).toContain(
       'rescue-starter-no-coin-loop',
     );
+  });
+});
+
+describe('promise-closes-on-own-turn (#56 S07)', () => {
+  /** Seat 0 at its own End on own turn 2, with an open promise to seat 1 that closes there. */
+  const due = () => {
+    const state = start();
+    state.config.engineVersion = ENGINE_VERSION;
+    state.activeSeatIndex = 0;
+    state.players[0]!.ownTurnNo = 2;
+    state.phase = { kind: 'end' };
+    state.promises = [
+      {
+        promiserSeatIndex: 0,
+        recipientSeatIndex: 1,
+        createdGlobalTurnNo: 1,
+        closesOwnTurnNo: 2,
+        acceptedActionSeq: 1,
+      },
+    ];
+    return state;
+  };
+  const closedEvent = {
+    kind: 'promise_closed',
+    promiserSeatIndex: 0,
+    recipientSeatIndex: 1,
+    outcome: 'kept',
+    globalTurnNo: 0,
+  } as const;
+  const violations = (before: GameState, result: ApplyActionResult) =>
+    checkInvariants(before, command(before, 'skip'), result)
+      .filter((violation) => violation.invariant === 'promise-closes-on-own-turn')
+      .map((violation) => violation.message);
+
+  test('the real End skip closes it, with the trust change, and passes', () => {
+    const before = due();
+    const action = command(before, 'skip');
+    const result = applyAction(before, action);
+    expect('accepted' in result && result.state.promises![0]!.settled?.outcome).toBe(
+      'kept_without_chance',
+    );
+    expect(checkInvariants(before, action, result)).toEqual([]);
+  });
+
+  test('a promise left open past its closing turn is reported', () => {
+    const before = due();
+    const action = command(before, 'skip');
+    const late = acceptedResult(before, action, (state) => {
+      state.activeSeatIndex = 1;
+      state.phase = { kind: 'start' };
+    });
+    expect(violations(before, late).join()).toMatch(/stayed open/);
+  });
+
+  test('a close before its closing turn, or with no matching event, is reported', () => {
+    const before = due();
+    before.players[0]!.ownTurnNo = 1;
+    const early = acceptedResult(
+      before,
+      command(before, 'skip'),
+      (state) => {
+        state.promises![0]!.settled = { outcome: 'kept_without_chance', globalTurnNo: 0 };
+      },
+      [closedEvent],
+    );
+    expect(violations(before, early).join()).toMatch(/outside the End of its own turn/);
+    const quiet = due();
+    const unlogged = acceptedResult(quiet, command(quiet, 'skip'), (state) => {
+      state.promises![0]!.settled = { outcome: 'kept_without_chance', globalTurnNo: 0 };
+      state.activeSeatIndex = 1;
+    });
+    expect(violations(quiet, unlogged).join()).toMatch(/do not match/);
+  });
+
+  test('a trust change off the table, or past its cap or clamp, is reported', () => {
+    const before = due();
+    const action = command(before, 'skip');
+    const wrong = acceptedResult(
+      before,
+      action,
+      (state) => {
+        state.promises![0]!.settled = { outcome: 'kept_without_chance', globalTurnNo: 0 };
+        state.trust = [{ fromSeatIndex: 1, toSeatIndex: 0, value: 1, keptGain: 1 }];
+        state.activeSeatIndex = 1;
+      },
+      [closedEvent],
+    );
+    expect(violations(before, wrong).join()).toMatch(/not the table's/);
+    const broken = acceptedResult(
+      before,
+      action,
+      (state) => {
+        state.promises![0]!.settled = { outcome: 'broken', globalTurnNo: 0 };
+        state.trust = [{ fromSeatIndex: 1, toSeatIndex: 0, value: -2, keptGain: 0 }];
+        state.activeSeatIndex = 1;
+      },
+      [{ ...closedEvent, outcome: 'broken' }],
+    );
+    expect(violations(before, broken)).toEqual([]);
+    const withGain = due();
+    withGain.trust = [{ fromSeatIndex: 1, toSeatIndex: 0, value: 2, keptGain: 2 }];
+    withGain.promises![0]!.chance = true;
+    const uncapped = acceptedResult(
+      withGain,
+      action,
+      (state) => {
+        state.promises![0]!.settled = { outcome: 'kept_with_chance', globalTurnNo: 0 };
+        state.trust = [{ fromSeatIndex: 1, toSeatIndex: 0, value: 3, keptGain: 2 }];
+        state.activeSeatIndex = 1;
+      },
+      [closedEvent],
+    );
+    expect(violations(withGain, uncapped).join()).toMatch(/not the table's/);
+  });
+
+  test('a promise still open when the game finishes is reported', () => {
+    const before = due();
+    before.finalTableRound = { triggerSeatIndex: 1, targetOwnTurnNo: 1 };
+    const action = command(before, 'skip');
+    const open = acceptedResult(before, action, (state) => {
+      state.phase = { kind: 'finished' };
+    });
+    expect(violations(before, open).join()).toMatch(/stayed open/);
   });
 });

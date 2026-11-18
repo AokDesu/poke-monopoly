@@ -78,7 +78,7 @@ const MAX_RETRY_AFTER_MS = 60_000;
 
 const probability = z.number().min(0).max(1);
 
-const recordedSchema = z.discriminatedUnion('ok', [
+export const recordedSchema = z.discriminatedUnion('ok', [
   z.strictObject({
     ok: z.literal(true),
     intent: z.enum(INTENTS),

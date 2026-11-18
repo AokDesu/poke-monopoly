@@ -1,5 +1,5 @@
 import { parseArgs } from 'node:util';
-import { runChatOffline } from './chat.ts';
+import { runChatEval } from './chat-recorded.ts';
 import {
   formatReport,
   recordFixture,
@@ -25,7 +25,7 @@ try {
     throw new Error('--input and --output require --record.');
   if (values.offline) {
     console.log(formatReport(await runOffline()));
-    console.log(`\n${await runChatOffline()}`);
+    console.log(`\n${await runChatEval()}`);
   } else if (values.placeholders) {
     const written = await writePlaceholders();
     console.log(`Synthetic placeholders written or updated: ${written.join(', ') || 'none'}`);

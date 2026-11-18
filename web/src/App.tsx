@@ -64,6 +64,8 @@ import { FocusHeadingContext, Screen } from './ui/Screen.tsx';
 export interface AppProps {
   /** Test-only fixed game seed from `?seed=`; never shown to players. */
   seed?: number | string;
+  /** Demo mode (`?demo`): shows the "What Jev chose" panel on a rival's decision (issue #220). */
+  demo?: boolean;
   /** Random All's source of choices. */
   random?: () => number;
   store?: GameStore;
@@ -80,6 +82,7 @@ type SaveOffer =
       session: GameSession;
       opponents: SaveMeta['opponents'];
       watch: SaveMeta['watch'];
+      gameId: SaveMeta['gameId'];
       rivals: SavedRival[];
       summary: SaveSummary;
     }
@@ -112,6 +115,7 @@ function inspect(storage: SaveStorage | null): { offer: SaveOffer | null; unavai
       session: loaded.game,
       opponents: meta.opponents,
       watch: meta.watch,
+      gameId: meta.gameId,
       rivals: savedRivals(loaded.game, meta),
       summary: summarize(loaded.game, loaded.resumed),
     },
@@ -121,11 +125,12 @@ function inspect(storage: SaveStorage | null): { offer: SaveOffer | null; unavai
 
 export function App({
   seed,
+  demo = false,
   random = Math.random,
   store: givenStore,
   storage: givenStorage,
 }: AppProps) {
-  const [store] = useState(() => givenStore ?? createGameStore());
+  const [store] = useState(() => givenStore ?? createGameStore({ demo }));
   const [storage] = useState(() => (givenStorage === undefined ? browserStorage() : givenStorage));
   const [opened] = useState(() => inspect(storage));
   // A reload keeps an unfinished watch setup, unless a saved game is waiting on the Home screen.
@@ -161,6 +166,7 @@ export function App({
             writeSave(storage, session, {
               opponents: store.getOpponents(),
               watch: store.getWatchSettings(),
+              gameId: store.getGameId(),
             });
           } else clearSave(storage);
           setSavingOff(false);
@@ -202,7 +208,7 @@ export function App({
   const continueSaved = () => {
     if (offer?.kind !== 'continue') return;
     try {
-      store.restore(offer.session, [...offer.opponents], offer.watch);
+      store.restore(offer.session, [...offer.opponents], offer.watch, offer.gameId);
     } catch {
       setOffer({ kind: 'unreadable' });
       return;

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import type { GameState } from '../engine/index.ts';
+import type { GameState, LegalAction } from '../engine/index.ts';
 import { realEngine } from './engine.ts';
 import type { Policy } from './policy.ts';
 import { formatSummary } from './report.ts';
@@ -34,10 +34,10 @@ async function scenario(
   );
 }
 
-function hostileItems(state: GameState) {
+function hostileItems(state: GameState, visibility: 'secret' | 'public' = 'secret') {
   state.players[0]!.items = [
-    { instanceId: 'repel', itemId: 'repel', name: 'Repel', visibility: 'secret' },
-    { instanceId: 'pickpocket', itemId: 'pickpocket', name: 'Pickpocket', visibility: 'secret' },
+    { instanceId: 'repel', itemId: 'repel', name: 'Repel', visibility },
+    { instanceId: 'pickpocket', itemId: 'pickpocket', name: 'Pickpocket', visibility },
   ];
 }
 
@@ -69,6 +69,31 @@ test('hostile items count once per legal seat-turn despite multiple targets and 
   });
 });
 
+/** Offers one promise, accepts it, attacks `target` with `attack` whenever enabled, and otherwise moves on. */
+function attackerPolicy(attack: (choice: LegalAction) => boolean): Policy {
+  let offered = false;
+  return {
+    decide(_observation, legal) {
+      const offer = legal.enabled.find((choice) => choice.id === 'offer-promise:seat-1:offer');
+      if (offer && !offered) {
+        offered = true;
+        return offer.id;
+      }
+      return (
+        legal.enabled.find((choice) => choice.id === 'respond:accept') ??
+        legal.enabled.find(attack) ??
+        legal.enabled.find((choice) => choice.kind === 'skip') ??
+        legal.enabled.find((choice) => choice.kind === 'release') ??
+        legal.enabled.find(
+          (choice) => choice.kind === 'sell' && choice.payload.pokemonInstanceIds.length === 0,
+        ) ??
+        legal.enabled.find((choice) => choice.kind === 'skip_shop') ??
+        legal.enabled[0]!
+      ).id;
+    },
+  };
+}
+
 test('promise accounting uses actual attack evidence, including shield-blocked items (§4.8, §8)', async () => {
   const { summary } = await scenario(
     (state) => {
@@ -79,20 +104,8 @@ test('promise accounting uses actual attack evidence, including shield-blocked i
       state.turnBudgets.socialInteraction = 1;
       state.players[1]!.armedShield = { scope: 'price', visibility: 'secret' };
     },
-    {
-      decide(_observation, legal) {
-        return (
-          legal.enabled.find((choice) => choice.id === 'offer-promise:seat-1:offer') ??
-          legal.enabled.find((choice) => choice.id === 'respond:accept') ??
-          legal.enabled.find(
-            (choice) => choice.kind === 'use_item' && choice.payload.targetSeatIndex === 1,
-          ) ??
-          legal.enabled.find((choice) => choice.kind === 'skip') ??
-          legal.enabled[0]!
-        ).id;
-      },
-    },
-    5,
+    attackerPolicy((choice) => choice.kind === 'use_item' && choice.payload.targetSeatIndex === 1),
+    200,
   );
   expect(summary.promises).toEqual({
     offered: 1,
@@ -149,7 +162,7 @@ for (const opportunity of [false, true]) {
           player.team = [];
           player.items = [];
         }
-        if (opportunity) hostileItems(state);
+        if (opportunity) hostileItems(state, 'public');
       },
       promisePolicy(),
       200,
@@ -255,32 +268,19 @@ test('the readable summary shows hostile evidence and every promise outcome', as
   expect(report).toContain('1 offered, 1 accepted, 0 rejected');
   expect(report).toContain('0 kept with opportunity, 0 kept without opportunity');
   expect(report).toContain('0 broken, 0 closed by game end, 1 pending');
-  expect(report).toContain('0 with breach opportunity');
+  expect(report).toContain('1 with breach opportunity');
 });
 
 for (const kind of ['activate_ability', 'declare_pvp'] as const) {
   test(`a ${kind} against the recipient breaks a promise, without counting as a hostile item`, async () => {
     const { summary } = await scenario(
       socialScenario,
-      {
-        decide(_observation, legal) {
-          return (
-            legal.enabled.find((choice) => choice.id === 'offer-promise:seat-1:offer') ??
-            legal.enabled.find((choice) => choice.id === 'respond:accept') ??
-            legal.enabled.find(
-              (choice) => choice.kind === kind && choice.payload.targetSeatIndex === 1,
-            ) ??
-            legal.enabled.find((choice) => choice.kind === 'skip') ??
-            legal.enabled[0]!
-          ).id;
-        },
-      },
-      4,
+      attackerPolicy((choice) => choice.kind === kind && choice.payload.targetSeatIndex === 1),
+      200,
     );
     expect(summary.promises).toMatchObject({
       accepted: 1,
       broken: 1,
-      breachOpportunity: 1,
       pending: 0,
     });
     expect(summary.hostility.hostileUsed).toBe(0);

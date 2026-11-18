@@ -1,0 +1,98 @@
+[
+  {
+    "id": "roll-high-other-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Big roll, {target}! Go on, bring the coins back."
+  },
+  {
+    "id": "roll-high-other-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "{target} rolled high. I hope that road is paved with coins."
+  },
+  {
+    "id": "roll-high-other-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Nice roll, {target}. Stomping around like a Snorlax!"
+  },
+  {
+    "id": "roll-high-other-greedy-neutral-4",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "That die loves you, {target}. Lucky you!"
+  },
+  {
+    "id": "roll-high-other-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Big roll, {target}! Now let us see you use it."
+  },
+  {
+    "id": "roll-high-other-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{target} charges ahead. I am not scared, only impressed."
+  },
+  {
+    "id": "roll-high-other-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Whoa, {target}, that roll was Machop strong!"
+  },
+  {
+    "id": "roll-high-other-aggressive-neutral-4",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Nice roll, {target}. I will beat it next turn."
+  },
+  {
+    "id": "roll-high-other-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "A high roll, {target}. I hope the road ahead is kind."
+  },
+  {
+    "id": "roll-high-other-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Well rolled, {target}. Lucky die, but I am watching."
+  },
+  {
+    "id": "roll-high-other-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "{target} rolled high. Keep an eye out for wild surprises!"
+  },
+  {
+    "id": "roll-high-other-cautious-neutral-4",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Big step, {target}. Do mind the tall grass."
+  },
+  {
+    "id": "roll-high-other-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Oh, {target}, such a big roll. You must have a Pikachu on your side."
+  },
+  {
+    "id": "roll-high-other-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "{target} rolled high! Lucky friends are the best friends."
+  },
+  {
+    "id": "roll-high-other-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Big roll, {target}. Now I know whom to stay close to."
+  },
+  {
+    "id": "roll-high-other-opportunist-neutral-4",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "A very high roll, {target}. Very suspicious, very impressive."
+  }
+]

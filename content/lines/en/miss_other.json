@@ -1,0 +1,98 @@
+[
+  {
+    "id": "miss-other-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Oh, {target}, it got away! There goes a Poké-profit."
+  },
+  {
+    "id": "miss-other-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "{target} missed the catch. That ball is gone for good."
+  },
+  {
+    "id": "miss-other-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Tough luck, {target}. A wasted ball is a wasted coin."
+  },
+  {
+    "id": "miss-other-greedy-neutral-4",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "It escaped, {target}. Next time hold the ball tighter!"
+  },
+  {
+    "id": "miss-other-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Ha, {target}, it got away! Throw harder next time."
+  },
+  {
+    "id": "miss-other-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{target} missed! My Caterpie could have caught that."
+  },
+  {
+    "id": "miss-other-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Missed, {target}! The wild one wins this round."
+  },
+  {
+    "id": "miss-other-aggressive-neutral-4",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "It ran, {target}! Better aim, better luck."
+  },
+  {
+    "id": "miss-other-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Oh dear, {target}. It got away, but you tried well."
+  },
+  {
+    "id": "miss-other-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "A miss, {target}. Do not worry, wild ones are tricky."
+  },
+  {
+    "id": "miss-other-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "{target} missed the catch. Be patient, the next one is yours."
+  },
+  {
+    "id": "miss-other-cautious-neutral-4",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "It slipped away, {target}. Wild creatures are quick."
+  },
+  {
+    "id": "miss-other-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Aww, {target}, it got away. More wild ones for me, then."
+  },
+  {
+    "id": "miss-other-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "{target} missed the catch. A Magikarp would have been an easier throw."
+  },
+  {
+    "id": "miss-other-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "A miss, {target}? How tragic. I mean, how unlucky."
+  },
+  {
+    "id": "miss-other-opportunist-neutral-4",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "It fled, {target}! I will be nice and not laugh. Much."
+  }
+]
