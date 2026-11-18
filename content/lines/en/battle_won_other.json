@@ -1,0 +1,98 @@
+[
+  {
+    "id": "battle-won-other-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "{target} won the battle! I hope the prize was worth it."
+  },
+  {
+    "id": "battle-won-other-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Well fought, {target}. That was a Poké-profitable win."
+  },
+  {
+    "id": "battle-won-other-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Victory for {target}. I would like a small slice of that glory."
+  },
+  {
+    "id": "battle-won-other-greedy-neutral-4",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Nice battle, {target}. Your team earned its keep."
+  },
+  {
+    "id": "battle-won-other-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{target} won! Next time the win will be mine."
+  },
+  {
+    "id": "battle-won-other-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Good fight, {target}. I am coming for you next!"
+  },
+  {
+    "id": "battle-won-other-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{target} wins the battle. A Machop could not have done better."
+  },
+  {
+    "id": "battle-won-other-aggressive-neutral-4",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Not bad, {target}! I will show you how it is really done."
+  },
+  {
+    "id": "battle-won-other-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Well fought, {target}. A careful win is the best kind."
+  },
+  {
+    "id": "battle-won-other-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "{target} won that battle. Congratulations, and good luck."
+  },
+  {
+    "id": "battle-won-other-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Good battle, {target}. I will be careful around you."
+  },
+  {
+    "id": "battle-won-other-cautious-neutral-4",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "A fine win, {target}. Your team deserves a nap."
+  },
+  {
+    "id": "battle-won-other-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "{target} won! I always liked you. Remind me why."
+  },
+  {
+    "id": "battle-won-other-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Congratulations, {target}. Do keep winning near me."
+  },
+  {
+    "id": "battle-won-other-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Well done, {target}. Lovely battle, lovelier win."
+  },
+  {
+    "id": "battle-won-other-opportunist-neutral-4",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "{target} wins the battle. Funny, I saw it coming. Very funny."
+  }
+]

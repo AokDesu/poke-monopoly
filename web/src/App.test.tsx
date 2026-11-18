@@ -102,9 +102,10 @@ test('a rival cannot take a class another player has, and says why (§3)', async
   const { click } = setup();
   await click(button(t('home.newGame')));
   await click(screen.getByRole('button', { name: new RegExp(t('mode.quick')) }));
-  expectDisabledExplained(); // Next waits for a class, and the closed classes say why.
+  expectDisabledExplained(); // Next waits for a class and says why.
   expect(button(t('nav.next'))).toHaveProperty('disabled', true);
-  expect(radio(/^Rival/)).toHaveProperty('disabled', true);
+  // Rival is open: its forced challenge has a Strategy control (issue #135).
+  expect(radio(/^Rival/)).toHaveProperty('disabled', false);
   await click(radio(/^Researcher/));
   await click(button(t('nav.next')));
 
@@ -115,8 +116,8 @@ test('a rival cannot take a class another player has, and says why (§3)', async
   );
   expect(radio(/^Main Character/)).toHaveProperty('checked', true);
   expect(radio(new RegExp(`^${t('personality.greedy')}`))).toHaveProperty('checked', true);
-  expect(radio(new RegExp(`^${t('personality.aggressive')}`))).toHaveProperty('disabled', true);
-  expect(expectDisabledExplained()).toBeGreaterThanOrEqual(4);
+  expect(radio(new RegExp(`^${t('personality.aggressive')}`))).toHaveProperty('disabled', false);
+  expect(expectDisabledExplained()).toBeGreaterThanOrEqual(1);
 
   // Going Back and taking the rival's class is not repaired silently: it is flagged, the rival
   // keeps its choice, and the setup cannot go on until the rival changes class.
@@ -158,15 +159,15 @@ test('three rivals are set independently, listed in seat order, and all roll fir
   await toRivals(click);
   expect(rivalCount(1)).toHaveProperty('checked', true);
   await click(rivalCount(3));
-  // The rival just added is the one on screen: Nurse Joy is the third free class.
+  // The rival just added is the one on screen: Fisherman is the third free class.
   expect(rivalTab(3)).toHaveProperty('checked', true);
-  expect(checkedName('rival-2-class')).toMatch(/^Nurse Joy/);
+  expect(checkedName('rival-2-class')).toMatch(/^Fisherman/);
   await click(radio(/^Bug Catcher/));
   await click(radio(new RegExp(`^${t('difficulty.normal')}`)));
 
   // Changing rival 2 changes neither rival 1 nor rival 3.
   await click(rivalTab(2));
-  expect(checkedName('rival-1-class')).toMatch(/^Fisherman/);
+  expect(checkedName('rival-1-class')).toMatch(/^Rival/);
   await click(radio(/^Nurse Joy/));
   await click(radio(new RegExp(`^${t('difficulty.normal')}`)));
   await click(rivalTab(1));

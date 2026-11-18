@@ -174,3 +174,240 @@
 .shop-offers {
   gap: 1.1rem;
 }
+.battle-terms {
+  margin-top: 0.9rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: #e8f0fc;
+}
+.battle-terms h3,
+.challenge-panel h3,
+.battle-result h3,
+.reward-group h3 {
+  font-size: 1rem;
+  margin-bottom: 0.4rem;
+}
+.battle-terms table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.88rem;
+}
+.battle-terms thead td,
+.battle-terms tbody th {
+  width: 34%;
+}
+.battle-terms th,
+.battle-terms td {
+  padding: 0.25rem 0.35rem;
+  text-align: left;
+  overflow-wrap: break-word;
+  vertical-align: top;
+}
+.battle-terms thead th {
+  font-weight: 800;
+  border-bottom: 1px solid var(--color-line);
+}
+.battle-terms tbody th {
+  font-weight: 600;
+  color: var(--color-ink-soft);
+}
+.battle-terms td {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+.battle-chances {
+  margin-top: 0.6rem;
+  font-size: 0.95rem;
+}
+.battle-terms .panel-note,
+.battle-forced {
+  margin-top: 0.4rem;
+  font-size: 0.82rem;
+}
+.battle-forced {
+  font-weight: 800;
+  color: #8b350c;
+}
+.battle-options {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+.battle-note {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--color-ink-soft);
+}
+.battle-stale {
+  margin-top: 0.8rem;
+  font-weight: 800;
+  color: #8b350c;
+}
+.battle-dice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem 1.4rem;
+  margin-top: 1rem;
+}
+.battle-dice li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 800;
+}
+.reward-chooser {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.reward-group {
+  display: grid;
+  gap: 0.5rem;
+}
+.reward-pokemon {
+  display: grid;
+  gap: 0.4rem;
+}
+.reward-pokemon > p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.5rem;
+  font-size: 0.9rem;
+}
+.reward-branches {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.6rem;
+}
+.reward-chooser [aria-pressed='true'],
+.challenge-panel [aria-pressed='true'] {
+  outline: 3px solid var(--color-reward-lip);
+  outline-offset: 3px;
+}
+.ability-panel,
+.challenge-panel {
+  margin-top: 1.1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--color-line);
+}
+.ability-panel {
+  display: grid;
+  gap: 0.6rem;
+}
+.challenge-targets {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 0.7rem;
+}
+.challenge-target {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.1rem 0.6rem;
+  font-size: 0.9rem;
+}
+.challenge-target span {
+  color: var(--color-ink-soft);
+}
+.challenge-actions {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+}
+.challenge-panel .item-preview .battle-terms {
+  margin-top: 0.6rem;
+}
+.battle-result {
+  margin-top: 0.9rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--color-line);
+}
+.battle-result ol {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
+}
+.battle-result li {
+  padding-left: 0.7rem;
+  border-left: 3px solid var(--color-reward-lip);
+}
+.encounter-dialog .ability-panel {
+  margin-top: 1.4rem;
+}
+.ability-panel h3,
+.ability-options h4,
+.ability-preview h4 {
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+.ability-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+.ability-list > li {
+  display: grid;
+  align-content: start;
+  gap: 0.3rem;
+  min-width: 0;
+}
+.ability-list .btn,
+.ability-options .btn {
+  min-height: 3rem;
+  font-size: 1rem;
+  padding-inline: 0.65rem;
+  overflow-wrap: anywhere;
+}
+.ability-source {
+  color: var(--color-ink-soft);
+  font-size: 0.75rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.ability-text {
+  font-size: 0.8rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.ability-options {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.3rem;
+}
+.ability-options [aria-pressed='true'] {
+  outline: 3px solid var(--color-reward-lip);
+  outline-offset: 3px;
+}
+.ability-preview {
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--color-line);
+}
+.ability-preview > p {
+  margin-top: 0.3rem;
+  font-size: 0.9rem;
+}
+.ability-confirm {
+  display: grid;
+  gap: 0.6rem;
+  padding-top: 0.7rem;
+}
+.ability-confirm .action-control {
+  padding-top: 0;
+}
+.ability-peek {
+  padding: 0.6rem 0.8rem;
+  border-radius: 12px;
+  background: var(--color-panel-tint);
+  box-shadow: inset 0 0 0 2px var(--color-line);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+@media (max-width: 600px) {
+  .ability-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

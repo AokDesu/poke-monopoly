@@ -433,7 +433,7 @@ test('a three-rival save lists every rival, restores each seat, and explains an 
   expect(next.getOpponents()).toEqual(opponentSettings(threeRivals));
   cleanup();
 
-  // Seat 2 keeps a personality this build does not open; seat 3's saved personality is unknown.
+  // Seat 2 keeps an Aggressive personality, which is open now; seat 3's saved personality is unknown.
   const meta = JSON.stringify({
     opponents: [
       { seatIndex: 1, personality: 'greedy', difficulty: 'easy' },
@@ -444,7 +444,7 @@ test('a three-rival save lists every rival, restores each seat, and explains an 
   const tampered = reload(memory({ [SAVE_KEY]: box.getItem(SAVE_KEY)!, [META_KEY]: meta }));
   expect(tampered.lines).toEqual([
     'AI rival · seat 1: Fisherman, Greedy, Easy.',
-    `AI rival · seat 2: Nurse Joy, Aggressive, Normal. ${t('save.personalityClosed', { personality: 'Aggressive' })}`,
+    'AI rival · seat 2: Nurse Joy, Aggressive, Normal.',
     t('save.rivalSettingsMissing', { name: 'AI rival · seat 3', class: 'Bug Catcher' }),
   ]);
 });

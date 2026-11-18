@@ -11,6 +11,23 @@ import promiseBroken from '../../../content/lines/en/promise_broken.json';
 import promiseKept from '../../../content/lines/en/promise_kept.json';
 import soldPokemon from '../../../content/lines/en/sold_pokemon.json';
 import tauntLeader from '../../../content/lines/en/taunt_leader.json';
+import rollHighOwn from '../../../content/lines/en/roll_high_own.json';
+import rollLowOwn from '../../../content/lines/en/roll_low_own.json';
+import battleWonOwn from '../../../content/lines/en/battle_won_own.json';
+import battleLostOwn from '../../../content/lines/en/battle_lost_own.json';
+import coinsInOwn from '../../../content/lines/en/coins_in_own.json';
+import coinsOutOwn from '../../../content/lines/en/coins_out_own.json';
+import catchOther from '../../../content/lines/en/catch_other.json';
+import missOther from '../../../content/lines/en/miss_other.json';
+import rollHighOther from '../../../content/lines/en/roll_high_other.json';
+import rollLowOther from '../../../content/lines/en/roll_low_other.json';
+import battleWonOther from '../../../content/lines/en/battle_won_other.json';
+import battleLostOther from '../../../content/lines/en/battle_lost_other.json';
+import coinsOther from '../../../content/lines/en/coins_other.json';
+import saleOther from '../../../content/lines/en/sale_other.json';
+import gymWinOther from '../../../content/lines/en/gym_win_other.json';
+import tableBanter from '../../../content/lines/en/table_banter.json';
+import tableRetort from '../../../content/lines/en/table_retort.json';
 
 const dialogue = Object.fromEntries(
   [
@@ -27,6 +44,23 @@ const dialogue = Object.fromEntries(
     ...promiseKept,
     ...soldPokemon,
     ...tauntLeader,
+    ...rollHighOwn,
+    ...rollLowOwn,
+    ...battleWonOwn,
+    ...battleLostOwn,
+    ...coinsInOwn,
+    ...coinsOutOwn,
+    ...catchOther,
+    ...missOther,
+    ...rollHighOther,
+    ...rollLowOther,
+    ...battleWonOther,
+    ...battleLostOther,
+    ...coinsOther,
+    ...saleOther,
+    ...gymWinOther,
+    ...tableBanter,
+    ...tableRetort,
   ].map((line) => [`ai.line.${line.id}`, line.text]),
 ) as Record<`ai.line.${string}`, string>;
 
@@ -82,6 +116,9 @@ export const en = {
   'board.lap': 'Laps completed',
   'board.position': 'Square',
   'board.coins': 'Coins',
+  'board.badges': 'Badges',
+  'board.shield': 'Shield',
+  'board.shieldArmed': 'Armed',
   'board.team': 'Team',
   'board.yourTeam': 'Your team',
   'board.battle': 'Battle',
@@ -97,6 +134,12 @@ export const en = {
   'board.emptyItems': 'No utility items held.',
   'board.privateInventory': 'Only you can see your Ball pouch and secret items.',
   'board.hiddenInventory': 'Items are counted only. Ball pouches are private.',
+  'board.lapShort': 'Lap',
+  'board.itemsShort': 'Items',
+  'board.teamGlance': '{count} · Lead {name}',
+  'board.teamGlanceNone': 'None',
+  'board.turnBadge': 'Turn',
+  'board.openDetails': 'Details for {name}',
   'board.readOnly': 'Board preview. Turn controls arrive in the next update.',
   'board.finalRound': 'Final table round',
   'board.finished': 'Game finished',
@@ -133,6 +176,8 @@ export const en = {
   'board.logEmpty': 'No events yet. The next game event will appear here.',
   'board.event.randomRoll': 'The die rolled {result}.',
   'board.event.randomDraw': 'The game resolved a random draw.',
+  'board.event.displaced': '{target} was pushed back to square {position}.',
+  'board.event.ballGained': '{owner} gained a {ball}.',
   'board.event.coins': '{source} paid {amount} coins to {destination}. {reason}',
   'board.event.bank': 'The bank',
   'board.event.player': 'A player',
@@ -150,10 +195,25 @@ export const en = {
   'board.event.pokemonDestroyed': 'A Pokémon left a team.',
   'board.event.itemDestroyed': 'An item was removed.',
   'board.event.space': '{name} landed on square {position}: {kind}.',
-  'board.event.noneYet': '{name} landed on square {position}: {kind}. Nothing happens here yet.',
   'board.event.phase': '{from} → {to}.',
   'board.event.hostileItem': '{user} used {item} on {target}.',
   'board.event.finalRound': '{name} triggered the final table round.',
+  'board.event.eventDrawn': '{name} drew an Event card: {text}',
+  'board.event.deckShuffled': 'The Event deck was shuffled.',
+  'event.card.heading': 'Event card',
+  'event.card.drawnBy': '{name} drew this card on turn {turn}.',
+  'event.card.fromEncounter': 'Event card: {text}',
+  'event.coins': '{amount} coins',
+  'event.coinOne': '1 coin',
+  'event.result.encounter': '{name} found a wild {pokemon}.',
+  'event.result.gain': '{names} received {coins} from the bank.',
+  'event.result.pay': '{name} paid {coins} to the bank.',
+  'event.result.coinsNone': 'No coins changed hands.',
+  'event.result.tired': '{name}: {pokemon} became Tired.',
+  'event.result.tiredNone': '{name} has no Pokémon, so nothing became Tired.',
+  'event.result.itemOwn': '{name} received {item}.',
+  'event.result.ballOwn': '{name} held 4 items, so a Poké Ball was added instead.',
+  'event.result.rewardOther': '{name} received a reward.',
   'board.fixture': 'Prepared engine fixture: {name}',
   'board.fixtureMissing': 'Fixture not found',
   'board.fixtureMissingBody':
@@ -225,8 +285,8 @@ export const en = {
     'A bonus on catch rolls against Bug Pokémon, and a bonus when you sell Bug Pokémon at Start.',
   'class.passive.nurse-joy':
     'You lose no coins when you lose a PvP battle, and your team recovers from Tired at the start of your turn.',
-  'class.closed.rival':
-    'Coming later. Its once-per-Lap forced battle needs the PvP controls, which are not built yet.',
+  'class.passive.rival':
+    'A bonus in every PvP battle, whether you challenge or are challenged. Once per Lap you can force a challenge that cannot be declined.',
   'class.rivalHas':
     '{rival} already has {class}. You can keep it and change that rival on the next step.',
 
@@ -449,7 +509,7 @@ export const en = {
   'turn.noAvailableOptions': 'There is nothing to choose in this step. The game moves on.',
 
   'turn.actions': 'Turn actions',
-  'turn.strategyBody': 'Use an item before moving, or keep your items and skip.',
+  'turn.strategyBody': 'Use an item or an Ability before moving, or skip.',
   'turn.opponent': 'Opponent turn',
   'turn.opponentError':
     'The opponent could not complete this step. Check the server connection and retry.',
@@ -469,8 +529,123 @@ export const en = {
   'choice.rewardCoins': 'Take the coins',
   'choice.rewardEvolve': 'Evolve {pokemon} into {form}',
   'choice.ability': 'Use {ability} ({pokemon})',
+  'choice.abilityTarget': '{label} on {target}',
   'choice.abilityCatch': '{label}: boost catch rolls',
   'choice.abilityCombat': '{label}: boost battle rolls',
+
+  // PvP and Gym decisions (spec §3, §4.4, Appendix C.3); every number comes from the engine.
+  'battle.heading.response': 'Battle challenge',
+  'battle.heading.window': 'Before the roll',
+  'battle.heading.gym': 'Gym challenge',
+  'battle.heading.reroll': 'Review the dice',
+  'battle.heading.reward': 'Choose your reward',
+  'battle.heading.yours': 'Your battle',
+  'battle.heading.watching': 'Battle',
+  'battle.body.response': '{name} challenged you. Accept to battle, or decline.',
+  'battle.body.entry':
+    'Challenge this Gym, or skip it. A challenge costs no tactical action, and you can try again on a later landing.',
+  'battle.body.window':
+    'Use one Ability or none. Both sides confirm before the die is rolled, and nothing can be added after the result.',
+  'battle.body.reroll':
+    'The dice are shown. You may reroll your own die once, or keep it. A reroll replaces the old die, even if it is worse.',
+  'battle.body.rewardPvp':
+    'You won. Take coins from the loser, or evolve one Pokémon by one stage. You get one reward, never both.',
+  'battle.body.rewardGym':
+    'You beat the Gym and earned a badge. Take coins from the bank, or evolve one Pokémon by one stage. You get one reward, never both.',
+  'battle.body.rolling': 'The dice are rolling. Nothing can be changed now.',
+  'battle.waiting': 'Waiting for {name} to {step}.',
+  'battle.step.response': 'accept or decline',
+  'battle.step.window': 'choose an Ability or none',
+  'battle.step.entry': 'choose whether to challenge',
+  'battle.step.reroll': 'reroll or keep a die',
+  'battle.step.reward': 'choose a reward',
+  'battle.declineNote': 'Declining costs the challenger their action. No coins move.',
+  'battle.challengeNote': 'A win earns one badge and a reward. A loss pays coins to the bank.',
+  'battle.skipGymNote': 'Costs nothing.',
+  'battle.withThis': 'If you use this: {chances}',
+  'battle.terms': 'Battle terms',
+  'battle.termsGym': 'Gym battle terms: a total of {dc} or more wins',
+  'battle.term.pokemon': 'Leading Pokémon',
+  'battle.term.battle': 'Battle',
+  'battle.term.class': 'Class bonus',
+  'battle.term.ability': 'Ability bonus',
+  'battle.term.item': 'Item bonus',
+  'battle.term.debuff': 'Debuffs',
+  'battle.chance.pvp': 'win {win}% · tie {tie}% · lose {lose}%',
+  'battle.chance.gym': 'win {win}%',
+  'battle.notFrozen':
+    'These chances count only what is set so far. An Ability used before the roll can still change them, and nothing can be added after the roll.',
+  'battle.frozen':
+    'These terms are final. The dice roll next, and nothing can be added after the roll.',
+  'battle.forcedBy': 'Forced challenge: {source}. It cannot be declined.',
+  'battle.forced.rival': '{name} used the Rival’s once-per-Lap challenge',
+  'battle.forced.item': '{name} used {item}',
+  'battle.forced.ability': '{name} used {ability}',
+  'battle.forced.unknown': 'a forcing effect started it',
+  'battle.dice': 'Dice',
+  'battle.dieOf': '{name}: {face}',
+  'battle.result': 'This battle',
+  'battle.gymSkipped': '{name} skipped the Gym. Nothing was spent.',
+  'battle.gymAutoSkipped': '{name}: Gym skipped. No battle-ready Pokémon, so nothing was spent.',
+  'battle.reward.coinsGroup': 'Coins',
+  'battle.reward.coinsFrom':
+    'Takes coins from {name}. A shield or Nurse Joy can reduce this to nothing.',
+  'battle.reward.coinsBank': 'Takes coins from the bank.',
+  'battle.reward.evolveGroup': 'Evolve one Pokémon',
+  'battle.reward.branch': '{form} · Battle {battle}',
+  'battle.reward.abilityUsed': 'Ability used this Lap',
+  'battle.reward.choose': 'Choose coins or one evolution to preview it. Nothing is committed yet.',
+  'battle.reward.preview': 'Your reward',
+  'battle.reward.coinsPreviewPvp': 'Take coins from the loser. No Pokémon evolves.',
+  'battle.reward.coinsPreviewGym': 'Take coins from the bank. No Pokémon evolves.',
+  'battle.reward.evolvePreview': '{pokemon} evolves into {form}. Battle {from} → {to}.',
+  'battle.reward.evolveKeeps':
+    'Only this Pokémon changes. Tired, Rescue and Ability cooldown stay as they are, and no coins move.',
+  'battle.reward.notBoth': 'This is your whole reward: no Pokémon evolves.',
+  'battle.reward.confirm': 'Confirm reward',
+  'battle.reward.stale': 'The choices changed. Review the refreshed rewards and choose again.',
+  'challenge.heading': 'Challenge an opponent',
+  'challenge.intro':
+    'Any opponent, at any distance. It costs your tactical action and counts as an attack, even if declined.',
+  'challenge.targetFacts': '{class} · {coins} coins',
+  'challenge.voluntary': 'Challenge {name}',
+  'challenge.force': 'Force a challenge on {name}',
+  'challenge.voluntaryNote':
+    '{name} may accept or decline. If they decline, you lose the action but no coins move.',
+  'challenge.forcedNote': 'Rival’s challenge, once per Lap: {name} cannot decline.',
+  'challenge.preview': 'Challenge preview',
+  'challenge.cost': 'Spends your tactical action. These chances count no Ability yet.',
+  'challenge.confirm': 'Confirm challenge on {name}',
+  'challenge.stale': 'The choices changed. Choose a challenge again.',
+  'board.event.challenge': '{name} challenged {target}.',
+  'board.event.accepted': '{name} accepted the challenge.',
+  'board.event.declined': '{name} declined the challenge. No coins moved.',
+  'board.event.pvpConfirmed': 'The battle terms are set. The dice roll next.',
+  'board.event.pvpResolved':
+    '{attacker} rolled {attackerFace} (total {attackerTotal}); {defender} rolled {defenderFace} (total {defenderTotal}). {outcome}',
+  'board.event.pvpWon': '{name} won the battle.',
+  'board.event.pvpTie': 'It is a tie, so there is no reward.',
+  'board.event.gymConfirmed': 'Gym challenge: a total of {dc} or more wins. Challenger: {name}.',
+  'board.event.gymResolved': '{name} rolled {face} for a total of {total} against {dc}. {outcome}',
+  'board.event.gymWon': 'The Gym is beaten.',
+  'board.event.gymLost': 'The Gym holds.',
+  'board.event.badge': '{name} earned a badge.',
+  'board.event.rewardNoCoins': '{name} chose coins, but no coins moved.',
+  'board.event.evolved': '{owner}’s {from} evolved into {to}.',
+  'board.event.evolvedYours': 'Your {from} evolved into {to}.',
+  'board.event.protection.price': 'The Price Shield',
+  'board.event.protection.battle_coin_loss': 'The Shell Guard shield',
+  'board.event.protection.nurse_joy': 'Nurse Joy’s passive',
+  'board.event.protectionCoins': '{protection} covered the coin loss for {name}. No coins moved.',
+  'board.event.protectionHostile': '{protection} blocked a hostile action: {actor} against {name}.',
+  'board.event.shieldArmed': '{name} armed a shield.',
+  'board.event.ability': '{name} used {ability}.',
+  'board.event.abilityOn': '{name} used {ability} on {target}.',
+  'board.event.abilitiesReset': 'Abilities are ready again for {name}.',
+  'board.event.tired': '{pokemon} is Tired.',
+  'board.event.recovered': '{pokemon} is no longer Tired.',
+  'board.event.aPokemon': 'A Pokémon',
+  'board.event.anAbility': 'an Ability',
   'turn.lastMove': 'Last move: rolled {roll}, arrived at square {position}.',
   'turn.end': 'Turn complete. Passing to the next trainer.',
   'turn.finished': 'The game is complete.',
@@ -484,6 +659,9 @@ export const en = {
   'action.reason.NOT_YOUR_TURN': 'Not your turn',
   'action.reason.ALREADY_USED_THIS_TURN': 'Already used this turn',
   'action.reason.NO_VALID_TARGET': 'No valid target',
+  'action.reason.ABILITY_USED_THIS_LAP': 'Already used this Lap',
+  'action.reason.ABILITY_USED_THIS_GLOBAL_TURN': 'You already used an Ability this turn',
+  'action.reason.ABILITY_WRONG_TIMING': 'Not usable in this window',
   'action.engineReason': '{reason}',
 
   'encounter.catch': 'Catch',
@@ -533,6 +711,32 @@ export const en = {
   'strategy.potion.staleSelection':
     'The available actions changed. Choose your Potion and Pokémon again before confirming.',
 
+  'ability.heading': 'Abilities',
+  'ability.source': '{pokemon} · {instanceId}',
+  'ability.planned': 'Not active yet: this build does not run this Ability.',
+  'ability.targets': 'Choose an opponent',
+  'ability.members': 'Choose a Pokémon to heal',
+  'ability.scopes': 'Choose what to boost',
+  'ability.scope.catch': 'Catch rolls',
+  'ability.scope.combat': 'Battle rolls',
+  'ability.member': '{pokemon} · {instanceId}',
+  'ability.choosePrompt': 'Choose an Ability to preview it. Nothing is spent yet.',
+  'ability.chooseOption': 'Choose an option to preview this Ability. Nothing is spent yet.',
+  'ability.preview': 'Ability preview',
+  'ability.previewSource': 'Source: {ability} · {pokemon} ({instanceId})',
+  'ability.previewEffect': 'Effect: {effect}',
+  'ability.previewTarget': 'Target: {target}',
+  'ability.previewMember': 'Target: {member}',
+  'ability.previewScope': 'Boosts: {scope}',
+  'ability.cost': 'Spends this Pokémon’s Ability for the Lap and your Ability for this turn.',
+  'ability.costTactical': 'Also spends your tactical action to start the battle.',
+  'ability.hostile': 'Hostile: counts as an attack attempt, and an armed Price Shield blocks it.',
+  'ability.confirm': 'Confirm {ability}',
+  'ability.cancel': 'Cancel',
+  'ability.stale':
+    'The available actions changed. Nothing was spent. Choose your Ability again before confirming.',
+  'ability.peek': 'Top Event card you looked at: {text}',
+
   'sell.coins': '{amount} coins',
   'sell.price': '{basePrice} coins',
   'sell.priceBonus': '{basePrice} + {classBonus} class bonus',
@@ -567,7 +771,7 @@ export const en = {
   'talk.show': 'Show table talk',
   'talk.hidden': 'Table talk is hidden. No new lines are asked for while it is hidden.',
   'talk.empty':
-    'No table talk yet. An AI may comment, or speak to another AI that answers, after a rare catch, a big sale, a Gym win, a change in the lead or the final round.',
+    'No table talk yet. The AIs say hello when the game starts and chat at least once every round, with more after a roll, a catch, a battle, a payment, a sale or a Gym win.',
   'talk.exchange': 'An exchange: {from} speaks to {to}, who answers',
   'talk.onlyWords': 'Only words: table talk never changes a game number or an AI’s choice.',
   'talk.aiWritten': 'AI-written · only words',
@@ -576,11 +780,11 @@ export const en = {
   'talk.toYou': 'to you',
   'talk.voiceOff': 'Voice off',
   'talk.reason.disabled':
-    'AI-written speech is switched off on this server. Lines come from the line bank, or the table stays quiet.',
+    'AI-written speech is switched off on this server. The AIs still talk, with lines from the line bank.',
   'talk.reason.missing_key':
-    'AI-written speech is not set up on this server. Lines come from the line bank, or the table stays quiet.',
+    'AI-written speech is not set up on this server. The AIs still talk, with lines from the line bank.',
   'talk.reason.budget_exceeded':
-    'The AI-written speech spending limit has been reached. Lines come from the line bank, or the table stays quiet.',
+    'The AI-written speech spending limit has been reached. The AIs still talk, with lines from the line bank.',
   'ai.reason.stub': 'This decision uses the backup policy.',
   'ai.action.roll': '{name} rolled the die.',
   'ai.action.skip': '{name} continued past {phase}.',
@@ -609,10 +813,85 @@ export const en = {
   'ai.allBackupBanner':
     'Every AI rival is using the backup bot. The game goes on under the same rules.',
 
+  // The demo-only "What Jev chose" panel (spec §3 AI turns, §11 step 3, issue #220).
+  'demo.heading': 'What Jev chose',
+  'demo.banner': 'Demo view: this shows a rival’s private options. A normal game never shows them.',
+  'demo.decision': '{name} · {phase}',
+  'demo.options': 'Options Jev was given, most likely first',
+  'demo.col.option': 'Option',
+  'demo.col.probability': 'Jev’s probability',
+  'demo.chosen': 'Chosen',
+  'demo.confidence': 'Jev’s confidence: {value}',
+  'demo.sellNote':
+    'At the Sell Phase Jev answers once per Pokémon, so these chances do not add up to 1.',
+  'demo.byJev': 'Jev decided.',
+  'demo.byBackup': 'The backup bot decided, so there are no probabilities to show.',
+  'demo.result': 'What the game recorded',
+  'demo.option.useItem': 'Use {item}',
+  'demo.option.useItemOn': 'Use {item} on {target}',
+  'demo.option.useItemOnPokemon': 'Use {item} on {pokemon}',
+  'demo.option.skip': 'Skip item use',
+  'demo.option.catch': 'Throw a {ball}',
+  'demo.option.release': 'Release {pokemon}',
+  'demo.option.sell': 'Sell {pokemon}',
+  'demo.option.challenge': 'Challenge {target}',
+  'demo.option.other': 'Another option',
+
   'chat.unclassified':
     'That message could not be understood. Try a chat topic or write it more plainly. The AI’s plan has not changed.',
   'chat.manipulationRefused':
     'Send a new message that does not ask to break the rules or reveal secrets. The AI’s willingness and trust have not changed.',
+
+  // The Social window (spec §3, §4.2, §4.8): topic buttons, one rival, one message, one reply.
+  'turn.socialBody':
+    'Talk to one rival before your move, or skip. The game waits only in this window.',
+  'social.panel': 'Social window',
+  'social.open': 'You can send one message to one rival this turn.',
+  'social.onlyWords':
+    'This is only words. A message never moves coins, items or dice, never changes a rule and never makes a promise.',
+  'social.noticeTrade': 'A trade happens only through a Deal Card that you confirm yourself.',
+  'social.noticeTruce':
+    'A truce counts only as a promise that the rival accepts and you confirm. Words do not make one.',
+  'social.rival': '{seat} · {class}',
+  'social.recipients': 'Talk to',
+  'social.topics': 'Topic',
+  'social.topic.truce': 'Ask for a truce',
+  'social.topic.trade': 'Offer a trade',
+  'social.topic.point_leader': 'Point at the leader',
+  'social.topic.use_item': 'Ask them to use an item',
+  'social.topic.hold_item': 'Ask them to hold an item',
+  'social.leaders': 'Point at which rival?',
+  'social.items': 'Which item?',
+  'social.summary.truce': 'Ask for a truce',
+  'social.summary.trade': 'Offer a trade',
+  'social.summary.point_leader': 'Point at {leader} as the leader',
+  'social.summary.use_item': 'Ask them to use {item}',
+  'social.summary.hold_item': 'Ask them to hold {item}',
+  'social.preview': 'You will tell {rival}: {summary}. You can send one message this turn.',
+  'social.send': 'Send to {rival}',
+  'social.sendNone': 'Send the message',
+  'social.skip': 'Skip talking',
+  'social.continue': 'Continue',
+  'social.reason.chooseRival': 'Choose who to talk to first.',
+  'social.reason.chooseTopic': 'Choose a topic first.',
+  'social.reason.chooseLeader': 'Choose which rival to point at first.',
+  'social.reason.chooseItem': 'Choose an item first.',
+  'social.reason.noThirdSeat': 'Needs a third player at the table to point at.',
+  'social.reason.unavailable': 'The game offers no message on this topic right now.',
+  'social.sent': 'You told {rival}: {summary}.',
+  'social.spent':
+    'Your message for this turn is sent. One message to one rival is the limit, so the window is used up.',
+  'social.spentOther': 'This turn’s social window is used up. Continue with your turn.',
+  'social.waiting': 'Waiting for {rival} to answer. You can continue without the answer.',
+  'social.replyNoLine': '{rival} has nothing to say about that. Continue with your turn.',
+  'social.refused': '{rival} refused the message. Their willingness and trust have not changed.',
+  'social.failed.timeout':
+    '{rival} did not answer in time. Your message was sent and the game goes on.',
+  'social.failed.network':
+    'The answer from {rival} could not be fetched. Your message was sent and the game goes on.',
+  'social.failed.invalid':
+    'The answer from {rival} did not fit your message, so it was dropped. Your message was sent and the game goes on.',
+  'social.retry': 'Ask {rival} again',
 
   'game.resumedAiTurn': 'Picked up from the last saved action. The AI is deciding its turn again.',
   'sell.rescueStarter':
@@ -625,6 +904,11 @@ export const en = {
     'Developer page, not part of the game. Each example is the real screen, shown with fixed test data and labelled with its row in the spec. Nothing here changes a game.',
   'gallery.specRow': 'Spec §3.1, row {row}',
   'gallery.specAiTurns': 'Spec §3, AI turns',
+  'gallery.specBattle': 'Spec §4.4, PvP and Gym',
+  'gallery.specSocial': 'Spec §4.8, Chat',
+  'gallery.specAbilities': 'Spec §4.5, Abilities',
+  'gallery.row.abilities':
+    'Abilities that are ready, and Abilities that cannot be used, with the reason',
   'gallery.pendingHeading': 'Rows with no screen yet',
   'gallery.pendingIntro':
     'These rows have nothing a player can see in this build, so there is no example to show.',
@@ -633,9 +917,8 @@ export const en = {
   'gallery.pending.deals': 'Needs the Deal screen, which is not built yet.',
   'gallery.pending.dealsBadge':
     'Needs the Deal screen, which is not built yet. The Backup bot mode badge already shows timeouts and rate limits on AI turns.',
-  'gallery.pending.chat': 'Needs the chat panel, which is not built yet.',
-  'gallery.pending.eventDeck':
-    'The notice is in this catalog, but no screen shows it yet and the board has no Event deck.',
+  'gallery.pending.chatFreeText':
+    'Needs free-text chat, which is not built yet. The topic buttons are never classified.',
   'gallery.row.onlyLegalAction': 'Only one legal action (e.g. must roll)',
   'gallery.row.shortlistEmpty': 'Shortlist empty after personality filtering',
   'gallery.row.noBall': 'Pokémon found but no Ball',
@@ -655,11 +938,16 @@ export const en = {
   'gallery.row.haikuOff': 'Haiku is off, has no key, is out of budget or is slow',
   'gallery.row.haikuScreenFail':
     "Haiku's text fails the output screen (too long, a digit, a link, a non-public item name, an offer or promise)",
+  'gallery.row.pvpGym':
+    'PvP and Gym: challenge, answer, Ability window, Gym entry and the winner’s reward',
   'gallery.row.aiExchange': 'One AI speaks to another and the other answers (AI-to-AI table talk)',
   'gallery.row.watchBrowserClosed': "A watched game's browser closes",
   'gallery.row.watchAllBackup': 'Every AI in a watched game is on the backup bot',
+  'gallery.row.socialWindow':
+    'The Social window: five topic buttons, one rival, one message, one reply',
   'gallery.row.backupBadge':
     'A "Backup bot mode" badge shows truthfully whenever an AI is using the fallback',
+  'gallery.example.deckReshuffled': 'Event card drawn after the deck ran out and was reshuffled',
   'gallery.example.beforeAuto': 'Before the game applies it',
   'gallery.example.afterAuto': 'After the game applied it',
   'gallery.example.noBall': 'Encounter with no Ball in the pouch',
@@ -678,18 +966,56 @@ export const en = {
   'gallery.example.watchAfterContinue': 'Watch board after Continue, the AI deciding again',
   'gallery.example.watchAllBackup': 'Every AI in the watched game decided with the backup bot',
   'gallery.example.badgeOneOfTwo': 'One of two rivals timed out',
+  'gallery.example.abilityStrategy':
+    'Strategy: one Ability ready, one at the wrong timing, one used this Lap, one not run yet',
+  'gallery.example.abilityReaction': 'Answering a battle outside your own turn',
   'gallery.example.voiceDisabled': 'Voice off: switched off on the server, a line from the bank',
   'gallery.example.voiceMissingKey': 'Voice off: no key on the server, a line from the bank',
-  'gallery.example.voiceBudget': 'Voice off: spending limit reached, no line for this moment',
+  'gallery.example.voiceBudget': 'Voice off: spending limit reached, the line bank speaks',
   'gallery.example.screenBank':
     'The text failed the screen: the bank line is shown, not labelled AI-written',
   'gallery.example.screenSilence':
-    'The text failed the screen and the bank has no line: nothing is shown',
+    'Before the first line: the panel says when the AIs talk, never a blank box',
   'gallery.example.exchange':
     'An exchange: the opening line, then the answer set in beneath it, each labelled AI-written',
   'gallery.example.exchangeDropped':
-    'An exchange the manipulation check refused or that ran out of time: nothing is shown or saved',
+    'An exchange the manipulation check refused or that ran out of time: the bank speaks in its place, as an exchange of two bank lines',
+  'gallery.row.casualTalk':
+    'The table talks every round: a greeting, a line about its own turn, a line to a rival',
+  'gallery.example.casualGreeting': 'The greeting before the first turn, from a line bank line',
+  'gallery.example.casualOwnTurn':
+    'A rival speaks about its own turn to the table: no "to" tag is shown',
+  'gallery.example.casualOther': 'A rival teases another seat by name about that seat’s turn',
   'gallery.example.badgeRateLimited': 'One of two rivals was rate limited',
+  'gallery.example.challengeChoice': 'Strategy: any opponent can be challenged',
+  'gallery.example.challengeBlocked': 'Strategy: the opponent has no battle-ready Pokémon',
+  'gallery.example.defenderResponse': 'The rival holds the turn; you answer its challenge',
+  'gallery.example.forcedChallenge':
+    'A forced challenge: nothing to accept, and the reason is shown',
+  'gallery.example.abilityWindow': 'Your Ability window before the roll, with each choice’s odds',
+  'gallery.example.gymEntry': 'Gym entry with a battle-ready team',
+  'gallery.example.gymNoBattleReady':
+    'Gym entry with every Pokémon Tired, before the game skips it',
+  'gallery.example.gymAutoSkipped': 'The same Gym after the game skipped it',
+  'gallery.example.rewardChoice': 'You won: one reward, coins or a branched evolution',
+  'gallery.example.rewardTaken': 'After the reward: the outcome stays beside the board',
+  'gallery.example.socialOpenTwo':
+    'Social window open against two rivals: choose a rival and a topic',
+  'gallery.example.socialOpenOne':
+    'Social window open against one rival: pointing at the leader needs a third player',
+  'gallery.example.socialWaiting': 'The message is sent and the rival has not answered yet',
+  'gallery.example.socialReply': 'The rival’s answer, a line from the bank, only words',
+  'gallery.example.socialReplyWords':
+    'The rival’s own words for the same answer, AI-written and only words',
+  'gallery.example.socialVoiceOff':
+    'The answer is the bank line and says why the rival’s own words are off',
+  'gallery.example.socialRefused': 'The answer is a refusal; willingness and trust do not change',
+  'gallery.example.socialFailed': 'The answer did not arrive: ask again or continue',
+  'gallery.row.jevPanel': 'Demo mode: the "What Jev chose" panel under a rival’s decision',
+  'gallery.example.jevPanelCatch': 'Jev chose a Ball at an encounter',
+  'gallery.example.jevPanelItem': 'Jev chose among its items and targets',
+  'gallery.example.jevPanelSell': 'Jev answered the Sell Phase, one chance per Pokémon',
+  'gallery.example.jevPanelBackup': 'The backup bot decided: its reason, no probabilities',
 } as const satisfies Record<string, string>;
 
 export type MessageKey = keyof typeof en | keyof typeof dialogue;

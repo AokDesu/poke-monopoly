@@ -90,6 +90,17 @@ Speed (Normal, Fast, Instant) and Skip line only change presentation pauses; the
 cancel or reissue a decision, and Instant reaches the same final state as Normal for the
 same seed.
 
+Demo mode (`?demo`, issue #220) adds a "What Jev chose" panel (`board/JevChoicePanel.tsx`) under a
+rival's decision in a one-human game, with a banner that says it shows the rival's private
+options. Only `createGameStore({ demo: true })` keeps anything for it: the store labels the
+options it sent, copies Jev's numbers from the answer's optional `detail` and puts them on the
+in-memory feed entry (`game/demoChoice.ts`). With demo off, and in a watched game, the detail is
+never read, so no panel, banner or probability text exists and saves, exported logs and the
+requests are unchanged. `game/jevDetailAdapter.ts` is the one place that knows the field's
+name and shape (proposed, `decisionDetailSchema`); until the server sends it only backup-bot
+decisions show. `game/fakeJevAnswer.ts` is a typed fake of that answer for tests and the dev
+gallery.
+
 Tokens use the `position` already projected by `observe()` (including negative and multi-Lap
 progress). Lap counts are paid Laps completed, not a UI-computed current-Lap number. Square
 labels and icons remain DOM content even without WebGL; the static meadow reuses the
@@ -128,19 +139,60 @@ zero battle; final forms; duplicate UID/status separation after reordering; Tire
 sale quotes; expanded opponent privacy; and unchanged accepted actions, revision,
 cooldowns and statuses when board/Sell disclosures open and close.
 
+## PvP and Gym
+
+Spec §3, §3.1, §4.4, §4.5, Appendix C.3. Every decision is the engine's: the store exposes
+`decision` (the engine's pending seat and decision point, which differ from the active seat for a
+PvP response, window, reroll or reward), `battle` (`battlePreview`: snapshot terms and exact odds,
+and what each open Ability choice would do) and, in Strategy, `challenges` (`challengeOdds` per
+opponent). `TurnPanel` routes on them, so a human defender answers while the opponent keeps the turn.
+
+- **Strategy** shows `ChallengePanel`: one voluntary challenge per opponent and Rival's once-per-Lap
+  forced challenge, each with the engine's disabled reason ("Both teams need a battle-ready
+  Pokémon"). Choosing a target previews the chances; the tactical action is spent on Confirm.
+- **`BattlePanel`** covers the response (accept or decline, with what a decline costs), the
+  Ability windows (each choice with its effect on the chances; passing spends nothing), the Gym
+  entry (challenge greyed out with the engine reason when no Pokémon is battle-ready, in which case
+  the engine skips it and the board says so), the reroll review and the reward. `BattleTerms` is the
+  terms table: every figure is copied from the snapshot, never added up in the browser. A forced
+  challenge has no accept or decline and names who forced it from the records this seat may see
+  (`forcedSource`): a Battle Ticket or Ability aimed at another seat shows only "a forcing effect".
+- **Reward**: coins, or one authored one-stage evolution of one Pokémon, never both. Choosing only
+  selects; Confirm commits. A selection from an older list of choices is dropped and the player
+  is asked to review the refreshed rewards. The engine rejects a late confirmation either way.
+- **Result**: `BattleResult` keeps the latest battle's rows (challenge, answer, both dice, result,
+  badge, the amount that actually moved, protection, evolution) beside the board until the seat's
+  own next turn. The field log announces the same events through `battleMessages.ts`.
+- AI seats still answer these points with the engine's first listed choice, logged as a fallback
+  with reason `unsupported_decision_point`; no service is called, so an unavailable one changes
+  nothing. Rival is now an open class: its forced challenge has its control.
+
 Run `npm run dev` for API plus Vite, or `npm run build` and `npm start` for the built app.
 Review at 1440×900 and 1024×768; the board is height-bounded at desktop sizes so the whole
 loop remains visible without horizontal scrolling. Long panels and the event log remain
 available by vertical scrolling.
+
+## Players area
+
+The right-hand column lists every seat as one compact row, so no seat needs scrolling to read:
+name and class, coins, square, lap, items held, team size with the first Pokémon, and a Turn
+badge with a seat-colour ring on the acting seat. A watched game adds each AI's personality and
+difficulty. A row opens that seat's team (and, for your own seat only, the Ball pouch and items)
+under it; one seat is open at a time, Enter or Space toggles it and Escape closes it. Opening is
+a local view choice that never reaches the game, and a seat shows nothing it did not show
+before. `PlayersArea.test.tsx` covers the rows, the open/close behaviour, the keyboard and
+the privacy of every seat.
 
 ## UI states gallery (dev only)
 
 Run `npm run dev:web` and open `/?gallery` (for example `http://localhost:5173/?gallery`). The
 page lists every spec §3.1 row that has a screen in this build (plus §3's Backup bot mode badge),
 each labelled `Spec §3.1, row N` under the spec's own wording, and each example rendered by the
-real component: `TurnPanel` (turn copy, Shop, AI badge and banners), `EncounterDialog`,
-`SellPanel` and `SavePrompt`. A closing list names the rows with no screen yet (chat, deals,
-engine-only cases) so every row of the table is accounted for.
+real component: `TurnPanel` (turn copy, Shop, AI badge and banners, the Social window of §4.8),
+`EncounterDialog`, `SellPanel` and `SavePrompt`; one extra row, "PvP and Gym" (spec §4.4), shows the
+challenge, defender, forced, Ability-window, Gym and reward screens. A closing list names the rows
+with no screen yet (free-text chat, deals, engine-only cases) so every row of the table is accounted
+for.
 
 The states are engine fixtures moved on only through the store's own commands
 (`createFixtureStore` in `src/game/store.ts`, scenes in `src/gallery/scenes.ts`), so the screens

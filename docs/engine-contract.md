@@ -149,7 +149,7 @@ Spec: §4.3, §4.5 Rescue Starter, §4.7, §6.1, §8, Appendix A Classes. Conten
 
 Spec: §3.1, §6.7, §6.8, §6.9, §8. A save is the text `serialize({ state, log })` returns: a strict object with `saveVersion: "save-v1"`, the `engineVersion`, `contentVersion` and `rngVersion` stamps, the current `state` and the command `log` as sibling keys. The log carries the initial config, seed, stamps, revision-zero state and every accepted record with its `random_result` events, so the dice are never re-rolled. No log is nested inside `state`, and the schema admits no other field, so no key or token can be saved. The schema also requires the top-level stamps to equal the log header, `state.config` to equal `initialConfig`, and `state.stateRevision` to equal the number of logged actions. The engine only builds and reads the text; storage belongs to the caller (the browser for stream C, files for the sim).
 
-`deserialize(text)` refuses another `saveVersion`, `engineVersion`, `contentVersion` or `rngVersion` before the full schema check, with a message naming both versions (for example "This save was made with engine version 0.11.0; this game runs engine version 0.19.0. Old saves cannot be loaded yet."); migrating old saves is a later issue. Any other schema failure throws `Invalid save: <path>: <message>; ...`.
+`deserialize(text)` refuses another `saveVersion`, `engineVersion`, `contentVersion` or `rngVersion` before the full schema check, with a message naming both versions (for example "This save was made with engine version 0.11.0; this game runs engine version 0.20.0. Old saves cannot be loaded yet."); migrating old saves is a later issue. Any other schema failure throws `Invalid save: <path>: <message>; ...`.
 
 `resume(game)` returns `{ state, lastAction, waitingFor }` from the saved snapshot without applying anything: `lastAction` is the last committed record (so a dice result taken before the save is shown again), and `waitingFor` is `{ kind: "decision", seatIndex, actorId, phase, legalActions }`, `{ kind: "engine_result", purpose }` for a die still to be generated, or `{ kind: "finished" }`. A request pending when the browser closed is not in the save; the caller asks again for `waitingFor` from the same state and never starts a new turn. A sole enabled choice is still reported as a decision; the caller applies it with `advanceAutomatically` as during play.
 
@@ -195,7 +195,7 @@ Spec: §1 (hard gates), §6.5, §8. `checkInvariants(before, action, result)` in
 
 Spec: §4.1, §4.8, §5.4, §6, §8. A watcher of a game it holds no seat in, such as one whose seats are all `controller: 'ai'`, sees the public view only: coins, positions, teams, item counts and public items, Lap, ability readiness, phase and counters. Never a Ball pouch, a secret item, a peek result, a chat, the seed, the RNG state or the Event order. A spectator is not a seat; `observe`, `legalActions`, `eventsVisibleTo` and `actionVisibleTo` still throw `RangeError` for any seat that does not exist, and none of them changed. Import the functions below from [engine/spectator.ts](../engine/spectator.ts) (re-exported by `engine/index.ts`); they are pure and return detached copies.
 
-- `observeSpectator(state): SpectatorObservation` returns `{ public }`, the public fields of `observe` with no `own` and with attack history restricted to public PvP declarations. Hostile item/Ability attempts remain private to their actor and target, even when one is seat 0; secret shields, pending decision queries and legal Ability choices are never included. Public battle phases and public shields remain visible. Its `stateRevision` is the count of records in the spectator's feed, `GameState.stateRevision` minus `chatsSent` and `promiseRecords`, so a chat or promise record leaves no gap. A spectator submits nothing; there is no spectator `legalActions`.
+- `observeSpectator(state): SpectatorObservation` returns `{ public }`, the public fields of `observe` with no `own` and with attack history restricted to public PvP declarations. Hostile item/Ability attempts remain private to their actor and target, even when one is seat 0; current-game seat and spectator observations always include an attack-history array, empty when there are no visible attempts, so its presence cannot reveal a first hidden attempt; secret shields, pending decision queries and legal Ability choices are never included. Public battle phases and public shields remain visible. Its `stateRevision` is the count of records in the spectator's feed, `GameState.stateRevision` minus `chatsSent` and `promiseRecords`, so a chat or promise record leaves no gap. A spectator submits nothing; there is no spectator `legalActions`.
 - `eventsVisibleToSpectator(before, events): SeatEvent[]` keeps only events every seat may see, and none that a pair of seats shares. It drops `chat_sent` and `hostile_item_used` even in a two-seat game, where both seats are party to them, so a hostile item use shows only its already-public effects, such as Pickpocket's `coin_transfer`. It also drops every `shuffle:` `random_result`, an item's `uid_created`, and a secret item's `uid_destroyed`. It also drops Lucky Splash's `random_result` and Ball gain, hostile Ability attempts and their protection events, and secret shield arming. A hostile `ability_activated` is kept with its `targetId` removed. Public battle, displacement, readiness, non-hostile Ability and public protection events are kept. Public PvP attack attempts omit the internal global `actionSeq`, as seat events do. The filter is an allowlist: an event kind added later stays hidden from spectators until it is listed in `publicEvent`.
 - `actionVisibleToSpectator(before, record, shownBefore): SeatActionRecord | null` returns the record for the spectator's feed, or `null` for a `chat`, which is absent, not redacted. The copy is numbered after the records already shown (`actionSeq = shownBefore + 1`, `stateRevisionBefore = shownBefore`), so a hidden chat leaves no gap in sequence or revision, and a game where a chat was skipped gives an identical feed. Its payload drops `buy.offerId`, a secret `use_item.itemInstanceId`, every `use_item.targetSeatIndex`, `shuffle.order`, `event_draw.eventId`, hostile Ability targets and Lucky Splash's `dice_result.value`; the `auto` flag is dropped in a Social window, as for a seat. Raw records and logs still never go to a watcher: this copy is the only form it may receive.
 
@@ -493,6 +493,30 @@ Sell phase change; the player's per-`globalTurnNo` allowance is untouched. The
 `ability-once-per-instance-per-lap` and `ability-once-per-player-turn` invariant checkers are
 active; `evolution-keeps-cooldowns` still guards evolution.
 
+### Disabled Ability reasons (issue #136)
+
+Spec: §3.1, §4.5, Appendix C.3, D7, D10. `legalActions` lists, beside the enabled `activate_ability`
+choices, every bound Ability on the seat's team that is not usable in its current window, as a
+`disabled` entry with the same stable ID the enabled form would have and a `reasonCode` /
+English `reasonText` (`abilityDisabled` in `engine/abilities.ts`). It is report-only: it lists
+nothing `abilityChoices` lists, applies no rule, and a disabled entry still rejects as
+`illegal_action`. Only the deciding seat gets entries, and only for its own team. The first reason
+that applies wins, in this order:
+
+| Reason | `reasonCode` | When |
+|---|---|---|
+| Instance used this Lap | `ABILITY_USED_THIS_LAP` | the instance's `abilityReady` is false; Start makes it ready again, evolution does not |
+| Player used this turn | `ABILITY_USED_THIS_GLOBAL_TURN` | the player's allowance for this `globalTurnNo` is spent, or the active player has no `pokemonAbility` |
+| Wrong timing | `ABILITY_WRONG_TIMING` | the window does not cover the effect's timing, or a battle-only effect is offered outside a battle |
+| Tactical action | `ALREADY_USED_THIS_TURN` | Challenge (`forcePvP`) with no `tacticalAction`, as `pvpDisabledReason` words it |
+| No valid target | `NO_VALID_TARGET` | no legal target: a slowed String Shot target (as the item rules word it), a target team with no battle-ready Pokémon, no status to heal, an armed shield, no Event card, Intimidate at a Gym |
+
+Targeted effects (Vine Pull, String Shot, Challenge) list one disabled entry per blocked
+opponent, so one blocked target never hides the others. An Ability whose content has no `effect`
+is not listed; content marks it planned. `abilityCosts(effect)` reports whether activating it also
+spends the tactical action (only `forcePvP` does). The visibility rules above are unchanged: as for
+items, a String Shot target's pending slow already shows in which targets the engine lists (#192).
+
 ## Roll modifiers and Porygon's reroll (issue #55 S11)
 
 Spec: §4.3, §4.4, §4.5, §6.1/6.8, §8; Appendix C.1 `rollBonus`, C.2, C.3, D2, D11, D13.
@@ -622,10 +646,38 @@ Spec: §4.2 social window, §4.4 attack counting, §4.8 evidence only, §5.2/5.3
 Not yet integrated (Streams B/C): the decision wire schema (`engine/contract/decision.ts`) still
 accepts only `strategy`, `encounter` and `sell`; Jev Strategy and Encounter questions filter out
 `declare_pvp` and `activate_ability`; the fallback policy scores both −1 in Strategy and scores
-other new points evenly. The browser lists the human's choices at the new points in a generic
-panel, and for an AI seat takes the engine's first listed choice, logged as a fallback with reason
+other new points evenly. The browser gives the human's PvP and Gym decisions their own panels
+(issue #135, [Battle preview](#battle-preview-issue-135)) and lists the other new points
+(Porygon's move and catch rerolls) in a generic panel, and for an AI seat takes the engine's first
+listed choice, logged as a fallback with reason
 `unsupported_decision_point`. The Shop still offers only Lucky Egg, Repel and Pickpocket (§4.6 C2
 scope), so Battle Ticket and bought Price Shields or Sticky Webs are not yet reachable in play.
+
+## Battle preview (issue #135)
+
+Spec: §3, §4.4, §4.1 (secret items and shields), Appendix C.3 D4/D5, C.4 D6.
+
+Two read-only exports on `engine/index.ts` give the PvP and Gym screens the chances the real roll
+will use, so no screen computes an odds figure or an Ability number. They change no state, spend
+nothing, draw no die and add no rule; both build on the S05 snapshot and resolver code.
+
+- `battlePreview(state, viewerSeat)` returns the pending PvP or Gym battle's `snapshot` and
+  exact `odds` (the challenger's: PvP attacker, Gym challenger), `battleId`, and `frozen`. Once
+  confirmation froze the terms (`attacker_roll` onward, Gym `roll` onward) it returns that
+  snapshot unchanged. Before that (response, window steps, Gym entry) it returns the snapshot the
+  battle would freeze if every open window closed now: the same `sideModifiers` the confirmation
+  uses, including Adaptability's turn-long bonus. `choices` is filled only for a viewer holding an
+  open pre-roll window and lists, per enabled `activate_ability` choice ID, the terms after taking
+  it: the activation is applied to a copy through `applyAction`, so Blaze, Dragon Rush, Adaptability
+  and Intimidate use the executor's own numbers. It is `null` with no battle pending or when a side
+  has no battle-ready Pokémon.
+- `challengeOdds(state, attackerSeat, defenderSeat)` returns the same terms for a challenge the
+  attacker could declare in Strategy, or `null` when either team has no battle-ready Pokémon.
+
+Privacy: item use is secret (§4.1) and an armed shield is secret until it blocks something (D6). A
+preview that is not frozen yet leaves out the Lucky Egg term unless the viewer is the active seat, and
+`choices` are computed with every other seat's shield removed from the copy, so a preview never shows
+whether Intimidate would be blocked. The frozen snapshot is public with the phase, as before.
 
 ## Invariant ledger and the 2/3/4-seat gate (issue #55 S16)
 
@@ -639,8 +691,9 @@ Every §8 checker owned by this epic is active, each with a counterexample test:
 `move-debuff-until-next-move` (S12), and from S16 `resume-creates-nothing` (the RNG cursor advances
 exactly by the action's logged, consecutively numbered draws, and a saved copy re-asks the same
 seat) and `rescue-starter-no-coin-loop` (a Rescue Starter never sells for coins, is never resold in
-the phase that created it and stays untradeable). `deals-atomic` and `promise-closes-on-own-turn`
-stay pending: they belong to the conversation and deal work, not this epic.
+the phase that created it and stays untradeable). `promise-closes-on-own-turn` is active from S07
+(see "Promise settlement, trust and memory evidence" below); `deals-atomic` stays pending: it belongs
+to the deal work, not this epic.
 
 CI runs `npm run sim -- --games 100 --seed 1` at `--seats 2`, `3` and `4`, each checking every
 active invariant after every action and failing on any abort, illegal applied action or invariant
@@ -656,7 +709,7 @@ peek) and by the 200-game replay property test.
 
 Spec: §4.2, §4.8 Chat, §5.4, §9.
 
-**Flag.** `GameConfig.socialWindow` is optional. Absent or `false`, Social offers only `skip` to every seat, a `chat` command is rejected as `illegal_action`, no budget key exists and `observe` has no `own.chats`: behaviour is exactly as before, so the browser keeps skipping Social. Stream C turns the flag on together with the chat screen (#57); this slice does not.
+**Flag.** `GameConfig.socialWindow` is optional. Absent or `false`, Social offers only `skip` to every seat, a `chat` command is rejected as `illegal_action`, no budget key exists and `observe` has no `own.chats`: behaviour is exactly as before. The browser turns the flag on for every game it creates with a human seat (`configForSetup`, #137), so the human's Social window offers the topic buttons and the game waits there for the player; watched games and saves made without the flag keep skipping Social.
 
 **Command.** `chat` has the payload `{ targetSeatIndex, topic, leaderSeatIndex?, itemId? }`, with `topic` one of `truce`, `trade`, `point_leader`, `use_item`, `hold_item`. Free text is not part of this slice. It is accepted only from the active **human** seat in Social while the flag is on and the turn's social interaction is unspent. AI seats are never offered one (§4.2: the human starts conversations). Validity is decided by `validChat` in [engine/social.ts](../engine/social.ts) over exactly the set `legalActions` enumerates (id `chat:seat-<target>:<topic>[:seat-<leader>|:<itemId>]`):
 
@@ -753,8 +806,52 @@ Choice IDs are `offer-promise:seat-<n>:offer|ask`. The choices depend on seats, 
 
 **Visibility.** `promise_offered` reaches only the initiator and responder, `promise_accepted` and `promise_rejected` only the promiser and recipient (the same two seats). `observe(state, seat).own.promises` lists only the promises that seat made or received (present with the flag on), and `own.pendingResponse` exists only for the initiator and the responder. For every other seat the two records are hidden exactly like a chat (§4.8, "Social window and chat messages" above): `actionVisibleTo` returns `null` for `offer_promise` and `respond` unless the seat is the initiator or the responder, so the records are absent from a bystander's feed, not redacted. Redaction would leave the responder's actor ID on the `respond` record, naming the conversation partner in a three-seat game. Each accepted record raises `Player.unseenRecords` for every seat outside the pair (`hideFromBystanders` in [engine/social.ts](../engine/social.ts), shared with chat) and `GameState.promiseRecords` (the counterpart of `chatsSent`), which `publicRevision` subtracts: a bystander's feed, `observe(...).public.stateRevision`, `actorRevision` and every engine ID that embeds a revision are identical whether the pair made a promise or the active seat skipped. Spectators never see either record. The full records, with their real numbers, stay in the replay log and saves.
 
-**Not in this slice.** Settling promises at End, breaches, trust and memory (S07, which also activates the `promise-closes-on-own-turn` invariant), Deal Cards and the Deal response (S05), and the AI's Jev decisions for `respond` (the `ai/` layer). `GameState.promises` therefore keeps every promise, closed ones included, for S07.
+**Not in this slice.** Settling promises at End, breaches, trust and memory (S07, below), Deal Cards and the Deal response (S05), and the AI's Jev decisions for `respond` (the `ai/` layer). `GameState.promises` therefore keeps every promise, closed ones included, for S07.
 
 **Sim.** `npm run sim -- --games <n> --seed <n> --social` plays seat 0 as a `human` with the random policy and `socialWindow` on; the other seats keep `--policy`. The summary gains `social { promiseOffers, promisesAccepted, promisesRejected }` only with the flag, so a run without it is byte-for-byte unchanged.
 
 **Versioning.** The stamp advances to 0.18.0: the action union, events, state and observation gain fields. Saves of 0.17.0 and earlier are refused rather than migrated. Tests: [engine/promises.test.ts](../engine/promises.test.ts), the `--social` cases in [sim/sim.test.ts](../sim/sim.test.ts) and the social property in [sim/legal-games.property.test.ts](../sim/legal-games.property.test.ts).
+
+## Promise settlement, trust and memory evidence (issue #56 S07)
+
+Spec: §4.8 Promise, §4.2 step 7 (End), §8. It builds on S03's `no_attack` promises ([engine/promises.ts](../engine/promises.ts)) and S06's `attackHistory` (#152); no second mechanism.
+
+### When a promise closes
+
+`settleDuePromises` runs when the **End** phase is skipped, after expired statuses and before the next turn starts. It closes every open promise whose promiser is the active seat and whose `ownTurnNo` equals `closesOwnTurnNo`: exactly the End of the promiser's `ownTurnNo + 1`, for a human or an AI promiser and in any seat order. A game that finishes first (`finishGame`, [engine/game-end.ts](../engine/game-end.ts)) closes every still-open promise as `closed_by_game_end`. A promiser's closing turn that is also the game's last turn closes normally, because settlement runs before the end check. A closed promise is never reopened or re-settled; `GameState.promises[].settled { outcome, globalTurnNo }` records the result.
+
+### Broken, or kept
+
+- **Broken** if `attackHistory` holds an attempt whose actor is the promiser and whose target is the recipient, recorded **after** the promise was confirmed (`attempt.actionSeq > promise.acceptedActionSeq`). Every PvP declaration, hostile item use (Repel, Sticky Web, Pickpocket, Battle Ticket) and hostile Ability (Challenge, Intimidate, ...) is recorded there by `recordAttackAttempt` / `declareHostileAction` before any shield is checked, so an attempt a Price Shield blocked **still counts**, and nothing needs an extra hook: any future source that records an `attack_attempt` is judged the same way. Only actor and target are read, never intent. Promises never change legality: the attack stays legal while the promise is active (the settlement only reads the history afterwards).
+- **Kept with a chance** or **kept without a chance** otherwise, by the private flag `promises[].chance`. The engine sets it at most once per promise, in `noteAttackChances`, when the promiser enters Strategy (turns.ts, the only phase an attack is declared in) and has a chance as defined by Q3 below.
+
+### Q3: public chances only
+
+The spec's "kept with a real chance to attack" reads **public facts only** (the Q3 decision recorded here): the promiser has a chance in a Strategy phase inside the window when, from information every seat can see, it could attack the recipient that turn, which is either of: the promiser holds a **public** hostile item enabled against the recipient; or a Pokémon on its public team has an enabled hostile Ability targeting the recipient. A legal PvP declaration is **not** a chance: it is almost always available, so every kept promise would earn the +1 and `breachOpportunity` would always read 1. A **secret** item never counts, so the chance (and the +1 it earns) depends on nothing the recipient cannot see: the trust change is derivable from public play and reveals no card (§4.8 Privacy, the hidden-information-leaks-0 gate). The flag itself is engine-internal: it is absent from `observe`, from every seat's events, from `observeSpectator` and from the pair's own promise list. Games that mostly give no chance show up as a low `breachOpportunity` in the sim.
+
+### Trust
+
+`GameState.trust[]` holds one `{ fromSeatIndex, toSeatIndex, value, keptGain }` per directed pair that has settled a promise: `fromSeatIndex` is the promise's **recipient** (the truster), `toSeatIndex` its promiser. `value` is clamped to −3..3.
+
+| Outcome | Change to the recipient's trust in the promiser |
+| --- | --- |
+| `broken` | −2 |
+| `kept_with_chance` | +1 while `keptGain < 2`, then 0 (at most +2 per directed pair per game; `keptGain` never decreases) |
+| `kept_without_chance` | 0 |
+| `closed_by_game_end` | none; excluded from the kept/broken ratio |
+
+`observe(state, seat).own.trust` (Social window only, like `own.promises`) lists this seat's own trust in **every other** seat, 0 where nothing has settled; it never shows another seat's trust. The AI layer may read it as the truster's own memory; it is not an input to legality or to any number.
+
+### Memory evidence
+
+`promise_closed { promiserSeatIndex, recipientSeatIndex, outcome, globalTurnNo }` is emitted once per closed promise, visible to the promiser and the recipient only (`visibleTo`; no spectator, no third seat). `outcome` is `kept`, `broken` or `closed_by_game_end`: the pair is told the coarse result, never whether a chance existed. `observe(...).own.promises` entries gain `closed { outcome, globalTurnNo }` once closed, with the same coarse outcome, so the memory UI reads "Broke a promise on turn 5" from real events. `acceptedActionSeq` (it counts chats a seat may not see) and `chance` are stripped from the seat view (`seatPromiseSchema`). Settlement happens inside an action every seat already sees (the End skip), so it adds no record, no revision gap and no change to any bystander's feed.
+
+### Invariant
+
+`promise-closes-on-own-turn` is active: every promise closed in a step closes only at the End skip of its promiser's `closesOwnTurnNo` turn (or as `closed_by_game_end` with the game finished before then), is matched by one `promise_closed` event, has a trust change equal to the table above, and none stays open past its closing turn or at game end. Trust stays within −3..3 and `keptGain` within 2.
+
+### Sim
+
+The sim's `promises` metrics (`sim/interactions.ts`, [docs/sim.md](sim.md)) have one source: the outcome and the chance flag the engine records on each promise (`state.promises[].settled` and `.chance`). `broken`, `keptWithOpportunity` (kept with a chance), `keptWithoutOpportunity` and `closedByGameEnd` count those records as they settle, `kept` is the sum of the two kept counts, and `breachOpportunity` counts promises whose engine flag was set (a public hostile item or hostile Ability chance, never PvP). The sim keeps no second copy counted from accept events or attack attempts, and the pair's event does not carry the split. `--social` reports the same numbers under `summary.promises`.
+
+**Versioning.** The stamp advances to 0.20.0: the state (`promises` fields, `trust`), the `promise_closed` event and the seat observation (`own.trust`, a different `own.promises` shape) change. Saves of 0.19.0 and earlier are refused rather than migrated. Tests: [engine/promise-settlement.test.ts](../engine/promise-settlement.test.ts), the invariant cases in [engine/invariants.test.ts](../engine/invariants.test.ts) and the `--social` cases in [sim/sim.test.ts](../sim/sim.test.ts).

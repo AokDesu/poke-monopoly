@@ -1,6 +1,11 @@
 import { pendingGymChoices, recordGymCommand, recordGymRoll } from '../gym.ts';
 import { pendingDecision } from '../decisions.ts';
-import { abilityChoices, activateAbility, recordChanceRoll } from '../abilities.ts';
+import {
+  abilityChoices,
+  abilityDisabled,
+  activateAbility,
+  recordChanceRoll,
+} from '../abilities.ts';
 import { closeGymWindow } from '../gym.ts';
 import { actorRevision, attackVisibleTo, seatAttackAttempt } from '../visibility.ts';
 import {
@@ -31,6 +36,7 @@ import {
   offerPromise,
   promiseOfferChoices,
   promisesOf,
+  trustOf,
   responseChoices,
 } from '../promises.ts';
 import type {
@@ -69,9 +75,10 @@ export function observe(state: GameState, seatIndex: number): Observation {
       globalTurnNo: state.globalTurnNo,
       stateRevision: actorRevision(state, ownPlayer.actorId),
       activeSeatIndex: state.activeSeatIndex,
-      ...(state.attackHistory
+      // An absent-vs-empty field must not reveal the first private hostile attempt (§4.1).
+      ...(state.config.engineVersion === ENGINE_VERSION || state.attackHistory
         ? {
-            attackHistory: state.attackHistory
+            attackHistory: (state.attackHistory ?? [])
               .filter((attempt) => attackVisibleTo(attempt, ownPlayer.actorId))
               .map(seatAttackAttempt),
           }
@@ -94,6 +101,7 @@ export function observe(state: GameState, seatIndex: number): Observation {
       ...(state.config.socialWindow === true && {
         chats: chatsOf(state, seatIndex),
         promises: promisesOf(state, seatIndex),
+        trust: trustOf(state, seatIndex),
       }),
       // A question is its two parties' alone (§4.8): a third seat never learns one was asked.
       ...(state.pendingResponse &&
@@ -132,6 +140,7 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   }
   if (state.config.engineVersion === ENGINE_VERSION) {
     result.enabled.push(...abilityChoices(state, seatIndex));
+    result.disabled.push(...abilityDisabled(state, seatIndex));
   }
   if (state.config.engineVersion === ENGINE_VERSION && state.phase.kind === 'pvp') {
     pendingPvpChoices(state, result);

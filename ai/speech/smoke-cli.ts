@@ -11,8 +11,8 @@ const fmt = (value: number | null, digits = 0) => (value === null ? 'n/a' : valu
 try {
   const { values } = parseArgs({ options: { rounds: { type: 'string', default: '4' } } });
   const rounds = Number(values.rounds);
-  if (!Number.isInteger(rounds) || rounds < 1 || rounds * SMOKE_BRIEFS.length > 60) {
-    throw new Error('--rounds must be a whole number from 1 to 20 (one game allows 60 calls).');
+  if (!Number.isInteger(rounds) || rounds < 1 || rounds * SMOKE_BRIEFS.length > 150) {
+    throw new Error('--rounds must be a whole number from 1 to 50 (one game allows 150 calls).');
   }
   if (!haikuEnabled() || !haikuApiKey()) {
     throw new Error(

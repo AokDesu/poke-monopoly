@@ -587,6 +587,99 @@ function checkAttackEvidence({ before, parsed, result }: Step): string[] {
   return errors;
 }
 
+/**
+ * §4.8 / §4.2 step 7: a promise closes exactly at End of its promiser's `closesOwnTurnNo` turn, or at game end
+ * if that comes first; its trust change follows the table (−2, +1 capped at +2 per pair, 0, none), clamped to
+ * −3..3; and a promise is never left open once its closing turn has ended.
+ */
+function checkPromiseClosure({ before, parsed, result }: Step): string[] {
+  if (!accepted(result)) return [];
+  const after = result.state;
+  const errors: string[] = [];
+  const priorPromises = before.promises ?? [];
+  const closedEvents = eventsOf(result.events, 'promise_closed');
+  const newlyClosed = (after.promises ?? []).filter((promise, index) => {
+    if (!promise.settled) return false;
+    const prior = priorPromises[index];
+    if (prior?.settled && canonicalJson(prior.settled) !== canonicalJson(promise.settled)) {
+      errors.push('a settled promise changed its outcome');
+    }
+    return !prior?.settled;
+  });
+  if (newlyClosed.length !== closedEvents.length)
+    errors.push('promise_closed events do not match the promises closed in this step');
+  const expectedTrust = new Map<string, { value: number; keptGain: number }>();
+  const trustKey = (from: number, to: number) => `${from}>${to}`;
+  for (const entry of before.trust ?? []) {
+    expectedTrust.set(trustKey(entry.fromSeatIndex, entry.toSeatIndex), {
+      value: entry.value,
+      keptGain: entry.keptGain,
+    });
+  }
+  for (const promise of newlyClosed) {
+    const outcome = promise.settled!.outcome;
+    const promiser = after.players.find((entry) => entry.seatIndex === promise.promiserSeatIndex)!;
+    const atEnd =
+      parsed?.kind === 'skip' &&
+      before.phase.kind === 'end' &&
+      before.activeSeatIndex === promise.promiserSeatIndex &&
+      promiser.ownTurnNo === promise.closesOwnTurnNo;
+    if (outcome === 'closed_by_game_end') {
+      if (after.phase.kind !== 'finished' || promiser.ownTurnNo >= promise.closesOwnTurnNo)
+        errors.push('a promise closed by game end outside the end of the game or after its turn');
+    } else if (!atEnd) {
+      errors.push(
+        `promise of seat ${promise.promiserSeatIndex} closed outside the End of its own turn ${promise.closesOwnTurnNo}`,
+      );
+    }
+    if (
+      !closedEvents.some(
+        (event) =>
+          event.promiserSeatIndex === promise.promiserSeatIndex &&
+          event.recipientSeatIndex === promise.recipientSeatIndex &&
+          event.globalTurnNo === promise.settled!.globalTurnNo,
+      )
+    ) {
+      errors.push('a closed promise has no promise_closed event');
+    }
+    if (outcome === 'kept_with_chance' && !promise.chance)
+      errors.push('a promise was kept with a chance that was never recorded');
+    if (outcome === 'kept_without_chance' && promise.chance)
+      errors.push('a promise with a recorded chance was kept without one');
+    if (outcome === 'broken' || outcome === 'kept_with_chance') {
+      const key = trustKey(promise.recipientSeatIndex, promise.promiserSeatIndex);
+      const entry = expectedTrust.get(key) ?? { value: 0, keptGain: 0 };
+      if (outcome === 'broken') entry.value = Math.max(-3, entry.value - 2);
+      else if (entry.keptGain < 2) {
+        entry.keptGain++;
+        entry.value = Math.min(3, entry.value + 1);
+      }
+      expectedTrust.set(key, entry);
+    }
+  }
+  for (const entry of after.trust ?? []) {
+    const expected = expectedTrust.get(trustKey(entry.fromSeatIndex, entry.toSeatIndex));
+    if (!expected || expected.value !== entry.value || expected.keptGain !== entry.keptGain)
+      errors.push(
+        `trust of seat ${entry.fromSeatIndex} in seat ${entry.toSeatIndex} is not the table's`,
+      );
+    if (entry.value < -3 || entry.value > 3 || entry.keptGain > 2)
+      errors.push('trust left its -3..3 range or its +2 cap');
+  }
+  for (const promise of after.promises ?? []) {
+    if (promise.settled) continue;
+    const promiser = after.players.find((entry) => entry.seatIndex === promise.promiserSeatIndex)!;
+    const overdue =
+      after.phase.kind === 'finished' ||
+      promiser.ownTurnNo > promise.closesOwnTurnNo ||
+      (promiser.ownTurnNo === promise.closesOwnTurnNo &&
+        after.activeSeatIndex !== promise.promiserSeatIndex);
+    if (overdue)
+      errors.push(`promise of seat ${promise.promiserSeatIndex} stayed open past its closing turn`);
+  }
+  return errors;
+}
+
 const HOSTILE_ITEMS = ['repel', 'pickpocket', 'sticky-web', 'battle-ticket'];
 
 /** The one attempt a PvP declaration or hostile item use must record (§4.4, §4.6, D6). */
@@ -899,7 +992,8 @@ export const INVARIANTS: readonly InvariantDefinition[] = [
   },
   {
     id: 'promise-closes-on-own-turn',
-    status: 'pending',
+    status: 'active',
+    check: checkPromiseClosure,
     section: '§8',
     specLine: 'Promises close on the correct `ownTurnNo`.',
   },

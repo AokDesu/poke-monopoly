@@ -25,7 +25,16 @@ const fixtures: GalleryFixtures = {
 // the catalog keys each must put on screen. Do not derive it from the gallery: deleting a key from
 // an example must fail the test.
 const SHOWN = [
-  { id: 'only-legal-action', specRow: '1', keys: ['turn.onlyLegalAction', 'turn.automatic'] },
+  {
+    id: 'only-legal-action',
+    specRow: '1',
+    keys: [
+      'turn.onlyLegalAction',
+      'turn.automatic',
+      'choice.challengeGym',
+      'battle.gymAutoSkipped',
+    ],
+  },
   {
     id: 'no-ball',
     specRow: '3',
@@ -51,6 +60,7 @@ const SHOWN = [
     keys: ['save.pendingDecision', 'save.continue', 'game.resumedAiTurn'],
   },
   { id: 'team-empty', specRow: '13', keys: ['sell.rescuePreview', 'sell.rescueStarter'] },
+  { id: 'event-deck-out', specRow: '14', keys: ['event.card.heading', 'event.deckReshuffled'] },
   {
     id: 'haiku-off',
     specRow: '15',
@@ -66,7 +76,25 @@ const SHOWN = [
   {
     id: 'ai-exchange',
     specRow: 'ai-turns',
-    keys: ['talk.aiWritten', 'talk.onlyWords', 'talk.empty'],
+    keys: ['talk.aiWritten', 'talk.bank', 'talk.onlyWords'],
+  },
+  {
+    id: 'casual-talk',
+    specRow: 'ai-turns',
+    keys: ['talk.bank', 'talk.toYou', 'talk.onlyWords'],
+  },
+  {
+    id: 'jev-panel',
+    specRow: 'ai-turns',
+    keys: [
+      'demo.heading',
+      'demo.banner',
+      'demo.chosen',
+      'demo.confidence',
+      'demo.sellNote',
+      'demo.byBackup',
+      'ai.reason.timeout',
+    ],
   },
   {
     id: 'watch-browser-closed',
@@ -74,10 +102,60 @@ const SHOWN = [
     keys: ['save.pendingWatched', 'save.continue', 'game.resumedAiTurn'],
   },
   { id: 'watch-all-backup', specRow: '18', keys: ['ai.allBackupBanner', 'ai.backupBadge'] },
+  {
+    id: 'pvp-gym',
+    specRow: 'battle',
+    keys: [
+      'challenge.heading',
+      'challenge.intro',
+      'battle.heading.response',
+      'battle.declineNote',
+      'battle.forcedBy',
+      'battle.heading.window',
+      'battle.withThis',
+      'battle.heading.gym',
+      'battle.termsGym',
+      'battle.heading.reward',
+      'battle.reward.evolveGroup',
+      'battle.reward.choose',
+      'battle.result',
+      'board.event.pvpResolved',
+    ],
+  },
+  {
+    id: 'social-window',
+    specRow: 'social',
+    keys: [
+      'social.onlyWords',
+      'social.topic.truce',
+      'social.topic.trade',
+      'social.topic.point_leader',
+      'social.topic.use_item',
+      'social.topic.hold_item',
+      'social.skip',
+      'social.reason.chooseRival',
+      'social.reason.noThirdSeat',
+      'social.spent',
+      'social.waiting',
+      'social.noticeTruce',
+      'social.continue',
+      'talk.bank',
+      'talk.aiWritten',
+      'talk.voiceOff',
+      'social.refused',
+      'social.failed.timeout',
+      'social.retry',
+    ],
+  },
+  {
+    id: 'abilities',
+    specRow: 'abilities',
+    keys: ['ability.heading', 'ability.planned', 'ability.choosePrompt', 'battle.heading.window'],
+  },
 ] as const satisfies readonly { id: string; specRow: string; keys: readonly MessageKey[] }[];
 
-/** Rows with nothing for a player to see in this build (no chat, deals or event-deck screen, engine-only). */
-const PENDING = ['2', '6', '10', '11', '14'];
+/** Rows with nothing for a player to see in this build (no free-text chat or deals screen, engine-only). */
+const PENDING = ['2', '6', '10', '11'];
 
 /** A catalog message as a pattern, so templated values (`{value}`) match whatever the engine says. */
 function shown(root: HTMLElement, key: MessageKey): boolean {
@@ -116,7 +194,13 @@ test('every §3.1 row that has a screen shows each of its catalog keys, labelled
     const label =
       row.specRow === 'ai-turns'
         ? t('gallery.specAiTurns')
-        : t('gallery.specRow', { row: row.specRow });
+        : row.specRow === 'battle'
+          ? t('gallery.specBattle')
+          : row.specRow === 'social'
+            ? t('gallery.specSocial')
+            : row.specRow === 'abilities'
+              ? t('gallery.specAbilities')
+              : t('gallery.specRow', { row: row.specRow });
     expect(within(el).getByText(label), row.id).toBeTruthy();
   }
 });
@@ -187,5 +271,19 @@ test('an invalid answer, revision mismatch or low confidence shows a per-turn no
   }
   for (const id of ['backup-badge', 'all-backup']) {
     expect(examples(id).textContent!, id).toContain(t('ai.backupBadge'));
+  }
+});
+
+test('the "What Jev chose" panel lives only in its own row, and every example of it carries the private-options banner', () => {
+  render(<GalleryPage fixtures={fixtures} />);
+  for (const row of SHOWN) {
+    const found = examples(row.id).querySelectorAll('.jev-panel');
+    if (row.id !== 'jev-panel') {
+      expect(found.length, row.id).toBe(0);
+      expect(examples(row.id).textContent!, row.id).not.toContain(t('demo.heading'));
+    } else {
+      expect(found.length).toBe(4);
+      for (const panel of found) expect(panel.textContent).toContain(t('demo.banner'));
+    }
   }
 });

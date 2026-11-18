@@ -1,15 +1,14 @@
 import type { AiSpeechEvent } from '../../../engine/index.ts';
-import { talkEntries, type PublicGame, type VoiceReason } from '../game/tableTalk.ts';
-import { t, type MessageKey } from '../i18n/en.ts';
+import {
+  talkEntries,
+  voiceReasonText,
+  type PublicGame,
+  type VoiceReason,
+} from '../game/tableTalk.ts';
+import { t } from '../i18n/en.ts';
 import { className } from '../i18n/names.ts';
 import { Button } from '../ui/Button.tsx';
 import './table-talk.css';
-
-const REASONS: Record<VoiceReason, MessageKey> = {
-  disabled: 'talk.reason.disabled',
-  missing_key: 'talk.reason.missing_key',
-  budget_exceeded: 'talk.reason.budget_exceeded',
-};
 
 export interface TableTalkPanelProps {
   lines: readonly AiSpeechEvent[];
@@ -80,7 +79,7 @@ export function TableTalkPanel({
       {voiceOff && (
         <p className="talk-voice" data-voice-reason={voiceOff}>
           <strong className="talk-badge">{t('talk.voiceOff')}</strong>
-          <span>{t(REASONS[voiceOff])}</span>
+          <span>{voiceReasonText(voiceOff)}</span>
         </p>
       )}
       <div id="table-talk-body">

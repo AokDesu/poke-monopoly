@@ -155,7 +155,7 @@ test('Back and forward keep every answer, and changing one AI never changes anot
   expect(radio(/^Easy/)).toHaveProperty('checked', true);
 });
 
-test('a class another AI has, a closed personality and a closed mode are greyed with a reason (§3.1)', async () => {
+test('a class another AI has and a closed mode are greyed with a reason; every personality is open (§3.1)', async () => {
   const user = open({ storage: memory() });
   await user.click(button(t('home.watch')));
   const standard = screen.getByRole('button', { name: new RegExp(t('mode.standard')) });
@@ -169,10 +169,8 @@ test('a class another AI has, a closed personality and a closed mode are greyed 
   expect(reasonOf(taken)).toBe(
     t('opponents.classTaken', { holder: t('board.rivalLabel', { seat: 1 }) }),
   );
-  for (const id of ['aggressive', 'cautious', 'opportunist'] as const) {
-    const closed = radio(new RegExp(`^${t(`personality.${id}`)}`));
-    expect(closed).toHaveProperty('disabled', true);
-    expect(reasonOf(closed)).toBe(t('opponents.personalityClosed'));
+  for (const id of ['greedy', 'aggressive', 'cautious', 'opportunist'] as const) {
+    expect(radio(new RegExp(`^${t(`personality.${id}`)}`))).toHaveProperty('disabled', false);
   }
   // Nothing was swapped behind the player's back.
   expect(classOf(0)).not.toBe(holder);
@@ -256,7 +254,37 @@ test('leaving the watch setup for Home forgets it, and a reload then opens Home 
   expect(button(t('home.watch'))).toBeTruthy();
 });
 
-test('a saved watch setup that no longer fits is dropped and the flow opens on the step that still needs an answer', () => {
+test('a saved watch setup naming a personality without a file is dropped and the flow opens on the step that still needs an answer', () => {
+  const storage = memory();
+  storage.setItem(
+    WATCH_SETUP_KEY,
+    JSON.stringify({
+      step: 'review',
+      mode: 'quick',
+      ais: [
+        {
+          classId: 'fisherman',
+          starterSpeciesId: 'magikarp',
+          personality: 'sneaky',
+          difficulty: 'easy',
+        },
+        {
+          classId: 'researcher',
+          starterSpeciesId: 'porygon',
+          personality: 'greedy',
+          difficulty: 'easy',
+        },
+      ],
+      talk: true,
+      speed: 'normal',
+    }),
+  );
+  open({ storage });
+  expect(heading()).toBe(t('watchSetup.heading'));
+  expect(radio(/^2 AIs/)).toHaveProperty('checked', true);
+});
+
+test('a saved watch setup with a Cautious AI still opens on its review step', () => {
   const storage = memory();
   storage.setItem(
     WATCH_SETUP_KEY,
@@ -282,8 +310,7 @@ test('a saved watch setup that no longer fits is dropped and the flow opens on t
     }),
   );
   open({ storage });
-  expect(heading()).toBe(t('watchSetup.heading'));
-  expect(radio(/^2 AIs/)).toHaveProperty('checked', true);
+  expect(heading()).toBe(t('watchReview.heading'));
 });
 
 test('a saved game waiting on Home wins over a stale watch setup (§3.1)', async () => {

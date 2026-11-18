@@ -8,7 +8,7 @@ import { EventLog } from './EventLog.tsx';
 
 const observation = observe(fixtureSchema.parse(fixture).state, 0);
 
-test('event messages preserve transfer direction and placeholder/final-round meaning without raw payloads', () => {
+test('event messages preserve transfer direction and landing/final-round meaning without raw payloads', () => {
   const events: EngineEvent[] = [
     {
       kind: 'coin_transfer',
@@ -24,7 +24,7 @@ test('event messages preserve transfer direction and placeholder/final-round mea
       amount: 3,
       reason: 'shop_purchase',
     },
-    { kind: 'space_resolved', seatIndex: 1, position: 6, effect: 'none_yet' },
+    { kind: 'space_resolved', seatIndex: 1, position: 6 },
     { kind: 'final_table_round', triggerSeatIndex: 0, targetOwnTurnNo: 8 },
     { kind: 'random_result', purpose: 'event_shuffle', result: ['SENTINEL-DECK-ORDER'] },
     { kind: 'uid_created', entity: 'pokemon', instanceId: 'INTERNAL-UID', ownerId: 'player-0' },
@@ -33,9 +33,7 @@ test('event messages preserve transfer direction and placeholder/final-round mea
   const { container } = render(<EventLog observation={observation} events={events} />);
   expect(container.textContent).toContain('The bank paid 5 coins to You. Start income.');
   expect(container.textContent).toContain('You paid 3 coins to The bank. Shop purchase.');
-  expect(container.textContent).toContain(
-    'AI rival · seat 1 landed on square 6: Gym. Nothing happens here yet.',
-  );
+  expect(container.textContent).toContain('AI rival · seat 1 landed on square 6: Gym.');
   expect(container.textContent).toContain('You triggered the final table round.');
   expect(container.innerHTML).not.toMatch(/SENTINEL|INTERNAL-UID|event_shuffle|player-0/);
   expect(
@@ -43,7 +41,7 @@ test('event messages preserve transfer direction and placeholder/final-round mea
   ).toEqual([
     'board.event.coins',
     'board.event.coins',
-    'board.event.noneYet',
+    'board.event.space',
     'board.event.finalRound',
     'board.event.randomDraw',
     'board.event.pokemonCreated',
@@ -58,7 +56,7 @@ test('an empty event feed still explains the state', () => {
 
 // Spec §5.7: dialogue annotations are persisted separately; showing lines is deferred.
 test.each(['events', 'feed'] as const)(
-  '%s keeps dialogue and deferred reward records out of announcements while preserving game events',
+  '%s keeps dialogue records out of announcements, says an evolution in words and never shows an internal ID',
   (source) => {
     const annotations: EngineEvent[] = [
       {
@@ -113,10 +111,11 @@ test.each(['events', 'feed'] as const)(
       />,
     );
     expect(screen.getAllByRole('listitem').map((row) => row.textContent)).toEqual([
+      'Your Caterpie evolved into Metapod.',
       'The die rolled 6.',
     ]);
     expect(container.textContent).not.toContain('INTERNAL-');
-    rerender(<EventLog {...props(annotations)} />);
+    rerender(<EventLog {...props(annotations.slice(0, 2))} />);
     expect(screen.getByText(t('board.logEmpty'))).toBeTruthy();
     expect(screen.queryByRole('listitem')).toBeNull();
   },

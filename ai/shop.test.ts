@@ -41,6 +41,24 @@ test('Shop uses the offline seeded fallback, never Jev, and selects only an enab
   expect(decider).not.toHaveBeenCalled();
 });
 
+test.each(['greedy', 'aggressive', 'cautious', 'opportunist'])(
+  'a %s rival gets an enabled Shop option from the offline fallback, never Jev',
+  async (personalityId) => {
+    const decider = vi.fn();
+    const response = await post({ ...request, personalityId }, createApp({ decider }));
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(request.enabledActions.some((choice) => choice.id === body.choice)).toBe(true);
+    expect(body).toMatchObject({ source: 'fallback', fallbackReason: 'auto' });
+    expect(decider).not.toHaveBeenCalled();
+  },
+);
+
+test('a Shop request naming an unknown personality is refused, not played as another one', async () => {
+  const response = await post({ ...request, personalityId: 'sneaky' });
+  expect(response.status).toBe(400);
+});
+
 const apply = (answer: Record<string, unknown>, app: ReturnType<typeof createApp>) =>
   app.request('/api/ai/outcome', {
     method: 'POST',

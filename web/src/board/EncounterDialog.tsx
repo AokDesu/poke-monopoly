@@ -5,12 +5,15 @@ import { speciesName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
 import { BallIcon } from '../ui/icons.tsx';
 import { SpeciesFacts } from '../ui/SpeciesFacts.tsx';
+import { AbilityPanel } from './AbilityPanel.tsx';
 
 export interface EncounterDialogProps {
   observation: Observation;
   legalActions: LegalActions;
   catchOdds: readonly ({ ballType: BallType } & CatchOdds)[];
   onChoose: (id: string) => void;
+  /** The Event card that opened this encounter, when it came from an Event square (§4.6). */
+  eventText?: string;
   /** Dev gallery only: show the same dialog in the page flow instead of as a modal. */
   inline?: boolean;
 }
@@ -21,6 +24,7 @@ export function EncounterDialog({
   legalActions,
   catchOdds,
   onChoose,
+  eventText,
   inline = false,
 }: EncounterDialogProps) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -50,10 +54,19 @@ export function EncounterDialog({
         <BallIcon className="size-12" />
       </div>
       <h2 id={headingId}>{t('encounter.heading', { pokemon })}</h2>
+      {eventText && (
+        <p className="encounter-source">{t('event.card.fromEncounter', { text: eventText })}</p>
+      )}
       <p id={bodyId}>{t(catchOdds.length === 0 ? 'encounter.noBall' : 'encounter.body')}</p>
       <section aria-label={t('encounter.facts')}>
         <SpeciesFacts speciesId={phase.pokemon.speciesId} showCatchDc />
       </section>
+      <AbilityPanel
+        key={observation.public.stateRevision}
+        observation={observation}
+        legalActions={legalActions}
+        onChoose={onChoose}
+      />
       <div className="encounter-choices">
         {catchOdds.map(({ ballType, percent }) => {
           const choice = legalActions.enabled.find(
