@@ -26,7 +26,7 @@ No personal data about players is stored. These rules apply to everything writte
 5. **Quotes** from answers are allowed if they hold no name, contact detail or identifying detail. Replace such a part with `[removed]`.
 6. **Consent is spoken, not signed.** A signature is a name. Read the consent paragraph in [section 4](#4-scripts-consent-and-briefing). If the participant does not say yes, there is no session and no row. A row in the sheet therefore means consent was given.
 7. **In the game:** use the participant code wherever the build asks for a name. The setup in spec §3 asks for none: checked on `main` `5f608f1`, every setup screen is made of buttons and radio choices (`web/src/setup/`), and the game shows only "You" and "AI rival · seat N". The build has no free-text field: the only inputs in `web/src/` are radio buttons and check boxes, and the Social window, if the build has it (pull request #212), sends one of five topic messages (spec §4.8). If a later build adds a text field, tell the participant not to type their real name or contact details before they start. Exported game logs stay out of git unless a bug needs one, and then only after you read the file for typed text.
-8. **Deletion.** If a participant gives you their code and asks for deletion, remove their row and notes from the current files in a pull request. History cannot be rewritten (`main` forbids force-push), but it holds nothing that identifies anyone.
+8. **Deletion.** If a participant gives you their code and asks for deletion, remove their row and notes from the current files in a pull request. History cannot be rewritten (`main` forbids force-push), but it holds nothing that identifies anyone. `results.md` copies the answers and quotes from the sheets word for word, so a deletion request also means running `npm run playtest:report` again on the corrected sheets and committing the new `results.md` and charts in the same pull request.
 
 ## 3. Set-up (before the participant arrives)
 
@@ -211,7 +211,13 @@ Question 3 counts the participant's own messages (the Social topic buttons) and 
 2. **Destroy the scratch note** once the row is written: shred the paper or delete the file.
 3. **File issues** for bugs or confusion, titled with the code only (for example `P5-A01: ...`), and list the issue numbers in the row's `notes`.
 4. **Check the file** (see the end of section 8), then commit it on a branch and open a pull request that cites spec §8 and §9. A teammate reviews it before merge, as for every pull request (spec §7).
-5. **Analysis** reads the committed sheets, nothing else: for G1, the report `docs/playtest/g1/G1-report.md` (issue #54); for `P5`, the Human-layer result tables with n (spec §8, §10 C5) built from `docs/playtest/p5/`.
+5. **Analysis** reads the committed sheets, nothing else: for G1, the report `docs/playtest/g1/G1-report.md` (issue #54); for `P5`, the Human-layer result tables with n (spec §8, §10 C5) built from `docs/playtest/p5/`. Make the result tables with n and their charts with:
+
+   ```bash
+   npm run playtest:report -- docs/playtest/g1/session-sheet-A.csv docs/playtest/g1/session-sheet-B.csv
+   ```
+
+   Name the sheets of one round, which sit in one folder. It writes `results.md` and three SVG charts (`results-outcomes.svg`, `results-hesitation.svg`, `results-answers.svg`) next to them, and nothing else. Every figure is "x of n". An `n/a` cell (section 8, "`n/a` means unobserved") is shown as unobserved, listed apart from the zeros and left out of every median; so is a question cell that starts with `n/a`, question 4 included. It prints no percentage and runs no test, because the Human layer has no threshold (spec §8). It refuses, and writes nothing, for a sheet with a cell that looks like personal data, an empty cell, a placeholder, a value of the wrong form, a repeated code or codes of two rounds (`G1` and `P5` never share a report). It reads Jev and Voice from the tags `jev=live` or `jev=off` and `voice=on` or `voice=off` at the start of `notes` (section 8); the words `Jev live` and `Voice off` count only for a row with no tag, and a tag marked as assumed or not observed counts as unobserved. The headline of `results.md` says how many builds the sessions come from; when it is more than one, the sessions of different builds are pooled and the headline lists the builds. Running it again on the same sheets writes the same files. `results.md` copies the answers, so after a deletion request (section 2, rule 8) run it again.
 
 ## 8. The sheet columns
 
@@ -234,7 +240,7 @@ The file is UTF-8, comma separated, one row per session, one line per row. A cel
 |`q1_hesitated_sell_keep`|Start with `yes`, `no` or `unsure`, then ` - ` and a short paraphrase or quote. A bare `yes` is refused. `n/a - <reason>` only if the participant skipped the question.|
 |`q2_opponent_personality`|The same format as question 1, or `n/a` (then ` - ` and the reason).|
 |`q3_conversation_changed_game`|The same format as question 1, or `n/a` (then ` - ` and the reason).|
-|`q4_boring_moment`|`none`, or the moment or screen in a few words, then ` - ` and a short paraphrase or quote.|
+|`q4_boring_moment`|`none`, or the moment or screen in a few words, then ` - ` and a short paraphrase or quote. `n/a - <reason>` if the question was skipped; the report counts it as unobserved.|
 |`notes`|Start with these four tags, in this order, separated by `; `: `jev=live` or `jev=off` (section 3, step 6), `voice=on` or `voice=off`, `setup=fixed` (the table in section 3, step 4) or `setup=other` (then say what), and `finished_in_cap=yes` (the game reached the results screen within 25 minutes of play) or `finished_in_cap=no`. These feed the decision on opening Standard 3 Laps (`GAME_PRESETS.standard.enabled` is `false` in `engine/game-end.ts`). Then bugs and confusion with issue numbers, hesitations at decisions that did not count, restarts, a reload, the Backup bot badge and the Voice off badge if seen. Codes only. The cell is 200 characters or fewer, so the four tags take about 55 of them.|
 
 Example row, invented to show the format only:
