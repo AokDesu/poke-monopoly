@@ -74,9 +74,9 @@ The C4 report used evaluation seeds 1,000,002–1,000,101 and published their ob
 | `withheld-below-c5`    | 1,000,000–1,099,999    | Holds the C4 range. No C5 evaluation seeds.                              | withheld                     |
 | `alignment-gap`        | 1,100,000–1,100,003    | Skipped so every cell starts at a multiple of 6 and keeps class rotation | withheld                     |
 | **`c5-held-out`**      | **1,100,004–1,100,507** | **The 1,008 evaluation games**                                           | **unopened**                 |
-| `c5-contingency`       | 1,200,004–1,200,507    | One replacement set, same layout, only if a fix forces re-evaluation     | unopened                     |
+| `c5-contingency`       | 1,200,000–1,200,503    | One replacement set, same layout, only if a fix forces re-evaluation     | unopened                     |
 
-Each of the 21 cells owns 24 consecutive seeds, in the order of the policies in the data file, seat counts 2, 3, 4 within each policy. Cell `i` (counting from 0) uses `1,100,004 + 24i` to `1,100,027 + 24i`. Each seed is played twice, once per arm, so the 504 seeds give 1,008 physical games. No seed is shared between cells, so the 504 control arms are different games.
+Each of the 21 cells owns 24 consecutive seeds, in the order of the policies in the data file, seat counts 2, 3, 4 within each policy. Cell `i` (counting from 0) uses `1,100,004 + 24i` to `1,100,027 + 24i`. The contingency range has the same 504 seeds and the same cell order; cell `i` uses `1,200,000 + 24i` to `1,200,023 + 24i`. Its first seed is a multiple of 6 (1,200,000 = 6 × 200,000), so every row of the schedule gets the same focal class as in the held-out range. Each seed is played twice, once per arm, so the 504 seeds give 1,008 physical games. No seed is shared between cells, so the 504 control arms are different games.
 
 Rules:
 
@@ -91,10 +91,10 @@ If the schedule or integration baseline changes after G1, revise this plan **bef
 ## Analysis
 
 - **Unit and estimate.** The unit is a block. The primary measure is the focal seat's win credit (1/k for k co-winners, 0 for a loss, §8). The primary estimate is the mean over complete pairs of treatment minus control, per policy and seat count.
-- **Uncertainty.** A paired block bootstrap within a cell: 10,000 resamples, a 95% percentile interval and analysis RNG seed 610004. The seats of one game are never treated as independent n. `sim/analysis/paired.ts` (A61-3) fixes the implementation; any other documented paired method has to be named before the held-out range opens.
+- **Uncertainty.** A paired block bootstrap within a cell: 10,000 resamples, a 95% percentile interval and analysis RNG seed 610004. The seats of one game are never treated as independent n. `sim/analysis/paired.ts` (A61-3) implements exactly the rules in this section; any other documented paired method has to be named before the held-out range opens. Results do not depend on input order: the pairs are sorted by block id before resampling. A cell or stratum with fewer than 2 complete blocks gets null interval bounds and reports counts only, because one block gives a zero-width interval.
 - **n is small by design.** A cell has 24 pairs, so its interval will be wide. Report it as it comes out. Do not widen the claim.
-- **Secondary, reported alongside.** Tie rate per arm, focal final coins, win/tie/loss counts per arm, and counts by focal class, focal seat and background personality. The strata are counts only; their n is too small for inference.
-- **Missing pairs.** An abort, step-limit stop or checker failure makes its pair incomplete. Each cell reports planned, complete and missing pairs and lists every failing seed with its reproduce command.
+- **Secondary, reported alongside.** Tie rate per arm, focal final coins, win/tie/loss counts per arm, and strata by focal class, focal seat and **background** personality (never the focal seat, which plays the arm's policy). Strata are reported per seat count; the overall figure is also per seat count, never silently pooled. A pooled figure, if shown, is labelled pooled. Strata are descriptive: their n is too small for inference, and a stratum with fewer than 2 blocks has null bounds.
+- **Missing pairs.** An abort, step-limit stop or a game with `invariantFailures` above 0 (a checker failure) makes its pair incomplete: it is not scored, it is counted as missing and it is reported. Each cell reports planned, complete and missing pairs and lists every failing seed with its reproduce command. Planned pairs per cell (24) come from this manifest, not from `paired.ts`; A61-5 joins them.
 - **Not allowed:** a universal pass threshold, tuning on held-out results, a Jev or Hard claim, or a pooled-across-seat-counts figure as the primary result.
 
 ### Reading the non-domination result
