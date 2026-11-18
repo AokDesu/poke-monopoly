@@ -427,7 +427,7 @@ fcTest.prop([fc.jsonValue()])(
 test('200 accepted player and generated records have no sequence gaps and replay deterministically (§6.3, §6.8)', () => {
   function play() {
     let state = randomState();
-    state.eventDeck = { drawPile: ['a', 'b', 'c'], discardPile: [] };
+    state.eventDeck = { drawPile: ['e1', 'e2', 'e3'], discardPile: [] };
     const log = createGameLog(state);
     function accept(body: { actorId: string; kind: string; payload: unknown }) {
       const previous = state.stateRevision;
@@ -445,9 +445,9 @@ test('200 accepted player and generated records have no sequence gaps and replay
     accept({
       actorId: 'engine',
       kind: 'shuffle',
-      payload: { deckId: 'events', order: ['c', 'a', 'b'] },
+      payload: { deckId: 'events', order: ['e3', 'e1', 'e2'] },
     });
-    accept({ actorId: 'engine', kind: 'event_draw', payload: { eventId: 'c' } });
+    accept({ actorId: 'engine', kind: 'event_draw', payload: { eventId: 'e3' } });
     // Walk real turns: generated dice and sole choices advance automatically; at a
     // decision the pending seat takes the last enabled choice, including PvP responses.
     while (log.actions.length < 200) {

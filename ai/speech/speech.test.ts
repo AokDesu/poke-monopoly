@@ -73,7 +73,6 @@ function game(index: number): GameState {
     }
     player.privateResults.push({ kind: 'peek', eventId: `SENTINEL-peek-${player.seatIndex}` });
   }
-  state.eventDeck = { drawPile: [...DECK], discardPile: [] };
   return state;
 }
 
@@ -166,7 +165,9 @@ describe('speech brief (§4.1, §4.8, §5.4, §8)', () => {
         if (move % 3 !== 0) continue;
         for (const player of state.players) {
           const seat = player.seatIndex;
-          const observation = observe(state, seat);
+          const projection = { ...state };
+          projection.eventDeck = { drawPile: [...DECK], discardPile: [] };
+          const observation = observe(projection, seat);
           const publicNames = observation.public.players.flatMap((p) =>
             p.knownItems.map((item) => item.name),
           );

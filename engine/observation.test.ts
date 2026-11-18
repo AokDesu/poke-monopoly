@@ -153,7 +153,7 @@ test('no seat sees the draws of an Event deck shuffle, which would reveal its or
 const SEED = 'SEED-SENTINEL';
 const DECK = ['EVENT-SENTINEL-a', 'EVENT-SENTINEL-b', 'EVENT-SENTINEL-c'];
 
-/** A 2-, 3- or 4-seat game with private sentinels and a planted deck. */
+/** A 2-, 3- or 4-seat game with private item and peek sentinels. */
 function sentinelGame(game: number): GameState {
   const scenario = fixtureSchema.parse(fixture).state;
   const content = structuredClone(scenario.content);
@@ -192,7 +192,6 @@ function sentinelGame(game: number): GameState {
   for (const player of state.players) {
     player.privateResults = [{ kind: 'peek', eventId: `PRIVATE-PEEK-${player.seatIndex}` }];
   }
-  state.eventDeck = { drawPile: [...DECK], discardPile: [] };
   return state;
 }
 
@@ -297,7 +296,10 @@ test('500 random mid-game states never show a seat another seat’s secrets, RNG
         const actor = before.players.find((entry) => entry.actorId === record.action.actorId);
         if (actor?.seatIndex !== seat) expect(seenRecord).not.toContain('"offerId"');
         if (move % 3 !== 0) continue;
-        const seen = JSON.stringify([observe(state, seat), legalActions(state, seat)]);
+        // Drawn Events are public now; plant impossible IDs only in the projection copy.
+        const projection = { ...state };
+        projection.eventDeck = { drawPile: [...DECK], discardPile: [] };
+        const seen = JSON.stringify([observe(projection, seat), legalActions(projection, seat)]);
         for (const secret of secrets) expect(seen).not.toContain(secret);
         for (const hidden of [SEED, `"${state.rng.state}"`, RNG_VERSION, ...DECK]) {
           expect(seen).not.toContain(hidden);

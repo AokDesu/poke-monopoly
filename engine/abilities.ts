@@ -3,7 +3,7 @@ import { armShield } from './protection.ts';
 import { declareHostileAction } from './protection.ts';
 import { applyStatus, healStatus } from './status.ts';
 import { addSlow, hasSlowKind } from './slows.ts';
-import { shuffle } from './rng.ts';
+import { ensureEventDeck } from './events.ts';
 import { forceChallenge, pvpDisabledReason } from './pvp.ts';
 import type {
   AbilityEffectId,
@@ -447,19 +447,8 @@ export function recordChanceRoll(next: GameState, value: number): EngineEvent[] 
  * when the deck was never used. Setup draws no RNG, so revision 0 keeps cursor 0 (§4.6, §6.8).
  */
 function peekTopEvent(next: GameState, owner: Player): EngineEvent[] {
-  const events: EngineEvent[] = [];
-  const deck = next.eventDeck;
-  if (!deck.drawPile.length) {
-    const cards = deck.discardPile.length
-      ? deck.discardPile
-      : (next.content.events ?? []).map((event) => event.id);
-    const draw = shuffle(next.rng, cards, 'shuffle:events');
-    next.rng = draw.rng;
-    deck.drawPile = draw.value;
-    deck.discardPile = [];
-    events.push(...draw.events);
-  }
-  owner.privateResults.push({ kind: 'peek', eventId: deck.drawPile[0]! });
+  const events = ensureEventDeck(next);
+  owner.privateResults.push({ kind: 'peek', eventId: next.eventDeck.drawPile[0]! });
   return events;
 }
 

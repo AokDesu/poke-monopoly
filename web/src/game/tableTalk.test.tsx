@@ -171,7 +171,7 @@ async function step(store: GameStore): Promise<boolean> {
   await act(async () => {
     if (store.advance({ human: true })) return;
     const view = store.getView();
-    if (view && view.observation.public.activeSeatIndex === view.seatIndex)
+    if (view && view.legalActions.enabled.length > 0)
       store.choose(view.legalActions.enabled[0]!.id);
     else if (!(await store.playOpponent(new AbortController().signal))) throw new Error('stuck');
   });
@@ -632,7 +632,7 @@ describe('table talk in a played game (§5.7, §3.1)', () => {
     const results: { actions: unknown; hash: string; lines: number }[] = [];
     for (const route of ['haiku', 'hang'] as const) {
       fakeServer(route);
-      const store = gameStore(2, true, 4);
+      const store = gameStore(2, true, 1);
       mountTalk(store);
       await play(store);
       results.push({
