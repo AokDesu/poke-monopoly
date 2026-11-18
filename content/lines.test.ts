@@ -49,21 +49,38 @@ test('fillSlots throws on a slot the line bank does not know', () => {
 });
 
 describe('line bank (§5.7)', () => {
-  test('ships the 13 situations of the core tier', () => {
+  test('ships the situations of the core tier and the table talk tier', () => {
     expect(files.map(situationOf)).toEqual(
       [
+        'battle_lost_other',
+        'battle_lost_own',
+        'battle_won_other',
+        'battle_won_own',
         'catch_fail',
+        'catch_other',
         'catch_success',
         'chat_reply',
+        'coins_in_own',
+        'coins_other',
+        'coins_out_own',
         'deal_accept',
         'deal_reject',
         'fallback_notice',
         'game_start',
         'gym_win',
+        'gym_win_other',
         'manipulation_refused',
+        'miss_other',
         'promise_broken',
         'promise_kept',
+        'roll_high_other',
+        'roll_high_own',
+        'roll_low_other',
+        'roll_low_own',
+        'sale_other',
         'sold_pokemon',
+        'table_banter',
+        'table_retort',
         'taunt_leader',
       ].sort(),
     );

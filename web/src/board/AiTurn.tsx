@@ -36,6 +36,10 @@ const UNAVAILABLE = new Set([
 const isBackup = (decision: AiDecision | undefined) =>
   decision?.source === 'fallback' && UNAVAILABLE.has(decision.fallbackReason ?? '');
 
+/** The existing words for why the backup bot decided: the badge reasons, then the per-turn notes. */
+export const fallbackReasonText = (reason: string | undefined) =>
+  t(REASONS[reason ?? ''] ?? NOTES[reason ?? ''] ?? 'ai.backupUnavailable');
+
 /** The pace control, shared by a player's turn panel and the watcher's control bar. */
 export function SpeedSelect({ playback }: { playback: TurnPlayback }) {
   return (

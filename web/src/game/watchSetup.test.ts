@@ -95,7 +95,7 @@ describe('completing a watch setup (§3, §3.1)', () => {
     ['a repeated class', [ai('fisherman'), ai('fisherman')]],
     [
       'a personality without a file',
-      [ai('fisherman'), ai('researcher', { personality: 'cautious' })],
+      [ai('fisherman'), ai('researcher', { personality: 'sneaky' as never })],
     ],
     [
       'a Starter the class does not have',
@@ -104,6 +104,14 @@ describe('completing a watch setup (§3, §3.1)', () => {
   ])('%s is never complete', (_name, ais) => {
     expect(completeWatchSetup(draftOf(ais), classOptions)).toBeUndefined();
   });
+
+  test.each(['greedy', 'aggressive', 'cautious', 'opportunist'] as const)(
+    'an AI with the %s personality completes',
+    (personality) => {
+      const ais = [ai('fisherman', { personality }), ai('researcher')];
+      expect(completeWatchSetup(draftOf(ais), classOptions)?.ais).toEqual(ais);
+    },
+  );
 
   test('a missing mode or AI list is never complete, and neither is a class closed since', () => {
     expect(completeWatchSetup({ ais: two, settings: DEFAULT_WATCH_SETTINGS }, classOptions)).toBe(
@@ -118,13 +126,15 @@ describe('completing a watch setup (§3, §3.1)', () => {
 
 describe('Random All for a watched game (§3)', () => {
   test.each([2, 3, 4])('%i AIs: exact count, unique open classes, open personalities', (count) => {
+    const picked = new Set<string>();
     for (let seed = 1; seed <= 60; seed++) {
       const ais = randomAis(classOptions, count, seeded(seed))!;
       expect(ais).toHaveLength(count);
       expect(new Set(ais.map((entry) => entry.classId)).size).toBe(count);
       expect(completeWatchSetup(draftOf(ais), classOptions), `seed ${seed}`).toBeDefined();
-      for (const entry of ais) expect(entry.personality).toBe('greedy');
+      for (const entry of ais) picked.add(entry.personality);
     }
+    expect([...picked].sort()).toEqual(['aggressive', 'cautious', 'greedy', 'opportunist']);
   });
 
   test('is the same for the same random source and never invents a count it cannot seat', () => {
@@ -284,14 +294,16 @@ describe('an unfinished watch setup after a reload (§3.1)', () => {
     const closedClass = restoreWatchProgress(saved('review'), onlyClasses('fisherman'), modes);
     expect(closedClass?.step).toBe('ais');
     expect(closedClass?.draft.ais).toBeUndefined();
-    const closedPersonality = restoreWatchProgress(
-      saved('options', { ais: [ai('fisherman'), ai('researcher', { personality: 'cautious' })] }),
+    const unknownPersonality = restoreWatchProgress(
+      saved('options', {
+        ais: [ai('fisherman'), ai('researcher', { personality: 'sneaky' as never })],
+      }),
       classOptions,
       modes,
     );
-    expect(closedPersonality?.step).toBe('ais');
-    expect(closedPersonality?.draft.ais).toEqual(withRivalCount(classOptions, undefined, [], 2));
-    expect(closedPersonality?.draft.mode).toBe('quick');
+    expect(unknownPersonality?.step).toBe('ais');
+    expect(unknownPersonality?.draft.ais).toEqual(withRivalCount(classOptions, undefined, [], 2));
+    expect(unknownPersonality?.draft.mode).toBe('quick');
   });
 
   test('a repeated class is dropped as a whole, never half-kept', () => {

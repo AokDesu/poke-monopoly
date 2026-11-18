@@ -1,0 +1,98 @@
+[
+  {
+    "id": "roll-high-own-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Big roll! More road means more coins. I call that Poké-profit."
+  },
+  {
+    "id": "roll-high-own-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Look at that die go. Snorlax-sized steps, and every one of them pays."
+  },
+  {
+    "id": "roll-high-own-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Top of the die! Time to go collect, trainers."
+  },
+  {
+    "id": "roll-high-own-greedy-neutral-4",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "That roll was a jackpot. Thank you, lucky die."
+  },
+  {
+    "id": "roll-high-own-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Boom! The biggest roll there is. Try to catch me now!"
+  },
+  {
+    "id": "roll-high-own-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "That die just evolved into a champion!"
+  },
+  {
+    "id": "roll-high-own-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Maximum roll! I am charging ahead like a Machop."
+  },
+  {
+    "id": "roll-high-own-aggressive-neutral-4",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Watch me go. Nobody rolls like that without training."
+  },
+  {
+    "id": "roll-high-own-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "A high roll, good. I will use it carefully."
+  },
+  {
+    "id": "roll-high-own-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "A big roll and no surprises. My favourite kind."
+  },
+  {
+    "id": "roll-high-own-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "The die was kind to me. I will thank it by staying careful."
+  },
+  {
+    "id": "roll-high-own-cautious-neutral-4",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Lucky roll! Even a Chansey would smile at that."
+  },
+  {
+    "id": "roll-high-own-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Oh, would you look at that roll. Luck loves a good friend."
+  },
+  {
+    "id": "roll-high-own-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "A big roll! Funny how the die likes me best."
+  },
+  {
+    "id": "roll-high-own-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Top roll! Somebody evolved their luck today."
+  },
+  {
+    "id": "roll-high-own-opportunist-neutral-4",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Big roll, big smile. Try not to look so jealous, friends."
+  }
+]

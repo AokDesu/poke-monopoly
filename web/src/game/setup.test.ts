@@ -5,6 +5,7 @@ import {
   classConflicts,
   completeSetup,
   maxRivals,
+  PERSONALITIES,
   randomSetup,
   seedFromSearch,
   withRivalCount,
@@ -98,6 +99,7 @@ describe('one to three rivals reach a started game with every seat as chosen (§
 
 describe('Random All (§3)', () => {
   test('never repeats a class, never loses the requested count, never picks a closed option', () => {
+    const picked = new Set<string>();
     for (const count of [1, 2, 3]) {
       for (let step = 0; step < 40; step++) {
         const value = step / 40;
@@ -105,6 +107,7 @@ describe('Random All (§3)', () => {
         // A deterministic spread of choices, not one constant.
         const random = () => (value + 0.137 * n++) % 1;
         const setup = randomSetup(classOptions, ['quick'], random, count)!;
+        for (const opponent of setup.opponents) picked.add(opponent.personality);
         const seats = [setup.human, ...setup.opponents];
         expect(setup.opponents).toHaveLength(count);
         expect(new Set(seats.map((seat) => seat.classId)).size).toBe(count + 1);
@@ -113,11 +116,15 @@ describe('Random All (§3)', () => {
           expect(option.starterSpeciesIds).toContain(seat.starterSpeciesId);
         }
         for (const opponent of setup.opponents) {
-          expect(opponent.personality).toBe('greedy');
+          expect(
+            PERSONALITIES.some((entry) => entry.enabled && entry.id === opponent.personality),
+          ).toBe(true);
           expect(['easy', 'normal']).toContain(opponent.difficulty);
         }
       }
     }
+    // The spread reaches every personality, not only Greedy.
+    expect([...picked].sort()).toEqual(['aggressive', 'cautious', 'greedy', 'opportunist']);
   });
 
   test('without a requested count, picks one to three rivals at random', () => {
@@ -177,12 +184,19 @@ describe('class conflicts (§3)', () => {
     expect(classConflicts(human, [rival('fisherman'), rival('fisherman')])).toEqual([1]);
   });
 
-  test('a closed class or personality, no rival and too many rivals never complete', () => {
+  test('every personality completes for a rival; one without a file, a closed class, no rival and too many rivals never do', () => {
+    for (const { id } of PERSONALITIES) {
+      expect(completeSetup(draft([rival('fisherman', id)]), classOptions)?.opponents).toEqual([
+        rival('fisherman', id),
+      ]);
+    }
     const rivalClosed = classOptions.map((option) =>
       option.id === 'rival' ? { ...option, playable: false } : option,
     );
     expect(completeSetup(draft([rival('rival')]), rivalClosed)).toBeUndefined();
-    expect(completeSetup(draft([rival('fisherman', 'aggressive')]), classOptions)).toBeUndefined();
+    expect(
+      completeSetup(draft([rival('fisherman', 'sneaky' as never)]), classOptions),
+    ).toBeUndefined();
     expect(completeSetup(draft([]), classOptions)).toBeUndefined();
     expect(completeSetup({ mode: 'quick', human }, classOptions)).toBeUndefined();
     const four = ['main-character', 'fisherman', 'nurse-joy', 'bug-catcher'].map((id) => rival(id));

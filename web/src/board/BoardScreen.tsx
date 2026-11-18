@@ -7,6 +7,7 @@ import { TableTalkPanel } from './TableTalk.tsx';
 import { useTableTalk } from './useTableTalk.ts';
 import { useTurnPlayback } from './useTurnPlayback.ts';
 import { EncounterDialog } from './EncounterDialog.tsx';
+import { latestEvent } from './eventCard.ts';
 import { SellPanel } from './SellPanel.tsx';
 import { opponentMessageOf, TurnPanel } from './TurnPanel.tsx';
 import { WatchScreen } from './WatchScreen.tsx';
@@ -62,6 +63,9 @@ function PlayerBoardScreen({
   };
   const you = game.players.find((player) => player.seatIndex === view.seatIndex)!;
   const opponentMessage = opponentMessageOf(view);
+  // An Event card drawn this turn is what opened an encounter: no Wild square and Event card share a turn.
+  const drawn = latestEvent(view.feed, view.observation);
+  const encounterEvent = drawn?.turn === game.globalTurnNo ? drawn.text : undefined;
   // The current rival action, spelled out under the board loop so the text sits right
   // where the spotlight is (issue #123). Same wording as the field-log row.
   const focus =
@@ -114,6 +118,7 @@ function PlayerBoardScreen({
           observation={view.observation}
           legalActions={view.legalActions}
           catchOdds={view.catchOdds}
+          eventText={encounterEvent}
           onChoose={choose}
         />
       )}

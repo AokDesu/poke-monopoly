@@ -6,6 +6,7 @@ import { BattlePanel } from './BattlePanel.tsx';
 import { BattleResult } from './BattleResult.tsx';
 import { BattleTerms } from './BattleTerms.tsx';
 import { battleCopy, forcedSource } from './battle.ts';
+import { JevChoicePanel } from './JevChoicePanel.tsx';
 import { phaseLabel } from './labels.ts';
 import { ShopPanel } from './ShopPanel.tsx';
 import { ChoicePanel } from './ChoicePanel.tsx';
@@ -156,6 +157,7 @@ export function TurnPanel({
           </p>
         )}
       </div>
+      <JevChoicePanel view={view} />
       <AiTurn view={view} playback={playback} />
       <BattleResult view={view} />
       {receivedRescue && (

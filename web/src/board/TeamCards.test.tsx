@@ -48,6 +48,8 @@ test('public team cards show engine current forms, inherited abilities and every
     evolutionStage: speciesId === 'ivysaur' ? 1 : 0,
   }));
   render(<Board observation={observe(state, 0)} />);
+  // The team sits in the seat's details, which open on demand.
+  fireEvent.click(within(screen.getByTestId('player-0')).getByRole('button'));
   for (const pokemon of state.players[0]!.team) {
     const form = effectiveForm(engineContent, pokemon.speciesId);
     const card = screen.getByTestId(pokemon.instanceId);

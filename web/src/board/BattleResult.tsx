@@ -33,7 +33,7 @@ export function battleResultRows(view: SeatView): { key: string; text: string }[
       ...entry.record.events.flatMap((event) =>
         (event.kind === 'coin_transfer' && BATTLE_COINS.includes(event.reason)) ||
         event.kind === 'hostile_item_used'
-          ? eventMessage(event, observation, entry.before)
+          ? eventMessage(event, observation, entry.record.events, false, entry.before)
           : battleEventMessages(event, observation, entry.before),
       ),
     ]);

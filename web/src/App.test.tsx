@@ -116,8 +116,8 @@ test('a rival cannot take a class another player has, and says why (§3)', async
   );
   expect(radio(/^Main Character/)).toHaveProperty('checked', true);
   expect(radio(new RegExp(`^${t('personality.greedy')}`))).toHaveProperty('checked', true);
-  expect(radio(new RegExp(`^${t('personality.aggressive')}`))).toHaveProperty('disabled', true);
-  expect(expectDisabledExplained()).toBeGreaterThanOrEqual(4);
+  expect(radio(new RegExp(`^${t('personality.aggressive')}`))).toHaveProperty('disabled', false);
+  expect(expectDisabledExplained()).toBeGreaterThanOrEqual(1);
 
   // Going Back and taking the rival's class is not repaired silently: it is flagged, the rival
   // keeps its choice, and the setup cannot go on until the rival changes class.
