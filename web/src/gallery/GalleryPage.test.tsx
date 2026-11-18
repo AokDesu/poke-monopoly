@@ -51,6 +51,7 @@ const SHOWN = [
     keys: ['save.pendingDecision', 'save.continue', 'game.resumedAiTurn'],
   },
   { id: 'team-empty', specRow: '13', keys: ['sell.rescuePreview', 'sell.rescueStarter'] },
+  { id: 'event-deck-out', specRow: '14', keys: ['event.card.heading', 'event.deckReshuffled'] },
   {
     id: 'haiku-off',
     specRow: '15',
@@ -66,7 +67,25 @@ const SHOWN = [
   {
     id: 'ai-exchange',
     specRow: 'ai-turns',
-    keys: ['talk.aiWritten', 'talk.onlyWords', 'talk.empty'],
+    keys: ['talk.aiWritten', 'talk.bank', 'talk.onlyWords'],
+  },
+  {
+    id: 'casual-talk',
+    specRow: 'ai-turns',
+    keys: ['talk.bank', 'talk.toYou', 'talk.onlyWords'],
+  },
+  {
+    id: 'jev-panel',
+    specRow: 'ai-turns',
+    keys: [
+      'demo.heading',
+      'demo.banner',
+      'demo.chosen',
+      'demo.confidence',
+      'demo.sellNote',
+      'demo.byBackup',
+      'ai.reason.timeout',
+    ],
   },
   {
     id: 'watch-browser-closed',
@@ -101,8 +120,8 @@ const SHOWN = [
   },
 ] as const satisfies readonly { id: string; specRow: string; keys: readonly MessageKey[] }[];
 
-/** Rows with nothing for a player to see in this build (no free-text chat, deals or event-deck screen, engine-only). */
-const PENDING = ['2', '6', '10', '11', '14'];
+/** Rows with nothing for a player to see in this build (no free-text chat or deals screen, engine-only). */
+const PENDING = ['2', '6', '10', '11'];
 
 /** A catalog message as a pattern, so templated values (`{value}`) match whatever the engine says. */
 function shown(root: HTMLElement, key: MessageKey): boolean {
@@ -214,5 +233,19 @@ test('an invalid answer, revision mismatch or low confidence shows a per-turn no
   }
   for (const id of ['backup-badge', 'all-backup']) {
     expect(examples(id).textContent!, id).toContain(t('ai.backupBadge'));
+  }
+});
+
+test('the "What Jev chose" panel lives only in its own row, and every example of it carries the private-options banner', () => {
+  render(<GalleryPage fixtures={fixtures} />);
+  for (const row of SHOWN) {
+    const found = examples(row.id).querySelectorAll('.jev-panel');
+    if (row.id !== 'jev-panel') {
+      expect(found.length, row.id).toBe(0);
+      expect(examples(row.id).textContent!, row.id).not.toContain(t('demo.heading'));
+    } else {
+      expect(found.length).toBe(4);
+      for (const panel of found) expect(panel.textContent).toContain(t('demo.banner'));
+    }
   }
 });

@@ -313,11 +313,12 @@ test('a reload after the reply keeps the same words and asks for no new ones', a
   };
   writeSave(storage, store.getSession()!, {
     opponents: store.getOpponents(),
+    gameId: store.getGameId(),
     chatWords: store.getChatWords(),
   });
   const meta = readMeta(storage);
   const reloaded = createGameStore();
-  reloaded.restore(store.getSession()!, meta.opponents, meta.watch, meta.chatWords);
+  reloaded.restore(store.getSession()!, meta.opponents, meta.watch, meta.gameId, meta.chatWords);
   render(<BoardScreen store={reloaded} />);
   await settle();
 
@@ -344,7 +345,13 @@ test('a reload that decides differently reuses the saved line and asks for no se
   // saved line stands (words never change a decision) and no second line is bought.
   fakeServer(refusedReply, () => speechLine('I keep to my own road, friend.'));
   const reloaded = createGameStore();
-  reloaded.restore(store.getSession()!, store.getOpponents(), undefined, store.getChatWords());
+  reloaded.restore(
+    store.getSession()!,
+    store.getOpponents(),
+    undefined,
+    store.getGameId(),
+    store.getChatWords(),
+  );
   render(<BoardScreen store={reloaded} />);
   await settle();
   expect(panel().textContent).toContain(WORDS);
@@ -409,7 +416,7 @@ test('saved words that do not belong to the game are never lent to it', async ()
     decision: 'noncommittal' as const,
   };
   const other = createGameStore();
-  other.restore(store.getSession()!, store.getOpponents(), undefined, [
+  other.restore(store.getSession()!, store.getOpponents(), undefined, undefined, [
     { ...row, text: WORDS },
     { ...row, globalTurnNo: turn + 1, text: 'A message that was never sent.' },
     { ...row, toSeatIndex: 0, text: 'To the human, from the human.' },

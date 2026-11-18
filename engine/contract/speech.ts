@@ -141,7 +141,7 @@ export const speakFallbackReasonSchema = z.enum([
   'commitment',
   'probe',
   'echo',
-  // This game's 60 calls or 80,000 input tokens are spent.
+  // This game's call limit or input-token limit (spec §9) is spent.
   'call_limit',
   'token_limit',
   // Another call for this game has not finished.

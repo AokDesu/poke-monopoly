@@ -3,6 +3,7 @@ import type { SeatView, SpectatorView } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
 import { AiTurn } from './AiTurn.tsx';
+import { JevChoicePanel } from './JevChoicePanel.tsx';
 import { phaseLabel } from './labels.ts';
 import { ShopPanel } from './ShopPanel.tsx';
 import { ChoicePanel } from './ChoicePanel.tsx';
@@ -150,6 +151,7 @@ export function TurnPanel({
           </p>
         )}
       </div>
+      <JevChoicePanel view={view} />
       <AiTurn view={view} playback={playback} />
       {receivedRescue && (
         <p className="rescue-preview" role="status">

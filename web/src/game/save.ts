@@ -39,6 +39,11 @@ export interface SaveMeta {
   readonly watch?: WatchSettings;
   /** The rivals' words for the human's topic messages, so a reload shows the same lines (spec §5.7). */
   readonly chatWords?: readonly SavedChatWords[];
+  /**
+   * The id the speech and decision routes know this game by, so the server's per-game limits
+   * (spec §9) carry on across a reload. Never part of the exported log.
+   */
+  readonly gameId?: string;
 }
 
 export type LoadResult =
@@ -68,7 +73,12 @@ export function writeSave(storage: SaveStorage, game: SavedGame, meta: SaveMeta)
   storage.setItem(SAVE_KEY, serialize(game));
   storage.setItem(
     META_KEY,
-    JSON.stringify({ opponents: meta.opponents, watch: meta.watch, chatWords: meta.chatWords }),
+    JSON.stringify({
+      opponents: meta.opponents,
+      watch: meta.watch,
+      gameId: meta.gameId,
+      chatWords: meta.chatWords,
+    }),
   );
 }
 
@@ -89,6 +99,7 @@ export function readMeta(storage: SaveStorage): SaveMeta {
     const talk = watch && typeof watch === 'object' && 'talk' in watch ? watch.talk : undefined;
     const speed = watch && typeof watch === 'object' && 'speed' in watch ? watch.speed : undefined;
     const startSpeed = TURN_SPEEDS.find((item) => item === speed);
+    const gameId = 'gameId' in parsed ? parsed.gameId : undefined;
     return {
       opponents: rows.flatMap((entry) => {
         if (!entry || typeof entry !== 'object') return [];
@@ -99,6 +110,7 @@ export function readMeta(storage: SaveStorage): SaveMeta {
         return [{ seatIndex: row.seatIndex, personality, difficulty }];
       }),
       ...(typeof talk === 'boolean' && startSpeed && { watch: { talk, speed: startSpeed } }),
+      ...(typeof gameId === 'string' && /^[\w-]{1,64}$/.test(gameId) && { gameId }),
       ...('chatWords' in parsed && { chatWords: readSavedChatWords(parsed.chatWords) }),
     };
   } catch {

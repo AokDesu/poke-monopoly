@@ -139,6 +139,24 @@ describe('POST /api/ai/speak: the line (spec §5.7)', () => {
     },
   );
 
+  test.each(Object.keys(LINES).filter((name) => name !== 'fallback_notice'))(
+    '%s: with Haiku down the route answers a bank line of that situation for every personality',
+    async (situation) => {
+      const { speak } = setup(() => ({ ok: false, fallbackReason: 'timeout' }));
+      for (const personalityId of ['greedy', 'aggressive', 'cautious', 'opportunist']) {
+        const { status, json } = await speak(
+          request({ situation, personalityId, addressedSeat: 1, turnKey: `0:${situation}` }),
+        );
+        expect(status).toBe(200);
+        expect(speakResponseSchema.parse(json)).toMatchObject({ source: 'bank' });
+        const line = LINES[situation as keyof typeof LINES].find(
+          (entry) => entry.id === json.lineId,
+        );
+        expect(line?.personality).toBe(personalityId);
+      }
+    },
+  );
+
   test('a client that throws is still a 200 with a bank line', async () => {
     const { speak } = setup(() => {
       throw new Error(`boom ${KEY}`);
@@ -254,18 +272,24 @@ describe('POST /api/ai/speak: one deadline (spec §5.7, §9)', () => {
 });
 
 describe('POST /api/ai/speak: hard stops (spec §9)', () => {
-  test('a game gets 60 calls and 80,000 input tokens; past either it gets the bank and no call', async () => {
+  test('a game gets 150 calls and 200,000 input tokens; past either it gets the bank and no call', async () => {
+    expect(SPEND_CONFIG).toMatchObject({
+      haikuMaxCallsPerGame: 150,
+      haikuMaxInputTokensPerGame: 200_000,
+      haikuCapThb: 150,
+      totalCapThb: 1500,
+    });
     const calls = setup(() => ok(CLEAN, 100));
-    for (let n = 0; n < 60; n++) {
+    for (let n = 0; n < 150; n++) {
       expect((await calls.speak(request({ turnKey: `0:${n}` }))).json.source).toBe('haiku');
     }
-    const sixtyFirst = await calls.speak(request({ turnKey: '0:60' }));
-    expect(sixtyFirst.json).toMatchObject({ source: 'bank', fallbackReason: 'call_limit' });
-    expect(calls.client.requests).toHaveLength(60);
+    const next = await calls.speak(request({ turnKey: '0:150' }));
+    expect(next.json).toMatchObject({ source: 'bank', fallbackReason: 'call_limit' });
+    expect(calls.client.requests).toHaveLength(150);
     // Another game is not affected.
     expect((await calls.speak(request({ gameId: 'game-2' }))).json.source).toBe('haiku');
 
-    const tokens = setup(() => ok(CLEAN, 30_000));
+    const tokens = setup(() => ok(CLEAN, 70_000));
     expect((await tokens.speak()).json.source).toBe('haiku');
     expect((await tokens.speak()).json.source).toBe('haiku');
     expect((await tokens.speak()).json.source).toBe('haiku');

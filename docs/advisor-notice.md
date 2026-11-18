@@ -40,7 +40,7 @@ leak tests have merged, so it can report what was built and tested.
   seed or the deck order, and never a number it could state or compare.
 - It writes one plain-text line of at most 140 characters. An output screen rejects a
   line with a digit, a link, a non-public item name, an offer or promise, or an echo of
-  the instruction. A rejected, late (1,200 ms) or missing line is replaced by a
+  the instruction. A rejected, late (3,000 ms) or missing line is replaced by a
   line-bank line, or by silence. The game never waits for Haiku.
 - The player is told: generated lines are labelled “AI-written · only words”, and a
   “Voice off” badge shows why when Haiku is off.
@@ -51,7 +51,7 @@ leak tests have merged, so it can report what was built and tested.
 
 Haiku speech is off unless `HAIKU_ENABLED=true`, and the game plays the same without it:
 every line then comes from the line bank. Haiku spend is capped at THB 150 in total,
-and at 60 calls and 80,000 input tokens per game, inside the THB 1,500 cap for all AI
+and at 150 calls and 200,000 input tokens per game, inside the THB 1,500 cap for all AI
 spend. Past a cap the line bank takes over. Table talk between AIs and watch mode are
 additions; neither changes the rules or the AI's decisions.
 

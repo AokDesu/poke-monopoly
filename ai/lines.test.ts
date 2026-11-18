@@ -34,13 +34,13 @@ test('selectLine reaches every Greedy neutral line across seeds', () => {
   const picked = new Set(
     Array.from(
       { length: 30 },
-      (_, seed) => selectLine('game_start', 'greedy', 'neutral', createRng(seed)).lineId,
+      (_, seed) => selectLine('taunt_leader', 'greedy', 'neutral', createRng(seed)).lineId,
     ),
   );
   expect([...picked].sort()).toEqual([
-    'game-start-greedy-neutral-1',
-    'game-start-greedy-neutral-2',
-    'game-start-greedy-neutral-3',
+    'taunt-leader-greedy-neutral-1',
+    'taunt-leader-greedy-neutral-2',
+    'taunt-leader-greedy-neutral-3',
   ]);
 });
 

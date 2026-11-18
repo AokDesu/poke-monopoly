@@ -1,0 +1,98 @@
+[
+  {
+    "id": "table-banter-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "This road is long, but the coins are worth it."
+  },
+  {
+    "id": "table-banter-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "{target}, you look like someone who loves a good payday."
+  },
+  {
+    "id": "table-banter-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Is it just me, or does every square smell like coins?"
+  },
+  {
+    "id": "table-banter-greedy-neutral-4",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Nothing beats a quiet turn and a full pocket. Right, {target}?"
+  },
+  {
+    "id": "table-banter-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Who is ready for the next battle? I am, obviously."
+  },
+  {
+    "id": "table-banter-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{target}, you are looking a little nervous over there."
+  },
+  {
+    "id": "table-banter-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "I could use a good fight. Anyone? Hello?"
+  },
+  {
+    "id": "table-banter-aggressive-neutral-4",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "The tall grass is calling, and so is the Gym, {target}!"
+  },
+  {
+    "id": "table-banter-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Lovely weather for a careful stroll, is it not?"
+  },
+  {
+    "id": "table-banter-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "{target}, I hope your team is resting well."
+  },
+  {
+    "id": "table-banter-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "I like a quiet game. Nothing bad has happened yet."
+  },
+  {
+    "id": "table-banter-cautious-neutral-4",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Remember to look before you step into the tall grass, {target}."
+  },
+  {
+    "id": "table-banter-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "I do enjoy a good table. The company is lovely, mostly."
+  },
+  {
+    "id": "table-banter-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "{target}, you and I should be friends. Just a thought."
+  },
+  {
+    "id": "table-banter-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Everyone looks so serious. Someone tell a joke!"
+  },
+  {
+    "id": "table-banter-opportunist-neutral-4",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Lovely game, friends. {target}, you play it like a Pikachu, all spark."
+  }
+]

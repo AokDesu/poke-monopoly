@@ -15,7 +15,7 @@ import type {
 } from './contract/schema.ts';
 
 // Hostile items cannot target the user and ignore board distance (§4.6).
-const HOSTILE = ['repel', 'sticky-web', 'pickpocket', 'battle-ticket'];
+export const HOSTILE = ['repel', 'sticky-web', 'pickpocket', 'battle-ticket'];
 
 /** Engine-owned classification for observers of legal choices (§4.6). */
 export function isHostileItem(itemId: string): boolean {
