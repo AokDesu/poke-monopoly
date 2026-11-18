@@ -25,7 +25,7 @@ No personal data about players is stored. These rules apply to everything writte
 5. **Quotes** from answers are allowed if they hold no name, contact detail or identifying detail. Replace such a part with `[removed]`.
 6. **Consent is spoken, not signed.** A signature is a name. Read the consent paragraph in [section 4](#4-scripts-consent-and-briefing). If the participant does not say yes, there is no session and no row. A row in the sheet therefore means consent was given.
 7. **In the game:** use the participant code wherever the build asks for a name. The setup in spec §3 asks for none **[confirm in cycle 2]**. Free-text chat arrives in cycle 3. When it is on, tell the participant not to type their real name or contact details. Exported game logs stay out of git unless a bug needs one, and then only after you read the file for typed text.
-8. **Deletion.** If a participant gives you their code and asks for deletion, remove their row and notes from the current files in a pull request. History cannot be rewritten (`main` forbids force-push), but it holds nothing that identifies anyone.
+8. **Deletion.** If a participant gives you their code and asks for deletion, remove their row and notes from the current files in a pull request. History cannot be rewritten (`main` forbids force-push), but it holds nothing that identifies anyone. `results.md` copies the answers and quotes from the sheets word for word, so a deletion request also means running `npm run playtest:report` again on the corrected sheets and committing the new `results.md` and charts in the same pull request.
 
 ## 3. Set-up (before the participant arrives)
 
@@ -43,7 +43,7 @@ Do one dry run of the whole protocol with a teammate before the first real sessi
 code: G1-A01   date:        seed:        commit:
 play starts (clock):        play ends (clock):
 hesitations:  type (sell_keep | ball) | Lap/turn | pause or said | ...
-confusion, bugs, restarts, Backup bot badge, Jev live/off, Voice on/off:
+confusion, bugs, restarts, Backup bot badge, jev live/off:
 ```
 
 ## 4. Scripts: consent and briefing
@@ -199,7 +199,7 @@ Question 3 counts the participant's own chats only. AI table talk never changes 
    npm run playtest:report -- docs/playtest/g1/session-sheet-A.csv docs/playtest/g1/session-sheet-B.csv
    ```
 
-   Name the sheets of one round, which sit in one folder. It writes `results.md` and three SVG charts (`results-outcomes.svg`, `results-hesitation.svg`, `results-answers.svg`) next to them, and nothing else. Every figure is "x of n". An `n/a` cell is shown as unobserved, listed apart from the zeros and left out of every median. It prints no percentage and runs no test, because the Human layer has no threshold (spec §8). It refuses, and writes nothing, for a sheet with a cell that looks like personal data, an empty cell, a placeholder, a value of the wrong form or a repeated code. It accepts `n/a` as unobserved in `game_length_min`, `meaningful_choices`, `drop_off_point` with `drop_off_reason`, and `hesitation_count` with `hesitation_decisions` (each pair both `n/a` or both filled), which is how the committed G1 rows record what the facilitator could not see, although `playtest:check` still reports those cells. Running it again on the same sheets writes the same files. For G1, the report `docs/playtest/g1/G1-report.md` (issue #54) uses these tables.
+   Name the sheets of one round, which sit in one folder. It writes `results.md` and three SVG charts (`results-outcomes.svg`, `results-hesitation.svg`, `results-answers.svg`) next to them, and nothing else. Every figure is "x of n". An `n/a` cell is shown as unobserved, listed apart from the zeros and left out of every median. It prints no percentage and runs no test, because the Human layer has no threshold (spec §8). It refuses, and writes nothing, for a sheet with a cell that looks like personal data, an empty cell, a placeholder, a value of the wrong form, a repeated code or codes of two rounds (G1 and P5 never share a report). It accepts `n/a` as unobserved in `game_length_min`, `meaningful_choices`, `drop_off_point` with `drop_off_reason`, and `hesitation_count` with `hesitation_decisions` (each pair both `n/a` or both filled), which is how the committed G1 rows record what the facilitator could not see, although `playtest:check` still reports those cells. It reads Jev and Voice from the tags `jev=live` or `jev=off` and `voice=on` or `voice=off` in `notes` (the tags the facilitator writes first, section 3); the words `Jev live` and `Voice off` count only for a row with no tag, and a tag marked as assumed or not observed counts as unobserved. The headline of `results.md` says how many builds the sessions come from; when it is more than one, the sessions of different builds are pooled and the headline lists the builds. Running it again on the same sheets writes the same files. For G1, the report `docs/playtest/g1/G1-report.md` (issue #54) uses these tables.
 
 ## 8. The sheet columns
 
@@ -221,7 +221,7 @@ The file is UTF-8, comma separated, one row per session, one line per row. A cel
 |`q2_opponent_personality`|The same format as question 1, or `n/a`.|
 |`q3_conversation_changed_game`|The same format as question 1, or `n/a`.|
 |`q4_boring_moment`|`none`, or the moment or screen in a few words, then ` - ` and a short paraphrase or quote.|
-|`notes`|Bugs and confusion with issue numbers, hesitations at decisions that did not count, restarts, Jev live or off, Voice on or off, Backup bot badge seen. Codes only. Write Jev and Voice as the words `Jev live` or `Jev off` and `Voice on` or `Voice off`: the results command reads them from here. A statement marked as assumed or not observed counts as unobserved.|
+|`notes`|Bugs and confusion with issue numbers, hesitations at decisions that did not count, restarts, Jev live or off, Backup bot badge seen. Codes only.|
 
 Example row, invented to show the format only:
 

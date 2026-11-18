@@ -42,7 +42,7 @@ export type Session = {
   q2: { raw: string; answer: Answer };
   q3: { raw: string; answer: Answer };
   q4: { raw: string; kind: 'none' | 'moment' | 'n/a' };
-  /** Read from the words "Jev live", "Jev off" in `notes`; null when not stated. */
+  /** Read from the tags `jev=live|off` and `voice=on|off` in `notes`; null when not stated. */
   jev: Switch | null;
   voice: Switch | null;
 };
@@ -51,25 +51,36 @@ export type SheetText = { name: string; text: string };
 
 const ANSWER = /^(yes|no|unsure|n\/a)(?: - .+)?$/;
 const WHOLE = /^[0-9]+$/;
+/** `n/a` or `n/a - reason`: the question was skipped, so the cell is unobserved. */
+const SKIPPED = /^n\/a(?:\s|$)/;
 const BUILD = /^[0-9a-f]{7}$/;
 /** A note that says the state was guessed or unseen does not count as a statement of it. */
 const NOT_SEEN = /\b(?:assumed|not observed|unobserved|unknown|not sure)\b/i;
 
 /**
- * `Jev live` / `Jev off` (or `Voice on` / `Voice off`) in the free-text notes, which is where the
- * protocol (section 8, `notes`) has the facilitator write it. A statement in a `;` part that says
- * it was assumed or not observed is ignored, and a note that states both is not a statement.
+ * The Jev and Voice state in the free-text notes. The tag form `jev=live` / `jev=off` and
+ * `voice=on` / `voice=off` is what the protocol (section 8, `notes`) has the facilitator write, so
+ * it wins. The words `Jev live`, `Jev off`, `Voice on` and `Voice off` are read only when the notes
+ * hold no tag for that setting. A statement in a `;` part that says it was assumed or not observed
+ * is ignored, and a note that states both values is not a statement.
  */
-export function readSwitch(notes: string, word: 'Jev' | 'Voice'): Switch | null {
-  const on = word === 'Jev' ? 'live' : 'on';
-  const found = new Set<Switch>();
-  for (const match of notes.matchAll(new RegExp(`\\b${word}\\s+(${on}|off)\\b`, 'gi'))) {
-    const at = match.index;
-    const start = notes.lastIndexOf(';', at) + 1;
-    const end = notes.indexOf(';', at);
-    if (NOT_SEEN.test(notes.slice(start, end === -1 ? notes.length : end))) continue;
-    found.add(match[1]!.toLowerCase() === 'off' ? 'off' : 'on');
-  }
+export function readSwitch(notes: string, setting: 'Jev' | 'Voice'): Switch | null {
+  const on = setting === 'Jev' ? 'live' : 'on';
+  const read = (pattern: string) => {
+    const found = new Set<Switch>();
+    for (const match of notes.matchAll(new RegExp(pattern, 'gi'))) {
+      const at = match.index;
+      const start = notes.lastIndexOf(';', at) + 1;
+      const end = notes.indexOf(';', at);
+      if (NOT_SEEN.test(notes.slice(start, end === -1 ? notes.length : end))) continue;
+      found.add(match[1]!.toLowerCase() === 'off' ? 'off' : 'on');
+    }
+    return found;
+  };
+  const tag = `\\b${setting}=(${on}|off)\\b`;
+  const found = new RegExp(tag, 'i').test(notes)
+    ? read(tag)
+    : read(`\\b${setting}\\s+(${on}|off)\\b`);
   return found.size === 1 ? [...found][0]! : null;
 }
 
@@ -156,7 +167,7 @@ function readRow(
     kind:
       q4Text === 'none'
         ? ('none' as const)
-        : q4Text === 'n/a'
+        : SKIPPED.test(q4Text)
           ? ('n/a' as const)
           : ('moment' as const),
   };
@@ -204,7 +215,7 @@ function readRow(
  * Reads sheets for the report. Stricter than nothing and looser than `playtest:check`: `n/a` is
  * accepted as unobserved in the cells a facilitator may not have been able to fill, and a long
  * `notes` cell is not an error here. A cell that looks like personal data, a value of the wrong
- * form, an empty cell, a placeholder and a repeated code are errors; any error means no report.
+ * form, an empty cell, a placeholder, a repeated code and codes of two rounds are errors; any error means no report.
  */
 export function readSheets(
   sheets: readonly SheetText[],
@@ -213,6 +224,8 @@ export function readSheets(
   const sessions: Session[] = [];
   const problems: SheetProblem[] = [];
   const seen = new Map<string, string>();
+  /** Protocol section 2, step 1: one round per report, so one `<round>` in every code. */
+  let round: { name: string; at: string } | undefined;
   for (const sheet of sheets) {
     const report = (line: number, message: string, column?: string) =>
       problems.push({
@@ -256,13 +269,21 @@ export function readSheets(
         const session = readRow(byName, (column, message) => report(row.line, message, column));
         if (!session) continue;
         const first = seen.get(session.code);
-        if (first !== undefined) {
+        const sessionRound = session.code.slice(0, session.code.indexOf('-'));
+        if (round !== undefined && round.name !== sessionRound) {
+          report(
+            row.line,
+            `the code ${session.code} is of round ${sessionRound}, but ${round.at} is of round ${round.name}: pass the sheets of one round`,
+            'participant_code',
+          );
+        } else if (first !== undefined) {
           report(
             row.line,
             `the code ${session.code} is already used at ${first}`,
             'participant_code',
           );
         } else {
+          round ??= { name: sessionRound, at: `${sheet.name}:${row.line}` };
           seen.set(session.code, `${sheet.name}:${row.line}`);
           sessions.push(session);
         }
@@ -464,10 +485,16 @@ export function renderResults(
     list(h.byType[type].sessions),
   ]);
 
+  const builds = [...new Set(sessions.map((s) => s.build))].sort();
+  const buildText =
+    builds.length === 1
+      ? `1 build: \`${builds[0]}\``
+      : `${builds.length} builds pooled, the sessions of different builds counted together: ${builds.map((b) => `\`${b}\``).join(', ')}`;
+
   const markdown = [
     '# Playtest results',
     '',
-    `Human layer (spec §8, §10 C5). n = ${n} session${n === 1 ? '' : 's'}, from ${sheets.length} sheet${sheets.length === 1 ? '' : 's'}: ${sheets.map((s) => `\`${s}\``).join(', ')}.`,
+    `Human layer (spec §8, §10 C5). n = ${n} session${n === 1 ? '' : 's'}, from ${sheets.length} sheet${sheets.length === 1 ? '' : 's'}: ${sheets.map((s) => `\`${s}\``).join(', ')}. ${buildText[0]!.toUpperCase()}${buildText.slice(1)}.`,
     '',
     'Every figure is "x of n", with n the number of sessions. An `n/a` cell is unobserved: it is listed apart from the zeros and is in no median. No threshold applies to the Human layer (spec §8), so this report gives counts with n and nothing else: no rate and no test.',
     '',
@@ -576,7 +603,7 @@ export function renderResults(
     '',
     '## Jev and Voice, by session',
     '',
-    'Read from the words `Jev live`, `Jev off`, `Voice on` and `Voice off` in each row\u2019s `notes`. A session whose notes do not say, say it was assumed or not observed, or say both is unobserved.',
+    'Read from the tags `jev=live`, `jev=off`, `voice=on` and `voice=off` in each row\u2019s `notes` (the words `Jev live`, `Voice off` and so on count only when a row has no tag for that setting). A session whose notes do not say, say it was assumed or not observed, or say both is unobserved.',
     '',
     table(
       ['Session', 'Jev', 'Voice'],

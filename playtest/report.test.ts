@@ -56,14 +56,14 @@ const INVENTED: Row[] = [
     q1_hesitated_sell_keep: 'yes - unsure at the first Start',
     q3_conversation_changed_game: 'no - none',
     q4_boring_moment: 'waiting for the AI turn - a long wait',
-    notes: 'Jev live; Voice off',
+    notes: 'jev=live; voice=off; setup=fixed; finished_in_cap=yes; Voice off badge seen',
   },
   {
     participant_code: 'T1-A02',
     game_length_min: '20',
     meaningful_choices: '28',
     q2_opponent_personality: 'yes - bold opponent',
-    notes: 'Jev live; Voice on',
+    notes: 'jev=live; voice=on',
   },
   {
     participant_code: 'T1-B01',
@@ -74,7 +74,7 @@ const INVENTED: Row[] = [
     hesitation_count: '1',
     hesitation_decisions: 'sell_keep',
     q2_opponent_personality: 'unsure - maybe',
-    notes: 'Jev off (backup bot); Voice on',
+    notes: 'jev=off; voice=on; Backup bot badge',
   },
   {
     participant_code: 'T1-B02',
@@ -83,7 +83,7 @@ const INVENTED: Row[] = [
     hesitation_count: '2',
     hesitation_decisions: 'ball|ball',
     q1_hesitated_sell_keep: 'yes - weighing Balls',
-    notes: 'Jev live',
+    notes: 'jev=live',
   },
   {
     participant_code: 'T1-C01',
@@ -92,7 +92,7 @@ const INVENTED: Row[] = [
     hesitation_count: 'n/a',
     hesitation_decisions: 'n/a',
     q1_hesitated_sell_keep: 'unsure - not sure',
-    notes: 'Jev off/backup assumed, not observed',
+    notes: 'jev=off assumed, not observed',
   },
   {
     participant_code: 'T1-C02',
@@ -216,7 +216,35 @@ describe('unobserved is not zero', () => {
 });
 
 describe('Jev and Voice in the notes', () => {
-  test('reads the words, ignores a guess, and refuses a contradiction', () => {
+  test('reads the tags the protocol asks for, in any case, from the start of the notes', () => {
+    const notes = 'jev=live; voice=off; setup=fixed; finished_in_cap=yes; Pause at Shop';
+    expect(readSwitch(notes, 'Jev')).toBe('on');
+    expect(readSwitch(notes, 'Voice')).toBe('off');
+    expect(readSwitch('JEV=OFF; Voice=On', 'Jev')).toBe('off');
+    expect(readSwitch('JEV=OFF; Voice=On', 'Voice')).toBe('on');
+    expect(readSwitch('jev=live; voice=on', 'Jev')).toBe('on');
+  });
+
+  test('a tag beats the words, so a "Voice off badge" note does not contradict voice=on', () => {
+    expect(readSwitch('jev=live; voice=on; Voice off badge seen once', 'Voice')).toBe('on');
+    expect(readSwitch('jev=live; voice=on; Jev off badge seen', 'Jev')).toBe('on');
+  });
+
+  test('a tag that is guessed, contradicted or malformed is unobserved', () => {
+    expect(readSwitch('jev=live assumed; voice=on', 'Jev')).toBeNull();
+    expect(readSwitch('jev=live; jev=off', 'Jev')).toBeNull();
+    expect(readSwitch('jev=maybe; voice=', 'Jev')).toBeNull();
+    expect(readSwitch('jev=maybe; voice=', 'Voice')).toBeNull();
+    expect(readSwitch('xjev=live; myvoice=on', 'Jev')).toBeNull();
+    expect(readSwitch('xjev=live; myvoice=on', 'Voice')).toBeNull();
+  });
+
+  test('a row written with the tags counts as observed in the results', () => {
+    const [session] = sessionsOf({ notes: 'jev=live; voice=off; setup=fixed' });
+    expect(session).toMatchObject({ jev: 'on', voice: 'off' });
+  });
+
+  test('reads the words when a row has no tag, ignores a guess, and refuses a contradiction', () => {
     expect(readSwitch('Jev live; Voice off badge seen', 'Jev')).toBe('on');
     expect(readSwitch('Jev live; Voice off badge seen', 'Voice')).toBe('off');
     expect(readSwitch('jev OFF (backup bot; server decider not wired to Jev)', 'Jev')).toBe('off');
@@ -224,6 +252,23 @@ describe('Jev and Voice in the notes', () => {
     expect(readSwitch('Jev live; Jev off after a restart', 'Jev')).toBeNull();
     expect(readSwitch('nothing said', 'Voice')).toBeNull();
     expect(readSwitch('Jeve live, Voiceover on', 'Jev')).toBeNull();
+  });
+});
+
+describe('question 4', () => {
+  const kind = (q4_boring_moment: string) => sessionsOf({ q4_boring_moment })[0]!.q4.kind;
+
+  test('none, n/a and n/a with a reason are not a moment named', () => {
+    expect(kind('none')).toBe('none');
+    expect(kind('n/a')).toBe('n/a');
+    expect(kind('n/a - skipped')).toBe('n/a');
+    expect(kind('n/a - participant left before the question')).toBe('n/a');
+  });
+
+  test('a moment that merely starts with those letters is a moment named', () => {
+    expect(kind('waiting for the AI turn - a long wait')).toBe('moment');
+    expect(kind('n/aXYZ screen - slow')).toBe('moment');
+    expect(kind('Shop - n/a items')).toBe('moment');
   });
 });
 
@@ -287,6 +332,36 @@ describe('what the reader refuses', () => {
     expect(messages({ notes: 'two\nlines' })[0]).toContain('one line per row');
   });
 
+  test('codes of two rounds, in one sheet or across two', () => {
+    const mixed = readSheets(
+      [
+        { name: 'a.csv', text: sheet({ participant_code: 'G1-A01' }) },
+        { name: 'b.csv', text: sheet({ participant_code: 'P5-B01' }) },
+      ],
+      COLUMNS,
+    );
+    expect(mixed.problems).toEqual([
+      expect.objectContaining({
+        file: 'b.csv',
+        line: 2,
+        column: 'participant_code',
+        message: expect.stringContaining('of round P5, but a.csv:2 is of round G1'),
+      }),
+    ]);
+    const within = read(
+      sheet(
+        { participant_code: 'G1-A01' },
+        { participant_code: 'G1-B01' },
+        { participant_code: 'P5-A01' },
+      ),
+    );
+    expect(within.problems).toHaveLength(1);
+    expect(within.problems[0]!.line).toBe(4);
+    expect(
+      read(sheet({ participant_code: 'G1-A01' }, { participant_code: 'G1-C07' })).problems,
+    ).toEqual([]);
+  });
+
   test('a long notes cell is not an error here: the check command owns that rule', () => {
     expect(read(sheet({ notes: 'x'.repeat(300) })).problems).toEqual([]);
   });
@@ -302,6 +377,17 @@ describe('the report text', () => {
     return sessionsOf(...INVENTED, tricky);
   })();
   const { markdown, charts } = renderResults(sessions, ['a.csv', 'b.csv']);
+
+  test('says in the headline how many builds are pooled, and names them', () => {
+    expect(markdown).toContain('1 build: `abc1234`.');
+    const pooled = renderResults(
+      sessionsOf({}, { participant_code: 'T1-A02', build_commit: 'def5678' }),
+      ['a.csv'],
+    ).markdown;
+    expect(pooled).toContain(
+      '2 builds pooled, the sessions of different builds counted together: `abc1234`, `def5678`.',
+    );
+  });
 
   test('states n and that no threshold applies, and carries no rate, test or "significant"', () => {
     expect(markdown).toContain('n = 7 sessions, from 2 sheets');
