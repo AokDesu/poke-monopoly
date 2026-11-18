@@ -3,6 +3,10 @@ import type { SeatView, SpectatorView } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
 import { AiTurn } from './AiTurn.tsx';
+import { BattlePanel } from './BattlePanel.tsx';
+import { BattleResult } from './BattleResult.tsx';
+import { BattleTerms } from './BattleTerms.tsx';
+import { battleCopy, forcedSource } from './battle.ts';
 import { JevChoicePanel } from './JevChoicePanel.tsx';
 import { phaseLabel } from './labels.ts';
 import { ShopPanel } from './ShopPanel.tsx';
@@ -49,10 +53,19 @@ export function TurnPanel({
 }: TurnPanelProps) {
   const { public: game } = view.observation;
   const humanTurn = game.activeSeatIndex === view.seatIndex;
-  // Gym entry, Ability windows, rerolls and rewards have no dedicated panel yet (#55): list the
-  // engine's enabled choices whenever this seat owns a real decision outside the panels below.
+  // A PvP or Gym battle has its own panel for every decision, owned by the engine's pending seat
+  // (the defender and the reward winner included), whoever holds the turn (§6.4).
+  const battle = battleCopy(view);
+  const owner = view.decision?.seatIndex === view.seatIndex;
+  const gymEntry =
+    game.phase.kind === 'gym' &&
+    game.phase.battle.step === 'entry' &&
+    view.legalActions.disabled.some((action) => action.kind === 'challenge_gym');
+  const battleOpen = battle !== null && owner && (view.legalActions.enabled.length > 1 || gymEntry);
+  // Ability windows and rerolls outside a battle (a move or catch die) list the engine's choices.
   const socialOpen = inSocialWindow(view);
   const choiceOpen =
+    battle === null &&
     view.legalActions.enabled.length > 1 &&
     !socialOpen &&
     !['shop', 'strategy', 'sell'].includes(game.phase.kind) &&
@@ -60,7 +73,8 @@ export function TurnPanel({
   const decisionOpen =
     (humanTurn && ['shop', 'strategy', 'sell'].includes(game.phase.kind)) ||
     socialOpen ||
-    choiceOpen;
+    choiceOpen ||
+    battleOpen;
   const result = view.feed
     .filter(({ before }) => before.activeSeatIndex === view.seatIndex)
     .flatMap((entry) => turnMessages(entry, view.seatIndex))
@@ -92,19 +106,21 @@ export function TurnPanel({
   let body =
     game.phase.kind === 'finished'
       ? t('turn.finished')
-      : !humanTurn
-        ? (opponentMessage?.text ?? t('ai.playing'))
-        : game.phase.kind === 'sell'
-          ? t('turn.sellBody')
-          : game.phase.kind === 'shop'
-            ? t('turn.shopBody')
-            : game.phase.kind === 'strategy' && view.legalActions.enabled.length > 1
-              ? t('turn.strategyBody')
-              : game.phase.kind === 'end'
-                ? t('turn.end')
-                : game.phase.kind === 'move'
-                  ? t('turn.moving')
-                  : t('turn.onlyLegalAction');
+      : battle
+        ? battle.body
+        : !humanTurn
+          ? (opponentMessage?.text ?? t('ai.playing'))
+          : game.phase.kind === 'sell'
+            ? t('turn.sellBody')
+            : game.phase.kind === 'shop'
+              ? t('turn.shopBody')
+              : game.phase.kind === 'strategy' && view.legalActions.enabled.length > 1
+                ? t('turn.strategyBody')
+                : game.phase.kind === 'end'
+                  ? t('turn.end')
+                  : game.phase.kind === 'move'
+                    ? t('turn.moving')
+                    : t('turn.onlyLegalAction');
   if (humanTurn && game.phase.kind === 'encounter' && view.legalActions.enabled.length > 1) {
     body = t('turn.encounterBody');
   }
@@ -115,15 +131,17 @@ export function TurnPanel({
     <section className="turn-panel panel" aria-label={t('turn.actions')}>
       <div className="turn-panel-copy">
         <h2>
-          {humanTurn && game.phase.kind === 'sell'
-            ? t('turn.sellHeading')
-            : humanTurn && game.phase.kind === 'shop'
-              ? t('turn.shopHeading')
-              : game.phase.kind === 'finished'
-                ? t('board.finished')
-                : humanTurn
-                  ? phaseLabel(game.phase.kind)
-                  : t('turn.opponent')}
+          {battle
+            ? battle.heading
+            : humanTurn && game.phase.kind === 'sell'
+              ? t('turn.sellHeading')
+              : humanTurn && game.phase.kind === 'shop'
+                ? t('turn.shopHeading')
+                : game.phase.kind === 'finished'
+                  ? t('board.finished')
+                  : humanTurn
+                    ? phaseLabel(game.phase.kind)
+                    : t('turn.opponent')}
         </h2>
         <p role={opponentFailed ? 'alert' : 'status'}>{body}</p>
         {automaticMessage && !decisionOpen && (
@@ -153,6 +171,7 @@ export function TurnPanel({
       </div>
       <JevChoicePanel view={view} />
       <AiTurn view={view} playback={playback} />
+      <BattleResult view={view} />
       {receivedRescue && (
         <p className="rescue-preview" role="status">
           {t('sell.rescueStarter')}
@@ -170,7 +189,19 @@ export function TurnPanel({
           key={game.stateRevision}
           observation={view.observation}
           legalActions={view.legalActions}
+          challenges={view.challenges}
           onChoose={onChoose}
+        />
+      )}
+      {battleOpen && <BattlePanel view={view} onChoose={onChoose} />}
+      {battle !== null && !battleOpen && view.battle && (
+        <BattleTerms
+          terms={view.battle}
+          viewerSeat={view.seatIndex}
+          frozen={view.battle.frozen}
+          forced={
+            game.phase.kind === 'pvp' && game.phase.battle.forced ? forcedSource(view) : undefined
+          }
         />
       )}
       {socialOpen && (

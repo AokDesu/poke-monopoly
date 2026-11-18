@@ -65,6 +65,8 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
   const wholeTeamSold = once(scenes.wholeTeamSold);
   const reshuffled = once(scenes.eventAfterReshuffle);
   const decisionOpen = once(scenes.rivalDecisionOpen);
+  const gymNoReady = once(scenes.gymNoBattleReady);
+  const gymNoReadyAuto = once(scenes.gymNoBattleReadyAuto);
   const watchOpen = once(scenes.watchDecisionOpen);
   const choseBall = once(scenes.rivalChoseBall);
   const choseItem = once(scenes.rivalChoseItem);
@@ -198,7 +200,12 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
       id: 'only-legal-action',
       specRow: 1,
       label: 'gallery.row.onlyLegalAction',
-      keys: ['turn.onlyLegalAction', 'turn.automatic'],
+      keys: [
+        'turn.onlyLegalAction',
+        'turn.automatic',
+        'choice.challengeGym',
+        'battle.gymAutoSkipped',
+      ],
       examples: [
         {
           id: 'before',
@@ -209,6 +216,16 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
           id: 'after',
           caption: 'gallery.example.afterAuto',
           render: () => turnPanel(noBallAuto()),
+        },
+        {
+          id: 'gym-before',
+          caption: 'gallery.example.gymNoBattleReady',
+          render: () => turnPanel(gymNoReady()),
+        },
+        {
+          id: 'gym-after',
+          caption: 'gallery.example.gymAutoSkipped',
+          render: () => turnPanel(gymNoReadyAuto()),
         },
       ],
     },
@@ -593,6 +610,70 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
                 speech: { enabled: false, reason: 'disabled' },
               },
             }),
+        },
+      ],
+    },
+    {
+      id: 'pvp-gym',
+      specRow: null,
+      spec: { id: 'battle', label: 'gallery.specBattle' },
+      label: 'gallery.row.pvpGym',
+      keys: [
+        'challenge.heading',
+        'challenge.intro',
+        'battle.heading.response',
+        'battle.declineNote',
+        'battle.forcedBy',
+        'battle.heading.window',
+        'battle.withThis',
+        'battle.heading.gym',
+        'battle.termsGym',
+        'battle.heading.reward',
+        'battle.reward.evolveGroup',
+        'battle.reward.choose',
+        'battle.result',
+        'board.event.pvpResolved',
+      ],
+      examples: [
+        {
+          id: 'challenge',
+          caption: 'gallery.example.challengeChoice',
+          render: () => turnPanel(scenes.challengeChoice()),
+        },
+        {
+          id: 'challenge-blocked',
+          caption: 'gallery.example.challengeBlocked',
+          render: () => turnPanel(scenes.challengeBlocked()),
+        },
+        {
+          id: 'defender',
+          caption: 'gallery.example.defenderResponse',
+          render: () => turnPanel(scenes.defenderResponse()),
+        },
+        {
+          id: 'forced',
+          caption: 'gallery.example.forcedChallenge',
+          render: () => turnPanel(scenes.forcedChallenge()),
+        },
+        {
+          id: 'window',
+          caption: 'gallery.example.abilityWindow',
+          render: () => turnPanel(scenes.abilityWindow()),
+        },
+        {
+          id: 'gym',
+          caption: 'gallery.example.gymEntry',
+          render: () => turnPanel(scenes.gymEntry()),
+        },
+        {
+          id: 'reward',
+          caption: 'gallery.example.rewardChoice',
+          render: () => turnPanel(scenes.rewardChoice()),
+        },
+        {
+          id: 'reward-taken',
+          caption: 'gallery.example.rewardTaken',
+          render: () => turnPanel(scenes.rewardTaken()),
         },
       ],
     },

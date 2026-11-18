@@ -130,6 +130,16 @@ export function PlayerPanel({ player, observation, setup, open, onToggle }: Play
             <dt>{t('board.itemsShort')}</dt>
             <dd aria-label={t('board.itemCount')}>{player.itemCount}</dd>
           </div>
+          <div>
+            <dt>{t('board.badges')}</dt>
+            <dd aria-label={t('board.badges')}>{player.badges}</dd>
+          </div>
+          {(ownData?.armedShield ?? player.armedShield) && (
+            <div>
+              <dt>{t('board.shield')}</dt>
+              <dd aria-label={t('board.shield')}>{t('board.shieldArmed')}</dd>
+            </div>
+          )}
           <div className="glance-team">
             <dt>{t('board.team')}</dt>
             <dd>

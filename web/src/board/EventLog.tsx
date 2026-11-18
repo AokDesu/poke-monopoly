@@ -4,32 +4,32 @@ import { t, type MessageKey } from '../i18n/en.ts';
 import { itemName } from '../i18n/names.ts';
 import { ownSeatOf, phaseLabel, playerLabel, reasonLabel, seatLabel } from './labels.ts';
 import type { ViewedObservation } from './labels.ts';
+import { battleEventMessages } from './battleMessages.ts';
 import { eventCardText, eventResultMessage } from './eventCard.ts';
 import { turnMessages } from './turnMessages.ts';
 
-/** `entryEvents`: the records of the same accepted action; `reshuffled`: a deck refill after the first. */
-function eventMessage(
+/**
+ * One seat-filtered event in words. `entryEvents`: the records of the same accepted action;
+ * `reshuffled`: a deck refill after the first; `before`: the public phase its record was applied in.
+ */
+export function eventMessage(
   event: SeatEvent,
   observation: ViewedObservation,
   entryEvents: readonly SeatEvent[],
   reshuffled: boolean,
+  before?: SeatFeedEntry['before'],
 ): { key: MessageKey; text: string }[] {
   const seat = (index: number) => seatLabel(index, ownSeatOf(observation));
   const message = (key: MessageKey, values?: Record<string, string | number>) => [
     { key, text: t(key, values) },
   ];
   switch (event.kind) {
-    // Spec §5.7: persisted dialogue annotations are not gameplay announcements.
-    // Status/evolution/reward records remain in the feed; dedicated UI is a later slice.
-    // An Event reward's identity is told by `event_resolved`, from the recipient's own copy.
+    // Battle, Gym, protection, Ability, status and evolution events are announced in words.
     case 'attack_attempt':
     case 'shield_armed':
     case 'protection_applied':
     case 'ability_activated':
     case 'abilities_reset':
-    case 'player_displaced':
-    case 'ball_gained':
-    case 'item_gained':
     case 'gym_confirmed':
     case 'gym_resolved':
     case 'badge_awarded':
@@ -39,6 +39,12 @@ function eventMessage(
     case 'status_changed':
     case 'pokemon_evolved':
     case 'battle_reward_resolved':
+      return battleEventMessages(event, observation, before);
+    // Spec §5.7: persisted dialogue annotations are not gameplay announcements.
+    // An Event reward's identity is told by `event_resolved`, from the recipient's own copy.
+    case 'player_displaced':
+    case 'ball_gained':
+    case 'item_gained':
     case 'line_selected':
       return [];
     // A chat is private to its two seats and shown in the Social window (#137), not in the shared field log.
@@ -61,7 +67,7 @@ function eventMessage(
       if (event.purpose.startsWith('line:')) return [];
       // Strings/arrays may be internal draw IDs or deck order in historical fixtures. Never dump them.
       return typeof event.result === 'number' &&
-        /^(first-player:|move:|catch:|movement$)/.test(event.purpose)
+        /^(first-player:|move:|catch:|movement$|pvp:|gym:)/.test(event.purpose)
         ? message('board.event.randomRoll', { result: event.result })
         : message('board.event.randomDraw');
     case 'coin_transfer': {
@@ -120,14 +126,20 @@ export function EventLog({
 }) {
   // The first `event_deck_shuffled` of a game fills the deck; every later one is the deck running out.
   let fills = 0;
-  const announce = (list: readonly SeatEvent[]) =>
+  const announce = (list: readonly SeatEvent[], before?: SeatFeedEntry['before']) =>
     list.flatMap((event) =>
-      eventMessage(event, observation, list, event.kind === 'event_deck_shuffled' && fills++ > 0),
+      eventMessage(
+        event,
+        observation,
+        list,
+        event.kind === 'event_deck_shuffled' && fills++ > 0,
+        before,
+      ),
     );
   const rows = feed
     ? feed.flatMap((entry) => [
         ...turnMessages(entry, ownSeatOf(observation)),
-        ...announce(entry.record.events),
+        ...announce(entry.record.events, entry.before),
       ])
     : announce(events);
   return (

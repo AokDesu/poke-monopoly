@@ -88,6 +88,9 @@ function clickDecision() {
     .filter((entry) => !entry.hasAttribute('disabled'));
   if (area.tagName === 'DIALOG' && buttons.length === 1) return;
   if (buttons[0]) fireEvent.click(buttons[0]);
+  // A battle reward is selected first and committed by Confirm.
+  const confirm = within(area).queryByRole('button', { name: t('battle.reward.confirm') });
+  if (confirm) fireEvent.click(confirm);
 }
 function reasonsAreVisible() {
   for (const button of document.querySelectorAll('button:disabled')) {

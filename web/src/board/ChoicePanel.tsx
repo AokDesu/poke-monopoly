@@ -30,10 +30,24 @@ export function choiceLabel(action: LegalAction, observation: Observation): stri
     case 'activate_ability': {
       const pokemon = own.team.find((entry) => entry.instanceId === action.payload.instanceId);
       const form = pokemon ? currentForm(pokemon.speciesId) : undefined;
-      const label = t('choice.ability', {
+      let label = t('choice.ability', {
         ability: form?.ability?.name ?? action.payload.instanceId,
         pokemon: form?.name ?? action.payload.instanceId,
       });
+      // Heal Pulse lists one choice per Pokémon it can heal; name the member, with its Team ID so
+      // two of one species stay apart.
+      const target = own.team.find(
+        (entry) => entry.instanceId === action.payload.targetPokemonInstanceId,
+      );
+      if (target) {
+        label = t('choice.abilityTarget', {
+          label,
+          target: t('strategy.potion.member', {
+            pokemon: speciesName(target.speciesId),
+            instanceId: target.instanceId,
+          }),
+        });
+      }
       // Adaptability lists one choice per scope; name the scope so the options differ.
       const scope = action.payload.scope;
       if (scope === 'catch') return t('choice.abilityCatch', { label });
