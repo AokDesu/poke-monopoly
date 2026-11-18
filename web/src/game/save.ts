@@ -6,6 +6,7 @@ import {
   type Resumed,
   type SavedGame,
 } from '../../../engine/index.ts';
+import { readSavedChatWords, type SavedChatWords } from './chat.ts';
 import {
   DIFFICULTIES,
   PERSONALITIES,
@@ -36,6 +37,8 @@ export interface SaveMeta {
   }[];
   /** Present only for a watched game: its talk setting and starting speed. */
   readonly watch?: WatchSettings;
+  /** The rivals' words for the human's topic messages, so a reload shows the same lines (spec §5.7). */
+  readonly chatWords?: readonly SavedChatWords[];
   /**
    * The id the speech and decision routes know this game by, so the server's per-game limits
    * (spec §9) carry on across a reload. Never part of the exported log.
@@ -70,7 +73,12 @@ export function writeSave(storage: SaveStorage, game: SavedGame, meta: SaveMeta)
   storage.setItem(SAVE_KEY, serialize(game));
   storage.setItem(
     META_KEY,
-    JSON.stringify({ opponents: meta.opponents, watch: meta.watch, gameId: meta.gameId }),
+    JSON.stringify({
+      opponents: meta.opponents,
+      watch: meta.watch,
+      gameId: meta.gameId,
+      chatWords: meta.chatWords,
+    }),
   );
 }
 
@@ -103,6 +111,7 @@ export function readMeta(storage: SaveStorage): SaveMeta {
       }),
       ...(typeof talk === 'boolean' && startSpeed && { watch: { talk, speed: startSpeed } }),
       ...(typeof gameId === 'string' && /^[\w-]{1,64}$/.test(gameId) && { gameId }),
+      ...('chatWords' in parsed && { chatWords: readSavedChatWords(parsed.chatWords) }),
     };
   } catch {
     return EMPTY_META;

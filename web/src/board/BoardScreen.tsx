@@ -4,6 +4,7 @@ import { t } from '../i18n/en.ts';
 import { Screen } from '../ui/Screen.tsx';
 import { Board } from './Board.tsx';
 import { TableTalkPanel } from './TableTalk.tsx';
+import { useChatReply } from './useChatReply.ts';
 import { useTableTalk } from './useTableTalk.ts';
 import { useTurnPlayback } from './useTurnPlayback.ts';
 import { EncounterDialog } from './EncounterDialog.tsx';
@@ -50,6 +51,7 @@ function PlayerBoardScreen({
   const openedAt = useRef<number | null>(null);
   const playback = useTurnPlayback(store, view);
   const talk = useTableTalk(store, view, playback);
+  const social = useChatReply(store, view);
   const [actionError, setActionError] = useState<number | null>(null);
   if (view && openedAt.current === null) openedAt.current = view.observation.public.stateRevision;
 
@@ -92,6 +94,7 @@ function PlayerBoardScreen({
       notice={notice && game.stateRevision === openedAt.current ? notice : undefined}
       actionError={actionError === game.stateRevision}
       onChoose={choose}
+      social={social}
       onFinished={onFinished}
     />
   );

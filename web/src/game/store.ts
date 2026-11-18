@@ -3,10 +3,13 @@ import {
   actionVisibleToSpectator,
   advanceAutomatically,
   applyAction,
+  battlePreview,
+  challengeOdds,
   createGame,
   createGameConfig,
   createGameLog,
   createRng,
+  decisionPoint,
   eventsVisibleTo,
   engineEventSchema,
   aiSpeechEventSchema,
@@ -22,7 +25,9 @@ import {
   winner,
   type SaleQuote,
   type BallType,
+  type BattlePreview,
   type CatchOdds,
+  type EngineDecisionPoint,
   type Action,
   type AiSpeechEvent,
   type ActionRecord,
@@ -39,6 +44,7 @@ import {
   type SeatActionRecord,
   type SeatEvent,
 } from '../../../engine/index.ts';
+import type { ChatReplyRequest, SavedChatWords } from './chat.ts';
 import { reportOutcome, requestOpponent, type AiDecision } from './ai.ts';
 import { demoChoiceOf } from './demoChoice.ts';
 import type { DifficultyId, GameSetup, PersonalityId, WatchSettings, WatchSetup } from './setup.ts';
@@ -64,6 +70,11 @@ export interface OpponentSettings {
   readonly difficulty: DifficultyId;
 }
 
+/** The engine's pre-declaration terms and odds against one opponent. */
+export type ChallengeOdds = NonNullable<ReturnType<typeof challengeOdds>> & {
+  readonly seatIndex: number;
+};
+
 /** One accepted action as the human seat may see it (engine contract: `actionVisibleTo`). */
 export interface SeatFeedEntry {
   /**
@@ -87,6 +98,15 @@ export interface SeatView {
   readonly observation: Observation;
   readonly legalActions: LegalActions;
   readonly catchOdds: readonly ({ ballType: BallType } & CatchOdds)[];
+  /**
+   * The engine's decision owner and kind, which differ from the active seat during a PvP response,
+   * window, reroll or reward (§6.4). Null while the engine owes a die or the game is over.
+   */
+  readonly decision: { readonly seatIndex: number; readonly point: EngineDecisionPoint } | null;
+  /** The pending PvP or Gym battle's engine terms and odds, from this seat's reading (§4.4). */
+  readonly battle: BattlePreview | null;
+  /** Odds of each challenge this seat could declare now, in Strategy only (§4.4). */
+  readonly challenges: readonly ChallengeOdds[];
   readonly feed: readonly SeatFeedEntry[];
   readonly opponents: readonly OpponentSettings[];
 }
@@ -151,6 +171,20 @@ export interface GameStore {
   advance(options?: { human?: boolean }): boolean;
   /** Sends an AI seat's own projection to the server, then validates its answer via applyAction. */
   playOpponent(signal: AbortSignal): Promise<boolean>;
+  /**
+   * The request that asks the recipient of this turn's topic message for its reply (spec §4.8):
+   * the recipient's own observation, which holds the message only because it was addressed to
+   * that seat. Null unless the human has sent a message in this Social window.
+   */
+  chatReplyRequest(): ChatReplyRequest | null;
+  /**
+   * The rival's own words for a topic message, kept with the game so a reload shows the same line
+   * and never asks for a second one (spec §5.7: a generated line is never regenerated). Words only:
+   * the engine log, its revision and every seat's view are untouched.
+   */
+  getChatWords(): readonly SavedChatWords[];
+  /** Saves one shown line; false when it does not fit the game. Notifies so the save is rewritten. */
+  recordChatWords(words: SavedChatWords): boolean;
   /** Setup saved beside the engine log so a resumed AI decision uses the same personality. */
   getOpponents(): readonly OpponentSettings[];
   /** A watched game's talk and starting-speed settings, kept with the game; absent otherwise. */
@@ -172,6 +206,7 @@ export interface GameStore {
     settings?: readonly OpponentSettings[],
     watchSettings?: WatchSettings,
     gameId?: string,
+    chatWords?: readonly SavedChatWords[],
   ): void;
   /** Engine winner and coin/badge standings, or null until the game is finished. Stable. */
   getResults(): GameResults | null;
@@ -190,7 +225,13 @@ export function configForSetup(setup: GameSetup, seed: GameConfig['seed']): Game
     starterSpeciesId: choice.starterSpeciesId,
     controller: seatIndex === 0 ? ('human' as const) : ('ai' as const),
   }));
-  return createGameConfig({ seats, seed, lapTarget: MODES[setup.mode].lapTarget });
+  // The human seat starts conversations, so the Social window is open in every game it plays (§4.2).
+  return createGameConfig({
+    seats,
+    seed,
+    lapTarget: MODES[setup.mode].lapTarget,
+    socialWindow: true,
+  });
 }
 
 export function opponentSettings(setup: GameSetup): OpponentSettings[] {
@@ -229,6 +270,28 @@ export function rematchConfig(config: GameConfig, seed: GameConfig['seed']): Gam
     lapTarget: config.lapTarget,
     ...(config.socialWindow !== undefined && { socialWindow: config.socialWindow }),
   });
+}
+
+/**
+ * Whether saved words belong to this game: a human's message to an AI seat that the engine kept,
+ * on the turn it was sent, one short line. Anything else is dropped, never shown.
+ */
+function fitsGame(words: SavedChatWords, state: GameState): boolean {
+  const human = humanSeat(state);
+  const rival = state.config.seats.find((seat) => seat.seatIndex === words.toSeatIndex);
+  return (
+    human !== undefined &&
+    words.fromSeatIndex === human &&
+    rival?.controller === 'ai' &&
+    words.text.length > 0 &&
+    words.text.length <= 280 &&
+    (observe(state, human).own.chats ?? []).some(
+      (message) =>
+        message.fromSeatIndex === words.fromSeatIndex &&
+        message.toSeatIndex === words.toSeatIndex &&
+        message.globalTurnNo === words.globalTurnNo,
+    )
+  );
 }
 
 function humanSeat(state: GameState): number | undefined {
@@ -321,6 +384,7 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
   let results: GameResults | null = null;
   let opponents: readonly OpponentSettings[] = [];
   let watch: WatchSettings | undefined;
+  let chatWords: readonly SavedChatWords[] = [];
   let gameToken = '';
   const listeners = new Set<() => void>();
 
@@ -339,6 +403,7 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
   const viewOf = (state: GameState, feed: readonly SeatFeedEntry[]): SeatView | null => {
     const seatIndex = humanSeat(state);
     if (seatIndex === undefined) return null;
+    const pending = pendingDecision(state);
     return {
       seatIndex,
       observation: observe(state, seatIndex),
@@ -348,6 +413,21 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
         state.phase.kind === 'encounter' &&
         !state.phase.catchRoll
           ? oddsForAllBalls(state, seatIndex)
+          : [],
+      decision: pending && { seatIndex: pending.seatIndex, point: decisionPoint(state)! },
+      battle:
+        state.phase.kind === 'pvp' || state.phase.kind === 'gym'
+          ? battlePreview(state, seatIndex)
+          : null,
+      challenges:
+        state.phase.kind === 'strategy' && state.activeSeatIndex === seatIndex
+          ? state.players.flatMap((player) => {
+              const odds =
+                player.seatIndex === seatIndex
+                  ? null
+                  : challengeOdds(state, seatIndex, player.seatIndex);
+              return odds ? [{ ...odds, seatIndex: player.seatIndex }] : [];
+            })
           : [],
       feed,
       opponents,
@@ -472,6 +552,7 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
       gameToken = crypto.randomUUID();
       opponents = settings;
       watch = watchSettings;
+      chatWords = [];
       shownFeed = [];
       commit({ state, log: createGameLog(state) }, state, []);
     },
@@ -513,6 +594,27 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
         step.records,
       );
       return true;
+    },
+    chatReplyRequest(): ChatReplyRequest | null {
+      const { state } = current();
+      const seatIndex = humanSeat(state);
+      if (seatIndex === undefined || state.phase.kind !== 'social') return null;
+      if (state.activeSeatIndex !== seatIndex) return null;
+      const message = observe(state, seatIndex).own.chats?.findLast(
+        (entry) => entry.fromSeatIndex === seatIndex && entry.globalTurnNo === state.globalTurnNo,
+      );
+      if (!message) return null;
+      const observation = observe(state, message.toSeatIndex);
+      return {
+        gameId: gameToken,
+        seatIndex: message.toSeatIndex,
+        stateRevision: observation.public.stateRevision,
+        observation,
+        personalityId:
+          opponents.find((opponent) => opponent.seatIndex === message.toSeatIndex)?.personality ??
+          'greedy',
+        turnKey: `${state.globalTurnNo}:${message.toSeatIndex}`,
+      };
     },
     async playOpponent(signal: AbortSignal): Promise<boolean> {
       const snapshot = current();
@@ -653,6 +755,20 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
     getGameId(): string {
       return gameToken;
     },
+    getChatWords(): readonly SavedChatWords[] {
+      return chatWords;
+    },
+    recordChatWords(words: SavedChatWords): boolean {
+      const game = session;
+      if (!game || !fitsGame(words, game.state)) return false;
+      const same = (entry: SavedChatWords) =>
+        entry.fromSeatIndex === words.fromSeatIndex &&
+        entry.toSeatIndex === words.toSeatIndex &&
+        entry.globalTurnNo === words.globalTurnNo;
+      chatWords = [...chatWords.filter((entry) => !same(entry)), words];
+      for (const listener of listeners) listener();
+      return true;
+    },
     recordSpeech(event: AiSpeechEvent): boolean {
       const game = session;
       const parsed = aiSpeechEventSchema.safeParse(event);
@@ -679,9 +795,12 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
       settings: readonly OpponentSettings[] = [],
       watchSettings?: WatchSettings,
       gameId?: string,
+      savedWords: readonly SavedChatWords[] = [],
     ): void {
       opponents = settings;
       watch = watchSettings;
+      // Only words that fit this game: a save from another one cannot lend it a line.
+      chatWords = savedWords.filter((entry) => fitsGame(entry, game.state));
       gameToken = gameId ?? crypto.randomUUID();
       publish(game, feedFrom(game.log, humanSeat(game.state)));
     },
@@ -696,6 +815,7 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
       results = null;
       opponents = [];
       watch = undefined;
+      chatWords = [];
       gameToken = '';
       for (const listener of listeners) listener();
     },
@@ -731,7 +851,12 @@ export function createFixtureStore(
 ): GameStore {
   const { state } = fixtureSchema.parse(input);
   edit?.(state);
-  state.config = createGameConfig({ seats: state.config.seats, seed: 3, lapTarget: 3 });
+  state.config = createGameConfig({
+    seats: state.config.seats,
+    seed: 3,
+    lapTarget: 3,
+    ...(state.config.socialWindow === true && { socialWindow: true }),
+  });
   state.content = structuredClone(content);
   state.rng = createRng(3);
   const store = createGameStore();
