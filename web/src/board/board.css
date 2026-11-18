@@ -91,7 +91,7 @@
 }
 .board-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 292px;
+  grid-template-columns: minmax(0, 1fr) clamp(290px, 29vw, 372px);
   align-items: start;
   gap: 1.4rem;
 }
@@ -349,55 +349,8 @@
 }
 .trainer-panels {
   display: grid;
-  gap: 1.1rem;
-  min-width: 0;
-}
-.player-panel {
-  padding: 1rem;
-  border-radius: 18px;
-}
-.player-heading {
-  display: flex;
   gap: 0.65rem;
-  align-items: center;
-}
-.player-heading h2 {
-  font-size: 1.2rem;
-  line-height: 1.2;
-}
-.player-heading p {
-  color: var(--color-ink-soft);
-  font-size: 0.8rem;
-}
-.current-turn-dot {
-  width: 10px;
-  height: 10px;
-  margin-left: auto;
-  border-radius: 50%;
-  background: #246b36;
-  outline: 3px solid #d8edce;
-}
-.player-stats {
-  display: grid;
-  grid-template-columns: 0.8fr 0.7fr 1.4fr;
-  gap: 0.6rem;
-  margin: 0.9rem 0 1rem;
-  padding: 0.65rem;
-  border-radius: 12px;
-  background: #e8f0fc;
-}
-.player-stats dt {
-  font-size: 0.7rem;
-  white-space: nowrap;
-}
-.player-stats dd {
-  font-family: var(--font-display);
-  font-size: 1.35rem;
-  font-weight: 500;
-  line-height: 1.25;
-}
-.coin-stat dd {
-  color: #845800;
+  min-width: 0;
 }
 .player-panel h3 {
   margin-top: 0.85rem;
@@ -500,15 +453,6 @@
   padding-top: 0.6rem;
   border-top: 1px solid var(--color-line);
 }
-.opponent-items {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 0.8rem;
-  font-size: 0.85rem;
-}
-.opponent-items dd {
-  font-weight: 900;
-}
 .field-log {
   margin-top: 1.5rem;
   padding: 1rem 1.25rem;
@@ -564,7 +508,6 @@
 }
 @media (max-width: 1100px) and (min-width: 1024px) {
   .board-layout {
-    grid-template-columns: minmax(0, 1fr) 270px;
     gap: 1rem;
   }
   .loop-frame {
@@ -609,7 +552,6 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .trainer-panels {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     margin-top: 0.5rem;
   }
   .board-status-bar {
@@ -628,9 +570,6 @@
   }
 }
 @media (max-width: 550px) {
-  .trainer-panels {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .loop-frame {
     padding: 5px;
     border-radius: 15px;
