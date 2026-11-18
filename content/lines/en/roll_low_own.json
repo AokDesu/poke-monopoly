@@ -1,0 +1,98 @@
+[
+  {
+    "id": "roll-low-own-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Ugh, the smallest roll. That die is stingier than I am."
+  },
+  {
+    "id": "roll-low-own-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "A tiny step. Even a Magikarp would call that unlucky."
+  },
+  {
+    "id": "roll-low-own-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Barely moved. Those coins will have to wait."
+  },
+  {
+    "id": "roll-low-own-greedy-neutral-4",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Worst roll there is. I want a refund from the die."
+  },
+  {
+    "id": "roll-low-own-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Argh, a tiny roll! The die only hates me because I am winning."
+  },
+  {
+    "id": "roll-low-own-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "That roll was weaker than a Caterpie. I will bounce back."
+  },
+  {
+    "id": "roll-low-own-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Smallest roll! Fine, I will just evolve my plan."
+  },
+  {
+    "id": "roll-low-own-aggressive-neutral-4",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "A tiny step. The next roll will make up for it."
+  },
+  {
+    "id": "roll-low-own-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "A small roll. Slow and steady, like a Snorlax on a nap."
+  },
+  {
+    "id": "roll-low-own-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Only a tiny step. At least it is a safe one."
+  },
+  {
+    "id": "roll-low-own-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Oh dear, the smallest roll. I will not panic."
+  },
+  {
+    "id": "roll-low-own-cautious-neutral-4",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "A small roll, but patience levels up too."
+  },
+  {
+    "id": "roll-low-own-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "A tiny roll? How tragic. Somebody please cheer me up."
+  },
+  {
+    "id": "roll-low-own-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Well, that die has no taste. I am quite charming, you know."
+  },
+  {
+    "id": "roll-low-own-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Smallest roll, and still smiling. I am playing the long game."
+  },
+  {
+    "id": "roll-low-own-opportunist-neutral-4",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Magikarp luck today. A Gyarados is coming, just wait."
+  }
+]

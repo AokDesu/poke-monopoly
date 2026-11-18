@@ -33,6 +33,38 @@ export const COLUMNS = [
 ] as const;
 export type Column = (typeof COLUMNS)[number];
 
+/**
+ * Protocol section 8, "`n/a` means unobserved". A facilitator who did not record a fact writes
+ * `n/a`; that is not zero and not `none`. The one rule for which cells take it. Every reader of a
+ * sheet (this checker, the results report) asks `isUnobserved` and never compares with `'n/a'`.
+ * The four question cells also take `n/a`, but as an answer with a reason, not as a missing fact.
+ */
+export const UNOBSERVED = 'n/a';
+export const UNOBSERVED_COLUMNS: Readonly<Partial<Record<Column, true>>> = {
+  game_length_min: true,
+  drop_off_point: true,
+  drop_off_reason: true,
+  meaningful_choices: true,
+  hesitation_count: true,
+  hesitation_decisions: true,
+};
+
+/** True when `value` is an unobserved cell: `n/a` in a column section 8 lets say so. */
+export function isUnobserved(column: Column, value: string): boolean {
+  return UNOBSERVED_COLUMNS[column] === true && value.trim() === UNOBSERVED;
+}
+
+/** Protocol section 3, step 2: seed = base + 100 x host number + session number, per round. */
+const SEED_BASES: Readonly<Record<string, number>> = { G1: 0, P5: 5000 };
+
+/** The seed a participant code implies, or undefined for a round the protocol has no base for. */
+export function impliedSeed(code: string): number | undefined {
+  const match = /^([A-Z][A-Z0-9]{1,3})-([ABC])([0-9]{2})$/.exec(code);
+  const base = match ? SEED_BASES[match[1]!] : undefined;
+  if (!match || base === undefined) return undefined;
+  return base + 100 * (match[2]!.charCodeAt(0) - 64) + Number(match[3]);
+}
+
 const FREE_TEXT: ReadonlySet<Column> = new Set([
   'q1_hesitated_sell_keep',
   'q2_opponent_personality',
@@ -113,7 +145,7 @@ export function csvCell(value: string): string {
 export type SheetProblem = { file: string; line: number; column?: string; message: string };
 
 const WHOLE = /^[0-9]+$/;
-const QUESTION = /^(?:yes|no|unsure|n\/a)(?: - .+)?$/;
+const QUESTION = /^(?:yes|no|unsure|n\/a) - \S/;
 
 function validDate(value: string): boolean {
   if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value)) return false;
@@ -140,17 +172,21 @@ function cellRule(column: Column, value: string): string | undefined {
     case 'seed':
       return /^-?[0-9]+$/.test(value) ? undefined : `must be an integer; got ${value}`;
     case 'game_length_min':
-      return WHOLE.test(value) ? undefined : `must be whole minutes; got ${value}`;
+      return WHOLE.test(value)
+        ? undefined
+        : `must be whole minutes or n/a (unobserved); got ${value}`;
     case 'drop_off_point':
       return oneOf(value, DROP_OFF_POINTS);
     case 'drop_off_reason':
       return oneOf(value, DROP_OFF_REASONS);
     case 'meaningful_choices':
-      return WHOLE.test(value) || value === 'n/a'
+      return WHOLE.test(value)
         ? undefined
-        : `must be a whole number or n/a; got ${value}`;
+        : `must be a whole number or n/a (unobserved); got ${value}`;
     case 'hesitation_count':
-      return WHOLE.test(value) ? undefined : `must be a whole number, 0 if none; got ${value}`;
+      return WHOLE.test(value)
+        ? undefined
+        : `must be a whole number (0 only if you watched and saw none) or n/a (unobserved); got ${value}`;
     case 'hesitation_decisions': {
       if (value === 'none') return undefined;
       const bad = value
@@ -158,14 +194,14 @@ function cellRule(column: Column, value: string): string | undefined {
         .find((code) => !(HESITATION_TYPES as readonly string[]).includes(code));
       return bad === undefined
         ? undefined
-        : `must be none, or sell_keep and ball joined with |; got ${value}`;
+        : `must be none, n/a, or sell_keep and ball joined with |; got ${value}`;
     }
     case 'q1_hesitated_sell_keep':
     case 'q2_opponent_personality':
     case 'q3_conversation_changed_game':
       return QUESTION.test(value)
         ? undefined
-        : 'must start with yes, no, unsure or n/a, then " - " and a short paraphrase';
+        : 'must start with yes, no, unsure or n/a, then " - " and a short paraphrase; a bare answer is not enough';
     // Free text: only the length and privacy checks apply.
     case 'q4_boring_moment':
     case 'notes':
@@ -183,6 +219,8 @@ function rowProblems(cells: Record<Column, string>): Array<[Column, string]> {
       found.push([column, 'empty cell']);
     } else if (PLACEHOLDER.test(value)) {
       found.push([column, `placeholder left in the cell: ${value}`]);
+    } else if (isUnobserved(column, value)) {
+      usable.add(column);
     } else {
       const complaint = cellRule(column, value);
       if (complaint) found.push([column, complaint]);
@@ -198,21 +236,34 @@ function rowProblems(cells: Record<Column, string>): Array<[Column, string]> {
       found.push([column, 'looks like personal data (an @, a link or a phone-like number)']);
     }
   }
+  const unobserved = (column: Column) => isUnobserved(column, cells[column]);
   if (usable.has('hesitation_count') && usable.has('hesitation_decisions')) {
-    const count = Number(cells.hesitation_count.trim());
+    const count = cells.hesitation_count.trim();
     const listed = cells.hesitation_decisions.trim();
-    const codes = listed === 'none' ? 0 : listed.split('|').length;
-    if (codes !== count) {
+    if (unobserved('hesitation_count') !== unobserved('hesitation_decisions')) {
       found.push([
         'hesitation_decisions',
-        `lists ${codes} hesitation(s) but hesitation_count is ${count}`,
+        `is ${listed} but hesitation_count is ${count}: both are n/a (unobserved) or neither`,
       ]);
+    } else if (!unobserved('hesitation_count')) {
+      const codes = listed === 'none' ? 0 : listed.split('|').length;
+      if (codes !== Number(count)) {
+        found.push([
+          'hesitation_decisions',
+          `lists ${codes} hesitation(s) but hesitation_count is ${count}`,
+        ]);
+      }
     }
   }
   if (usable.has('drop_off_point') && usable.has('drop_off_reason')) {
     const point = cells.drop_off_point.trim();
     const reason = cells.drop_off_reason.trim();
-    if ((point === 'none') !== (reason === 'none')) {
+    if (unobserved('drop_off_point') !== unobserved('drop_off_reason')) {
+      found.push([
+        'drop_off_reason',
+        `is ${reason} but drop_off_point is ${point}: both are n/a (unobserved) or neither`,
+      ]);
+    } else if (!unobserved('drop_off_point') && (point === 'none') !== (reason === 'none')) {
       found.push([
         'drop_off_reason',
         `is ${reason} but drop_off_point is ${point}: both are none for a finished game, neither otherwise`,

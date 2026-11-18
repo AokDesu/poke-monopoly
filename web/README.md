@@ -90,6 +90,17 @@ Speed (Normal, Fast, Instant) and Skip line only change presentation pauses; the
 cancel or reissue a decision, and Instant reaches the same final state as Normal for the
 same seed.
 
+Demo mode (`?demo`, issue #220) adds a "What Jev chose" panel (`board/JevChoicePanel.tsx`) under a
+rival's decision in a one-human game, with a banner that says it shows the rival's private
+options. Only `createGameStore({ demo: true })` keeps anything for it: the store labels the
+options it sent, copies Jev's numbers from the answer's optional `detail` and puts them on the
+in-memory feed entry (`game/demoChoice.ts`). With demo off, and in a watched game, the detail is
+never read, so no panel, banner or probability text exists and saves, exported logs and the
+requests are unchanged. `game/jevDetailAdapter.ts` is the one place that knows the field's
+name and shape (proposed, `decisionDetailSchema`); until the server sends it only backup-bot
+decisions show. `game/fakeJevAnswer.ts` is a typed fake of that answer for tests and the dev
+gallery.
+
 Tokens use the `position` already projected by `observe()` (including negative and multi-Lap
 progress). Lap counts are paid Laps completed, not a UI-computed current-Lap number. Square
 labels and icons remain DOM content even without WebGL; the static meadow reuses the
@@ -132,6 +143,17 @@ Run `npm run dev` for API plus Vite, or `npm run build` and `npm start` for the 
 Review at 1440×900 and 1024×768; the board is height-bounded at desktop sizes so the whole
 loop remains visible without horizontal scrolling. Long panels and the event log remain
 available by vertical scrolling.
+
+## Players area
+
+The right-hand column lists every seat as one compact row, so no seat needs scrolling to read:
+name and class, coins, square, lap, items held, team size with the first Pokémon, and a Turn
+badge with a seat-colour ring on the acting seat. A watched game adds each AI's personality and
+difficulty. A row opens that seat's team (and, for your own seat only, the Ball pouch and items)
+under it; one seat is open at a time, Enter or Space toggles it and Escape closes it. Opening is
+a local view choice that never reaches the game, and a seat shows nothing it did not show
+before. `PlayersArea.test.tsx` covers the rows, the open/close behaviour, the keyboard and
+the privacy of every seat.
 
 ## UI states gallery (dev only)
 

@@ -29,6 +29,7 @@ try {
   console.log(row);
   const lines = [
     `${values.code}: seed ${facts.seed}, human seat ${facts.seatIndex}, ${facts.finished ? 'finished game' : 'unfinished game'}.`,
+    ...(facts.seedWarning === undefined ? [] : [`WARNING: ${facts.seedWarning}.`]),
     `meaningful_choices ${facts.meaningfulChoices}: accepted human actions without auto:true (protocol section 6).`,
     `drop_off_point ${facts.dropOffPoint}: ${facts.dropOffNote}. A candidate: confirm it against the screen.`,
     'Cross-check your scratch note (the log has no clock and cannot say who decided):',

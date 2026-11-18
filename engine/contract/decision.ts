@@ -170,14 +170,36 @@ export const decisionFallbackReasonSchema = z.enum([
   'auto',
 ]);
 
+/**
+ * The detail of a Jev decision for the demo's "What Jev chose" panel (spec §11 step 3, issue #220):
+ * Jev's probability for each option, its confidence and the question it answered. Option IDs are
+ * the request's own action IDs; at the Sell Phase, where Jev answers one yes/no question per
+ * Pokémon, they are the Pokémon's instance IDs and each probability is that Pokémon's chance of
+ * being sold. The numbers are copied from Jev's answer, never computed. PROPOSED: no server emits
+ * this yet; stream B owns the field and may change this shape (issue #65).
+ */
+export const decisionDetailSchema = z.strictObject({
+  questionId: id,
+  confidence: z.number().min(0).max(1),
+  options: z
+    .array(z.strictObject({ id, probability: z.number().min(0).max(1) }))
+    .min(1)
+    .max(255),
+});
+
 const telemetry = {
   source: z.enum(['jev', 'fallback']),
   fallbackReason: decisionFallbackReasonSchema.optional(),
   requestId: id,
   latencyMs: count,
+  /** Only a Jev answer from a server in demo mode carries it (spec §1: it shows private options). */
+  detail: decisionDetailSchema.optional(),
 };
 
-/** Only IDs and telemetry: never Jev's response body or any part of the key (spec §9). */
+/**
+ * Only IDs, telemetry and, in demo mode, the optional `detail` numbers: never Jev's response body
+ * or any part of the key (spec §9).
+ */
 export const decisionResponseSchema = z
   .union([
     z.strictObject({ choice: id, ...telemetry }),
@@ -188,7 +210,10 @@ export const decisionResponseSchema = z
     {
       message: 'A fallback names its reason; a Jev answer has none',
     },
-  );
+  )
+  .refine((response) => response.source === 'jev' || response.detail === undefined, {
+    message: 'Only a Jev answer carries a detail',
+  });
 
 /**
  * `POST /api/ai/outcome` (spec §6.8): what the browser actually applied for one decision, which is
@@ -238,6 +263,7 @@ export type DecisionFacts = z.infer<typeof decisionFactsSchema>;
 export type DecisionRequest = z.infer<typeof decisionRequestSchema>;
 export type DecisionFallbackReason = z.infer<typeof decisionFallbackReasonSchema>;
 export type DecisionResponse = z.infer<typeof decisionResponseSchema>;
+export type DecisionDetail = z.infer<typeof decisionDetailSchema>;
 export type DecisionOutcome = z.infer<typeof decisionOutcomeSchema>;
 export type AiStatus = z.infer<typeof aiStatusSchema>;
 /** The Jev half of the status, which the decider needs; the speech half is the Haiku client's. */

@@ -29,7 +29,7 @@ const thaiIntent = thai.filter((item) => item.kind === 'intent');
 const thaiAdversarial = thai.filter((item) => item.kind === 'adversarial');
 const { state } = fixtureSchema.parse(startFixture);
 
-const sample = (kind: ChatItem['kind']) => items.find((item) => item.kind === kind)!;
+const sample = (kind: ChatItem['kind']) => thai.find((item) => item.kind === kind)!;
 const fileOf = (...list: object[]) => ({ language: 'th', items: list });
 // The file form of an item: the language belongs to the file, not to the item.
 const raw = (kind: ChatItem['kind']): Record<string, unknown> => {

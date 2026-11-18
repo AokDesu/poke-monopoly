@@ -1,7 +1,7 @@
 // Draft one playtest sheet row from an exported game log (spec §6, §8; protocol sections 6 and 8).
 // Reads the engine save the results screen exports; counts only what the log can say.
 import { deserialize, verifyReplay, type SavedGame } from '../engine/index.ts';
-import { COLUMNS, CODE_PATTERN, csvCell, placeholder, type Column } from './sheet.ts';
+import { COLUMNS, CODE_PATTERN, csvCell, impliedSeed, placeholder, type Column } from './sheet.ts';
 
 /** A refusal with a message for the facilitator; no row is printed. */
 export class RowError extends Error {}
@@ -18,6 +18,8 @@ export type Draft = {
     ballDecisions: number;
     dropOffPoint: string;
     dropOffNote: string;
+    /** Set when the log's seed is not the one the code implies (protocol section 3, step 2). */
+    seedWarning?: string;
   };
   /** Columns left as placeholders for the facilitator. */
   placeholders: Column[];
@@ -94,6 +96,13 @@ export function draftRow(text: string, code: string): Draft {
   const finished = game.state.phase.kind === 'finished';
   const drop = dropOff(game, human.seatIndex);
   const seed = String(game.log.seed);
+  const implied = impliedSeed(code);
+  const seedWarning =
+    implied === undefined
+      ? `no seed rule for the round of ${code} (protocol section 3, step 2 knows G1 and P5), so the log's seed ${seed} was not checked`
+      : String(implied) === seed
+        ? undefined
+        : `the log's seed is ${seed} but ${code} implies ${implied} (protocol section 3, step 2); the row keeps the log's seed`;
   const cells: Record<Column, string> = {
     participant_code: code,
     date: placeholder('date YYYY-MM-DD'),
@@ -126,6 +135,7 @@ export function draftRow(text: string, code: string): Draft {
       ballDecisions: ball,
       dropOffPoint: drop.point,
       dropOffNote: drop.note,
+      ...(seedWarning === undefined ? {} : { seedWarning }),
     },
     placeholders: COLUMNS.filter((column) => /^<<.*>>$/.test(cells[column])),
   };

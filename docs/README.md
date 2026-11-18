@@ -9,5 +9,6 @@
 - `c4-300-game-report.md`: 300 policy-only games at 2, 3 and 4 seats, seat and class balanced, with `illegalAppliedActionCount` and the run plan (spec §8, §10 C4).
 - `advisor-notice.md`: the notice telling the advisor that AI dialogue changed to a line bank (spec §0, §12).
 - `playtest/`: the playtest protocol (`PROTOCOL.md`) and the empty session-sheet template (`session-sheet.csv`); filled sheets go in a copy under this folder (spec §8, §9, §10 C2).
+- `playtest/p5/`: the cycle 5 Human-layer round (`P5`): its filled sheets, one per facilitator, and its build record (spec §8, §9, §10 C5). `playtest/g1/` holds the gate G1 sheets.
 
 Prettier skips this folder to preserve document formatting.

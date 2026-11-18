@@ -76,7 +76,10 @@ test.each(fixtures)('$name shows the engine projection, not recomputed game valu
   expect(screen.getByTestId('active-seat').getAttribute('data-seat')).toBe(
     String(observation.public.activeSeatIndex),
   );
-  expect(screen.queryByRole('button')).toBeNull();
+  // A read-only board offers no game action. The only buttons are each seat's local details toggle.
+  for (const button of screen.queryAllByRole('button')) {
+    expect(button.classList.contains('player-toggle')).toBe(true);
+  }
 });
 
 test('shared tokens and wrapped/negative movement use observe positions', () => {

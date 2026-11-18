@@ -15,6 +15,7 @@ import {
   type OpponentChoice,
   type SeatChoice,
 } from '../game/setup.ts';
+import { personalityDescriptions } from '../game/content.ts';
 import { className, classPassive } from '../i18n/names.ts';
 import { t } from '../i18n/en.ts';
 import { Button } from '../ui/Button.tsx';
@@ -289,6 +290,7 @@ export function OpponentScreen({
                       value={entry.id}
                       checked={rival.personality === entry.id}
                       title={t(`personality.${entry.id}`)}
+                      description={personalityDescriptions[entry.id]}
                       disabledReason={entry.enabled ? undefined : t('opponents.personalityClosed')}
                       onSelect={() => update({ personality: entry.id })}
                     />

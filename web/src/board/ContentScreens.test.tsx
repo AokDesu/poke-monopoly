@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeAll, expect, test } from 'vitest';
 import {
   createGameConfig,
@@ -345,6 +345,7 @@ test('Strategy and the inventory list every held utility item with kind, price a
 
   const board = render(<Board observation={observation} />);
   const own = board.getByTestId('player-0');
+  fireEvent.click(within(own).getByRole('button'));
   const list = within(own).getByRole('list', { name: t('board.items') });
   for (const item of utilities) {
     expect(within(list).getByText(item.name)).toBeTruthy();

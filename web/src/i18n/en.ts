@@ -11,6 +11,23 @@ import promiseBroken from '../../../content/lines/en/promise_broken.json';
 import promiseKept from '../../../content/lines/en/promise_kept.json';
 import soldPokemon from '../../../content/lines/en/sold_pokemon.json';
 import tauntLeader from '../../../content/lines/en/taunt_leader.json';
+import rollHighOwn from '../../../content/lines/en/roll_high_own.json';
+import rollLowOwn from '../../../content/lines/en/roll_low_own.json';
+import battleWonOwn from '../../../content/lines/en/battle_won_own.json';
+import battleLostOwn from '../../../content/lines/en/battle_lost_own.json';
+import coinsInOwn from '../../../content/lines/en/coins_in_own.json';
+import coinsOutOwn from '../../../content/lines/en/coins_out_own.json';
+import catchOther from '../../../content/lines/en/catch_other.json';
+import missOther from '../../../content/lines/en/miss_other.json';
+import rollHighOther from '../../../content/lines/en/roll_high_other.json';
+import rollLowOther from '../../../content/lines/en/roll_low_other.json';
+import battleWonOther from '../../../content/lines/en/battle_won_other.json';
+import battleLostOther from '../../../content/lines/en/battle_lost_other.json';
+import coinsOther from '../../../content/lines/en/coins_other.json';
+import saleOther from '../../../content/lines/en/sale_other.json';
+import gymWinOther from '../../../content/lines/en/gym_win_other.json';
+import tableBanter from '../../../content/lines/en/table_banter.json';
+import tableRetort from '../../../content/lines/en/table_retort.json';
 
 const dialogue = Object.fromEntries(
   [
@@ -27,6 +44,23 @@ const dialogue = Object.fromEntries(
     ...promiseKept,
     ...soldPokemon,
     ...tauntLeader,
+    ...rollHighOwn,
+    ...rollLowOwn,
+    ...battleWonOwn,
+    ...battleLostOwn,
+    ...coinsInOwn,
+    ...coinsOutOwn,
+    ...catchOther,
+    ...missOther,
+    ...rollHighOther,
+    ...rollLowOther,
+    ...battleWonOther,
+    ...battleLostOther,
+    ...coinsOther,
+    ...saleOther,
+    ...gymWinOther,
+    ...tableBanter,
+    ...tableRetort,
   ].map((line) => [`ai.line.${line.id}`, line.text]),
 ) as Record<`ai.line.${string}`, string>;
 
@@ -95,6 +129,12 @@ export const en = {
   'board.emptyItems': 'No utility items held.',
   'board.privateInventory': 'Only you can see your Ball pouch and secret items.',
   'board.hiddenInventory': 'Items are counted only. Ball pouches are private.',
+  'board.lapShort': 'Lap',
+  'board.itemsShort': 'Items',
+  'board.teamGlance': '{count} · Lead {name}',
+  'board.teamGlanceNone': 'None',
+  'board.turnBadge': 'Turn',
+  'board.openDetails': 'Details for {name}',
   'board.readOnly': 'Board preview. Turn controls arrive in the next update.',
   'board.finalRound': 'Final table round',
   'board.finished': 'Game finished',
@@ -148,10 +188,25 @@ export const en = {
   'board.event.pokemonDestroyed': 'A Pokémon left a team.',
   'board.event.itemDestroyed': 'An item was removed.',
   'board.event.space': '{name} landed on square {position}: {kind}.',
-  'board.event.noneYet': '{name} landed on square {position}: {kind}. Nothing happens here yet.',
   'board.event.phase': '{from} → {to}.',
   'board.event.hostileItem': '{user} used {item} on {target}.',
   'board.event.finalRound': '{name} triggered the final table round.',
+  'board.event.eventDrawn': '{name} drew an Event card: {text}',
+  'board.event.deckShuffled': 'The Event deck was shuffled.',
+  'event.card.heading': 'Event card',
+  'event.card.drawnBy': '{name} drew this card on turn {turn}.',
+  'event.card.fromEncounter': 'Event card: {text}',
+  'event.coins': '{amount} coins',
+  'event.coinOne': '1 coin',
+  'event.result.encounter': '{name} found a wild {pokemon}.',
+  'event.result.gain': '{names} received {coins} from the bank.',
+  'event.result.pay': '{name} paid {coins} to the bank.',
+  'event.result.coinsNone': 'No coins changed hands.',
+  'event.result.tired': '{name}: {pokemon} became Tired.',
+  'event.result.tiredNone': '{name} has no Pokémon, so nothing became Tired.',
+  'event.result.itemOwn': '{name} received {item}.',
+  'event.result.ballOwn': '{name} held 4 items, so a Poké Ball was added instead.',
+  'event.result.rewardOther': '{name} received a reward.',
   'board.fixture': 'Prepared engine fixture: {name}',
   'board.fixtureMissing': 'Fixture not found',
   'board.fixtureMissingBody':
@@ -537,7 +592,7 @@ export const en = {
   'talk.show': 'Show table talk',
   'talk.hidden': 'Table talk is hidden. No new lines are asked for while it is hidden.',
   'talk.empty':
-    'No table talk yet. An AI may comment, or speak to another AI that answers, after a rare catch, a big sale, a Gym win, a change in the lead or the final round.',
+    'No table talk yet. The AIs say hello when the game starts and chat at least once every round, with more after a roll, a catch, a battle, a payment, a sale or a Gym win.',
   'talk.exchange': 'An exchange: {from} speaks to {to}, who answers',
   'talk.onlyWords': 'Only words: table talk never changes a game number or an AI’s choice.',
   'talk.aiWritten': 'AI-written · only words',
@@ -546,11 +601,11 @@ export const en = {
   'talk.toYou': 'to you',
   'talk.voiceOff': 'Voice off',
   'talk.reason.disabled':
-    'AI-written speech is switched off on this server. Lines come from the line bank, or the table stays quiet.',
+    'AI-written speech is switched off on this server. The AIs still talk, with lines from the line bank.',
   'talk.reason.missing_key':
-    'AI-written speech is not set up on this server. Lines come from the line bank, or the table stays quiet.',
+    'AI-written speech is not set up on this server. The AIs still talk, with lines from the line bank.',
   'talk.reason.budget_exceeded':
-    'The AI-written speech spending limit has been reached. Lines come from the line bank, or the table stays quiet.',
+    'The AI-written speech spending limit has been reached. The AIs still talk, with lines from the line bank.',
   'ai.reason.stub': 'This decision uses the backup policy.',
   'ai.action.roll': '{name} rolled the die.',
   'ai.action.skip': '{name} continued past {phase}.',
@@ -579,6 +634,30 @@ export const en = {
   'ai.allBackupBanner':
     'Every AI rival is using the backup bot. The game goes on under the same rules.',
 
+  // The demo-only "What Jev chose" panel (spec §3 AI turns, §11 step 3, issue #220).
+  'demo.heading': 'What Jev chose',
+  'demo.banner': 'Demo view: this shows a rival’s private options. A normal game never shows them.',
+  'demo.decision': '{name} · {phase}',
+  'demo.options': 'Options Jev was given, most likely first',
+  'demo.col.option': 'Option',
+  'demo.col.probability': 'Jev’s probability',
+  'demo.chosen': 'Chosen',
+  'demo.confidence': 'Jev’s confidence: {value}',
+  'demo.sellNote':
+    'At the Sell Phase Jev answers once per Pokémon, so these chances do not add up to 1.',
+  'demo.byJev': 'Jev decided.',
+  'demo.byBackup': 'The backup bot decided, so there are no probabilities to show.',
+  'demo.result': 'What the game recorded',
+  'demo.option.useItem': 'Use {item}',
+  'demo.option.useItemOn': 'Use {item} on {target}',
+  'demo.option.useItemOnPokemon': 'Use {item} on {pokemon}',
+  'demo.option.skip': 'Skip item use',
+  'demo.option.catch': 'Throw a {ball}',
+  'demo.option.release': 'Release {pokemon}',
+  'demo.option.sell': 'Sell {pokemon}',
+  'demo.option.challenge': 'Challenge {target}',
+  'demo.option.other': 'Another option',
+
   'chat.unclassified':
     'That message could not be understood. Try a chat topic or write it more plainly. The AI’s plan has not changed.',
   'chat.manipulationRefused':
@@ -604,8 +683,6 @@ export const en = {
   'gallery.pending.dealsBadge':
     'Needs the Deal screen, which is not built yet. The Backup bot mode badge already shows timeouts and rate limits on AI turns.',
   'gallery.pending.chat': 'Needs the chat panel, which is not built yet.',
-  'gallery.pending.eventDeck':
-    'The notice is in this catalog, but no screen shows it yet and the board has no Event deck.',
   'gallery.row.onlyLegalAction': 'Only one legal action (e.g. must roll)',
   'gallery.row.shortlistEmpty': 'Shortlist empty after personality filtering',
   'gallery.row.noBall': 'Pokémon found but no Ball',
@@ -630,6 +707,7 @@ export const en = {
   'gallery.row.watchAllBackup': 'Every AI in a watched game is on the backup bot',
   'gallery.row.backupBadge':
     'A "Backup bot mode" badge shows truthfully whenever an AI is using the fallback',
+  'gallery.example.deckReshuffled': 'Event card drawn after the deck ran out and was reshuffled',
   'gallery.example.beforeAuto': 'Before the game applies it',
   'gallery.example.afterAuto': 'After the game applied it',
   'gallery.example.noBall': 'Encounter with no Ball in the pouch',
@@ -650,16 +728,27 @@ export const en = {
   'gallery.example.badgeOneOfTwo': 'One of two rivals timed out',
   'gallery.example.voiceDisabled': 'Voice off: switched off on the server, a line from the bank',
   'gallery.example.voiceMissingKey': 'Voice off: no key on the server, a line from the bank',
-  'gallery.example.voiceBudget': 'Voice off: spending limit reached, no line for this moment',
+  'gallery.example.voiceBudget': 'Voice off: spending limit reached, the line bank speaks',
   'gallery.example.screenBank':
     'The text failed the screen: the bank line is shown, not labelled AI-written',
   'gallery.example.screenSilence':
-    'The text failed the screen and the bank has no line: nothing is shown',
+    'Before the first line: the panel says when the AIs talk, never a blank box',
   'gallery.example.exchange':
     'An exchange: the opening line, then the answer set in beneath it, each labelled AI-written',
   'gallery.example.exchangeDropped':
-    'An exchange the manipulation check refused or that ran out of time: nothing is shown or saved',
+    'An exchange the manipulation check refused or that ran out of time: the bank speaks in its place, as an exchange of two bank lines',
+  'gallery.row.casualTalk':
+    'The table talks every round: a greeting, a line about its own turn, a line to a rival',
+  'gallery.example.casualGreeting': 'The greeting before the first turn, from a line bank line',
+  'gallery.example.casualOwnTurn':
+    'A rival speaks about its own turn to the table: no "to" tag is shown',
+  'gallery.example.casualOther': 'A rival teases another seat by name about that seat’s turn',
   'gallery.example.badgeRateLimited': 'One of two rivals was rate limited',
+  'gallery.row.jevPanel': 'Demo mode: the "What Jev chose" panel under a rival’s decision',
+  'gallery.example.jevPanelCatch': 'Jev chose a Ball at an encounter',
+  'gallery.example.jevPanelItem': 'Jev chose among its items and targets',
+  'gallery.example.jevPanelSell': 'Jev answered the Sell Phase, one chance per Pokémon',
+  'gallery.example.jevPanelBackup': 'The backup bot decided: its reason, no probabilities',
 } as const satisfies Record<string, string>;
 
 export type MessageKey = keyof typeof en | keyof typeof dialogue;

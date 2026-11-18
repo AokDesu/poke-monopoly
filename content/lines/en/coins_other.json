@@ -1,0 +1,98 @@
+[
+  {
+    "id": "coins-other-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "{target} got paid! I am only a little jealous."
+  },
+  {
+    "id": "coins-other-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Nice payday, {target}. Do you take students?"
+  },
+  {
+    "id": "coins-other-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Coins for {target}! The Poké-bank is open."
+  },
+  {
+    "id": "coins-other-greedy-neutral-4",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Lucky {target}, coins coming in. I can smell them from here."
+  },
+  {
+    "id": "coins-other-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{target} got paid. Do not get comfortable!"
+  },
+  {
+    "id": "coins-other-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Nice coins, {target}. I will be taking some of those."
+  },
+  {
+    "id": "coins-other-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{target} is on a roll. I will end it soon."
+  },
+  {
+    "id": "coins-other-aggressive-neutral-4",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Paid, {target}? Good for you. Next time it is my turn."
+  },
+  {
+    "id": "coins-other-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Congratulations on the coins, {target}. Spend them wisely."
+  },
+  {
+    "id": "coins-other-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "{target} got paid. That is good, I suppose. I will keep watching."
+  },
+  {
+    "id": "coins-other-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Nice for you, {target}. I hope nobody gets careless."
+  },
+  {
+    "id": "coins-other-cautious-neutral-4",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Coins for {target}. A steady trainer earns steady coins."
+  },
+  {
+    "id": "coins-other-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Coins for {target}! You must be a lucky Chansey."
+  },
+  {
+    "id": "coins-other-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "{target} got paid. I should be nicer to you, friend."
+  },
+  {
+    "id": "coins-other-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Look at {target}, rolling in coins. Wonderful, wonderful."
+  },
+  {
+    "id": "coins-other-opportunist-neutral-4",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "A payday for {target}. I will smile and nod."
+  }
+]

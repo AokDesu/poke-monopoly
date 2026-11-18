@@ -1,0 +1,98 @@
+[
+  {
+    "id": "roll-low-other-greedy-neutral-1",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Oof, {target}, tiny roll. That is a lot of road with no coins."
+  },
+  {
+    "id": "roll-low-other-greedy-neutral-2",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "{target} barely moved. A Magikarp splash gets more done."
+  },
+  {
+    "id": "roll-low-other-greedy-neutral-3",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Small roll, {target}. The die is clearly saving its luck."
+  },
+  {
+    "id": "roll-low-other-greedy-neutral-4",
+    "personality": "greedy",
+    "trust": "neutral",
+    "text": "Poor {target}. That roll was not worth a single coin."
+  },
+  {
+    "id": "roll-low-other-aggressive-neutral-1",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Tiny roll, {target}! My Caterpie rolls bigger."
+  },
+  {
+    "id": "roll-low-other-aggressive-neutral-2",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{target} barely moved. Come on, show some fight!"
+  },
+  {
+    "id": "roll-low-other-aggressive-neutral-3",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "Ha, {target}, that roll was weak. Roll again with some heart."
+  },
+  {
+    "id": "roll-low-other-aggressive-neutral-4",
+    "personality": "aggressive",
+    "trust": "neutral",
+    "text": "{target}, even a Weedle takes bigger steps than that!"
+  },
+  {
+    "id": "roll-low-other-cautious-neutral-1",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Small roll, {target}. Slow and steady, as they say."
+  },
+  {
+    "id": "roll-low-other-cautious-neutral-2",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Oh, {target}, that is a little step. Take heart."
+  },
+  {
+    "id": "roll-low-other-cautious-neutral-3",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "A tiny roll, {target}. It happens to every trainer."
+  },
+  {
+    "id": "roll-low-other-cautious-neutral-4",
+    "personality": "cautious",
+    "trust": "neutral",
+    "text": "Do not worry, {target}. Even Magikarp starts small."
+  },
+  {
+    "id": "roll-low-other-opportunist-neutral-1",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Aww, {target}, a tiny roll. Let me pretend I did not smile."
+  },
+  {
+    "id": "roll-low-other-opportunist-neutral-2",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "{target} barely moved. That leaves more room for me."
+  },
+  {
+    "id": "roll-low-other-opportunist-neutral-3",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Small roll, {target}. Everyone has a bad day on the road."
+  },
+  {
+    "id": "roll-low-other-opportunist-neutral-4",
+    "personality": "opportunist",
+    "trust": "neutral",
+    "text": "Magikarp luck, {target}! I am sure a Gyarados is coming."
+  }
+]

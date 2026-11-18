@@ -6,12 +6,12 @@ import type { GAME_PRESETS } from '../../../engine/index.ts';
  */
 export type ModeId = keyof typeof GAME_PRESETS;
 
-/** Spec §5.5 presets. Only Greedy is playable this cycle; the others are shown greyed. */
+/** Spec §5.5 presets: every personality file is open; a closed one would be shown greyed. */
 export const PERSONALITIES = [
   { id: 'greedy', enabled: true },
-  { id: 'aggressive', enabled: false },
-  { id: 'cautious', enabled: false },
-  { id: 'opportunist', enabled: false },
+  { id: 'aggressive', enabled: true },
+  { id: 'cautious', enabled: true },
+  { id: 'opportunist', enabled: true },
 ] as const;
 export type PersonalityId = (typeof PERSONALITIES)[number]['id'];
 

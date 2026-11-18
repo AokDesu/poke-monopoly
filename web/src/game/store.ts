@@ -32,6 +32,7 @@ import {
   type GameConfig,
   type GameLog,
   type GameState,
+  type LegalAction,
   type LegalActions,
   type Observation,
   type SpectatorObservation,
@@ -39,6 +40,7 @@ import {
   type SeatEvent,
 } from '../../../engine/index.ts';
 import { reportOutcome, requestOpponent, type AiDecision } from './ai.ts';
+import { demoChoiceOf } from './demoChoice.ts';
 import type { DifficultyId, GameSetup, PersonalityId, WatchSettings, WatchSetup } from './setup.ts';
 
 /**
@@ -157,12 +159,14 @@ export interface GameStore {
   recordSpeech(event: AiSpeechEvent): boolean;
   /**
    * Replaces the session with a saved game. Applies nothing: dice stay as logged and the
-   * pending decision stays pending (spec §3.1, §6.9).
+   * pending decision stays pending (spec §3.1, §6.9). `gameId` is the one saved beside the game,
+   * so the server's per-game limits (spec §9) carry on across a reload; without one it is new.
    */
   restore(
     session: GameSession,
     settings?: readonly OpponentSettings[],
     watchSettings?: WatchSettings,
+    gameId?: string,
   ): void;
   /** Engine winner and coin/badge standings, or null until the game is finished. Stable. */
   getResults(): GameResults | null;
@@ -284,7 +288,12 @@ function feedFrom(log: GameLog, seatIndex: number | undefined): SeatFeedEntry[] 
   return feed;
 }
 
-export function createGameStore(): GameStore {
+/**
+ * `demo` is demo mode (`?demo`, issue #220): the store then keeps, beside each AI decision, what
+ * the "What Jev chose" panel shows. It is off by default and never changes an action, a save or
+ * a request.
+ */
+export function createGameStore({ demo = false }: { demo?: boolean } = {}): GameStore {
   let session: GameSession | null = null;
   let view: SeatView | null = null;
   let spectatorView: SpectatorView | null = null;
@@ -521,6 +530,10 @@ export function createGameStore(): GameStore {
         stateRevision: observation.public.stateRevision,
         turnKey: `${state.globalTurnNo}:${seatIndex}`,
       };
+      // Demo mode shows a rival's private options, so only a game with a human seat to show them
+      // to keeps anything: a watched game never does (spec §1, issue #220).
+      const viewerSeat = humanSeat(state);
+      const keepDemo = demo && viewerSeat !== undefined;
       const answer = await requestOpponent(
         JSON.stringify({
           ...ids,
@@ -545,6 +558,7 @@ export function createGameStore(): GameStore {
           );
           return pick.sellUids.every((uid) => sellable.includes(uid));
         },
+        keepDemo,
       ).catch((error: unknown) => {
         if (signal.aborted || token !== gameToken || session?.state !== snapshot.state) return null;
         throw error;
@@ -552,10 +566,22 @@ export function createGameStore(): GameStore {
       if (!answer || signal.aborted || token !== gameToken || session?.state !== snapshot.state)
         return false;
       reportOutcome(ids, answer);
+      const demoChoice =
+        keepDemo && viewerSeat !== undefined
+          ? demoChoiceOf({
+              answer,
+              detail: answer.detail,
+              decisionPoint,
+              enabledActions,
+              observation,
+              viewerSeat,
+            })
+          : undefined;
       const decision: AiDecision = {
         source: answer.source,
         fallbackReason: answer.fallbackReason,
         lineId: answer.lineId,
+        ...(demoChoice && { demo: demoChoice }),
       };
       const annotations = engineEventSchema.array().safeParse(answer.dialogueEvents ?? []);
       const dialogueEvents = annotations.success
@@ -630,10 +656,11 @@ export function createGameStore(): GameStore {
       game: GameSession,
       settings: readonly OpponentSettings[] = [],
       watchSettings?: WatchSettings,
+      gameId?: string,
     ): void {
       opponents = settings;
       watch = watchSettings;
-      gameToken = crypto.randomUUID();
+      gameToken = gameId ?? crypto.randomUUID();
       publish(game, feedFrom(game.log, humanSeat(game.state)));
     },
     getResults(): GameResults | null {
@@ -688,4 +715,20 @@ export function createFixtureStore(
   const store = createGameStore();
   store.restore({ state, log: createGameLog(state) });
   return store;
+}
+
+/**
+ * Dev gallery adapter (issue #220): what an AI seat's open decision holds, the engine's enabled
+ * actions and that seat's own observation, which is exactly what `playOpponent` sends and what the
+ * demo panel labels its options from. Nothing here reaches a player's view.
+ */
+export function seatDecision(
+  store: GameStore,
+  seatIndex: number,
+): { enabledActions: LegalAction[]; observation: Observation } {
+  const { state } = store.getSession()!;
+  return {
+    enabledActions: legalActions(state, seatIndex).enabled,
+    observation: observe(state, seatIndex),
+  };
 }

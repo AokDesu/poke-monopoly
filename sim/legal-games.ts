@@ -22,10 +22,11 @@ export type GamePlan = GameSetup & { choices: number[] };
  * Shared by the `*.property.test.ts` files (separate files run in parallel): a fixed seed so a CI
  * failure reproduces locally (fast-check prints it with the shrunk plan) and at least 200 games per
  * property. Issue #26 budgets 30 s per property in CI; the timeout only guards against a hang, well
- * above that, so a loaded developer machine does not fail a passing property.
+ * above that, so a loaded developer machine does not fail a passing property (raised to 240 s in S07 after both
+ * promise-aware properties timed out at 120 s under a loaded run).
  */
 export const PROPERTY_RUNS = { seed: 26, numRuns: 200 } as const;
-export const PROPERTY_TIMEOUT_MS = 120_000;
+export const PROPERTY_TIMEOUT_MS = 240_000;
 
 /**
  * The engine runs any positive Lap target (§1). Most games use 1, the shortest complete game, so

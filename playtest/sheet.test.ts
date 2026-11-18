@@ -1,6 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
-import { checkSheet, COLUMNS, csvCell, parseCsv, type SheetProblem } from './sheet.ts';
+import {
+  checkSheet,
+  COLUMNS,
+  csvCell,
+  impliedSeed,
+  isUnobserved,
+  parseCsv,
+  UNOBSERVED_COLUMNS,
+  type SheetProblem,
+} from './sheet.ts';
 import { templateHeader } from './template.ts';
 
 const HEADER = COLUMNS.join(',');
@@ -16,7 +25,7 @@ const GOOD = [
   '2',
   'sell_keep|ball',
   'yes - unsure whether to sell at the first Start',
-  'n/a',
+  'no - could not tell them apart',
   'n/a - no chat in this build',
   'waiting for the AI turn',
   '"Pause at Shop (items), not counted; Jev live"',
@@ -35,7 +44,9 @@ describe('a sheet that follows the protocol', () => {
     expect(check(sheet({}))).toEqual([]);
     expect(check(sheet({}).replaceAll('\n', '\r\n'))).toEqual([]);
     expect(check(sheet({}).trimEnd())).toEqual([]);
-    expect(checkSheet('s.csv', sheet({}, { participant_code: 'P5-A02' }), COLUMNS).rows).toBe(2);
+    expect(
+      checkSheet('s.csv', sheet({}, { participant_code: 'P5-A02', seed: '5102' }), COLUMNS).rows,
+    ).toBe(2);
   });
 
   test('the template header and the protocol example row agree with the checker', () => {
@@ -103,9 +114,8 @@ describe('what the checker flags', () => {
     expect(only(check(sheet({ hesitation_decisions: 'sell_keep||ball' })))).toEqual([
       '2:hesitation_decisions',
     ]);
-    expect(only(check(sheet({ hesitation_count: 'n/a', hesitation_decisions: 'n/a' })))).toEqual([
+    expect(only(check(sheet({ hesitation_count: 'two', hesitation_decisions: 'n/a' })))).toEqual([
       '2:hesitation_count',
-      '2:hesitation_decisions',
     ]);
   });
 
@@ -151,33 +161,87 @@ describe('what the checker flags', () => {
     expect(only(check(sheet({ q3_conversation_changed_game: 'Yes - capital' })))).toEqual([
       '2:q3_conversation_changed_game',
     ]);
-    for (const answer of ['yes', 'no - x', 'unsure - x', 'n/a', 'n/a - no chat']) {
+    for (const answer of ['yes - x', 'no - x', 'unsure - x', 'n/a - the participant skipped it']) {
       expect(check(sheet({ q1_hesitated_sell_keep: answer }))).toEqual([]);
     }
   });
 
-  test('cells the protocol limits to fixed values, such as n/a where a number is required', () => {
-    expect(
-      only(
-        check(
-          sheet({
-            game_length_min: 'n/a',
-            drop_off_point: 'n/a',
-            drop_off_reason: 'n/a',
-            meaningful_choices: 'n/a',
-          }),
+  test.each(['yes', 'no', 'unsure', 'n/a', 'yes - ', 'n/a -   ', 'yes -x', 'yes  - x'])(
+    'a question answer without a paraphrase is refused in all three question cells: %j',
+    (answer) => {
+      expect(
+        only(
+          check(
+            sheet({
+              q1_hesitated_sell_keep: answer,
+              q2_opponent_personality: answer,
+              q3_conversation_changed_game: answer,
+            }),
+          ),
         ),
-      ),
-    ).toEqual(['2:game_length_min', '2:drop_off_point', '2:drop_off_reason']);
+      ).toEqual([
+        '2:q1_hesitated_sell_keep',
+        '2:q2_opponent_personality',
+        '2:q3_conversation_changed_game',
+      ]);
+    },
+  );
+
+  test('n/a is accepted in exactly the cells that mean unobserved, together with its partner', () => {
+    const unobserved = {
+      game_length_min: 'n/a',
+      drop_off_point: 'n/a',
+      drop_off_reason: 'n/a',
+      meaningful_choices: 'n/a',
+      hesitation_count: 'n/a',
+      hesitation_decisions: 'n/a',
+    };
+    expect(check(sheet(unobserved))).toEqual([]);
+    // Every other column refuses it, so an unknown date or code is never waved through.
+    for (const column of COLUMNS) {
+      if (column in unobserved || column.startsWith('q') || column === 'notes') continue;
+      expect(only(check(sheet({ [column]: 'n/a' })))).toContain(`2:${column}`);
+    }
+  });
+
+  test('an unobserved count is not a zero: n/a is the only way to say it, and the message says so', () => {
+    const [problem] = check(sheet({ hesitation_count: 'unknown', hesitation_decisions: 'n/a' }));
+    expect(problem!.message).toMatch(/n\/a \(unobserved\)/);
+    expect(problem!.message).not.toMatch(/0 if none/);
+  });
+
+  test('cells the protocol limits to fixed values', () => {
     expect(only(check(sheet({ drop_off_point: 'lap4', drop_off_reason: 'quit' })))).toEqual([
       '2:drop_off_point',
     ]);
+    expect(only(check(sheet({ game_length_min: 'about 10' })))).toEqual(['2:game_length_min']);
+    expect(only(check(sheet({ meaningful_choices: '-1' })))).toEqual(['2:meaningful_choices']);
   });
 
   test('a drop-off point and reason that contradict each other', () => {
     expect(only(check(sheet({ drop_off_point: 'lap1' })))).toEqual(['2:drop_off_reason']);
     expect(only(check(sheet({ drop_off_reason: 'quit' })))).toEqual(['2:drop_off_reason']);
     expect(check(sheet({ drop_off_point: 'lap1', drop_off_reason: 'time_cap' }))).toEqual([]);
+  });
+
+  test('n/a in one drop-off cell and a value in the other', () => {
+    expect(only(check(sheet({ drop_off_point: 'n/a' })))).toEqual(['2:drop_off_reason']);
+    expect(only(check(sheet({ drop_off_point: 'lap1', drop_off_reason: 'n/a' })))).toEqual([
+      '2:drop_off_reason',
+    ]);
+    expect(only(check(sheet({ drop_off_reason: 'n/a' })))).toEqual(['2:drop_off_reason']);
+  });
+
+  test('n/a in one hesitation cell and a value in the other, and a count that does not match', () => {
+    expect(only(check(sheet({ hesitation_count: 'n/a' })))).toEqual(['2:hesitation_decisions']);
+    expect(only(check(sheet({ hesitation_decisions: 'n/a' })))).toEqual(['2:hesitation_decisions']);
+    expect(only(check(sheet({ hesitation_count: 'n/a', hesitation_decisions: 'none' })))).toEqual([
+      '2:hesitation_decisions',
+    ]);
+    expect(only(check(sheet({ hesitation_count: '0', hesitation_decisions: 'n/a' })))).toEqual([
+      '2:hesitation_decisions',
+    ]);
+    expect(only(check(sheet({ hesitation_count: '3' })))).toEqual(['2:hesitation_decisions']);
   });
 
   test('structure: wrong width, blank line, a row on two lines, an unclosed quote, empty file', () => {
@@ -223,4 +287,49 @@ describe('csv reading and writing', () => {
     const [record] = parseCsv(values.map(csvCell).join(','));
     expect(record!.cells).toEqual(values);
   });
+});
+
+describe('the shared n/a rule (protocol section 8)', () => {
+  test('isUnobserved is true only for n/a in a column that may be unobserved', () => {
+    expect(Object.keys(UNOBSERVED_COLUMNS).sort()).toEqual([
+      'drop_off_point',
+      'drop_off_reason',
+      'game_length_min',
+      'hesitation_count',
+      'hesitation_decisions',
+      'meaningful_choices',
+    ]);
+    for (const column of Object.keys(UNOBSERVED_COLUMNS) as Array<(typeof COLUMNS)[number]>) {
+      expect(isUnobserved(column, 'n/a')).toBe(true);
+      expect(isUnobserved(column, ' n/a ')).toBe(true);
+      expect(isUnobserved(column, '0')).toBe(false);
+      expect(isUnobserved(column, 'none')).toBe(false);
+      expect(isUnobserved(column, 'N/A')).toBe(false);
+    }
+    expect(isUnobserved('seed', 'n/a')).toBe(false);
+    expect(isUnobserved('date', 'n/a')).toBe(false);
+    expect(isUnobserved('notes', 'n/a')).toBe(false);
+    expect(isUnobserved('q1_hesitated_sell_keep', 'n/a')).toBe(false);
+  });
+});
+
+describe('the seed a participant code implies (protocol section 3, step 2)', () => {
+  test.each([
+    ['G1-A01', 101],
+    ['G1-B02', 202],
+    ['G1-C02', 302],
+    ['P5-A01', 5101],
+    ['P5-A02', 5102],
+    ['P5-B01', 5201],
+    ['P5-C99', 5399],
+  ])('%s implies %i', (code, seed) => {
+    expect(impliedSeed(code)).toBe(seed);
+  });
+
+  test.each(['X9-A01', 'P5-D01', 'p5-a01', 'P5-A1', ''])(
+    'a round without a base, or a code that is not one, implies nothing: %j',
+    (code) => {
+      expect(impliedSeed(code)).toBeUndefined();
+    },
+  );
 });

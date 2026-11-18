@@ -281,8 +281,8 @@ test('a chat leaves the spectator feed and view identical to a game where it was
 });
 
 /** Seat 0 in Strategy holding a secret hostile item, with the class items of the 2-seat fixture. */
-function strategy(itemId: string): GameState {
-  const state = newGame(2, 4);
+function strategy(itemId: string, seats = 2): GameState {
+  const state = newGame(seats, 4);
   state.phase = { kind: 'strategy' };
   state.globalTurnNo = 1;
   state.players[0]!.ownTurnNo = 1;
@@ -429,7 +429,7 @@ test('the spectator view equals a seat’s public view apart from its own revisi
 });
 
 test('a spectator never inherits a seat’s hostile attack history or a secret shield (§4.1, D6)', () => {
-  const before = strategy('pickpocket');
+  const before = strategy('pickpocket', 3);
   before.players[1]!.armedShield = { scope: 'price', visibility: 'secret' };
   const result = applyAction(before, {
     actorId: 'player-0',
@@ -445,7 +445,8 @@ test('a spectator never inherits a seat’s hostile attack history or a secret s
   expect(observeSpectator(result.state).public.attackHistory).toEqual([]);
   expect(eventsVisibleToSpectator(before, result.events)).toEqual([]);
   const twin = structuredClone(result.state);
-  twin.attackHistory = [];
+  delete twin.attackHistory;
+  expect(observe(twin, 2)).toEqual(observe(result.state, 2));
   expect(observeSpectator(twin)).toEqual(observeSpectator(result.state));
 });
 

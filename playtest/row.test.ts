@@ -162,6 +162,26 @@ describe('drop_off_point candidate (protocol section 8)', () => {
   );
 });
 
+describe('the seed the code implies (protocol section 3, step 2)', () => {
+  const log = (seed: number) =>
+    serialize(playUntil(newGame(seed), empty(), (s) => s.stateRevision >= 20));
+
+  test('a log whose seed is the one the code implies draws no warning', () => {
+    expect(draftRow(log(5102), 'P5-A02').facts.seedWarning).toBeUndefined();
+    expect(draftRow(log(201), 'G1-B01').facts.seedWarning).toBeUndefined();
+  });
+
+  test('a log with another seed warns, names both seeds, and the row keeps the log seed', () => {
+    const draft = draftRow(log(5101), 'P5-A02');
+    expect(draft.facts.seedWarning).toMatch(/seed is 5101 but P5-A02 implies 5102/);
+    expect(cellsOf(draft.row).seed).toBe('5101');
+  });
+
+  test('a round with no seed base says the seed was not checked instead of staying silent', () => {
+    expect(draftRow(log(77), 'X9-A01').facts.seedWarning).toMatch(/no seed rule.*not checked/);
+  });
+});
+
 describe('refusals print no row', () => {
   const good = () => serialize(playUntil(newGame(11), empty(), (s) => s.stateRevision >= 20));
 

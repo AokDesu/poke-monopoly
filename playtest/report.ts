@@ -13,6 +13,7 @@ import {
   DROP_OFF_POINTS,
   DROP_OFF_REASONS,
   HESITATION_TYPES,
+  isUnobserved,
   PLACEHOLDER,
   PRIVACY_PATTERN,
   parseCsv,
@@ -111,7 +112,7 @@ function readRow(
     parse: (text: string) => T | undefined,
     expected: string,
   ) => {
-    if (value(column) === 'n/a') return null;
+    if (isUnobserved(column, value(column))) return null;
     const parsed = parse(value(column));
     if (parsed === undefined) {
       refuse(column, `must be ${expected}, or n/a when unobserved; got ${value(column)}`);
