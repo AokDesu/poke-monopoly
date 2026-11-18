@@ -23,16 +23,18 @@ function resolvingAt(position: number): GameState {
 }
 
 test.each([2, 8, 14, 17, 22])(
-  'landing on Event square %i is a logged no-op until cycle 4 (§4.1, §10 C2)',
+  'landing on Event square %i draws and resolves a card (§4.1, §4.6)',
   (position) => {
     const state = resolvingAt(position);
     const result = advanceAutomatically(state);
-    expect(result.events).toEqual([
-      { kind: 'space_resolved', seatIndex: 0, position, effect: 'none_yet' },
-      { kind: 'phase_changed', from: 'resolve', to: 'end' },
-    ]);
-    expect(result.state.players).toEqual(state.players);
-    expect(result.state.rng).toEqual(state.rng);
+    expect(result.events[0]).toEqual({ kind: 'space_resolved', seatIndex: 0, position });
+    expect(result.events).toContainEqual({
+      kind: 'event_drawn',
+      seatIndex: 0,
+      eventId: expect.any(String),
+    });
+    expect(result.events.some((event) => event.kind === 'event_resolved')).toBe(true);
+    expect(result.state.eventDeck.drawPile).toHaveLength(5);
   },
 );
 

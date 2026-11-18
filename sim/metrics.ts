@@ -59,6 +59,7 @@ export type FeatureSummary = {
 };
 
 export type MetricsSummary = {
+  events: { drawn: Record<string, number>; resolved: Record<string, number>; shuffles: number };
   hostility: HostilitySummary;
   promises: PromiseSummary;
   catching: CatchingSummary;
@@ -82,6 +83,7 @@ export type MetricsCollector = {
 
 export function emptyMetricsSummary(): MetricsSummary {
   return {
+    events: { drawn: {}, resolved: {}, shuffles: 0 },
     hostility: emptyHostilitySummary(),
     promises: emptyPromiseSummary(),
     catching: { encounters: 0, attempts: 0, catches: 0, releases: 0, byBallDcLap: [] },
@@ -122,6 +124,13 @@ export function createMetrics(): MetricsCollector {
         purchases[action.payload.offerId] = (purchases[action.payload.offerId] ?? 0) + 1;
       }
       for (const event of events) {
+        if (event.kind === 'event_drawn') {
+          total.events.drawn[event.eventId] = (total.events.drawn[event.eventId] ?? 0) + 1;
+        }
+        if (event.kind === 'event_resolved') {
+          total.events.resolved[event.eventId] = (total.events.resolved[event.eventId] ?? 0) + 1;
+        }
+        if (event.kind === 'event_deck_shuffled') total.events.shuffles++;
         if (event.kind !== 'coin_transfer' || event.reason !== 'pokemon_sale') continue;
         const lap = sales(before.players[before.activeSeatIndex]!.creditedLap);
         lap.sold++;
@@ -169,6 +178,11 @@ export function createMetrics(): MetricsCollector {
         }
       }
       return {
+        events: {
+          drawn: sortedKeys(total.events.drawn),
+          resolved: sortedKeys(total.events.resolved),
+          shuffles: total.events.shuffles,
+        },
         ...interactions.summary(),
         catching: { ...total.catching, byBallDcLap: rows },
         shop: { purchases: sortedKeys(total.shop.purchases) },
