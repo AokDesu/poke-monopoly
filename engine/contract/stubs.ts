@@ -70,9 +70,10 @@ export function observe(state: GameState, seatIndex: number): Observation {
       globalTurnNo: state.globalTurnNo,
       stateRevision: actorRevision(state, ownPlayer.actorId),
       activeSeatIndex: state.activeSeatIndex,
-      ...(state.attackHistory
+      // An absent-vs-empty field must not reveal the first private hostile attempt (§4.1).
+      ...(state.config.engineVersion === ENGINE_VERSION || state.attackHistory
         ? {
-            attackHistory: state.attackHistory
+            attackHistory: (state.attackHistory ?? [])
               .filter((attempt) => attackVisibleTo(attempt, ownPlayer.actorId))
               .map(seatAttackAttempt),
           }
