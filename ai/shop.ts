@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { decisionRequestSchema } from '../engine/contract/decision.ts';
+import { PERSONALITY_IDS } from '../content/lines-schema.ts';
 import { createPolicyRng } from '../sim/policy.ts';
 import type { DeciderAnswer } from './decider.ts';
 import { FallbackPolicy, PERSONALITIES } from './fallback/index.ts';
@@ -10,7 +11,7 @@ export const shopRequestSchema = z
   .strictObject({
     ...decisionRequestSchema.shape,
     decisionPoint: z.literal('shop'),
-    personalityId: z.enum(['greedy']),
+    personalityId: z.enum(PERSONALITY_IDS),
   })
   .superRefine((request, ctx) => {
     const { observation } = request;

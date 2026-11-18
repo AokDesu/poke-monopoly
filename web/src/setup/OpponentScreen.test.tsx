@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, test, vi } from 'vitest';
-import { classOptions } from '../game/content.ts';
-import type { OpponentChoice } from '../game/setup.ts';
+import { classOptions, personalityDescriptions } from '../game/content.ts';
+import { PERSONALITIES, type OpponentChoice } from '../game/setup.ts';
 import { t } from '../i18n/en.ts';
 import { OpponentScreen } from './OpponentScreen.tsx';
 
@@ -95,4 +95,20 @@ test('a rival that repeats the human class opens first, flagged, and blocks Revi
   expect(reasonOf(next)).toBe(
     t('opponents.fixClass', { rival: t('board.rivalLabel', { seat: 2 }) }),
   );
+});
+
+test('every personality is open, shows its content-file description and is saved on the rival (§3, §5.5)', async () => {
+  const first = rival('main-character', 'bulbasaur');
+  const second = rival('fisherman', 'magikarp');
+  const onChange = show(classOptions, [first, second]);
+  const user = userEvent.setup();
+  for (const { id } of PERSONALITIES) {
+    const choice = screen.getByRole('radio', { name: new RegExp(`^${t(`personality.${id}`)}`) });
+    expect(choice).toHaveProperty('disabled', false);
+    expect(choice.closest('label')!.textContent).toContain(personalityDescriptions[id]);
+    expect(choice.hasAttribute('aria-describedby')).toBe(false);
+    if (id === 'greedy') continue;
+    await user.click(choice);
+    expect(onChange).toHaveBeenLastCalledWith([{ ...first, personality: id }, second]);
+  }
 });

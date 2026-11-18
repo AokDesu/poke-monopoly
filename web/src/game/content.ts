@@ -10,12 +10,25 @@ import config from '../../../content/config.json';
 import events from '../../../content/events.json';
 import evolutions from '../../../content/evolutions.json';
 import items from '../../../content/items.json';
+import aggressive from '../../../content/personalities/aggressive.json';
+import cautious from '../../../content/personalities/cautious.json';
+import greedy from '../../../content/personalities/greedy.json';
+import opportunist from '../../../content/personalities/opportunist.json';
+import { parsePersonality } from '../../../content/personality-schema.ts';
 import { parseContent, toEngineContent } from '../../../content/schema.ts';
 import species from '../../../content/species.json';
-import type { ClassOption } from './setup.ts';
+import type { ClassOption, PersonalityId } from './setup.ts';
 
 /** The browser's copy of `content/*.json`, validated once at load (see `sim/content.ts` for Node). */
 export const content = parseContent({ board, classes, config, events, evolutions, items, species });
+
+/** Each personality's description as `content/personalities/<id>.json` words it (spec §5.5). */
+export const personalityDescriptions: Readonly<Record<PersonalityId, string>> = {
+  aggressive: parsePersonality('aggressive', aggressive).description,
+  cautious: parsePersonality('cautious', cautious).description,
+  greedy: parsePersonality('greedy', greedy).description,
+  opportunist: parsePersonality('opportunist', opportunist).description,
+};
 
 /** The strict `Content` the engine's `createGame` takes. */
 export const engineContent = toEngineContent(content);
