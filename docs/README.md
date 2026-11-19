@@ -10,5 +10,6 @@
 - `advisor-notice.md`: the notice telling the advisor that AI dialogue changed to a line bank (spec §0, §12).
 - `playtest/`: the playtest protocol (`PROTOCOL.md`) and the empty session-sheet template (`session-sheet.csv`); filled sheets go in a copy under this folder (spec §8, §9, §10 C2).
 - `playtest/p5/`: the cycle 5 Human-layer round (`P5`): its filled sheets, one per facilitator, and its build record (spec §8, §9, §10 C5). `playtest/g1/` holds the gate G1 sheets.
+- `report/`: the outline of the final course report: one section per spec §1 success criterion and §8 layer, who writes each part, the committed file each figure comes from, and what is still open. Policy-only and Jev results are kept in separate sections (spec §1, §8, §9, §10 C6, §11).
 
 Prettier skips this folder to preserve document formatting.

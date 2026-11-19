@@ -66,9 +66,11 @@ function PlayerBoardScreen({
   };
   const you = game.players.find((player) => player.seatIndex === view.seatIndex)!;
   const opponentMessage = opponentMessageOf(view);
-  // An Event card drawn this turn is what opened an encounter: no Wild square and Event card share a turn.
+  // The encounter card (e1) is what opened an encounter: no Wild square and Event card share a turn.
+  // Any other card drawn this turn is not the encounter's source.
   const drawn = latestEvent(view.feed, view.observation);
-  const encounterEvent = drawn?.turn === game.globalTurnNo ? drawn.text : undefined;
+  const encounterEvent =
+    drawn?.eventId === 'e1' && drawn.turn === game.globalTurnNo ? drawn.text : undefined;
   // The current rival action, spelled out under the board loop so the text sits right
   // where the spotlight is (issue #123). Same wording as the field-log row.
   const focus =

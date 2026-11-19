@@ -25,10 +25,10 @@ import {
   type DecisionRates,
   type Policy,
   type PolicyChoice,
-  type PolicyFacts,
+  type PolicyGame,
+  type SeatFacts,
   type PolicyFactory,
   type PolicyRng,
-  RandomPolicy,
 } from './policy.ts';
 
 export type SeatSetup = { seatIndex: number; actorId: string; classId: string };
@@ -56,7 +56,7 @@ export type SimEngine = {
   };
   outcome(state: GameState): GameOutcome;
   /** Engine numbers the seat's observation lacks, such as catch odds; none when absent. */
-  facts?(state: GameState, seatIndex: number): PolicyFacts;
+  facts?(state: GameState, seatIndex: number): SeatFacts;
 };
 
 /** Called after every applied or rejected action; each returned violation is one failure (§8). */
@@ -82,10 +82,19 @@ export type SimOptions = {
   policy: string;
   seedSet: SeedSet;
   /**
-   * `--social`: seat 0 plays as a human with the random policy, so chat, promises and later Deals
-   * are exercised; the other seats keep `policy`. Absent leaves a run exactly as before.
+   * `--social`: seat 0 plays as a human with `humanPolicy` (`random` unless set), so chat, promises
+   * and later Deals are exercised; the other seats keep `policy`. Absent leaves a run exactly as
+   * before.
    */
   social?: boolean;
+  /** `--human-policy <name>`: the policy of the human seat 0 under `--social`; default `random`. */
+  humanPolicy?: string;
+  /**
+   * `--seat-policies a,b,..`: one registered policy per seat, which replaces `policy` on the AI
+   * seats (the human seat under `--social` still plays `humanPolicy`). Absent leaves every seat on
+   * `policy`.
+   */
+  seatPolicies?: readonly string[];
   /** `--save <file>`: where each finished game is written as a save (spec §6.7). */
   save?: string;
 };
@@ -142,7 +151,8 @@ export type PlayedGame = {
   outcome: GameOutcome;
 };
 
-type GameResult = {
+/** What one game left behind; every field is a count or an identifier, never hidden state. */
+export type GameResult = {
   game: PlayedGame | null;
   seats: SeatSetup[];
   outcome: GameOutcome;
@@ -161,8 +171,7 @@ export async function runSim(
   checkInvariants: InvariantCheck = noInvariantCheck,
   onGame: (game: PlayedGame) => void = () => {},
 ): Promise<{ summary: SimSummary; failures: GameFailure[] }> {
-  const createPolicy = policies[options.policy];
-  if (!createPolicy) throw new RangeError(`Unknown policy: ${options.policy}`);
+  const seatPolicy = seatPolicies(options, policies);
   const summary = emptySummary(options, engine.classIds);
   summary.games = options.games;
   const failures: GameFailure[] = [];
@@ -174,7 +183,7 @@ export async function runSim(
   for (let g = 0; g < options.games; g++) {
     // Game g of seed s uses seed s + g, so `--games 1 --seed <s + g>` replays it alone.
     const seed = options.seed + g;
-    const game = await playGame(engine, options, seed, createPolicy, checkInvariants, metrics);
+    const game = await playGame(engine, options, seed, seatPolicy, checkInvariants, metrics);
     for (const seat of game.seats) summary.classInSeat[seat.classId]![seat.seatIndex]! += 1;
     for (const [key, n] of Object.entries(game.policyCounts)) {
       policyCounts ??= {};
@@ -285,7 +294,9 @@ export function reproduceCommand(options: SimOptions, seed: number): string {
     `--max-steps ${options.maxSteps}`,
     `--lap-target ${options.lapTarget}`,
     `--policy ${options.policy}`,
+    ...(options.seatPolicies ? [`--seat-policies ${options.seatPolicies.join(',')}`] : []),
     ...(options.social ? ['--social'] : []),
+    ...(options.social && options.humanPolicy ? [`--human-policy ${options.humanPolicy}`] : []),
     ...(options.seedSet === 'eval' ? ['--seed-set eval'] : []),
   ].join(' ');
 }
@@ -306,11 +317,38 @@ export function seatSetup(classIds: readonly string[], seats: number, seed: numb
   }));
 }
 
-async function playGame(
+/**
+ * Builds a seat's policy. The `PolicyGame` carries the seed for the policies that need it (Jev's
+ * per-game client); a seat policy that takes no second parameter never sees it.
+ */
+export type SeatPolicy = (seat: SeatSetup, game: PolicyGame) => Policy;
+
+/** `--policy`, `--seat-policies` and `--human-policy` as one `SeatPolicy`; throws on an unknown name. */
+export function seatPolicies(
+  options: Pick<SimOptions, 'policy' | 'social' | 'humanPolicy' | 'seatPolicies' | 'seats'>,
+  policies: Readonly<Record<string, PolicyFactory>>,
+): SeatPolicy {
+  const factory = (name: string): PolicyFactory => {
+    const found = Object.hasOwn(policies, name) ? policies[name] : undefined;
+    if (!found) throw new RangeError(`Unknown policy: ${name}`);
+    return found;
+  };
+  const named = options.seatPolicies;
+  if (named && named.length !== options.seats) {
+    throw new RangeError(`--seat-policies needs ${options.seats} names; got ${named.length}`);
+  }
+  const ai = (seatIndex: number) => factory(named?.[seatIndex] ?? options.policy);
+  const human = options.social ? factory(options.humanPolicy ?? 'random') : undefined;
+  for (let seatIndex = 0; seatIndex < options.seats; seatIndex++) ai(seatIndex);
+  return (seat, game) =>
+    options.social && seat.seatIndex === 0 ? human!(game) : ai(seat.seatIndex)(game);
+}
+
+export async function playGame(
   engine: SimEngine,
-  options: SimOptions,
+  options: Pick<SimOptions, 'seats' | 'maxSteps' | 'lapTarget' | 'social'>,
   seed: number,
-  createPolicy: PolicyFactory,
+  seatPolicy: SeatPolicy,
   checkInvariants: InvariantCheck,
   metrics: MetricsCollector,
 ): Promise<GameResult> {
@@ -333,9 +371,7 @@ async function playGame(
     metrics.startGame();
     for (const seat of seats) {
       deciders.push({
-        // `--social`: seat 0 is the human, always played by the random policy (§4.8).
-        policy:
-          options.social && seat.seatIndex === 0 ? new RandomPolicy() : createPolicy(policyGame),
+        policy: seatPolicy(seat, policyGame),
         rng: createPolicyRng(`policy:${seed}:${seat.seatIndex}`),
       });
     }

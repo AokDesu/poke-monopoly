@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { Observation, SaleQuote } from '../../../engine/index.ts';
 import { currentForm, speciesType } from '../game/content.ts';
+import { HowToPlayButton } from '../howToPlay/HowToPlay.tsx';
 import { t } from '../i18n/en.ts';
 import { speciesName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
@@ -119,6 +120,9 @@ export function SellPanel({
         <ActionButton enabled variant="secondary" onClick={() => onSell([])}>
           {t('sell.keep')}
         </ActionButton>
+      </div>
+      <div className="sell-help">
+        <HowToPlayButton />
       </div>
     </dialog>
   );
