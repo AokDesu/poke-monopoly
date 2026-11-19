@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { App } from './App.tsx';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
+import { demoRequested } from './game/demoMode.ts';
 import { seedFromSearch } from './game/setup.ts';
 import { t } from './i18n/en.ts';
 
@@ -20,7 +21,7 @@ export function Root({ search, dev = __UI_GALLERY__ }: { search: string; dev?: b
           <GalleryPage />
         </Suspense>
       ) : fixtureName === null ? (
-        <App seed={seedFromSearch(search)} demo={params.has('demo')} />
+        <App seed={seedFromSearch(search)} demo={demoRequested(search)} />
       ) : (
         <Suspense fallback={<p className="p-8">{t('play.heading')}</p>}>
           <FixtureRoute name={fixtureName} />

@@ -91,6 +91,7 @@ const SHOWN = [
       'demo.banner',
       'demo.chosen',
       'demo.confidence',
+      'demo.modelNote',
       'demo.sellNote',
       'demo.byBackup',
       'ai.reason.timeout',

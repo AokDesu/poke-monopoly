@@ -825,6 +825,8 @@ export const en = {
   'demo.col.probability': 'Jev’s probability',
   'demo.chosen': 'Chosen',
   'demo.confidence': 'Jev’s confidence: {value}',
+  'demo.modelNote':
+    'These numbers are Jev’s own output, rounded to two decimals. They are not a measured rate.',
   'demo.sellNote':
     'At the Sell Phase Jev answers once per Pokémon, so these chances do not add up to 1.',
   'demo.byJev': 'Jev decided.',

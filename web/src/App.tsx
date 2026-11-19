@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { BoardScreen } from './board/BoardScreen.tsx';
 import { CreditsScreen } from './CreditsScreen.tsx';
 import { classOptions, content as gameContent, engineContent } from './game/content.ts';
+import { fetchDemoSetting } from './game/demoMode.ts';
 import { rollForFirstPlayer } from './game/firstPlayer.ts';
 import { applyPreset } from './game/presets.ts';
 import {
@@ -66,7 +67,10 @@ import { FocusHeadingContext, Screen } from './ui/Screen.tsx';
 export interface AppProps {
   /** Test-only fixed game seed from `?seed=`; never shown to players. */
   seed?: number | string;
-  /** Demo mode (`?demo`): shows the "What Jev chose" panel on a rival's decision (issue #220). */
+  /**
+   * The page asks for demo mode (`?demo`, issues #220 and #247). Only a request: the "What Jev
+   * chose" panel exists once the server's demo setting is also on, read from `/api/ai/status`.
+   */
   demo?: boolean;
   /** Random All's source of choices. */
   random?: () => number;
@@ -134,7 +138,20 @@ export function App({
   store: givenStore,
   storage: givenStorage,
 }: AppProps) {
-  const [store] = useState(() => givenStore ?? createGameStore({ demo }));
+  // The server's demo setting, off until the status says otherwise: a missing, slow or unreadable
+  // answer leaves it off, and so does a page opened without `?demo`, which never asks.
+  const serverDemo = useRef(false);
+  const [store] = useState(
+    () => givenStore ?? createGameStore({ demo: () => demo && serverDemo.current }),
+  );
+  useEffect(() => {
+    if (!demo) return;
+    const controller = new AbortController();
+    void fetchDemoSetting(controller.signal).then((on) => {
+      if (!controller.signal.aborted) serverDemo.current = on;
+    });
+    return () => controller.abort();
+  }, [demo]);
   const [storage] = useState(() => (givenStorage === undefined ? browserStorage() : givenStorage));
   const [opened] = useState(() => inspect(storage));
   // A reload keeps an unfinished watch setup, unless a saved game is waiting on the Home screen.
