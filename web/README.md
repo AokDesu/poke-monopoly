@@ -190,9 +190,11 @@ The right-hand column lists every seat as one row (`board/SeatRows.tsx`): name (
 rival's class) with its seat disc, coins, square, and the seat's last turn told as short beats
 (`board/beats.ts`, built from the seat-filtered feed only). A rival's row writes itself beat by
 beat while it plays, folds to one line 1.5 s after its turn ends and stays until the seat plays
-again; a long turn shows its last four beats and "+N more". A row that touched the viewing seat is
-lit, and at the start of that seat's turn the touching beats are listed first above the rows. The
-rows take the viewing seat as a value (`viewerSeat`), never the store's human seat. The toggle on a
+again; a long turn shows its last four beats and "+N more", which opens that turn in place and
+keeps focus on the same control, and the seat's next turn starts folded to four again. Speech
+shows only at Step or Readable. A row that touched the viewing seat is lit, and at the start of
+that seat's turn the touching beats are listed first above the rows. The rows take the viewing
+seat as a value (`viewerSeat`), never the store's human seat. The toggle on a
 row opens the old panel body in place: Lap, items held, badges, team (and, for your own seat
 only, the Ball pouch and items), the Backup bot reason and, for a rival, your promises with it.
 One seat is open at a time, Enter or Space toggles it and Escape closes it; opening is a local view
@@ -201,10 +203,12 @@ choice that never reaches the game. A watched game adds each AI's personality an
 `board/useTurnPlayback.ts` is the pace engine: Step, Readable (default), Fast or Instant, saved
 with every game. It holds each beat for `holdMs` (`board/pace.ts`: at Readable 1.2 s + 0.3 s per
 word, 2.5-5 s; the player's own results at least 2.5 s; a step that tells nothing 250 ms) before
-the next automatic step or AI request starts. Next (Space) ends a hold, Pause (P) holds the game
-and Skip to my turn runs at Instant until the player's turn. Timing never cancels or repeats an AI
-decision. `beats.test.ts`, `pace.test.ts`, `PaceEngine.test.tsx` and `PlayersArea.test.tsx`
-cover the beats' privacy, the hold formula, the controls and the rows.
+the next automatic step or AI request starts. Only Next (Space) ends a hold early (a choice the
+player makes meanwhile is told after it), Pause (P) holds the game, Skip to my turn runs at
+Instant until the player's turn and a watcher's Skip to results until the results; choosing a pace
+ends either skip. Timing never cancels or repeats an AI decision. `beats.test.ts`, `pace.test.ts`,
+`PaceEngine.test.tsx` and `PlayersArea.test.tsx` cover the beats' privacy, the hold formula, the
+controls and the rows.
 
 ## UI states gallery (dev only)
 

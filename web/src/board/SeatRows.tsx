@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import type { Observation } from '../../../engine/index.ts';
 import { ballItemId, currentForm, speciesType } from '../game/content.ts';
 import { pendingOffer, promiseRows } from '../game/promises.ts';
+import type { Pace } from '../game/setup.ts';
 import type { OpponentSettings } from '../game/store.ts';
+import { paceAllowsTalk } from '../game/tableTalk.ts';
 import { t } from '../i18n/en.ts';
 import { className, itemName } from '../i18n/names.ts';
 import { BallIcon, CoinIcon } from '../ui/icons.tsx';
@@ -10,6 +12,7 @@ import { TypeOrb } from '../ui/TypeOrb.tsx';
 import type { Beat, StorySpeech } from './beats.ts';
 import { ItemFacts } from './ItemFacts.tsx';
 import { tagLabel, type ViewedObservation } from './labels.ts';
+import { PACE_TIMING } from './pace.ts';
 import { PromiseItem } from './PromisePanel.tsx';
 import { TeamDetails } from './TeamDetails.tsx';
 import type { TableStory } from './useTurnPlayback.ts';
@@ -30,8 +33,11 @@ export interface SeatRowsProps {
   viewerSeat: number | undefined;
   /** What each seat did; absent on a read-only board with no feed. */
   story?: TableStory;
-  /** How long a finished turn stays open before its row folds to one line. */
-  foldMs?: number;
+  /**
+   * The pace the table runs at now, Instant while skipping: how long a finished turn stays open
+   * before its row folds to one line, and whether speech shows (Step and Readable only).
+   */
+  pace?: Pace;
   /** Each AI's setup, shown under its row; a watcher's boards pass it. */
   opponents?: readonly OpponentSettings[];
   /** The Backup bot reason of each AI seat whose decisions the backup bot makes. */
@@ -40,20 +46,22 @@ export interface SeatRowsProps {
 
 /**
  * One row per player (spec §3, AI turns): name, coins, square and their last turn told as beats.
- * A playing seat's row writes itself beat by beat, folds to one line `foldMs` after its turn ends
- * and keeps that line until the seat plays again. Whatever touched the viewing seat is lit, and
- * at the start of its turn listed first. Every fact here is public, or the viewing seat's own.
+ * A playing seat's row writes itself beat by beat, folds to one line its pace's fold time after
+ * its turn ends and keeps that line until the seat plays again. Whatever touched the viewing seat
+ * is lit, and at the start of its turn listed first. Every fact here is public, or the viewing
+ * seat's own.
  */
 export function SeatRows({
   observation,
   viewerSeat,
   story,
-  foldMs = 0,
+  pace,
   opponents,
   backup,
 }: SeatRowsProps) {
   const game = observation.public;
   const active = game.phase.kind === 'finished' ? null : game.activeSeatIndex;
+  const foldMs = pace ? PACE_TIMING[pace].foldMs : 0;
   // One seat's details are open at a time; a local view choice that never reaches the game.
   const [openSeat, setOpenSeat] = useState<number | null>(null);
   const [lingering, setLingering] = useState<number | null>(null);
@@ -110,7 +118,9 @@ export function SeatRows({
             viewerSeat={viewerSeat}
             beats={story ? lastTurn(player.seatIndex) : null}
             current={story && story.current !== null ? story.beats[story.current]! : null}
-            speech={story?.speech.get(player.seatIndex) ?? null}
+            speech={
+              pace && paceAllowsTalk(pace) ? (story?.speech.get(player.seatIndex) ?? null) : null
+            }
             writing={player.seatIndex === active || player.seatIndex === lingering}
             setup={opponents?.find((entry) => entry.seatIndex === player.seatIndex)}
             backupReason={backup?.get(player.seatIndex) ?? null}
@@ -167,7 +177,8 @@ function SeatRow({
       : undefined;
   const active = seat === game.activeSeatIndex && game.phase.kind !== 'finished';
   const name = own ? t('seat.you') : className(player.classId);
-  const [all, setAll] = useState(false);
+  // "+N more" opens one turn in place; the seat's next turn starts at its last few beats again.
+  const [openTurn, setOpenTurn] = useState<number | null>(null);
   const row = useRef<HTMLLIElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(open);
@@ -178,8 +189,10 @@ function SeatRow({
   }, [open]);
   const square = game.board.find((space) => space.position === player.position);
   const told = beats ?? [];
-  const hidden = all ? 0 : Math.max(0, told.length - MAX_BEATS);
-  const visible = told.slice(hidden);
+  const turn = told[0]?.turn ?? null;
+  const all = turn !== null && openTurn === turn;
+  const extra = Math.max(0, told.length - MAX_BEATS);
+  const visible = all ? told : told.slice(extra);
   const lit = !own && told.some((beat) => beat.touchedYou);
   const bodyId = `player-body-${seat}`;
   const storyId = `player-story-${seat}`;
@@ -275,16 +288,17 @@ function SeatRow({
             <p className="seat-story-empty">{active ? t('row.starting') : t('row.noTurn')}</p>
           ) : (
             <ol className="seat-beats" aria-label={t('row.lastTurn', { name })}>
-              {hidden > 0 && (
+              {/* One control, kept in place, so the keyboard stays on it as it opens and closes. */}
+              {extra > 0 && (
                 <li className="seat-beat-more">
                   <button
                     type="button"
                     className="beat-more"
-                    aria-expanded={false}
+                    aria-expanded={all}
                     aria-controls={storyId}
-                    onClick={() => setAll(true)}
+                    onClick={() => setOpenTurn(all ? null : turn)}
                   >
-                    {t('row.more', { count: hidden })}
+                    {all ? t('row.fewer') : t('row.more', { count: extra })}
                   </button>
                 </li>
               )}
@@ -301,13 +315,6 @@ function SeatRow({
                   {beat.text}
                 </li>
               ))}
-              {all && told.length > MAX_BEATS && (
-                <li className="seat-beat-more">
-                  <button type="button" className="beat-more" onClick={() => setAll(false)}>
-                    {t('row.fewer')}
-                  </button>
-                </li>
-              )}
             </ol>
           )}
           {speech && writing && (

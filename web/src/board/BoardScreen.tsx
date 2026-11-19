@@ -4,7 +4,6 @@ import { t } from '../i18n/en.ts';
 import { Screen } from '../ui/Screen.tsx';
 import { backupSeats } from './AiTurn.tsx';
 import { Board } from './Board.tsx';
-import { PACE_TIMING } from './pace.ts';
 import { PromisePanel } from './PromisePanel.tsx';
 import { TableTalkPanel } from './TableTalk.tsx';
 import { useChatReply } from './useChatReply.ts';
@@ -95,7 +94,7 @@ function PlayerBoardScreen({
             observation={view.observation}
             viewerSeat={view.seatIndex}
             story={playback.story}
-            foldMs={PACE_TIMING[playback.skipping ? 'instant' : playback.pace].foldMs}
+            pace={playback.skipping ? 'instant' : playback.pace}
             backup={backupSeats(view, playback.status)}
           />
         }

@@ -27,6 +27,7 @@ export interface TableStory {
 export interface TurnPlayback {
   /** The pace the player chose, saved with the game. */
   pace: Pace;
+  /** Saves the pace and runs at it; choosing one while skipping ends the skip. */
   setPace(pace: Pace): void;
   /** Running at Instant until the viewing seat's turn or the results; every row is still written. */
   skipping: boolean;
@@ -73,6 +74,7 @@ const NO_STORY: TableStory = {
  * The pace engine (spec §3, AI turns). Every step the game applies by itself, and every AI request,
  * waits until the beat before it has been held: Readable holds each outcome 1.2 s + 0.3 s per word
  * (2.5-5 s), the viewing seat's own results at least 2.5 s, and a step that tells nothing 250 ms.
+ * Only Next ends a hold early: a choice the player makes meanwhile is told once the hold ends.
  * Timing is the screen's alone: a pace, Next, Pause or a skip never cancels, reissues or changes
  * an AI decision, and a request already sent always lands.
  */
@@ -169,21 +171,11 @@ export function useTurnPlayback(
           ? t('watch.stepBusy')
           : null;
 
-  // Skipping to the viewing seat's turn ends when that turn starts; skipping to the results, never.
+  // Skipping to the viewing seat's turn ends when that turn starts; skipping to the results, only
+  // when a pace is chosen (`setPace` ends either skip).
   if (skip === 'turn' && (finished || (viewer !== undefined && game?.activeSeatIndex === viewer))) {
     setSkip(null);
   }
-
-  // A choice the player makes shows they have read the table: it ends whatever was held.
-  const latest = view?.feed.at(-1);
-  const ownActor = game?.players.find((player) => player.seatIndex === viewer)?.actorId;
-  const ownCommand =
-    latest !== undefined && latest.record.action.actorId === ownActor && !latest.record.auto
-      ? latest.record.action.actionSeq
-      : null;
-  useEffect(() => {
-    if (ownCommand !== null) setHold(null);
-  }, [ownCommand]);
 
   // Tells the next beats, holding each one; a beat with nothing to hold is told with the next.
   useEffect(() => {
@@ -311,7 +303,10 @@ export function useTurnPlayback(
   };
   return {
     pace,
-    setPace: store.setPace,
+    setPace: (value) => {
+      setSkip(null);
+      store.setPace(value);
+    },
     skipping: skip !== null,
     status,
     statusUnavailable,

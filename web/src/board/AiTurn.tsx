@@ -76,13 +76,16 @@ export function backupSeats(
   return seats;
 }
 
-/** The pace choice, shared by a player's turn panel and the watcher's control bar. */
+/**
+ * The pace choice, shared by a player's turn panel and the watcher's control bar. It shows the pace
+ * the table runs at, Instant while skipping, so any choice there ends the skip.
+ */
 export function PaceSelect({ playback }: { playback: TurnPlayback }) {
   return (
     <label className="ai-speed">
       <span>{t('pace.label')}</span>
       <select
-        value={playback.pace}
+        value={playback.skipping ? 'instant' : playback.pace}
         onChange={(event) => playback.setPace(event.target.value as Pace)}
       >
         {PACES.map((pace) => (
@@ -251,7 +254,8 @@ export function AiTurn({
       )}
       {playback.skipping && (
         <p className="ai-thinking" role="status">
-          {t('pace.skipping')}
+          {/* A watcher holds no seat: the only skip there is to the results. */}
+          {view.seatIndex === undefined ? t('watch.skipping') : t('pace.skipping')}
         </p>
       )}
     </div>

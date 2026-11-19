@@ -2,7 +2,6 @@ import { useRef } from 'react';
 import type { GameStore, SpectatorView } from '../game/store.ts';
 import { backupSeats } from './AiTurn.tsx';
 import { Board } from './Board.tsx';
-import { PACE_TIMING } from './pace.ts';
 import { SeatRows } from './SeatRows.tsx';
 import { useTurnPlayback } from './useTurnPlayback.ts';
 import { WatchPanel } from './WatchPanel.tsx';
@@ -44,7 +43,7 @@ export function WatchScreen({
           observation={{ public: game }}
           viewerSeat={undefined}
           story={playback.story}
-          foldMs={PACE_TIMING[playback.skipping ? 'instant' : playback.pace].foldMs}
+          pace={playback.skipping ? 'instant' : playback.pace}
           opponents={view.opponents}
           backup={backupSeats(view, playback.status)}
         />

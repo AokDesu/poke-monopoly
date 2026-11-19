@@ -137,7 +137,7 @@ function feedIndexes(store: GameStore): number[] {
   });
 }
 
-test('every outcome is held within the formula before the next step, the player’s own results at least 2.5 s (§3)', async () => {
+test('every outcome is held within the formula before the next step, the player’s own results at least 2.5 s even when the player answers at once (§3)', async () => {
   vi.useFakeTimers();
   server({ pick: (actions) => actions.find((entry) => entry.kind === 'catch') });
   const store = humanGame();
@@ -149,15 +149,10 @@ test('every outcome is held within the formula before the next step, the player�
   const beats = tableBeats(view.feed, { game: view.observation.public, viewerSeat: 0 });
   const records = store.getSession()!.log.actions;
   const indexes = feedIndexes(store);
-  let rivalOutcomes = 0;
-  let ownResults = 0;
-  records.forEach((record, index) => {
-    const next = records[index + 1];
-    // Only a step the game starts by itself waits for the hold; the player may act at any time.
-    if (!next || (next.action.actorId === 'human' && !next.auto)) return;
-    const told = beats.filter((beat) => beat.at === indexes[index]);
-    if (told.length === 0) return;
-    const held = told.reduce(
+  // What each record told, and how long Readable holds it.
+  const toldBy = records.map((_, index) => beats.filter((beat) => beat.at === indexes[index]));
+  const heldBy = toldBy.map((told) =>
+    told.reduce(
       (sum, beat) =>
         sum +
         holdMs(
@@ -169,22 +164,41 @@ test('every outcome is held within the formula before the next step, the player�
           'readable',
         ),
       0,
-    );
-    const gap = times[index + 1]! - times[index]!;
+    ),
+  );
+  // The player's own choices: the player may make one at any time, even while a beat is held.
+  const byPlayer = records.map((record) => record.action.actorId === 'human' && !record.auto);
+  let rivalOutcomes = 0;
+  let ownResults = 0;
+  let answeredDuringHold = 0;
+  toldBy.forEach((told, index) => {
+    if (told.length === 0) return;
+    // The next step the game starts by itself waits for this hold and for every one told after it
+    // in the meantime: a choice the player makes meanwhile ends none of them, only Next does.
+    let next = index + 1;
+    let held = heldBy[index]!;
+    while (byPlayer[next]) held += heldBy[next++]!;
+    if (!records[next]) return;
+    const gap = times[next]! - times[index]!;
     const where = `${told.map((beat) => beat.text).join(' | ')} (record ${index})`;
     expect(gap, where).toBeGreaterThanOrEqual(held);
-    // Never much longer: the hold, a speech line's second and one filler step.
-    expect(gap, where).toBeLessThanOrEqual(held + READABLE.speechMs + READABLE.fillerMs + 100);
+    // Never much longer: the hold, a speech line's second and one filler step. A step the game
+    // started is told at once; the player's choice may wait behind a hold still running.
+    if (next === index + 1 && !byPlayer[index])
+      expect(gap, where).toBeLessThanOrEqual(held + READABLE.speechMs + READABLE.fillerMs + 100);
     for (const beat of told) {
       if (beat.seatIndex !== 0) rivalOutcomes++;
       else if (beat.kind === 'result') {
         ownResults++;
+        if (next > index + 1) answeredDuringHold++;
         expect(gap, where).toBeGreaterThanOrEqual(2500);
       }
     }
   });
   expect(rivalOutcomes).toBeGreaterThan(10);
   expect(ownResults).toBeGreaterThan(2);
+  // The player answered while their own result was held, as a quick player does.
+  expect(answeredDuringHold).toBeGreaterThan(0);
 }, 300_000);
 
 test('Next (Space) ends a rival’s hold at once; the next step follows after the filler time (§3)', async () => {

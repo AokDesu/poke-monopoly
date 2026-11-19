@@ -6,8 +6,10 @@ import { configForSetup, createGameStore, type GameStore } from '../game/store.t
 import { t } from '../i18n/en.ts';
 import { className } from '../i18n/names.ts';
 import { fakeServer, settingsFor, watchStore } from '../test/watchGame.ts';
+import type { Beat, StorySpeech } from './beats.ts';
 import { Board } from './Board.tsx';
 import { BoardScreen } from './BoardScreen.tsx';
+import { SeatRows } from './SeatRows.tsx';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -257,4 +259,98 @@ test('a watcher’s seats lead the column; a player’s turn controls come first
   const column = document.querySelector('.trainer-panels')!;
   expect(column.firstElementChild!.className).not.toBe('players-area');
   expect(column.lastElementChild!.className).toBe('players-area');
+});
+
+/** A table where seat 1 is playing, so its row is open as a list of beats. */
+function seatOnePlaying() {
+  const { observation } = playerStore(2).getView()!;
+  return { ...observation, public: { ...observation.public, activeSeatIndex: 1 } };
+}
+
+/** Seat 1's turn `turn`, told in `count` beats. */
+const turnOfSeatOne = (turn: number, count: number): Beat[] =>
+  Array.from({ length: count }, (_, index) => ({
+    seatIndex: 1,
+    turn,
+    at: turn * 100 + index,
+    key: 'beat.moveTo',
+    text: `Turn ${turn}, beat ${index + 1}`,
+    kind: 'result',
+    touchedYou: false,
+  }));
+
+/** Everything in `beats` told, each seat's last turn being its latest beat's. */
+const storyOf = (beats: Beat[], speech = new Map<number, StorySpeech>()) => ({
+  beats,
+  shown: beats.length,
+  current: null,
+  turns: new Map(beats.map((beat) => [beat.seatIndex, beat.turn])),
+  speech,
+});
+
+const beatsOf = (seat: number) =>
+  [...rowOf(seat).querySelectorAll('.seat-beat')].map((item) => item.textContent);
+
+test('“+N more” opens a long turn in place and keeps the keyboard on it; the seat’s next turn starts at its last four beats (§3)', async () => {
+  const user = userEvent.setup();
+  const observation = seatOnePlaying();
+  const first = turnOfSeatOne(5, 6);
+  const { rerender } = render(
+    <SeatRows observation={observation} viewerSeat={0} story={storyOf(first)} pace="readable" />,
+  );
+  expect(beatsOf(1)).toEqual(first.slice(-4).map((beat) => beat.text));
+  const more = within(rowOf(1)).getByRole('button', { name: t('row.more', { count: 2 }) });
+  expect(more.getAttribute('aria-expanded')).toBe('false');
+
+  more.focus();
+  await user.keyboard('{Enter}');
+  expect(beatsOf(1)).toEqual(first.map((beat) => beat.text));
+  expect(document.activeElement, 'focus stays on the control').toBe(more);
+  expect(more.getAttribute('aria-expanded')).toBe('true');
+  expect(more.textContent).toBe(t('row.fewer'));
+  await user.keyboard('{Enter}');
+  expect(beatsOf(1)).toHaveLength(4);
+  expect(document.activeElement).toBe(more);
+  expect(more.getAttribute('aria-expanded')).toBe('false');
+
+  // Left open, then the seat plays its next long turn: that turn starts at its last four beats.
+  await user.keyboard('{Enter}');
+  const next = turnOfSeatOne(9, 6);
+  rerender(
+    <SeatRows
+      observation={observation}
+      viewerSeat={0}
+      story={storyOf([...first, ...next])}
+      pace="readable"
+    />,
+  );
+  expect(beatsOf(1)).toEqual(next.slice(-4).map((beat) => beat.text));
+  expect(
+    within(rowOf(1))
+      .getByRole('button', { name: t('row.more', { count: 2 }) })
+      .getAttribute('aria-expanded'),
+  ).toBe('false');
+});
+
+test('a seat’s speech line shows only at Step or Readable, also after the pace changes mid-line (§3)', () => {
+  const observation = seatOnePlaying();
+  const line = { text: 'What a roll!', source: 'bank' as const, toYou: false };
+  const story = storyOf(turnOfSeatOne(5, 2), new Map([[1, line]]));
+  const speech = () =>
+    within(rowOf(1)).queryByLabelText(
+      t('row.speech', { name: className(observation.public.players[1]!.classId), line: line.text }),
+    );
+  const { rerender } = render(
+    <SeatRows observation={observation} viewerSeat={0} story={story} pace="readable" />,
+  );
+  expect(speech()).not.toBeNull();
+  for (const [pace, shown] of [
+    ['fast', false],
+    ['instant', false],
+    ['step', true],
+    ['readable', true],
+  ] as const) {
+    rerender(<SeatRows observation={observation} viewerSeat={0} story={story} pace={pace} />);
+    expect(speech() !== null, pace).toBe(shown);
+  }
 });

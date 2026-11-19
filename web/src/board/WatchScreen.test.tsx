@@ -253,6 +253,34 @@ test('Skip to results asks once, and Keep watching changes nothing (§3)', async
   await finish(store);
 }, 60_000);
 
+test('while skipping to the results the watcher is told so and the pace reads Instant; choosing a pace ends the skip (§3)', async () => {
+  fakeServer();
+  const store = watchStore(2);
+  render(<BoardScreen store={store} />);
+  press(t('watch.skip'));
+  fireEvent.click(
+    within(screen.getByRole('group', { name: t('watch.skipAsk') })).getByRole('button', {
+      name: t('watch.skip'),
+    }),
+  );
+  expect(screen.getByText(t('watch.skipping'))).toBeTruthy();
+  expect(screen.queryByText(t('pace.skipping')), 'the watcher has no turn').toBeNull();
+  const select = screen.getByLabelText(t('pace.label')) as HTMLSelectElement;
+  expect(select.value, 'the pace the table runs at').toBe('instant');
+
+  fireEvent.change(select, { target: { value: 'step' } });
+  expect(store.getPace()).toBe('step');
+  expect(select.value).toBe('step');
+  expect(screen.queryByText(t('watch.skipping'))).toBeNull();
+  // Back at Step: the next outcome waits for Next however long it takes.
+  const held = () => document.querySelector('.seat-beat[data-current="true"]');
+  for (let i = 0; i < 200 && !held(); i++) await tick(250);
+  expect(held()).not.toBeNull();
+  const waiting = logLength(store);
+  await tick(10 * 60_000);
+  expect(logLength(store)).toBe(waiting);
+});
+
 test('Instant on a 4-AI game reaches the results (§3)', async () => {
   fakeServer();
   const store = watchStore(4);

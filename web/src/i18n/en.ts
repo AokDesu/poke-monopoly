@@ -488,6 +488,8 @@ export const en = {
   'watch.step': 'Step',
   'watch.skip': 'Skip to results',
   'watch.skipAsk': 'Skip to the results? The rest of the game plays out at once, with no pauses.',
+  'watch.skipping':
+    'Skipping to the results. Every turn is still written in its row. Choose a pace to watch turn by turn again.',
   'watch.keepWatching': 'Keep watching',
   'watch.leave': 'Leave',
   'watch.leaveAsk': 'Leave this game? Save it to continue later, or end it.',
