@@ -93,6 +93,8 @@ export const en = {
   'home.watchHint': 'Set up two to four AIs and watch them play each other. You take no seat.',
   'home.watchNotEnough':
     'Watching needs at least two playable classes, one for each AI. Ask the team to check the class file.',
+  'home.presets': 'Quick-start presets',
+  'home.presetsHint': 'Fill every seat in one tap, then check and change it before you start.',
   'home.boardCaption': 'Spaces on the board',
 
   'board.kind.start': 'Start',
@@ -114,6 +116,9 @@ export const en = {
   'board.lap': 'Laps completed',
   'board.position': 'Square',
   'board.coins': 'Coins',
+  'board.badges': 'Badges',
+  'board.shield': 'Shield',
+  'board.shieldArmed': 'Armed',
   'board.team': 'Team',
   'board.yourTeam': 'Your team',
   'board.battle': 'Battle',
@@ -171,6 +176,8 @@ export const en = {
   'board.logEmpty': 'No events yet. The next game event will appear here.',
   'board.event.randomRoll': 'The die rolled {result}.',
   'board.event.randomDraw': 'The game resolved a random draw.',
+  'board.event.displaced': '{target} was pushed back to square {position}.',
+  'board.event.ballGained': '{owner} gained a {ball}.',
   'board.event.coins': '{source} paid {amount} coins to {destination}. {reason}',
   'board.event.bank': 'The bank',
   'board.event.player': 'A player',
@@ -224,6 +231,37 @@ export const en = {
   'setup.step.ais': 'AIs',
   'setup.step.options': 'Table',
 
+  'presets.heading': 'Quick-start presets',
+  'presets.body':
+    'Pick one to fill every seat at once. The next screen shows each seat’s exact choices, and Back there lets you change any seat before you roll.',
+  'presets.rivalsUnit': 'AI',
+  'presets.problem.mode': 'This preset needs {mode} mode, which is closed.',
+  'presets.problem.noMode': 'No mode is open, so this preset cannot start.',
+  'presets.problem.class': 'This preset needs {class}, which is not open to play.',
+  'presets.problem.starter':
+    'This preset gives {class} the Starter {starter}, which that class does not offer.',
+  'presets.problem.duplicate':
+    'This preset gives {class} to two players, and classes cannot repeat in one game.',
+  'presets.problem.personality':
+    'This preset needs the {personality} personality, which is not open yet.',
+  'presets.problem.noPersonality':
+    'No AI personality is open yet, so this preset cannot pick one for each rival.',
+  'presets.problem.difficulty': 'This preset needs {difficulty} difficulty, which is closed.',
+  'presets.problem.seats':
+    'This preset needs {rivals}, but {open} and every player needs a different one.',
+  'presets.openNone': 'no class is open',
+  'presets.openOne': 'only 1 class is open',
+  'presets.openMany': 'only {n} classes are open',
+  'presets.problem.byHand':
+    'It has not been changed for you. Use New game to choose your seats yourself.',
+  'preset.one-rival-easy.name': 'One rival, easy',
+  'preset.one-rival-easy.hint': 'A calm first game: you and one Easy AI.',
+  'preset.two-rivals-normal.name': 'Two rivals, normal',
+  'preset.two-rivals-normal.hint': 'A fuller table: you and two Normal AIs.',
+  'preset.three-rivals-random.name': 'Three rivals, random',
+  'preset.three-rivals-random.hint':
+    'You and three AIs. Every class, Starter, personality and difficulty is picked at random.',
+
   'mode.heading': 'Choose a mode',
   'mode.body': 'The mode sets how many Laps of the board it takes to end the game.',
   'mode.lapsUnit': 'Laps',
@@ -250,8 +288,8 @@ export const en = {
     'A bonus on catch rolls against Bug Pokémon, and a bonus when you sell Bug Pokémon at Start.',
   'class.passive.nurse-joy':
     'You lose no coins when you lose a PvP battle, and your team recovers from Tired at the start of your turn.',
-  'class.closed.rival':
-    'Coming later. Its once-per-Lap forced battle needs the PvP controls, which are not built yet.',
+  'class.passive.rival':
+    'A bonus in every PvP battle, whether you challenge or are challenged. Once per Lap you can force a challenge that cannot be declined.',
   'class.rivalHas':
     '{rival} already has {class}. You can keep it and change that rival on the next step.',
 
@@ -474,7 +512,7 @@ export const en = {
   'turn.noAvailableOptions': 'There is nothing to choose in this step. The game moves on.',
 
   'turn.actions': 'Turn actions',
-  'turn.strategyBody': 'Use an item before moving, or keep your items and skip.',
+  'turn.strategyBody': 'Use an item or an Ability before moving, or skip.',
   'turn.opponent': 'Opponent turn',
   'turn.opponentError':
     'The opponent could not complete this step. Check the server connection and retry.',
@@ -494,8 +532,123 @@ export const en = {
   'choice.rewardCoins': 'Take the coins',
   'choice.rewardEvolve': 'Evolve {pokemon} into {form}',
   'choice.ability': 'Use {ability} ({pokemon})',
+  'choice.abilityTarget': '{label} on {target}',
   'choice.abilityCatch': '{label}: boost catch rolls',
   'choice.abilityCombat': '{label}: boost battle rolls',
+
+  // PvP and Gym decisions (spec §3, §4.4, Appendix C.3); every number comes from the engine.
+  'battle.heading.response': 'Battle challenge',
+  'battle.heading.window': 'Before the roll',
+  'battle.heading.gym': 'Gym challenge',
+  'battle.heading.reroll': 'Review the dice',
+  'battle.heading.reward': 'Choose your reward',
+  'battle.heading.yours': 'Your battle',
+  'battle.heading.watching': 'Battle',
+  'battle.body.response': '{name} challenged you. Accept to battle, or decline.',
+  'battle.body.entry':
+    'Challenge this Gym, or skip it. A challenge costs no tactical action, and you can try again on a later landing.',
+  'battle.body.window':
+    'Use one Ability or none. Both sides confirm before the die is rolled, and nothing can be added after the result.',
+  'battle.body.reroll':
+    'The dice are shown. You may reroll your own die once, or keep it. A reroll replaces the old die, even if it is worse.',
+  'battle.body.rewardPvp':
+    'You won. Take coins from the loser, or evolve one Pokémon by one stage. You get one reward, never both.',
+  'battle.body.rewardGym':
+    'You beat the Gym and earned a badge. Take coins from the bank, or evolve one Pokémon by one stage. You get one reward, never both.',
+  'battle.body.rolling': 'The dice are rolling. Nothing can be changed now.',
+  'battle.waiting': 'Waiting for {name} to {step}.',
+  'battle.step.response': 'accept or decline',
+  'battle.step.window': 'choose an Ability or none',
+  'battle.step.entry': 'choose whether to challenge',
+  'battle.step.reroll': 'reroll or keep a die',
+  'battle.step.reward': 'choose a reward',
+  'battle.declineNote': 'Declining costs the challenger their action. No coins move.',
+  'battle.challengeNote': 'A win earns one badge and a reward. A loss pays coins to the bank.',
+  'battle.skipGymNote': 'Costs nothing.',
+  'battle.withThis': 'If you use this: {chances}',
+  'battle.terms': 'Battle terms',
+  'battle.termsGym': 'Gym battle terms: a total of {dc} or more wins',
+  'battle.term.pokemon': 'Leading Pokémon',
+  'battle.term.battle': 'Battle',
+  'battle.term.class': 'Class bonus',
+  'battle.term.ability': 'Ability bonus',
+  'battle.term.item': 'Item bonus',
+  'battle.term.debuff': 'Debuffs',
+  'battle.chance.pvp': 'win {win}% · tie {tie}% · lose {lose}%',
+  'battle.chance.gym': 'win {win}%',
+  'battle.notFrozen':
+    'These chances count only what is set so far. An Ability used before the roll can still change them, and nothing can be added after the roll.',
+  'battle.frozen':
+    'These terms are final. The dice roll next, and nothing can be added after the roll.',
+  'battle.forcedBy': 'Forced challenge: {source}. It cannot be declined.',
+  'battle.forced.rival': '{name} used the Rival’s once-per-Lap challenge',
+  'battle.forced.item': '{name} used {item}',
+  'battle.forced.ability': '{name} used {ability}',
+  'battle.forced.unknown': 'a forcing effect started it',
+  'battle.dice': 'Dice',
+  'battle.dieOf': '{name}: {face}',
+  'battle.result': 'This battle',
+  'battle.gymSkipped': '{name} skipped the Gym. Nothing was spent.',
+  'battle.gymAutoSkipped': '{name}: Gym skipped. No battle-ready Pokémon, so nothing was spent.',
+  'battle.reward.coinsGroup': 'Coins',
+  'battle.reward.coinsFrom':
+    'Takes coins from {name}. A shield or Nurse Joy can reduce this to nothing.',
+  'battle.reward.coinsBank': 'Takes coins from the bank.',
+  'battle.reward.evolveGroup': 'Evolve one Pokémon',
+  'battle.reward.branch': '{form} · Battle {battle}',
+  'battle.reward.abilityUsed': 'Ability used this Lap',
+  'battle.reward.choose': 'Choose coins or one evolution to preview it. Nothing is committed yet.',
+  'battle.reward.preview': 'Your reward',
+  'battle.reward.coinsPreviewPvp': 'Take coins from the loser. No Pokémon evolves.',
+  'battle.reward.coinsPreviewGym': 'Take coins from the bank. No Pokémon evolves.',
+  'battle.reward.evolvePreview': '{pokemon} evolves into {form}. Battle {from} → {to}.',
+  'battle.reward.evolveKeeps':
+    'Only this Pokémon changes. Tired, Rescue and Ability cooldown stay as they are, and no coins move.',
+  'battle.reward.notBoth': 'This is your whole reward: no Pokémon evolves.',
+  'battle.reward.confirm': 'Confirm reward',
+  'battle.reward.stale': 'The choices changed. Review the refreshed rewards and choose again.',
+  'challenge.heading': 'Challenge an opponent',
+  'challenge.intro':
+    'Any opponent, at any distance. It costs your tactical action and counts as an attack, even if declined.',
+  'challenge.targetFacts': '{class} · {coins} coins',
+  'challenge.voluntary': 'Challenge {name}',
+  'challenge.force': 'Force a challenge on {name}',
+  'challenge.voluntaryNote':
+    '{name} may accept or decline. If they decline, you lose the action but no coins move.',
+  'challenge.forcedNote': 'Rival’s challenge, once per Lap: {name} cannot decline.',
+  'challenge.preview': 'Challenge preview',
+  'challenge.cost': 'Spends your tactical action. These chances count no Ability yet.',
+  'challenge.confirm': 'Confirm challenge on {name}',
+  'challenge.stale': 'The choices changed. Choose a challenge again.',
+  'board.event.challenge': '{name} challenged {target}.',
+  'board.event.accepted': '{name} accepted the challenge.',
+  'board.event.declined': '{name} declined the challenge. No coins moved.',
+  'board.event.pvpConfirmed': 'The battle terms are set. The dice roll next.',
+  'board.event.pvpResolved':
+    '{attacker} rolled {attackerFace} (total {attackerTotal}); {defender} rolled {defenderFace} (total {defenderTotal}). {outcome}',
+  'board.event.pvpWon': '{name} won the battle.',
+  'board.event.pvpTie': 'It is a tie, so there is no reward.',
+  'board.event.gymConfirmed': 'Gym challenge: a total of {dc} or more wins. Challenger: {name}.',
+  'board.event.gymResolved': '{name} rolled {face} for a total of {total} against {dc}. {outcome}',
+  'board.event.gymWon': 'The Gym is beaten.',
+  'board.event.gymLost': 'The Gym holds.',
+  'board.event.badge': '{name} earned a badge.',
+  'board.event.rewardNoCoins': '{name} chose coins, but no coins moved.',
+  'board.event.evolved': '{owner}’s {from} evolved into {to}.',
+  'board.event.evolvedYours': 'Your {from} evolved into {to}.',
+  'board.event.protection.price': 'The Price Shield',
+  'board.event.protection.battle_coin_loss': 'The Shell Guard shield',
+  'board.event.protection.nurse_joy': 'Nurse Joy’s passive',
+  'board.event.protectionCoins': '{protection} covered the coin loss for {name}. No coins moved.',
+  'board.event.protectionHostile': '{protection} blocked a hostile action: {actor} against {name}.',
+  'board.event.shieldArmed': '{name} armed a shield.',
+  'board.event.ability': '{name} used {ability}.',
+  'board.event.abilityOn': '{name} used {ability} on {target}.',
+  'board.event.abilitiesReset': 'Abilities are ready again for {name}.',
+  'board.event.tired': '{pokemon} is Tired.',
+  'board.event.recovered': '{pokemon} is no longer Tired.',
+  'board.event.aPokemon': 'A Pokémon',
+  'board.event.anAbility': 'an Ability',
   'turn.lastMove': 'Last move: rolled {roll}, arrived at square {position}.',
   'turn.end': 'Turn complete. Passing to the next trainer.',
   'turn.finished': 'The game is complete.',
@@ -509,6 +662,9 @@ export const en = {
   'action.reason.NOT_YOUR_TURN': 'Not your turn',
   'action.reason.ALREADY_USED_THIS_TURN': 'Already used this turn',
   'action.reason.NO_VALID_TARGET': 'No valid target',
+  'action.reason.ABILITY_USED_THIS_LAP': 'Already used this Lap',
+  'action.reason.ABILITY_USED_THIS_GLOBAL_TURN': 'You already used an Ability this turn',
+  'action.reason.ABILITY_WRONG_TIMING': 'Not usable in this window',
   'action.engineReason': '{reason}',
 
   'encounter.catch': 'Catch',
@@ -557,6 +713,32 @@ export const en = {
   'strategy.potion.chooseTarget': 'Choose a Pokémon to preview its healing. Nothing is spent yet.',
   'strategy.potion.staleSelection':
     'The available actions changed. Choose your Potion and Pokémon again before confirming.',
+
+  'ability.heading': 'Abilities',
+  'ability.source': '{pokemon} · {instanceId}',
+  'ability.planned': 'Not active yet: this build does not run this Ability.',
+  'ability.targets': 'Choose an opponent',
+  'ability.members': 'Choose a Pokémon to heal',
+  'ability.scopes': 'Choose what to boost',
+  'ability.scope.catch': 'Catch rolls',
+  'ability.scope.combat': 'Battle rolls',
+  'ability.member': '{pokemon} · {instanceId}',
+  'ability.choosePrompt': 'Choose an Ability to preview it. Nothing is spent yet.',
+  'ability.chooseOption': 'Choose an option to preview this Ability. Nothing is spent yet.',
+  'ability.preview': 'Ability preview',
+  'ability.previewSource': 'Source: {ability} · {pokemon} ({instanceId})',
+  'ability.previewEffect': 'Effect: {effect}',
+  'ability.previewTarget': 'Target: {target}',
+  'ability.previewMember': 'Target: {member}',
+  'ability.previewScope': 'Boosts: {scope}',
+  'ability.cost': 'Spends this Pokémon’s Ability for the Lap and your Ability for this turn.',
+  'ability.costTactical': 'Also spends your tactical action to start the battle.',
+  'ability.hostile': 'Hostile: counts as an attack attempt, and an armed Price Shield blocks it.',
+  'ability.confirm': 'Confirm {ability}',
+  'ability.cancel': 'Cancel',
+  'ability.stale':
+    'The available actions changed. Nothing was spent. Choose your Ability again before confirming.',
+  'ability.peek': 'Top Event card you looked at: {text}',
 
   'sell.coins': '{amount} coins',
   'sell.price': '{basePrice} coins',
@@ -643,6 +825,8 @@ export const en = {
   'demo.col.probability': 'Jev’s probability',
   'demo.chosen': 'Chosen',
   'demo.confidence': 'Jev’s confidence: {value}',
+  'demo.modelNote':
+    'These numbers are Jev’s own output, rounded to two decimals. They are not a measured rate.',
   'demo.sellNote':
     'At the Sell Phase Jev answers once per Pokémon, so these chances do not add up to 1.',
   'demo.byJev': 'Jev decided.',
@@ -663,6 +847,122 @@ export const en = {
   'chat.manipulationRefused':
     'Send a new message that does not ask to break the rules or reveal secrets. The AI’s willingness and trust have not changed.',
 
+  // The Social window (spec §3, §4.2, §4.8): topic buttons, one rival, one message, one reply.
+  'turn.socialBody':
+    'Talk to one rival before your move, or skip. The game waits only in this window.',
+  'turn.promiseBody': 'You offered a promise. The game goes on after the rival answers.',
+  'social.panel': 'Social window',
+  'social.open':
+    'You can send one message to one rival this turn, or offer one promise. Either one uses the window up.',
+  'social.onlyWords':
+    'This is only words. A message never moves coins, items or dice, never changes a rule and never makes a promise.',
+  'social.noticeTrade': 'A trade happens only through a Deal Card that you confirm yourself.',
+  'social.noticeTruce':
+    'A truce counts only as a promise that the rival accepts and you confirm. Words do not make one.',
+  'social.rival': '{seat} · {class}',
+  'social.recipients': 'Talk to',
+  'social.topics': 'Topic',
+  'social.topic.truce': 'Ask for a truce',
+  'social.topic.trade': 'Offer a trade',
+  'social.topic.point_leader': 'Point at the leader',
+  'social.topic.use_item': 'Ask them to use an item',
+  'social.topic.hold_item': 'Ask them to hold an item',
+  'social.leaders': 'Point at which rival?',
+  'social.items': 'Which item?',
+  'social.summary.truce': 'Ask for a truce',
+  'social.summary.trade': 'Offer a trade',
+  'social.summary.point_leader': 'Point at {leader} as the leader',
+  'social.summary.use_item': 'Ask them to use {item}',
+  'social.summary.hold_item': 'Ask them to hold {item}',
+  'social.preview': 'You will tell {rival}: {summary}. You can send one message this turn.',
+  'social.send': 'Send to {rival}',
+  'social.sendNone': 'Send the message',
+  'social.skip': 'Skip talking',
+  'social.continue': 'Continue',
+  'social.reason.chooseRival': 'Choose who to talk to first.',
+  'social.reason.chooseTopic': 'Choose a topic first.',
+  'social.reason.chooseLeader': 'Choose which rival to point at first.',
+  'social.reason.chooseItem': 'Choose an item first.',
+  'social.reason.noThirdSeat': 'Needs a third player at the table to point at.',
+  'social.reason.unavailable': 'The game offers no message on this topic right now.',
+  'social.sent': 'You told {rival}: {summary}.',
+  'social.spent':
+    'Your message for this turn is sent. One message to one rival is the limit, so the window is used up.',
+  'social.spentOther': 'This turn’s social window is used up. Continue with your turn.',
+  'social.waiting': 'Waiting for {rival} to answer. You can continue without the answer.',
+  'social.replyNoLine': '{rival} has nothing to say about that. Continue with your turn.',
+  'social.refused': '{rival} refused the message. Their willingness and trust have not changed.',
+  'social.failed.timeout':
+    '{rival} did not answer in time. Your message was sent and the game goes on.',
+  'social.failed.network':
+    'The answer from {rival} could not be fetched. Your message was sent and the game goes on.',
+  'social.failed.invalid':
+    'The answer from {rival} did not fit your message, so it was dropped. Your message was sent and the game goes on.',
+  'social.retry': 'Ask {rival} again',
+
+  // Promises and memory (spec §4.8 Promise `no_attack`, Memory UI): offered versus active, the
+  // rival's own answer, the engine's expiry and what the game recorded.
+  'promise.offers': 'Offer a promise',
+  'promise.offerNote':
+    'A promise is active only once the rival accepts it. It uses this turn’s social window, not your move. It lasts until the end of the promiser’s next own turn, it is not renewed while it is active, and none can run past the end of the game.',
+  'promise.direction.offer': 'I won’t attack them',
+  'promise.direction.ask': 'Ask them to promise not to attack me',
+  'promise.preview.offer':
+    'You will offer {rival}: you will not attack them until the end of your next own turn. It is not active until they accept.',
+  'promise.preview.ask':
+    'You will ask {rival} to promise not to attack you until the end of their next own turn. It is not active until they agree.',
+  'promise.send': 'Send the offer to {rival}',
+  'promise.sendNone': 'Send the offer',
+  'promise.reason.choose': 'Choose an offer first.',
+  'promise.reason.active':
+    'A promise for this pair is still active, and an active promise is not renewed.',
+  'promise.reason.gameEnd':
+    'The final round has been announced, so no promise that would run past the end of the game can be made.',
+  'promise.reason.unavailable': 'The game offers no promise to this rival right now.',
+  'promise.pending.offer':
+    'You offered {rival}: you will not attack them until the end of your next own turn. It is not active until they accept.',
+  'promise.pending.ask':
+    'You asked {rival} to promise not to attack you. It is not active until they agree.',
+  'promise.pending.waiting':
+    'Waiting for {rival} to accept or refuse. The game goes on after the answer.',
+  'promise.answer.accepted': '{rival} accepted. The promise is active.',
+  'promise.answer.refused': '{rival} refused. Nothing was recorded and no promise is active.',
+  'promise.possessive.you': 'your',
+  'promise.possessive.rival': '{rival}’s',
+  'promise.expires': 'It closes at the end of {whose} own turn {turn}.',
+
+  'promise.panel': 'Promises and memory',
+  'promise.list': 'Promises',
+  'promise.none': 'No promise has been offered or accepted yet.',
+  'promise.offeredRow': 'Offered to {rival}, not active yet.',
+  'promise.row': '{promiser} will not attack {recipient}',
+  'promise.status.offered': 'Offered',
+  'promise.status.active': 'Active',
+  'promise.status.kept': 'Kept',
+  'promise.status.broken': 'Broken',
+  'promise.status.closed_by_game_end': 'Closed by the end of the game',
+  'promise.row.active': 'Accepted on turn {created}. Until the end of {whose} own turn {turn}.',
+  'promise.row.closed': 'Accepted on turn {created}. Closed on turn {closed}.',
+  'promise.turnNote': 'An own turn number counts one player’s turns only.',
+  'promise.trustHeading': 'Trust, as the game keeps it',
+  'promise.trust': 'Your trust in {rival}: {value}',
+  'promise.memory': 'Memory',
+  'promise.memory.empty':
+    'Nothing to remember yet. An entry appears only when the game records a promise accepted, refused, kept or broken. Words in chat are never evidence.',
+  'promise.memory.accepted':
+    '{promiser} promised not to attack {recipient}. Accepted on turn {turn}.',
+  'promise.memory.refused': 'A promise from {promiser} to {recipient} was refused on turn {turn}.',
+  'promise.memory.kept': '{promiser} kept a promise to {recipient}. Closed on turn {turn}.',
+  'promise.memory.broken': '{promiser} broke a promise to {recipient} on turn {turn}.',
+  'promise.memory.closed_by_game_end':
+    'A promise from {promiser} to {recipient} was closed by the end of the game on turn {turn}. It counts as neither kept nor broken.',
+  'promise.memory.settled': 'The game closed it on turn {turn}.',
+  'promise.memory.record': 'Record {record}',
+  'promise.evidence.pvp_declaration': '{actor} declared a battle against {target} on turn {turn}.',
+  'promise.evidence.hostile_item': '{actor} used a hostile item on {target} on turn {turn}.',
+  'promise.evidence.hostile_ability': '{actor} used a hostile Ability on {target} on turn {turn}.',
+  'promise.evidence.ref': 'Event {attackId} · record {record}',
+
   'game.resumedAiTurn': 'Picked up from the last saved action. The AI is deciding its turn again.',
   'sell.rescueStarter':
     'No Pokémon left after the Sell Phase. You got a Rescue Starter, so you can keep playing.',
@@ -674,6 +974,12 @@ export const en = {
     'Developer page, not part of the game. Each example is the real screen, shown with fixed test data and labelled with its row in the spec. Nothing here changes a game.',
   'gallery.specRow': 'Spec §3.1, row {row}',
   'gallery.specAiTurns': 'Spec §3, AI turns',
+  'gallery.specBattle': 'Spec §4.4, PvP and Gym',
+  'gallery.specSocial': 'Spec §4.8, Chat',
+  'gallery.specAbilities': 'Spec §4.5, Abilities',
+  'gallery.specPromises': 'Spec §4.8, Promises and memory',
+  'gallery.row.abilities':
+    'Abilities that are ready, and Abilities that cannot be used, with the reason',
   'gallery.pendingHeading': 'Rows with no screen yet',
   'gallery.pendingIntro':
     'These rows have nothing a player can see in this build, so there is no example to show.',
@@ -682,7 +988,8 @@ export const en = {
   'gallery.pending.deals': 'Needs the Deal screen, which is not built yet.',
   'gallery.pending.dealsBadge':
     'Needs the Deal screen, which is not built yet. The Backup bot mode badge already shows timeouts and rate limits on AI turns.',
-  'gallery.pending.chat': 'Needs the chat panel, which is not built yet.',
+  'gallery.pending.chatFreeText':
+    'Needs free-text chat, which is not built yet. The topic buttons are never classified.',
   'gallery.row.onlyLegalAction': 'Only one legal action (e.g. must roll)',
   'gallery.row.shortlistEmpty': 'Shortlist empty after personality filtering',
   'gallery.row.noBall': 'Pokémon found but no Ball',
@@ -702,9 +1009,13 @@ export const en = {
   'gallery.row.haikuOff': 'Haiku is off, has no key, is out of budget or is slow',
   'gallery.row.haikuScreenFail':
     "Haiku's text fails the output screen (too long, a digit, a link, a non-public item name, an offer or promise)",
+  'gallery.row.pvpGym':
+    'PvP and Gym: challenge, answer, Ability window, Gym entry and the winner’s reward',
   'gallery.row.aiExchange': 'One AI speaks to another and the other answers (AI-to-AI table talk)',
   'gallery.row.watchBrowserClosed': "A watched game's browser closes",
   'gallery.row.watchAllBackup': 'Every AI in a watched game is on the backup bot',
+  'gallery.row.socialWindow':
+    'The Social window: five topic buttons, one rival, one message, one reply',
   'gallery.row.backupBadge':
     'A "Backup bot mode" badge shows truthfully whenever an AI is using the fallback',
   'gallery.example.deckReshuffled': 'Event card drawn after the deck ran out and was reshuffled',
@@ -726,6 +1037,9 @@ export const en = {
   'gallery.example.watchAfterContinue': 'Watch board after Continue, the AI deciding again',
   'gallery.example.watchAllBackup': 'Every AI in the watched game decided with the backup bot',
   'gallery.example.badgeOneOfTwo': 'One of two rivals timed out',
+  'gallery.example.abilityStrategy':
+    'Strategy: one Ability ready, one at the wrong timing, one used this Lap, one not run yet',
+  'gallery.example.abilityReaction': 'Answering a battle outside your own turn',
   'gallery.example.voiceDisabled': 'Voice off: switched off on the server, a line from the bank',
   'gallery.example.voiceMissingKey': 'Voice off: no key on the server, a line from the bank',
   'gallery.example.voiceBudget': 'Voice off: spending limit reached, the line bank speaks',
@@ -744,6 +1058,43 @@ export const en = {
     'A rival speaks about its own turn to the table: no "to" tag is shown',
   'gallery.example.casualOther': 'A rival teases another seat by name about that seat’s turn',
   'gallery.example.badgeRateLimited': 'One of two rivals was rate limited',
+  'gallery.example.challengeChoice': 'Strategy: any opponent can be challenged',
+  'gallery.example.challengeBlocked': 'Strategy: the opponent has no battle-ready Pokémon',
+  'gallery.example.defenderResponse': 'The rival holds the turn; you answer its challenge',
+  'gallery.example.forcedChallenge':
+    'A forced challenge: nothing to accept, and the reason is shown',
+  'gallery.example.abilityWindow': 'Your Ability window before the roll, with each choice’s odds',
+  'gallery.example.gymEntry': 'Gym entry with a battle-ready team',
+  'gallery.example.gymNoBattleReady':
+    'Gym entry with every Pokémon Tired, before the game skips it',
+  'gallery.example.gymAutoSkipped': 'The same Gym after the game skipped it',
+  'gallery.example.rewardChoice': 'You won: one reward, coins or a branched evolution',
+  'gallery.example.rewardTaken': 'After the reward: the outcome stays beside the board',
+  'gallery.example.socialOpenTwo':
+    'Social window open against two rivals: choose a rival and a topic',
+  'gallery.example.socialOpenOne':
+    'Social window open against one rival: pointing at the leader needs a third player',
+  'gallery.example.socialWaiting': 'The message is sent and the rival has not answered yet',
+  'gallery.example.socialReply': 'The rival’s answer, a line from the bank, only words',
+  'gallery.example.socialReplyWords':
+    'The rival’s own words for the same answer, AI-written and only words',
+  'gallery.example.socialVoiceOff':
+    'The answer is the bank line and says why the rival’s own words are off',
+  'gallery.example.socialRefused': 'The answer is a refusal; willingness and trust do not change',
+  'gallery.example.socialFailed': 'The answer did not arrive: ask again or continue',
+  'gallery.row.promises':
+    'Promises: offered, accepted or refused by the rival, then kept, broken or closed by the game, with the memory it leaves',
+  'gallery.example.promiseOffers': 'The Social window with the promise offers the game lists',
+  'gallery.example.promiseOffersBlocked':
+    'A promise to this rival is already active: both offers are greyed out and say why',
+  'gallery.example.promisePending': 'The offer is sent; it is not active until the rival answers',
+  'gallery.example.promiseAccepted': 'The rival accepted: the promise is active until its expiry',
+  'gallery.example.promiseRefused': 'The rival refused: nothing is recorded',
+  'gallery.example.promiseEmpty': 'No promise yet: memory says so and says words are no evidence',
+  'gallery.example.promiseKept': 'The game closed the promise as kept; trust is the game’s number',
+  'gallery.example.promiseBroken':
+    'The game closed the promise as broken, with the attack it recorded as evidence',
+  'gallery.example.promiseGameEnd': 'The game ended first: closed, neither kept nor broken',
   'gallery.row.jevPanel': 'Demo mode: the "What Jev chose" panel under a rival’s decision',
   'gallery.example.jevPanelCatch': 'Jev chose a Ball at an encounter',
   'gallery.example.jevPanelItem': 'Jev chose among its items and targets',

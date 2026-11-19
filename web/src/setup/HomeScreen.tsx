@@ -14,6 +14,7 @@ interface HomeScreenProps {
   canWatch: boolean;
   onNewGame: () => void;
   onRandomAll: () => void;
+  onPresets: () => void;
   onWatch: () => void;
 }
 
@@ -23,6 +24,7 @@ export function HomeScreen({
   canWatch,
   onNewGame,
   onRandomAll,
+  onPresets,
   onWatch,
 }: HomeScreenProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -79,6 +81,18 @@ export function HomeScreen({
               {t('home.randomAll')}
             </Button>
             <p className="mt-2 ps-2 text-sm text-ink-soft">{t('home.randomAllHint')}</p>
+          </div>
+          <div>
+            <Button
+              variant="secondary"
+              className="w-full"
+              disabled={!canStart}
+              aria-describedby={describedBy}
+              onClick={onPresets}
+            >
+              {t('home.presets')}
+            </Button>
+            <p className="mt-2 ps-2 text-sm text-ink-soft">{t('home.presetsHint')}</p>
           </div>
           <div>
             <Button

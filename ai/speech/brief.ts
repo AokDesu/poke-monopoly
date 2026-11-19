@@ -1,9 +1,11 @@
 import { effectiveForm } from '../../engine/index.ts';
-import type { Content, SeatEvent, Observation } from '../../engine/index.ts';
+import type { ChatTopic, Content, SeatEvent, Observation } from '../../engine/index.ts';
+import type { ChatDecision } from '../../engine/contract/speech.ts';
 import type { Personality } from '../../content/personality-schema.ts';
 import type { Voice } from '../../content/voice-schema.ts';
 import type { Situation } from '../lines.ts';
 import { assertNoComparableNumbers, assertStateTokenBudget } from '../state/index.ts';
+import { CHAT_DECISION_TEXT, CHAT_REPLY_RULES, CHAT_TOPIC_TEXT } from './chat.ts';
 
 export const MAX_RECENT_EVENTS = 3;
 
@@ -33,6 +35,11 @@ export type SpeechBrief = {
    * already passed the output screen and the manipulation gate, never the other seat's setup.
    */
   reply_to?: { name: string; says: string };
+  /**
+   * A chat reply only (spec §4.8, §5.7): the topic the player raised and the decision code already
+   * made, in words. Never what the message named, and never any quoted text: there is none.
+   */
+  chat_reply?: { player_raised: string; your_decision: string; rules: string };
   /** At most three, oldest first, as plain sentences without amounts. */
   recent_events: string[];
   /** Names of items every seat can see; the output screen allows these and no other item name. */
@@ -49,6 +56,8 @@ export type SpeechBriefInput = {
   addressedSeat?: number;
   /** What the addressed seat just said, for a reply: needs `addressedSeat`. */
   quote?: string;
+  /** A chat reply: the topic of the human's message and the decision it was answered with; needs `addressedSeat`. */
+  chat?: { topic: ChatTopic; decision: ChatDecision };
   personality: Personality;
   content: Content;
   voice: Voice;
@@ -128,8 +137,17 @@ function assertNoDigits(brief: SpeechBrief): void {
 }
 
 export function buildSpeechBrief(input: SpeechBriefInput): SpeechBrief {
-  const { observation, events, situation, addressedSeat, quote, personality, content, voice } =
-    input;
+  const {
+    observation,
+    events,
+    situation,
+    addressedSeat,
+    quote,
+    chat,
+    personality,
+    content,
+    voice,
+  } = input;
   const { players } = observation.public;
   const seat = observation.own.seatIndex;
   const you = players.find((player) => player.seatIndex === seat);
@@ -152,6 +170,9 @@ export function buildSpeechBrief(input: SpeechBriefInput): SpeechBrief {
   if (quote !== undefined && !addressed) {
     throw new RangeError('A reply needs the seat it answers');
   }
+  if (chat !== undefined && (!addressed || quote !== undefined)) {
+    throw new RangeError('A chat reply answers one seat and quotes nothing');
+  }
   const brief: SpeechBrief = {
     topic: { id: situation, text: text(voice.topics, 'topic', situation) },
     world: voice.world,
@@ -170,6 +191,13 @@ export function buildSpeechBrief(input: SpeechBriefInput): SpeechBrief {
       ? { name: nameOf(addressed.classId), coins: standing(players, addressed.seatIndex) }
       : null,
     ...(quote !== undefined && { reply_to: { name: nameOf(addressed!.classId), says: quote } }),
+    ...(chat !== undefined && {
+      chat_reply: {
+        player_raised: CHAT_TOPIC_TEXT[chat.topic],
+        your_decision: CHAT_DECISION_TEXT[chat.decision],
+        rules: CHAT_REPLY_RULES,
+      },
+    }),
     recent_events: describeEvents(events, observation, content),
     public_items: [
       ...new Set(players.flatMap((player) => player.knownItems.map((item) => item.name))),

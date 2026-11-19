@@ -3,13 +3,9 @@ import { afterEach, beforeAll, expect, test, vi } from 'vitest';
 import { serialize } from '../../../engine/index.ts';
 import { engineContent } from '../game/content.ts';
 import { fakeJevAnswer } from '../game/fakeJevAnswer.ts';
-import {
-  configForSetup,
-  createGameStore,
-  opponentSettings,
-  type GameStore,
-} from '../game/store.ts';
+import { createGameStore, type GameStore } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
+import { demoGame, seekOpponent } from '../test/demoGame.ts';
 import { settingsFor, watchConfig } from '../test/watchGame.ts';
 import { BoardScreen } from './BoardScreen.tsx';
 import { latestJevChoice } from './JevChoicePanel.tsx';
@@ -30,49 +26,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const setup = {
-  mode: 'quick',
-  human: { classId: 'main-character', starterSpeciesId: 'bulbasaur' },
-  opponents: [
-    {
-      classId: 'researcher',
-      starterSpeciesId: 'porygon',
-      personality: 'greedy',
-      difficulty: 'normal',
-    },
-  ],
-} as const;
-
-function game(demo: boolean) {
-  const store = createGameStore({ demo });
-  const opponents = [...setup.opponents];
-  store.start(
-    { ...configForSetup({ ...setup, opponents }, 1), lapTarget: 1 },
-    engineContent,
-    opponentSettings({ ...setup, opponents }),
-  );
-  return store;
-}
-
-function pass(store: GameStore) {
-  if (store.getView()!.legalActions.enabled.length <= 1) return;
-  const choice = store
-    .getView()!
-    .legalActions.enabled.find(
-      (entry) =>
-        ['skip', 'release', 'skip_shop'].includes(entry.kind) || entry.id === 'finish-sell',
-    );
-  if (choice) store.choose(choice.id);
-}
-
-function seekOpponent(store: GameStore) {
-  for (let i = 0; i < 300; i++) {
-    if (store.advance({ human: true })) continue;
-    if (store.getView()!.observation.public.activeSeatIndex !== 0) return;
-    pass(store);
-  }
-  throw new Error('No opponent decision');
-}
+const game = (demo: boolean) => demoGame(() => demo);
 
 /** Probabilities the fake Jev sends: the last option is its pick, the rest share what is left. */
 const PROBABILITIES = [0.83, 0.07, 0.06, 0.04, 0.03, 0.02, 0.01];
@@ -306,7 +260,7 @@ test('a watched game keeps and shows nothing, even in demo mode', async () => {
     return new Response(JSON.stringify(fakeJevAnswer({ choice: enabledActions[0]!.id, options })));
   });
   // Every seat is an AI: no human seat to show a rival's private options to.
-  const store = createGameStore({ demo: true });
+  const store = createGameStore({ demo: () => true });
   store.start(watchConfig(2), engineContent, settingsFor(2));
   for (let i = 0; i < 400 && !store.getSpectatorView()!.feed.some((e) => e.decision); i++) {
     if (!store.advance()) await store.playOpponent(new AbortController().signal);
@@ -315,4 +269,85 @@ test('a watched game keeps and shows nothing, even in demo mode', async () => {
   expect(feed.some((entry) => entry.decision)).toBe(true);
   expect(feed.some((entry) => entry.decision?.demo)).toBe(false);
   expect(JSON.stringify(feed)).not.toMatch(/probabilit|confidence|"detail"/);
+});
+
+test('numbers are rounded for display and labelled as Jev’s own output, not a measured rate', async () => {
+  vi.stubGlobal('fetch', async (path: string, init?: RequestInit) => {
+    if (path === '/api/ai/outcome') return new Response(null, { status: 204 });
+    const { enabledActions } = JSON.parse(String(init?.body)) as {
+      enabledActions: { id: string }[];
+    };
+    const pick = enabledActions.findLast((action) => !action.id.startsWith('declare-pvp'))!;
+    if (path === '/api/ai/fallback')
+      return Response.json({
+        choice: enabledActions[0]!.id,
+        source: 'fallback',
+        fallbackReason: 'rate_limited',
+        requestId: 'x',
+        latencyMs: 0,
+      });
+    // Raw floats as a model can send them: 0.8299999 and a chance too small to round to 0.01.
+    const raw = [0.8299999, 0.0004];
+    let rest = 0;
+    return Response.json(
+      fakeJevAnswer({
+        choice: pick.id,
+        confidence: 0.6200000001,
+        options: enabledActions.map(({ id }) => ({
+          id,
+          probability: id === pick.id ? raw[0]! : (raw[++rest] ?? 0.01),
+        })),
+      }),
+    );
+  });
+  const store = game(true);
+  await decide(store);
+  render(<BoardScreen store={store} />);
+  const panel = document.querySelector<HTMLElement>('.jev-panel')!;
+  const shown = rows().map((row) => within(row).getAllByRole('cell')[0]!.textContent);
+  expect(shown[0]).toBe('0.83');
+  for (const text of shown) expect(text).toMatch(/^(\d\.\d\d|<0\.01)$/);
+  expect(shown.at(-1)).toBe('<0.01');
+  expect(panel.textContent).not.toMatch(/\d\.\d{3,}/);
+  expect(within(panel).getByText(t('demo.confidence', { value: '0.62' }))).toBeTruthy();
+  expect(within(panel).getByText(t('demo.modelNote'))).toBeTruthy();
+  // The row still holds the number as received: only the display is rounded.
+  const kept = latestJevChoice(store.getView()!)!.choice.rows.map((row) => row.probability);
+  expect(kept).toContain(0.8299999);
+});
+
+test('the model-output note is on a Jev panel and absent from a backup-bot one, which shows no number', async () => {
+  server({ backup: true });
+  const store = game(true);
+  await decide(store);
+  render(<BoardScreen store={store} />);
+  expect(screen.queryByText(t('demo.modelNote'))).toBeNull();
+});
+
+test('the store reads the demo gate at each rival decision: closed, nothing is kept; opened, the next one is', async () => {
+  server();
+  let open = false;
+  const store = demoGame(() => open);
+  await decide(store);
+  expect(latestJevChoice(store.getView()!)).toBeUndefined();
+  expect(JSON.stringify(store.getView())).not.toMatch(/probabilit|confidence|"demo"|"detail"/);
+  // The server's setting arrives late; the decision already made stays as it was.
+  open = true;
+  expect(latestJevChoice(store.getView()!)).toBeUndefined();
+  // A later decision, once the gate is open, is kept.
+  for (let i = 0; i < 300 && !latestJevChoice(store.getView()!); i++) {
+    if (store.advance({ human: true })) continue;
+    if (store.getView()!.observation.public.activeSeatIndex !== 0) {
+      await store.playOpponent(new AbortController().signal);
+      continue;
+    }
+    const pass = store
+      .getView()!
+      .legalActions.enabled.find(
+        (entry) =>
+          ['skip', 'release', 'skip_shop'].includes(entry.kind) || entry.id === 'finish-sell',
+      );
+    if (pass) store.choose(pass.id);
+  }
+  expect(latestJevChoice(store.getView()!)).toBeDefined();
 });

@@ -56,7 +56,7 @@ test('an empty event feed still explains the state', () => {
 
 // Spec §5.7: dialogue annotations are persisted separately; showing lines is deferred.
 test.each(['events', 'feed'] as const)(
-  '%s keeps dialogue and deferred reward records out of announcements while preserving game events',
+  '%s keeps dialogue records out of announcements, says an evolution in words and never shows an internal ID',
   (source) => {
     const annotations: EngineEvent[] = [
       {
@@ -90,7 +90,7 @@ test.each(['events', 'feed'] as const)(
       ...(source === 'feed' && {
         feed: [
           {
-            before: observation.public,
+            before: { ...observation.public, pokemon: [] },
             record: {
               action: {
                 kind: 'skip',
@@ -111,10 +111,11 @@ test.each(['events', 'feed'] as const)(
       />,
     );
     expect(screen.getAllByRole('listitem').map((row) => row.textContent)).toEqual([
+      'Your Caterpie evolved into Metapod.',
       'The die rolled 6.',
     ]);
     expect(container.textContent).not.toContain('INTERNAL-');
-    rerender(<EventLog {...props(annotations)} />);
+    rerender(<EventLog {...props(annotations.slice(0, 2))} />);
     expect(screen.getByText(t('board.logEmpty'))).toBeTruthy();
     expect(screen.queryByRole('listitem')).toBeNull();
   },

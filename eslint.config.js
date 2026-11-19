@@ -93,10 +93,15 @@ export default defineConfig([
       ],
     },
   },
-  // web/ calls the engine only through its adapters (spec §6.1). Type imports are allowed elsewhere; tests and web/src/test helpers may import the engine directly.
+  // web/ calls the engine only through its adapters (spec §6.1). Type imports are allowed elsewhere; tests and web/src/test helpers may import the engine directly, and so may the dev gallery's one adapter (a rival's private view, never in a production build).
   {
     files: ['web/**/*.{ts,tsx}'],
-    ignores: [...ADAPTERS, 'web/**/*.test.{ts,tsx}', 'web/src/test/**'],
+    ignores: [
+      ...ADAPTERS,
+      'web/src/gallery/seatDecision.ts',
+      'web/**/*.test.{ts,tsx}',
+      'web/src/test/**',
+    ],
     rules: {
       '@typescript-eslint/no-restricted-imports': [
         'error',

@@ -1,6 +1,11 @@
 import { pendingGymChoices, recordGymCommand, recordGymRoll } from '../gym.ts';
 import { pendingDecision } from '../decisions.ts';
-import { abilityChoices, activateAbility, recordChanceRoll } from '../abilities.ts';
+import {
+  abilityChoices,
+  abilityDisabled,
+  activateAbility,
+  recordChanceRoll,
+} from '../abilities.ts';
 import { closeGymWindow } from '../gym.ts';
 import { actorRevision, attackVisibleTo, seatAttackAttempt } from '../visibility.ts';
 import {
@@ -135,6 +140,7 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   }
   if (state.config.engineVersion === ENGINE_VERSION) {
     result.enabled.push(...abilityChoices(state, seatIndex));
+    result.disabled.push(...abilityDisabled(state, seatIndex));
   }
   if (state.config.engineVersion === ENGINE_VERSION && state.phase.kind === 'pvp') {
     pendingPvpChoices(state, result);

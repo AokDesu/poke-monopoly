@@ -1,13 +1,18 @@
-import type { GameState, LegalAction } from '../../../engine/index.ts';
+import type {
+  GameState,
+  LegalAction,
+  NoAttackPromise,
+  PokemonInstance,
+} from '../../../engine/index.ts';
 import type { TurnPlayback } from '../board/useTurnPlayback.ts';
 import type { AiDecision, OpponentAnswer } from '../game/ai.ts';
 import { content, engineContent } from '../game/content.ts';
 import { demoChoiceOf } from '../game/demoChoice.ts';
 import { fakeJevAnswer, type FakeJevAnswerOptions } from '../game/fakeJevAnswer.ts';
 import { readJevDetail } from '../game/jevDetailAdapter.ts';
+import { seatDecision } from './seatDecision.ts';
 import {
   createFixtureStore,
-  seatDecision,
   type Command,
   type GameStore,
   type SeatView,
@@ -72,6 +77,143 @@ function addRival(state: GameState, seatIndex: number): void {
   state.config.seats.push({ actorId, seatIndex, classId: 'researcher', controller: 'ai' });
 }
 
+/** A caught Pokémon of `speciesId` with a fresh instance ID, ready to use its Ability. */
+const caught = (speciesId: string, abilityReady = true) => ({
+  instanceId: `gallery:${speciesId}`,
+  speciesId,
+  origin: 'caught' as const,
+  evolutionStage: 0,
+  tired: false,
+  abilityReady,
+});
+
+/** The human (seat 0) opens Strategy at `globalTurnNo` 7 holding `team`, with every budget unspent. */
+function openStrategy(state: GameState, team: PokemonInstance[]): void {
+  state.phase = { kind: 'strategy' };
+  state.activeSeatIndex = 0;
+  state.globalTurnNo = 7;
+  state.turnBudgets = { tacticalAction: 1, catchAttempt: 1, pokemonAbility: 1 };
+  state.players[0]!.team = team;
+}
+
+type Edit = (state: GameState) => void;
+
+/** Applies one command through the store, so a scene only ever holds accepted engine records. */
+function play(store: GameStore, command: Command): void {
+  const result = store.submit(command);
+  if ('rejected' in result) throw new Error(`Gallery: ${result.reason}`);
+}
+
+/**
+ * Seat 0 (the human, Charmander and Eevee) and seat 1 (a Rival-class AI with Eevee) in Strategy on
+ * turn 7, with no Ability ready unless `edit` says so, so that no window opens by surprise.
+ */
+function battleStore(fixtures: GalleryFixtures, edit?: Edit): GameStore {
+  return createFixtureStore(fixtures['shop-low-coins'], engineContent, (state) => {
+    state.phase = { kind: 'strategy' };
+    state.globalTurnNo = 7;
+    state.activeSeatIndex = 0;
+    state.turnBudgets = { tacticalAction: 1, catchAttempt: 1, pokemonAbility: 1 };
+    for (const player of state.players) {
+      player.ownTurnNo = 3;
+      player.items = [];
+      player.coins = 12;
+      for (const member of player.team) member.abilityReady = false;
+    }
+    const human = state.players[0]!;
+    human.team[0] = { ...human.team[0]!, speciesId: 'charmander' };
+    human.team.push({ ...human.team[0]!, instanceId: 'pokemon-0b', speciesId: 'eevee' });
+    edit?.(state);
+  });
+}
+
+/** Applies the engine's pending dice until a decision or the end of the battle is reached. */
+function rollDice(store: GameStore): void {
+  while (['pvp', 'gym'].includes(store.getView()!.observation.public.phase.kind)) {
+    if (!store.advance({ human: true })) return;
+  }
+}
+
+/** Seat 0 holds a Gym square; the entry is open. `tired` leaves no battle-ready Pokémon. */
+function gymStore(fixtures: GalleryFixtures, tired = false): GameStore {
+  const store = battleStore(fixtures, (state) => {
+    state.phase = { kind: 'resolve' };
+    state.players[0]!.routeProgress = 12;
+    if (tired) for (const member of state.players[0]!.team) member.tired = true;
+  });
+  const result = store.choose('skip');
+  if ('rejected' in result) throw new Error(`Gallery: ${result.reason}`);
+  return store;
+}
+
+/** The human wins a PvP battle (fixture seed 3: the challenger's die beats the defender's). */
+function wonBattle(fixtures: GalleryFixtures): GameStore {
+  const store = battleStore(fixtures);
+  play(store, { actorId: 'player-0', kind: 'declare_pvp', payload: { targetSeatIndex: 1 } });
+  play(store, { actorId: 'player-1', kind: 'respond_pvp', payload: { accept: true } });
+  rollDice(store);
+  return store;
+}
+
+/** A promise still open on the human's own Social window, closing at the end of this very turn. */
+const openPromiseEdit =
+  (
+    promiserSeatIndex: number,
+    recipientSeatIndex: number,
+    extra: Partial<NoAttackPromise> = {},
+  ): Edit =>
+  (state) => {
+    state.config.socialWindow = true;
+    state.promises = [
+      {
+        promiserSeatIndex,
+        recipientSeatIndex,
+        createdGlobalTurnNo: state.globalTurnNo - 1,
+        closesOwnTurnNo: state.players[promiserSeatIndex]!.ownTurnNo,
+        acceptedActionSeq: 0,
+        ...extra,
+      },
+    ];
+  };
+
+const PASS = ['skip', 'roll', 'keep-die', 'finish-sell', 'skip-shop', 'release'];
+
+/**
+ * Plays the engine on with each deciding seat's quietest choice (never an attack, offer or purchase)
+ * until `done` holds or the game ends, so a scene reaches a closing the engine itself makes.
+ */
+function driveUntil(store: GameStore, done: (state: GameState) => boolean): void {
+  for (let step = 0; step < 600; step++) {
+    const { state } = store.getSession()!;
+    if (done(state) || state.phase.kind === 'finished') return;
+    if (store.advance({ human: true })) continue;
+    const seatIndex = store.getView()!.decision!.seatIndex;
+    const choices = seatDecision(store, seatIndex).enabledActions;
+    const choice =
+      PASS.map((id) => choices.find((entry) => entry.id === id)).find(Boolean) ?? choices[0]!;
+    play(store, {
+      actorId: state.players.find((player) => player.seatIndex === seatIndex)!.actorId,
+      kind: choice.kind,
+      payload: choice.payload,
+    } as Command);
+  }
+  throw new Error('Gallery: the scene never settled');
+}
+
+const promiseSettled = (state: GameState) => (state.promises ?? []).every((entry) => entry.settled);
+
+/** The human's own Social window with its one interaction unspent (spec §4.2). */
+function openSocialWindow(state: GameState): void {
+  state.config.socialWindow = true;
+  state.phase = { kind: 'social' };
+  state.turnBudgets = {
+    tacticalAction: 1,
+    catchAttempt: 1,
+    pokemonAbility: 1,
+    socialInteraction: 1,
+  };
+}
+
 /**
  * Demo mode (issue #220): seat 1 (an AI) has just decided and the panel's data is made the way
  * the browser makes it, from a fake answer of the proposed shape over that seat's real options.
@@ -132,6 +274,73 @@ function rivalChose(
 
 export function createScenes(fixtures: GalleryFixtures) {
   return {
+    /** §4.4: Strategy lists every opponent as a challenge target. */
+    challengeChoice: (): Scene => sceneOf(battleStore(fixtures)),
+
+    /** §3.1, §4.4: no battle-ready Pokémon on the other team, so the target is greyed out. */
+    challengeBlocked: (): Scene =>
+      sceneOf(
+        battleStore(fixtures, (state) => {
+          for (const member of state.players[1]!.team) member.tired = true;
+        }),
+      ),
+
+    /** §4.4: the rival holds the turn and challenges the human, who answers. */
+    defenderResponse: (): Scene => {
+      const store = battleStore(fixtures, (state) => {
+        state.activeSeatIndex = 1;
+      });
+      play(store, { actorId: 'player-1', kind: 'declare_pvp', payload: { targetSeatIndex: 0 } });
+      return sceneOf(store);
+    },
+
+    /** §4.4: Rival's once-per-Lap forced challenge: nothing to accept, and the reason is shown. */
+    forcedChallenge: (): Scene => {
+      const store = battleStore(fixtures, (state) => {
+        state.activeSeatIndex = 1;
+      });
+      play(store, {
+        actorId: 'player-1',
+        kind: 'declare_pvp',
+        payload: { targetSeatIndex: 0, force: 'rival' },
+      });
+      return sceneOf(store);
+    },
+
+    /** Appendix C.3: the human's Ability window before the battle roll, with each choice's odds. */
+    abilityWindow: (): Scene => {
+      const store = battleStore(fixtures, (state) => {
+        state.players[0]!.team[0]!.abilityReady = true;
+      });
+      play(store, { actorId: 'player-0', kind: 'declare_pvp', payload: { targetSeatIndex: 1 } });
+      play(store, { actorId: 'player-1', kind: 'respond_pvp', payload: { accept: true } });
+      return sceneOf(store);
+    },
+
+    /** §4.4, D5: a Gym entry with a battle-ready team. */
+    gymEntry: (): Scene => sceneOf(gymStore(fixtures)),
+
+    /** §3.1, D5: a Gym entry with every Pokémon Tired. */
+    gymNoBattleReady: (): Scene => sceneOf(gymStore(fixtures, true)),
+
+    /** The same Gym once the engine applied the sole Skip itself. */
+    gymNoBattleReadyAuto: (): Scene => {
+      const store = gymStore(fixtures, true);
+      if (!store.advance({ human: true })) throw new Error('Gallery: the sole Skip did not apply');
+      return sceneOf(store);
+    },
+
+    /** §4.4, §4.5: the winner's one reward, with a branched evolution on offer. */
+    rewardChoice: (): Scene => sceneOf(wonBattle(fixtures)),
+
+    /** The same battle after the winner took the coins: the result stays beside the board. */
+    rewardTaken: (): Scene => {
+      const store = wonBattle(fixtures);
+      const result = store.choose('reward:coins');
+      if ('rejected' in result) throw new Error(`Gallery: ${result.reason}`);
+      return sceneOf(store);
+    },
+
     /** §3.1: a wild Pokémon appears and the pouch holds no Ball. The only legal action is Release. */
     noBallEncounter: (): Scene =>
       sceneOf(createFixtureStore(fixtures['encounter-no-ball'], engineContent)),
@@ -335,6 +544,124 @@ export function createScenes(fixtures: GalleryFixtures) {
         payload: { pokemonInstanceIds: you.team.map((member) => member.instanceId) },
       });
       if ('rejected' in result) throw new Error(`Gallery: ${result.reason}`);
+      return sceneOf(store);
+    },
+
+    /** §4.2, §4.8: the human's Social window, open and unspoken in, against 1 or 2 AI rivals. */
+    socialWindowOpen: (rivals: 1 | 2): Scene =>
+      sceneOf(
+        createFixtureStore(fixtures['shop-low-coins'], engineContent, (state) => {
+          openSocialWindow(state);
+          if (rivals === 2) addRival(state, 2);
+        }),
+      ),
+
+    /** The same window after the human sent a truce message to seat 1: its one message is spent. */
+    socialMessageSent: (): Scene => {
+      const store = createFixtureStore(fixtures['shop-low-coins'], engineContent, openSocialWindow);
+      const result = store.choose('chat:seat-1:truce');
+      if ('rejected' in result) throw new Error(`Gallery: ${result.reason}`);
+      return sceneOf(store);
+    },
+
+    /** §4.8: a promise to this rival is already active, so the same offer is greyed out with its reason. */
+    promiseOffersBlocked: (): Scene =>
+      sceneOf(
+        createFixtureStore(fixtures['shop-low-coins'], engineContent, (state) => {
+          openSocialWindow(state);
+          openPromiseEdit(0, 1)(state);
+        }),
+      ),
+
+    /** §4.8: the human offered a promise; the rival has not answered, so nothing is active. */
+    promiseOffered: (): Scene => {
+      const store = createFixtureStore(fixtures['shop-low-coins'], engineContent, openSocialWindow);
+      const result = store.choose('offer-promise:seat-1:offer');
+      if ('rejected' in result) throw new Error(`Gallery: ${result.reason}`);
+      return sceneOf(store);
+    },
+
+    /** §4.8: the rival's own answer to the offer, `accept` or `reject`, as its engine record. */
+    promiseAnswered: (answer: 'accept' | 'reject'): Scene => {
+      const store = createFixtureStore(fixtures['shop-low-coins'], engineContent, openSocialWindow);
+      const result = store.choose('offer-promise:seat-1:offer');
+      if ('rejected' in result) throw new Error(`Gallery: ${result.reason}`);
+      play(store, { actorId: 'player-1', kind: 'respond', payload: { answer } });
+      return sceneOf(store);
+    },
+
+    /** §4.8: seat 1 promised the player not to attack; the engine closed it as kept, with a public chance. */
+    promiseKept: (): Scene => {
+      const store = battleStore(fixtures, (state) => {
+        openPromiseEdit(1, 0, { chance: true })(state);
+        state.activeSeatIndex = 1;
+      });
+      driveUntil(store, promiseSettled);
+      return sceneOf(store);
+    },
+
+    /** §4.8: the player promised, declared a battle the rival declined, and the engine closed it as broken. */
+    promiseBroken: (): Scene => {
+      const store = battleStore(fixtures, openPromiseEdit(0, 1));
+      play(store, { actorId: 'player-0', kind: 'declare_pvp', payload: { targetSeatIndex: 1 } });
+      play(store, { actorId: 'player-1', kind: 'respond_pvp', payload: { accept: false } });
+      driveUntil(store, promiseSettled);
+      return sceneOf(store);
+    },
+
+    /** §4.8, §4.2: the final round ended the game before the promise's closing turn. */
+    promiseGameEnd: (): Scene => {
+      const store = battleStore(fixtures, (state) => {
+        openPromiseEdit(0, 1, { closesOwnTurnNo: 9 })(state);
+        state.finalTableRound = { triggerSeatIndex: 1, targetOwnTurnNo: 3 };
+      });
+      driveUntil(store, () => false);
+      return sceneOf(store);
+    },
+
+    /**
+     * §4.5, Appendix C: Strategy with one Pokémon per Ability state: ready (Quick Flight), wrong
+     * timing (Blaze), used this Lap (Vine Pull) and not run by the engine yet (Scavenge).
+     */
+    abilityStrategy: (): Scene =>
+      sceneOf(
+        createFixtureStore(fixtures['shop-low-coins'], engineContent, (state) =>
+          openStrategy(state, [
+            caught('pidgey'),
+            caught('charmander'),
+            caught('bulbasaur', false),
+            caught('rattata'),
+          ]),
+        ),
+      ),
+
+    /**
+     * Appendix C.3: an AI rival challenges the human, who accepts. The human answers outside their
+     * own turn: Heal Pulse (a reaction) is ready, Calculate is not usable in this window.
+     */
+    abilityReaction: (): Scene => {
+      const store = createFixtureStore(fixtures['shop-low-coins'], engineContent, (state) => {
+        openStrategy(state, [
+          caught('chansey'),
+          { ...caught('pikachu'), tired: true },
+          caught('porygon'),
+        ]);
+        state.activeSeatIndex = 1;
+        state.players[1]!.team = [caught('rattata', false)];
+      });
+      const you = store.getView()!.observation.public.players[0]!;
+      const challenge = store.submit({
+        actorId: 'player-1',
+        kind: 'declare_pvp',
+        payload: { targetSeatIndex: 0 },
+      });
+      if ('rejected' in challenge) throw new Error(`Gallery: ${challenge.reason}`);
+      const accepted = store.submit({
+        actorId: you.actorId,
+        kind: 'respond_pvp',
+        payload: { accept: true },
+      });
+      if ('rejected' in accepted) throw new Error(`Gallery: ${accepted.reason}`);
       return sceneOf(store);
     },
   };
