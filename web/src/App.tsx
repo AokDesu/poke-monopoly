@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { BoardScreen } from './board/BoardScreen.tsx';
 import { CreditsScreen } from './CreditsScreen.tsx';
 import { classOptions, content as gameContent, engineContent } from './game/content.ts';
@@ -49,10 +49,19 @@ import {
   type GameStore,
 } from './game/store.ts';
 import { t } from './i18n/en.ts';
+import {
+  buildScene,
+  openScenes,
+  sceneById,
+  type DemoScene,
+  type SceneFailure,
+} from './game/demoScenes.ts';
 import { ResultsScreen } from './ResultsScreen.tsx';
+import { DemoBanner } from './DemoBanner.tsx';
 import { pendingLine, SavePrompt, type SavePromptProps } from './SavePrompt.tsx';
 import type { Route } from './screens.ts';
 import { ClassScreen } from './setup/ClassScreen.tsx';
+import { DemoScreen } from './setup/DemoScreen.tsx';
 import { FirstPlayerScreen } from './setup/FirstPlayerScreen.tsx';
 import { HomeScreen } from './setup/HomeScreen.tsx';
 import { ModeScreen } from './setup/ModeScreen.tsx';
@@ -91,13 +100,17 @@ type SaveOffer =
       watch: SaveMeta['watch'];
       chatWords: SaveMeta['chatWords'];
       gameId: SaveMeta['gameId'];
+      scene: SaveMeta['scene'];
       rivals: SavedRival[];
       summary: SaveSummary;
     }
   | { kind: 'mismatch'; message: string }
   | { kind: 'unreadable' };
 
-function inspect(storage: SaveStorage | null): { offer: SaveOffer | null; unavailable: boolean } {
+function inspect(
+  storage: SaveStorage | null,
+  demo: boolean,
+): { offer: SaveOffer | null; unavailable: boolean } {
   if (!storage) return { offer: null, unavailable: true };
   let text: string | null;
   try {
@@ -106,7 +119,13 @@ function inspect(storage: SaveStorage | null): { offer: SaveOffer | null; unavai
     return { offer: null, unavailable: true };
   }
   if (!text) return { offer: null, unavailable: false };
+  const meta = readMeta(storage);
   const loaded = loadSave(text);
+  // A prepared-scenario game is offered back only inside demo mode, and only while its scene is
+  // still one this build opens; otherwise it is not offered at all (issue #222).
+  if (meta.scene !== undefined && (!demo || !sceneById(meta.scene) || !loaded.ok)) {
+    return { offer: null, unavailable: false };
+  }
   if (!loaded.ok) {
     return {
       offer:
@@ -116,7 +135,6 @@ function inspect(storage: SaveStorage | null): { offer: SaveOffer | null; unavai
       unavailable: false,
     };
   }
-  const meta = readMeta(storage);
   return {
     offer: {
       kind: 'continue',
@@ -125,6 +143,7 @@ function inspect(storage: SaveStorage | null): { offer: SaveOffer | null; unavai
       watch: meta.watch,
       chatWords: meta.chatWords,
       gameId: meta.gameId,
+      scene: meta.scene,
       rivals: savedRivals(loaded.game, meta),
       summary: summarize(loaded.game, loaded.resumed),
     },
@@ -154,7 +173,7 @@ export function App({
     return () => controller.abort();
   }, [demo]);
   const [storage] = useState(() => (givenStorage === undefined ? browserStorage() : givenStorage));
-  const [opened] = useState(() => inspect(storage));
+  const [opened] = useState(() => inspect(storage, demo));
   // A reload keeps an unfinished watch setup, unless a saved game is waiting on the Home screen.
   const [restored] = useState(() =>
     storage && !opened.offer
@@ -173,6 +192,8 @@ export function App({
     () => restored?.draft ?? { settings: DEFAULT_WATCH_SETTINGS },
   );
   const [startFailed, setStartFailed] = useState(false);
+  const [sceneFailure, setSceneFailure] = useState<SceneFailure>();
+  const scene = useSyncExternalStore(store.subscribe, store.getScene);
   const [navigated, setNavigated] = useState(false);
   const noticeRef = useRef<string | null>(null);
   const resumedAt = useRef<number | null>(null);
@@ -190,6 +211,7 @@ export function App({
               watch: store.getWatchSettings(),
               chatWords: store.getChatWords(),
               gameId: store.getGameId(),
+              scene: store.getScene(),
             });
           } else clearSave(storage);
           setSavingOff(false);
@@ -237,6 +259,7 @@ export function App({
         offer.watch,
         offer.gameId,
         offer.chatWords,
+        offer.scene,
       );
     } catch {
       setOffer({ kind: 'unreadable' });
@@ -286,7 +309,7 @@ export function App({
     }
     noticeRef.current = null;
     setResumeNotice(null);
-    setOffer(inspect(storage).offer);
+    setOffer(inspect(storage, demo).offer);
     go(HOME);
   };
   /** Same AIs and settings, a new seed (spec §3, watch path). */
@@ -313,6 +336,22 @@ export function App({
     }
     go({ screen: 'play' });
   };
+  /** Demo mode: builds the scene from its seed and script, or says why it could not be built. */
+  const openScene = (picked: DemoScene) => {
+    noticeRef.current = null;
+    setResumeNotice(null);
+    setOffer(null);
+    const built = buildScene(store, picked);
+    if (!built.ok) {
+      setSceneFailure(built.failure);
+      return;
+    }
+    setSceneFailure(undefined);
+    go({ screen: 'play' });
+  };
+  // Every screen of a prepared scenario says so, a reload included: the saved game keeps its scene.
+  const announced =
+    scene !== undefined || (offer?.kind === 'continue' && offer.scene !== undefined);
   const prompt: SavePromptProps | null = offer
     ? offer.kind === 'continue'
       ? {
@@ -344,6 +383,14 @@ export function App({
           canWatch={canWatch(classOptions)}
           onNewGame={() => go({ screen: 'setup', step: 'mode' })}
           onWatch={() => go({ screen: 'watch', step: 'mode' })}
+          onDemo={
+            demo
+              ? () => {
+                  setSceneFailure(undefined);
+                  go({ screen: 'demo' });
+                }
+              : undefined
+          }
           onPresets={() => go({ screen: 'presets' })}
           onRandomAll={() => {
             const picked = randomSetup(classOptions, OPEN_MODES, random);
@@ -547,6 +594,16 @@ export function App({
     case 'results':
       screen = <ResultsScreen store={store} onPlayAgain={playAgain} onWatchAgain={watchAgain} />;
       break;
+    case 'demo':
+      screen = (
+        <DemoScreen
+          scenes={openScenes()}
+          failure={sceneFailure}
+          onOpen={openScene}
+          onBack={() => go(HOME)}
+        />
+      );
+      break;
     case 'credits':
       screen = <CreditsScreen onBack={() => go(creditsFrom)} />;
       break;
@@ -564,6 +621,7 @@ export function App({
             {route.screen === 'play' && <HowToPlayButton className="ms-auto" />}
           </header>
         )}
+        {announced && <DemoBanner />}
         <main
           className={`mx-auto flex w-full max-w-6xl flex-1 flex-col px-5 py-8 sm:px-8 sm:py-12 ${
             route.screen === 'home' ? 'justify-center' : ''

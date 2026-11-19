@@ -93,12 +93,13 @@ export default defineConfig([
       ],
     },
   },
-  // web/ calls the engine only through its adapters (spec §6.1). Type imports are allowed elsewhere; tests and web/src/test helpers may import the engine directly, and so may the dev gallery's one adapter (a rival's private view, never in a production build).
+  // web/ calls the engine only through its adapters (spec §6.1). Type imports are allowed elsewhere; tests and web/src/test helpers may import the engine directly, and so may the dev gallery's one adapter (a rival's private view, never in a production build) and the demo scenes' builder (it names a scripted rival's legal action, spec §1).
   {
     files: ['web/**/*.{ts,tsx}'],
     ignores: [
       ...ADAPTERS,
       'web/src/gallery/seatDecision.ts',
+      'web/src/game/demoScenes.ts',
       'web/**/*.test.{ts,tsx}',
       'web/src/test/**',
     ],

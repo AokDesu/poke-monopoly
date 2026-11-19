@@ -44,6 +44,11 @@ export interface SaveMeta {
    * (spec §9) carry on across a reload. Never part of the exported log.
    */
   readonly gameId?: string;
+  /**
+   * The prepared scenario this game was opened from (`?demo`, issue #222). Marks the game as
+   * prepared so a reload keeps announcing it. Never part of the exported log.
+   */
+  readonly scene?: string;
 }
 
 export type LoadResult =
@@ -77,6 +82,7 @@ export function writeSave(storage: SaveStorage, game: SavedGame, meta: SaveMeta)
       opponents: meta.opponents,
       watch: meta.watch,
       gameId: meta.gameId,
+      scene: meta.scene,
       chatWords: meta.chatWords,
     }),
   );
@@ -100,6 +106,7 @@ export function readMeta(storage: SaveStorage): SaveMeta {
     const speed = watch && typeof watch === 'object' && 'speed' in watch ? watch.speed : undefined;
     const startSpeed = TURN_SPEEDS.find((item) => item === speed);
     const gameId = 'gameId' in parsed ? parsed.gameId : undefined;
+    const scene = 'scene' in parsed ? parsed.scene : undefined;
     return {
       opponents: rows.flatMap((entry) => {
         if (!entry || typeof entry !== 'object') return [];
@@ -111,6 +118,7 @@ export function readMeta(storage: SaveStorage): SaveMeta {
       }),
       ...(typeof talk === 'boolean' && startSpeed && { watch: { talk, speed: startSpeed } }),
       ...(typeof gameId === 'string' && /^[\w-]{1,64}$/.test(gameId) && { gameId }),
+      ...(typeof scene === 'string' && /^[\w-]{1,64}$/.test(scene) && { scene }),
       ...('chatWords' in parsed && { chatWords: readSavedChatWords(parsed.chatWords) }),
     };
   } catch {

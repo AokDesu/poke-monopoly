@@ -889,6 +889,31 @@ export const en = {
   'demo.option.challenge': 'Challenge {target}',
   'demo.option.other': 'Another option',
 
+  // Demo scenes (`?demo`, issue #222, spec §3, §11): a seed plus legal engine actions, announced as prepared.
+  'demo.scenes.heading': 'Prepared scenarios',
+  'demo.scenes.body':
+    'Each one is set up in advance, then played by the real rules. Pick one to open the game at that moment.',
+  'demo.scenes.none': 'No prepared scenario is open in this build.',
+  'demo.scenes.entry': 'Prepared scenarios',
+  'demo.scenes.entryHint': 'Open a game at a set moment, for a demonstration.',
+  'demo.scene.banner': 'Prepared scenario: set up in advance, played by the real rules.',
+  'demo.scene.ball.title': 'Two Balls to choose from',
+  'demo.scene.ball.description':
+    'A wild Pokémon appears and you can throw a Poké Ball or a Great Ball.',
+  'demo.scene.pvp.title': 'Challenge a rival',
+  'demo.scene.pvp.description':
+    'Your turn at Strategy: challenge the rival to a battle, or force one as the Rival class.',
+  'demo.scene.reward.title': 'Win a battle, pick a reward',
+  'demo.scene.reward.description':
+    'You have just beaten a rival. Take the coins, or evolve your Eevee into a new form.',
+  'demo.failed.heading': 'This scenario could not be opened',
+  'demo.failed.step':
+    'Step {step} of {total} is no longer allowed by the rules, so the scenario stopped there.',
+  'demo.failed.moment':
+    'The set-up steps ran, but the game is not at the moment this scenario promises.',
+  'demo.failed.engine': 'The game could not be built.',
+  'demo.failed.next': 'Nothing was started. Pick another scenario, or go back to Home.',
+
   'chat.unclassified':
     'That message could not be understood. Try a chat topic or write it more plainly. The AI’s plan has not changed.',
   'chat.manipulationRefused':
@@ -1031,6 +1056,7 @@ export const en = {
   'gallery.specPromises': 'Spec §4.8, Promises and memory',
   'gallery.row.abilities':
     'Abilities that are ready, and Abilities that cannot be used, with the reason',
+  'gallery.specDemo': 'Spec §3, Demo mode, and §11',
   'gallery.pendingHeading': 'Rows with no screen yet',
   'gallery.pendingIntro':
     'These rows have nothing a player can see in this build, so there is no example to show.',
@@ -1067,6 +1093,7 @@ export const en = {
   'gallery.row.watchAllBackup': 'Every AI in a watched game is on the backup bot',
   'gallery.row.socialWindow':
     'The Social window: five topic buttons, one rival, one message, one reply',
+  'gallery.row.demoScenes': 'Demo mode: prepared scenarios, announced as prepared',
   'gallery.row.backupBadge':
     'A "Backup bot mode" badge shows truthfully whenever an AI is using the fallback',
   'gallery.example.deckReshuffled': 'Event card drawn after the deck ran out and was reshuffled',
@@ -1133,6 +1160,10 @@ export const en = {
     'The answer is the bank line and says why the rival’s own words are off',
   'gallery.example.socialRefused': 'The answer is a refusal; willingness and trust do not change',
   'gallery.example.socialFailed': 'The answer did not arrive: ask again or continue',
+  'gallery.example.demoList': 'The list of prepared scenarios, opened with ?demo',
+  'gallery.example.demoFailed': 'A scenario that could not be built: the reason, and the way back',
+  'gallery.example.demoNone': 'No scenario is open in this build',
+  'gallery.example.demoBanner': 'After a reload: the saved scenario game, announced as prepared',
   'gallery.row.promises':
     'Promises: offered, accepted or refused by the rival, then kept, broken or closed by the game, with the memory it leaves',
   'gallery.example.promiseOffers': 'The Social window with the promise offers the game lists',

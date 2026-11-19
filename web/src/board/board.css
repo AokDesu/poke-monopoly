@@ -494,6 +494,7 @@
     margin-inline: auto;
   }
   .app-playing > header,
+  .app-playing > .scene-banner-row,
   .app-playing > main,
   .app-playing > footer {
     max-width: 1280px;
