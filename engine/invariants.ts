@@ -587,6 +587,107 @@ function checkAttackEvidence({ before, parsed, result }: Step): string[] {
   return errors;
 }
 
+const DEAL_KINDS = [
+  'propose_deal',
+  'respond_deal',
+  'counter_deal',
+  'confirm_deal',
+  'cancel_deal',
+] as const;
+
+/** Who holds each Pokémon and item instance, by actor. */
+function holders(state: GameState): Map<string, string> {
+  return new Map(
+    state.players.flatMap((player) => [
+      ...player.team.map((pokemon) => [pokemon.instanceId, player.actorId] as const),
+      ...player.items.map((item) => [item.instanceId, player.actorId] as const),
+    ]),
+  );
+}
+
+/**
+ * Deals are atomic (§4.8, §8): an asset changes owner only in an accepted `confirm_deal`, and then exactly the
+ * pending terms move, once: the asset from its giver to its receiver and the coins from the receiver to the giver
+ * through one sourced `coin_transfer` (reason `deal`), with every other holding, coin balance and player untouched,
+ * and both parties' one-deal-per-Lap marker set. Every other deal step moves nothing and keeps a counter within
+ * depth 1; a refused deal step leaves the state hash unchanged (the generic check names a stale or refused action).
+ */
+function checkDealsAtomic({ before, parsed, result }: Step): string[] {
+  const isDeal = parsed !== null && (DEAL_KINDS as readonly string[]).includes(parsed.kind);
+  if (!accepted(result)) {
+    return isDeal && stateHash(result.state) !== stateHash(before)
+      ? ['a refused deal step changed the state hash']
+      : [];
+  }
+  const errors: string[] = [];
+  const was = holders(before);
+  const now = holders(result.state);
+  const moved = [...now].filter(([id, owner]) => was.has(id) && was.get(id) !== owner);
+  const transfers = eventsOf(result.events, 'coin_transfer').filter((e) => e.reason === 'deal');
+  const pending = before.pendingResponse;
+  if (parsed?.kind !== 'confirm_deal') {
+    if (moved.length > 0) errors.push('an asset changed owner outside a confirmed deal');
+    if (transfers.length > 0) errors.push('a deal coin transfer was logged outside a confirm');
+    if (eventsOf(result.events, 'deal_committed').length > 0) {
+      errors.push('deal_committed was logged outside a confirm');
+    }
+  } else if (pending?.kind !== 'deal') {
+    errors.push('a deal was confirmed with no Deal Card pending');
+  } else {
+    const { terms } = pending;
+    const assetSide = terms.give.pokemonInstanceIds.length + terms.give.itemInstanceIds.length > 0;
+    const asset = assetSide ? terms.give : terms.get;
+    const coinSide = assetSide ? terms.get : terms.give;
+    const initiator = before.players.find((p) => p.seatIndex === pending.initiatorSeatIndex)!;
+    const target = before.players.find((p) => p.seatIndex === pending.targetSeatIndex)!;
+    const [giver, receiver] = assetSide ? [initiator, target] : [target, initiator];
+    const ids = [...asset.pokemonInstanceIds, ...asset.itemInstanceIds].sort();
+    if (
+      JSON.stringify(moved.map(([id]) => id).sort()) !== JSON.stringify(ids) ||
+      moved.some(([id, owner]) => was.get(id) !== giver.actorId || owner !== receiver.actorId)
+    ) {
+      errors.push('a confirmed deal did not move exactly its asset from giver to receiver');
+    }
+    const transfer = transfers[0];
+    if (
+      transfers.length !== 1 ||
+      transfer?.amount !== coinSide.coins ||
+      transfer.source.kind !== 'player' ||
+      transfer.source.actorId !== receiver.actorId ||
+      transfer.destination.kind !== 'player' ||
+      transfer.destination.actorId !== giver.actorId
+    ) {
+      errors.push('a confirmed deal did not move exactly its coins from receiver to giver');
+    }
+    if (eventsOf(result.events, 'deal_committed').length !== 1) {
+      errors.push('a confirmed deal must log exactly one deal_committed');
+    }
+    for (const seatIndex of [pending.initiatorSeatIndex, pending.targetSeatIndex]) {
+      const after = result.state.players.find((p) => p.seatIndex === seatIndex)!;
+      if (after.dealUsedLap !== after.creditedLap) errors.push('a deal did not use its Lap quota');
+    }
+    // Nothing but the two parties' holdings changed hands: a third player is unchanged.
+    for (const other of result.state.players) {
+      if (
+        other.seatIndex === pending.initiatorSeatIndex ||
+        other.seatIndex === pending.targetSeatIndex
+      ) {
+        continue;
+      }
+      const previous = before.players.find((p) => p.actorId === other.actorId)!;
+      // A seat outside a Deal Card only counts it among the records it does not see.
+      const unchanged = (player: Player) => ({ ...player, unseenRecords: 0 });
+      if (canonicalJson(unchanged(previous)) !== canonicalJson(unchanged(other))) {
+        errors.push('a deal changed a seat outside it');
+      }
+    }
+    if (result.state.pendingResponse) errors.push('a confirmed deal left its question pending');
+  }
+  const after = result.state.pendingResponse;
+  if (after?.kind === 'deal' && after.counterDepth > 1) errors.push('counter depth exceeds 1');
+  return errors;
+}
+
 /**
  * §4.8 / §4.2 step 7: a promise closes exactly at End of its promiser's `closesOwnTurnNo` turn, or at game end
  * if that comes first; its trust change follows the table (−2, +1 capped at +2 per pair, 0, none), clamped to
@@ -975,7 +1076,13 @@ export const INVARIANTS: readonly InvariantDefinition[] = [
     specLine: 'The game can finish after an AI failure with any number of AIs.',
     check: checkGameCanFinish,
   },
-  { id: 'deals-atomic', status: 'pending', section: '§8', specLine: S8_REJECTED },
+  {
+    id: 'deals-atomic',
+    status: 'active',
+    section: '§8',
+    specLine: S8_REJECTED,
+    check: checkDealsAtomic,
+  },
   {
     id: 'move-debuff-until-next-move',
     status: 'active',

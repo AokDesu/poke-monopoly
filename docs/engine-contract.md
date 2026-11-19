@@ -692,8 +692,8 @@ Every §8 checker owned by this epic is active, each with a counterexample test:
 exactly by the action's logged, consecutively numbered draws, and a saved copy re-asks the same
 seat) and `rescue-starter-no-coin-loop` (a Rescue Starter never sells for coins, is never resold in
 the phase that created it and stays untradeable). `promise-closes-on-own-turn` is active from S07
-(see "Promise settlement, trust and memory evidence" below); `deals-atomic` stays pending: it belongs
-to the deal work, not this epic.
+(see "Promise settlement, trust and memory evidence" below); `deals-atomic` was pending here and is
+active from #164 D1 (see "Deal Cards" below).
 
 CI runs `npm run sim -- --games 100 --seed 1` at `--seats 2`, `3` and `4`, each checking every
 active invariant after every action and failing on any abort, illegal applied action or invariant
@@ -855,3 +855,39 @@ The spec's "kept with a real chance to attack" reads **public facts only** (the 
 The sim's `promises` metrics (`sim/interactions.ts`, [docs/sim.md](sim.md)) have one source: the outcome and the chance flag the engine records on each promise (`state.promises[].settled` and `.chance`). `broken`, `keptWithOpportunity` (kept with a chance), `keptWithoutOpportunity` and `closedByGameEnd` count those records as they settle, `kept` is the sum of the two kept counts, and `breachOpportunity` counts promises whose engine flag was set (a public hostile item or hostile Ability chance, never PvP). The sim keeps no second copy counted from accept events or attack attempts, and the pair's event does not carry the split. `--social` reports the same numbers under `summary.promises`.
 
 **Versioning.** The stamp advances to 0.20.0: the state (`promises` fields, `trust`), the `promise_closed` event and the seat observation (`own.trust`, a different `own.promises` shape) change. Saves of 0.19.0 and earlier are refused rather than migrated. Tests: [engine/promise-settlement.test.ts](../engine/promise-settlement.test.ts), the invariant cases in [engine/invariants.test.ts](../engine/invariants.test.ts) and the `--social` cases in [sim/sim.test.ts](../sim/sim.test.ts).
+
+## Deal Cards: legality and atomic commit (issue #164 D1)
+
+Spec: §4.8 Deal Card, §4.2, §6, §8. This builds on the pending-decision ownership of "Promise responses as pending decisions" above (a question owned by the responder, `pendingDecision` unchanged) and on the Social window's visibility machinery; there is no second mechanism. The rules are in [engine/deals.ts](../engine/deals.ts). It adds legality and an atomic commit only: the engine's valuation, concession and budget facts (§4.8, §5.4) and the AI's `deal_response` come in later slices, and the Deal Card screen is #138.
+
+### Actions and the pending record
+
+The empty `deal` action kind is replaced by five (the `deal` phase kind stays an unused placeholder):
+
+| Action | Actor | Payload | Effect |
+| --- | --- | --- | --- |
+| `propose_deal` | the active human, Social window open (`socialOpen`) | `{ targetSeatIndex, give, get }` | opens the question; moves nothing |
+| `respond_deal` | the target AI | `{ answer: 'accept' \| 'reject' }` | accept hands the question to the proposer; reject ends it |
+| `counter_deal` | the target AI, once | `{ coins }` | the same asset and direction at a new coin amount; hands the question to the proposer |
+| `confirm_deal` | the proposer | `{}` | re-checks, then commits |
+| `cancel_deal` | the proposer | `{}` | ends it; moves nothing |
+
+`give` is what the proposer hands over and `get` what it receives; each side is `{ coins, pokemonInstanceIds, itemInstanceIds }` with at most one asset (the arrays keep the shape open for Pokémon ↔ Pokémon, which §10 cuts and which has no path). A legal deal has exactly one asset on one side and at least 1 coin on the other. `GameState.pendingResponse` gains the variant `{ kind: 'deal', stage: 'proposed' | 'accepted' | 'countered', initiatorSeatIndex, responderSeatIndex, targetSeatIndex, terms, revealedItem?, counterDepth: 0 | 1 }`. `responderSeatIndex` is whoever owes the next command (the AI at `proposed`, the proposer at `accepted` and `countered`), which is what `pendingDecision` returns, so the active seat's own legal actions are empty while the AI answers and the AI has none while the proposer decides. Choice IDs: `deal:seat-<n>:give|get:pokemon|item:<uid>:coins-<n>` for ready-made proposals (coin amounts 1, 2 and 5, those the payer can afford; `propose_deal` itself accepts any legal amount and is validated as a whole, like a chat or a sale), `respond-deal:accept|reject`, `counter-deal:coins-<n>` (every amount from 1 to what the payer holds, except the current one), `confirm-deal` and `cancel-deal`.
+
+### Legality (`dealProblem`)
+
+Refused as `illegal_action`, with the state unchanged: not the human's own Social window, an AI proposer, a target that is not an AI or is the proposer, a format other than one asset against coins (`format`), a repeated UID (`duplicate`), an asset not held by the giver (`not_held`), a Rescue Starter (`not_tradeable`), a giver's last Pokémon (`last_pokemon`), an AI's secret item (`secret_item`), coins the payer lacks (`not_enough_coins`), more than 4 items for the receiver after the deal (`items_full`), a spent quota (`quota`), or a stale revision or sequence. The quota is one successful deal per Lap per player, counting both sides, each player's Lap being its own `creditedLap`; `Player.dealUsedLap` holds the `creditedLap` a commit used, as `forcePvpUsedLap` does. The proposer's quota is checked at the offer; the target's is not (its answer would otherwise tell a third human that another seat dealt with this AI, #255) and is checked again at the answer and at the confirm: with the target's quota spent, its only legal answer is `reject`. The giver must keep a Pokémon and a Rescue Starter is untradeable (§4.5); both are this slice's reading where §4.8 is silent.
+
+### Atomic commit
+
+`confirm_deal` is enabled only if the full re-check passes against the current state. The commit then moves, in one accepted action: the asset (same instance ID, same visibility) from giver to receiver, the coins from receiver to giver as one `coin_transfer` with reason `deal` (so the coin invariants see a sourced transfer), both parties' `dealUsedLap`, and then it clears the question and spends `turnBudgets.socialInteraction`. No tactical action is spent. A Tired Pokémon keeps the number of its owner's turns it had left, counted in its new owner's turns (`tiredExpiresOwnTurnNo` is relative to its owner's `ownTurnNo`). Every deal step that ends the exchange (a reject, a cancel and a commit) spends the interaction; a proposal, an accept and a counter do not, so a seat that cannot answer stalls nothing. `confirmDeal` throws before any transfer if the re-check ever fails, which the executor's check makes unreachable; a thrown error would be a bug, never half a deal.
+
+### Visibility
+
+A deal is its two parties' alone, the way a chat is. `deal_proposed`, `deal_accepted`, `deal_rejected`, `deal_countered`, `deal_cancelled`, `deal_committed` and the deal's `coin_transfer` reach only the proposer and the target; a spectator sees none of them. The five deal records are absent from a bystander's feed (`actionVisibleTo` and `actionVisibleToSpectator` return `null`) and every accepted deal record raises each outside seat's `unseenRecords` and `GameState.dealRecords`, which `publicRevision` subtracts, so a bystander's feed, `observe(...).public.stateRevision`, `actorRevision` and every engine ID that embeds a revision are identical whether the pair dealt or the active seat skipped. `observe(...).own.pendingResponse` shows the question to its two parties only. Coins, teams and item counts are public by nature (§4.1), so the totals change in every seat's view; nothing names the deal, its terms or any item. **Hidden items:** an item the human offers is its own and reaches the AI in `pendingResponse.revealedItem` and `deal_proposed` only; the human may ask only for an item the AI holds publicly; a guess at an AI's secret item and at an item that does not exist are refused identically, and the ready-made proposals do not depend on what secret items the AI holds. The AI reveals nothing of its own.
+
+### Invariant
+
+`deals-atomic` is active: an asset changes owner only in an accepted `confirm_deal`, and then exactly the pending terms move (the asset from giver to receiver, one `coin_transfer` of the pending coins from receiver to giver, exactly one `deal_committed`, both quota marks set, the question cleared, no seat outside the pair changed); every other deal step moves nothing; a counter stays within depth 1; a refused deal step leaves the state hash unchanged.
+
+**Versioning.** The stamp advances to 0.21.0: the action union, events, state (`dealRecords`, `Player.dealUsedLap`, the `deal` pending variant) and observation change. Saves of 0.20.0 and earlier are refused rather than migrated. Tests: [engine/deals.test.ts](../engine/deals.test.ts) (legality of every illegal case, the exchange, the atomic commit and its re-check, hidden items, leak tests for a third seat and a spectator, replay, save and resume, and the invariant's counterexamples) and the `--social` cases in [sim/sim.test.ts](../sim/sim.test.ts).

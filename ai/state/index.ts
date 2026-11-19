@@ -79,7 +79,8 @@ function socialState(observation: Observation, extras: SocialExtras) {
     trust: players
       .filter((player) => player.seatIndex !== me && extras.trust?.[player.actorId] !== undefined)
       .map((player) => ({ id: player.actorId, bucket: extras.trust![player.actorId]! })),
-    ...(pendingResponse && pendingResponse.responderSeatIndex === me
+    // A pending Deal Card is the deal_response work's (#164 D3); only a promise question is described here.
+    ...(pendingResponse?.kind === 'promise_offer' && pendingResponse.responderSeatIndex === me
       ? {
           pending_card: {
             kind: pendingResponse.kind,

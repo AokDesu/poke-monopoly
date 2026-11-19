@@ -62,6 +62,22 @@ function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): bo
   ) {
     return event.promiserSeatIndex === seatIndex || event.recipientSeatIndex === seatIndex;
   }
+  // A Deal Card is its two parties' alone, including the one item it reveals and the coins it moves (§4.8).
+  if (
+    event.kind === 'deal_proposed' ||
+    event.kind === 'deal_accepted' ||
+    event.kind === 'deal_rejected' ||
+    event.kind === 'deal_countered' ||
+    event.kind === 'deal_cancelled' ||
+    event.kind === 'deal_committed'
+  ) {
+    return event.initiatorSeatIndex === seatIndex || event.targetSeatIndex === seatIndex;
+  }
+  if (event.kind === 'coin_transfer' && event.reason === 'deal') {
+    return [event.source, event.destination].some(
+      (endpoint) => endpoint.kind === 'player' && endpoint.actorId === observerId,
+    );
+  }
   if (event.kind === 'attack_attempt') return attackVisibleTo(event, observerId);
   if (event.kind === 'ball_gained') return event.ownerId === observerId;
   // A secret shield's arming shows others only the item-count change (D6).
@@ -146,7 +162,7 @@ export function actorRevision(state: GameState, actorId: string): number {
 export { publicRevision } from './revision.ts';
 
 /**
- * Whether the record is a chat or promise question or answer this seat took no part in (§4.8). A seat
+ * Whether the record is a chat, promise or Deal Card step this seat took no part in (§4.8). A seat
  * outside a conversation must not learn that it happened or whom it was with: in a three-seat game,
  * "a chat happened and it was not to me" names the recipient, and a `respond` names the responder by
  * its actor, so the record is absent from the seat's feed, not redacted.
@@ -160,6 +176,21 @@ function hiddenRecord(before: GameState, record: ActionRecord, seatIndex: number
   if (action.kind === 'respond') {
     return (
       actor?.seatIndex !== seatIndex && before.pendingResponse?.initiatorSeatIndex !== seatIndex
+    );
+  }
+  if (action.kind === 'propose_deal') {
+    return actor?.seatIndex !== seatIndex && action.payload.targetSeatIndex !== seatIndex;
+  }
+  if (
+    action.kind === 'respond_deal' ||
+    action.kind === 'counter_deal' ||
+    action.kind === 'confirm_deal' ||
+    action.kind === 'cancel_deal'
+  ) {
+    const pending = before.pendingResponse;
+    return (
+      pending?.kind !== 'deal' ||
+      (pending.initiatorSeatIndex !== seatIndex && pending.targetSeatIndex !== seatIndex)
     );
   }
   return false;
