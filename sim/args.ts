@@ -4,7 +4,7 @@ import { checkSeedSet, DEFAULT_OPTIONS, type SimOptions } from './runner.ts';
 
 /**
  * `--games <n> --seed <n> [--seats 2|3|4] [--max-steps n] [--lap-target n] [--policy name]
- * [--seed-set tune|eval] [--social] [--save file]`.
+ * [--seed-set tune|eval] [--social] [--human-policy name] [--seat-policies a,b,..] [--save file]`.
  */
 export function parseSimArgs(args: string[]): SimOptions {
   const { values } = parseArgs({
@@ -20,15 +20,25 @@ export function parseSimArgs(args: string[]): SimOptions {
       policy: { type: 'string', default: DEFAULT_OPTIONS.policy },
       'seed-set': { type: 'string', default: DEFAULT_OPTIONS.seedSet },
       social: { type: 'boolean', default: false },
+      'human-policy': { type: 'string' },
+      'seat-policies': { type: 'string' },
       save: { type: 'string' },
     },
   });
   const seats = integer('seats', values.seats, 2);
   if (seats > 4) throw new RangeError('--seats must be 2, 3 or 4');
-  if (!Object.hasOwn(POLICIES, values.policy)) {
-    throw new RangeError(
-      `--policy must be one of: ${Object.keys(POLICIES).join(', ')}; got ${values.policy}`,
-    );
+  knownPolicy('policy', values.policy);
+  const humanPolicy = values['human-policy'];
+  if (humanPolicy !== undefined) {
+    if (!values.social) throw new RangeError('--human-policy needs --social');
+    knownPolicy('human-policy', humanPolicy);
+  }
+  const seatPolicies = values['seat-policies']?.split(',');
+  if (seatPolicies) {
+    if (seatPolicies.length !== seats) {
+      throw new RangeError(`--seat-policies needs ${seats} names; got ${seatPolicies.length}`);
+    }
+    for (const name of seatPolicies) knownPolicy('seat-policies', name);
   }
   const seedSet = values['seed-set'];
   if (seedSet !== 'tune' && seedSet !== 'eval') {
@@ -43,10 +53,20 @@ export function parseSimArgs(args: string[]): SimOptions {
     policy: values.policy,
     seedSet,
     ...(values.social ? { social: true } : {}),
+    ...(humanPolicy === undefined ? {} : { humanPolicy }),
+    ...(seatPolicies ? { seatPolicies } : {}),
     ...(values.save === undefined ? {} : { save: nonEmpty('save', values.save) }),
   };
   checkSeedSet(options);
   return options;
+}
+
+function knownPolicy(flag: string, name: string): void {
+  if (!Object.hasOwn(POLICIES, name)) {
+    throw new RangeError(
+      `--${flag} must be one of: ${Object.keys(POLICIES).join(', ')}; got ${name}`,
+    );
+  }
 }
 
 function integer(name: string, raw: string, min: number): number {
