@@ -158,6 +158,34 @@ test('e5 tires the engine’s target, and an empty team has nothing to tire', ()
   expect(resultOf(empty)).toBe('You has no Pokémon, so nothing became Tired.');
 });
 
+test('an e5 row keeps the Pokémon it tired after that Pokémon is sold or evolves', () => {
+  const store = land(['e5']);
+  const { observation, feed } = store.getView()!;
+  const player = observation.public.players[0]!;
+  const tired = player.team.find((member) => member.tired)!;
+  const asDrawn = `You: ${speciesName(tired.speciesId)} became Tired.`;
+  const other = content.species.find(({ id }) => id !== tired.speciesId)!.id;
+
+  const sold = structuredClone(observation);
+  sold.public.players[0]!.team = player.team.filter((member) => member !== tired);
+  const evolved = structuredClone(observation);
+  evolved.public.players[0]!.team.find(
+    (member) => member.instanceId === tired.instanceId,
+  )!.speciesId = other;
+
+  for (const later of [sold, evolved]) {
+    render(<Board observation={later} feed={feed} />);
+    const card = screen.getByRole('region', { name: t('event.card.heading') });
+    const log = screen.getByRole('log', { name: t('board.log') });
+    expect(result(card)).toBe(asDrawn);
+    expect(rows(log)).toContain(asDrawn);
+    expect(rows(log).join('\n')).not.toContain(
+      t('event.result.tiredNone', { name: t('seat.you') }),
+    );
+    cleanup();
+  }
+});
+
 test('e1 opens the encounter, and the dialog says the Event card started it', () => {
   offline();
   const store = land(['e1']);
@@ -176,6 +204,30 @@ test('e1 opens the encounter, and the dialog says the Event card started it', ()
       }),
     ),
   ).toBeTruthy();
+});
+
+test('a card other than e1 drawn on an encounter turn is not named as the encounter’s source', () => {
+  offline();
+  const store = land(['e1']);
+  const view = store.getView()!;
+  const feed = view.feed.map((entry) => ({
+    ...entry,
+    record: {
+      ...entry.record,
+      events: entry.record.events.map((event) =>
+        event.kind === 'event_drawn' ? { ...event, eventId: 'e2' } : event,
+      ),
+    },
+  }));
+  const redrawn = { ...view, feed };
+  render(<BoardScreen store={{ ...store, getView: () => redrawn }} />);
+  const dialog = screen.getByRole('dialog');
+  expect(
+    within(dialog).queryByText(t('event.card.fromEncounter', { text: eventCardText('e2') })),
+  ).toBeNull();
+  expect(
+    within(dialog).queryByText(t('event.card.fromEncounter', { text: eventCardText('e1') })),
+  ).toBeNull();
 });
 
 test('the first fill of the deck is not announced as the deck running out; a later refill is, once', () => {

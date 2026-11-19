@@ -8,9 +8,14 @@ import { SellPanel } from '../board/SellPanel.tsx';
 import { TableTalkPanel } from '../board/TableTalk.tsx';
 import { TurnPanel } from '../board/TurnPanel.tsx';
 import { WatchPanel } from '../board/WatchPanel.tsx';
+import { HowToPlay } from '../howToPlay/HowToPlay.tsx';
+import { buildSteps } from '../howToPlay/steps.ts';
 import { t, type MessageKey } from '../i18n/en.ts';
 import { className } from '../i18n/names.ts';
 import { pendingLine, SavePrompt } from '../SavePrompt.tsx';
+import { DemoBanner } from '../DemoBanner.tsx';
+import { openScenes } from '../game/demoScenes.ts';
+import { DemoScreen } from '../setup/DemoScreen.tsx';
 import type { TurnPlayback } from '../board/useTurnPlayback.ts';
 import type { ChatReplyControls, ChatReplyState } from '../board/useChatReply.ts';
 import type { ChatReply } from '../game/chat.ts';
@@ -549,6 +554,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
         'demo.banner',
         'demo.chosen',
         'demo.confidence',
+        'demo.modelNote',
         'demo.sellNote',
         'demo.byBackup',
         'ai.reason.timeout',
@@ -898,6 +904,93 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
           id: 'reaction',
           caption: 'gallery.example.abilityReaction',
           render: () => turnPanel(abilityReaction()),
+        },
+      ],
+    },
+    {
+      id: 'how-to-play',
+      specRow: null,
+      spec: { id: 'howToPlay', label: 'gallery.specHowToPlay' },
+      label: 'gallery.row.howToPlay',
+      keys: ['howToPlay.heading', 'howToPlay.firstStep', 'howToPlay.lastStep'],
+      examples: [
+        {
+          id: 'first-step',
+          caption: 'gallery.example.howToPlayFirst',
+          render: () => <HowToPlay inline onClose={noop} />,
+        },
+        {
+          id: 'last-step',
+          caption: 'gallery.example.howToPlayLast',
+          render: () => <HowToPlay inline onClose={noop} initialStep={buildSteps().length - 1} />,
+        },
+      ],
+    },
+    {
+      id: 'demo-scenes',
+      specRow: null,
+      spec: { id: 'demo', label: 'gallery.specDemo' },
+      label: 'gallery.row.demoScenes',
+      keys: [
+        'demo.scenes.heading',
+        'demo.scenes.body',
+        'demo.scene.ball.title',
+        'demo.scene.ball.description',
+        'demo.scene.pvp.title',
+        'demo.scene.pvp.description',
+        'demo.scene.reward.title',
+        'demo.scene.reward.description',
+        'demo.failed.heading',
+        'demo.failed.step',
+        'demo.failed.next',
+        'demo.scenes.none',
+        'demo.scene.banner',
+        'save.continue',
+      ],
+      examples: [
+        {
+          id: 'list',
+          caption: 'gallery.example.demoList',
+          render: () => <DemoScreen scenes={openScenes()} onOpen={noop} onBack={noop} />,
+        },
+        {
+          id: 'failed',
+          caption: 'gallery.example.demoFailed',
+          render: () => (
+            <DemoScreen
+              scenes={openScenes()}
+              failure={{ kind: 'step', step: 3, total: 7 }}
+              onOpen={noop}
+              onBack={noop}
+            />
+          ),
+        },
+        {
+          id: 'none',
+          caption: 'gallery.example.demoNone',
+          render: () => <DemoScreen scenes={[]} onOpen={noop} onBack={noop} />,
+        },
+        {
+          id: 'banner',
+          caption: 'gallery.example.demoBanner',
+          render: () => (
+            <>
+              <DemoBanner />
+              <SavePrompt
+                kind="continue"
+                pending={pendingLine({
+                  phase: decisionOpen().view.observation.public.phase.kind,
+                  waiting: 'decision',
+                  seatIndex: decisionOpen().view.observation.public.activeSeatIndex,
+                  humanSeat: decisionOpen().view.seatIndex,
+                  turn: decisionOpen().view.observation.public.globalTurnNo,
+                  aiDecision: false,
+                })}
+                onContinue={noop}
+                onNewGame={noop}
+              />
+            </>
+          ),
         },
       ],
     },

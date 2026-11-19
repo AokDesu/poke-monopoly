@@ -103,6 +103,14 @@ function optionLabel(action: LegalAction, { observation, viewerSeat }: Context):
   }
 }
 
+/**
+ * Jev's number as the panel shows it: rounded to two decimals, so a float such as 0.8299999 reads
+ * 0.83. A chance above 0 never shows as 0.00. Display only: the row keeps the number as received.
+ */
+export function modelNumber(value: number): string {
+  return value > 0 && value < 0.005 ? '<0.01' : value.toFixed(2);
+}
+
 /** Rows most likely first; equal chances keep the order Jev sent them in. */
 const byProbability = (rows: DemoRow[]) =>
   rows
