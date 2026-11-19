@@ -2,7 +2,9 @@ import { useRef, useState, useSyncExternalStore } from 'react';
 import type { GameStore } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { Screen } from '../ui/Screen.tsx';
+import { backupSeats } from './AiTurn.tsx';
 import { Board } from './Board.tsx';
+import { PACE_TIMING } from './pace.ts';
 import { PromisePanel } from './PromisePanel.tsx';
 import { TableTalkPanel } from './TableTalk.tsx';
 import { useChatReply } from './useChatReply.ts';
@@ -11,7 +13,8 @@ import { useTurnPlayback } from './useTurnPlayback.ts';
 import { EncounterDialog } from './EncounterDialog.tsx';
 import { latestEvent } from './eventCard.ts';
 import { SellPanel } from './SellPanel.tsx';
-import { opponentMessageOf, TurnPanel } from './TurnPanel.tsx';
+import { SeatRows } from './SeatRows.tsx';
+import { TurnPanel } from './TurnPanel.tsx';
 import { WatchScreen } from './WatchScreen.tsx';
 import './turn-flow.css';
 import './decision-panels.css';
@@ -65,29 +68,11 @@ function PlayerBoardScreen({
     }
   };
   const you = game.players.find((player) => player.seatIndex === view.seatIndex)!;
-  const opponentMessage = opponentMessageOf(view);
   // The encounter card (e1) is what opened an encounter: no Wild square and Event card share a turn.
   // Any other card drawn this turn is not the encounter's source.
   const drawn = latestEvent(view.feed, view.observation);
   const encounterEvent =
     drawn?.eventId === 'e1' && drawn.turn === game.globalTurnNo ? drawn.text : undefined;
-  // The current rival action, spelled out under the board loop so the text sits right
-  // where the spotlight is (issue #123). Same wording as the field-log row.
-  const focus =
-    !humanTurn && game.phase.kind !== 'finished' && opponentMessage ? (
-      <div className="now-strip" data-seat={game.activeSeatIndex}>
-        <span className="seat-disc" data-seat={game.activeSeatIndex}>
-          {game.activeSeatIndex}
-        </span>
-        <p>
-          <strong>{t('ai.now')}</strong>
-          <span aria-hidden="true" className="now-between">
-            {' — '}
-          </span>
-          {opponentMessage.text}
-        </p>
-      </div>
-    ) : undefined;
   const controls = (
     <TurnPanel
       view={view}
@@ -105,7 +90,15 @@ function PlayerBoardScreen({
         observation={view.observation}
         feed={view.feed}
         controls={controls}
-        focus={focus}
+        seats={
+          <SeatRows
+            observation={view.observation}
+            viewerSeat={view.seatIndex}
+            story={playback.story}
+            foldMs={PACE_TIMING[playback.skipping ? 'instant' : playback.pace].foldMs}
+            backup={backupSeats(view, playback.status)}
+          />
+        }
         talk={
           talk.enabled ? (
             <TableTalkPanel

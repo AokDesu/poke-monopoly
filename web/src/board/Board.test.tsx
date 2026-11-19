@@ -40,8 +40,10 @@ test.each(fixtures)('$name shows the engine projection, not recomputed game valu
     expect(token.textContent).toBe(String(player.seatIndex));
     const panel = screen.getByTestId(`player-${player.seatIndex}`);
     expect(within(panel).getByLabelText(t('board.coins')).textContent).toBe(String(player.coins));
+    // The engine's square number, named with its kind as the board shows it.
+    const square = observation.public.board.find((space) => space.position === player.position)!;
     expect(within(panel).getByLabelText(t('board.position')).textContent).toBe(
-      String(player.position),
+      t('beat.square', { kind: t(`board.kind.${square.kind}`), position: player.position }),
     );
     expect(within(panel).getByLabelText(t('board.lap')).textContent).toBe(
       `${player.creditedLap} / ${observation.public.lapTarget}`,

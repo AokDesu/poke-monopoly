@@ -162,20 +162,11 @@
 .ai-backup-banner {
   color: var(--color-ink-soft);
 }
-.ai-backup {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem 0.6rem;
-}
 .ai-backup-badge {
   padding: 0.2rem 0.65rem;
   border-radius: 999px;
   color: var(--color-ink);
   background: var(--color-panel-lip);
-}
-.ai-backup > p {
-  flex-basis: 100%;
 }
 .ai-status-note {
   color: var(--color-ink-soft);
@@ -183,60 +174,45 @@
 .ai-thinking {
   font-weight: 800;
 }
-.ai-speech {
-  padding: 1rem;
-  border-radius: 16px;
-  background: var(--color-panel-tint);
-}
-.ai-speech blockquote {
-  margin: 0.4rem 0 1rem;
-  font-size: 1rem;
-}
-.ai-speech .btn {
-  min-height: 44px;
-}
-/* Issue #123: the current rival action, spelled out under the board loop with the
-   rival's seat disc, so the text and the board spotlight name the same move. */
-.now-strip {
-  --seat-color: #c92d20;
+/* The pace of the table (spec §3, AI turns): the pace choice, then Pause, Next and Skip to my
+   turn on one line while a rival plays, so the seat rows under them stay close to the top.
+   Next is the one primary control; the key each control answers to sits on it. */
+.pace-controls {
   display: flex;
-  align-items: center;
-  gap: 0.7rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.2rem 0.5rem;
   margin-top: 0.9rem;
-  padding: 0.55rem 0.9rem;
-  border-radius: 14px;
-  background: linear-gradient(180deg, var(--color-panel) 0%, var(--color-panel-tint) 100%);
-  box-shadow:
-    inset 0 2px 0 rgb(255 255 255 / 0.9),
-    0 3px 0 color-mix(in srgb, var(--seat-color), #15264a 45%),
-    0 8px 14px -8px rgb(16 38 84 / 0.4);
 }
-.now-strip[data-seat='1'] {
-  --seat-color: #205db8;
+.pace-controls .ai-speed {
+  flex-basis: 100%;
 }
-.now-strip[data-seat='2'] {
-  --seat-color: #68439f;
+.pace-controls .action-control {
+  flex: 1 1 0;
+  min-width: 6.5rem;
+  margin-top: 0.4rem;
 }
-.now-strip[data-seat='3'] {
-  --seat-color: #246b36;
+.pace-controls .btn {
+  width: 100%;
+  min-height: 2.9rem;
+  padding-inline: 0.6rem;
+  font-size: 0.95rem;
+  white-space: nowrap;
 }
-.now-strip .seat-disc {
-  width: 1.5rem;
-  height: 1.5rem;
-  font-size: 0.7rem;
-}
-.now-strip p {
-  margin: 0;
-  font-size: 0.9rem;
+.key-hint {
+  margin-inline-start: 0.5rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.28);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 800;
   line-height: 1.4;
 }
-.now-strip strong {
-  font-family: var(--font-display);
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-.now-between {
-  white-space: pre;
+.btn-secondary .key-hint,
+.watch-buttons .btn:not(.btn-primary) .key-hint {
+  background: var(--color-panel-tint);
+  color: var(--color-ink-soft);
 }
 /* Watch mode: the control bar under the turn text (issue #174). Four buttons in two columns
    keep every touch target at least 44px and every disabled reason beside its button. */

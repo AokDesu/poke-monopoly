@@ -119,7 +119,7 @@ labels and icons remain DOM content even without WebGL; the static meadow reuses
 credited Starter models. The read-only fixture route retains its preview note and has no
 live turn driver.
 
-The player's panel shows their own Ball pouch and items. Opponents show coins, square, completed
+The player's own row opens on their Ball pouch and items. Opponents show coins, square, completed
 Laps, team and **item count only**—never item names or Ball counts. The field log accepts only
 seat-filtered engine events from the store's redacted feed, not raw actions or logs. Its rows
 carry stable `data-message-key` catalog keys, and never dump internal UIDs or random-draw IDs.
@@ -184,16 +184,27 @@ Review at 1440×900 and 1024×768; the board is height-bounded at desktop sizes 
 loop remains visible without horizontal scrolling. Long panels and the event log remain
 available by vertical scrolling.
 
-## Players area
+## Seat rows and pace
 
-The right-hand column lists every seat as one compact row, so no seat needs scrolling to read:
-name and class, coins, square, lap, items held, team size with the first Pokémon, and a Turn
-badge with a seat-colour ring on the acting seat. A watched game adds each AI's personality and
-difficulty. A row opens that seat's team (and, for your own seat only, the Ball pouch and items)
-under it; one seat is open at a time, Enter or Space toggles it and Escape closes it. Opening is
-a local view choice that never reaches the game, and a seat shows nothing it did not show
-before. `PlayersArea.test.tsx` covers the rows, the open/close behaviour, the keyboard and
-the privacy of every seat.
+The right-hand column lists every seat as one row (`board/SeatRows.tsx`): name (You, or the
+rival's class) with its seat disc, coins, square, and the seat's last turn told as short beats
+(`board/beats.ts`, built from the seat-filtered feed only). A rival's row writes itself beat by
+beat while it plays, folds to one line 1.5 s after its turn ends and stays until the seat plays
+again; a long turn shows its last four beats and "+N more". A row that touched the viewing seat is
+lit, and at the start of that seat's turn the touching beats are listed first above the rows. The
+rows take the viewing seat as a value (`viewerSeat`), never the store's human seat. The toggle on a
+row opens the old panel body in place: Lap, items held, badges, team (and, for your own seat
+only, the Ball pouch and items), the Backup bot reason and, for a rival, your promises with it.
+One seat is open at a time, Enter or Space toggles it and Escape closes it; opening is a local view
+choice that never reaches the game. A watched game adds each AI's personality and difficulty.
+
+`board/useTurnPlayback.ts` is the pace engine: Step, Readable (default), Fast or Instant, saved
+with every game. It holds each beat for `holdMs` (`board/pace.ts`: at Readable 1.2 s + 0.3 s per
+word, 2.5-5 s; the player's own results at least 2.5 s; a step that tells nothing 250 ms) before
+the next automatic step or AI request starts. Next (Space) ends a hold, Pause (P) holds the game
+and Skip to my turn runs at Instant until the player's turn. Timing never cancels or repeats an AI
+decision. `beats.test.ts`, `pace.test.ts`, `PaceEngine.test.tsx` and `PlayersArea.test.tsx`
+cover the beats' privacy, the hold formula, the controls and the rows.
 
 ## UI states gallery (dev only)
 

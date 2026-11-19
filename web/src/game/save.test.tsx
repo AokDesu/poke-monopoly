@@ -23,7 +23,7 @@ import {
   type Command,
   type GameStore,
 } from './store.ts';
-import { STEP_MS } from '../board/useTurnPlayback.ts';
+import { PACE_TIMING } from '../board/pace.ts';
 
 afterEach(() => {
   cleanup();
@@ -207,7 +207,7 @@ test('Continue restores five saved points, including an AI decision, without a n
         return new Promise(() => {});
       });
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(STEP_MS.normal);
+        await vi.advanceTimersByTimeAsync(PACE_TIMING.readable.fillerMs);
       });
       expect(body.decisionPoint).toBe('encounter');
       expect(body.stateRevision).toBe(saved.state.stateRevision);

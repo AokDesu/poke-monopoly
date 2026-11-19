@@ -2,7 +2,6 @@ import type { SpectatorView } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
 import { AiTurn } from './AiTurn.tsx';
-import { opponentMessageOf } from './TurnPanel.tsx';
 import { WatchControls } from './WatchControls.tsx';
 import type { TurnPlayback } from './useTurnPlayback.ts';
 
@@ -33,7 +32,7 @@ export function WatchPanel({
       ? t('turn.opponentError')
       : playback.paused
         ? t('watch.paused')
-        : (opponentMessageOf(view)?.text ?? t('watch.playing'));
+        : t('watch.playing');
   return (
     <section className="turn-panel panel watch-panel" aria-label={t('watch.controls')}>
       <div className="turn-panel-copy">
@@ -45,7 +44,7 @@ export function WatchPanel({
           </p>
         )}
       </div>
-      <AiTurn view={view} playback={playback} speed={false} />
+      <AiTurn view={view} playback={playback} />
       {playback.failed && (
         <ActionButton enabled onClick={playback.retry}>
           {t('turn.retry')}

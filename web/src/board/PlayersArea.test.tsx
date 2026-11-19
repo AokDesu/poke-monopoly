@@ -8,7 +8,6 @@ import { className } from '../i18n/names.ts';
 import { fakeServer, settingsFor, watchStore } from '../test/watchGame.ts';
 import { Board } from './Board.tsx';
 import { BoardScreen } from './BoardScreen.tsx';
-import { seatLabel } from './labels.ts';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -41,39 +40,44 @@ function playerStore(rivals: 1 | 2 | 3): GameStore {
   return store;
 }
 
-const toggleOf = (seat: number) => within(screen.getByTestId(`player-${seat}`)).getByRole('button');
-const bodyOf = (seat: number) =>
-  screen.getByTestId(`player-${seat}`).querySelector<HTMLElement>('.player-body')!;
+const rowOf = (seat: number) => screen.getByTestId(`player-${seat}`);
+const toggleOf = (seat: number) =>
+  within(rowOf(seat)).getByRole('button', { name: /^Details for / });
+const bodyOf = (seat: number) => rowOf(seat).querySelector<HTMLElement>('.player-body')!;
+const summaryOf = (seat: number) => rowOf(seat).querySelector<HTMLElement>('.seat-row-summary')!;
 
 test.each([1, 2, 3] as const)(
-  'with %i rival(s) every seat shows its key facts closed, from the engine projection (§3)',
+  'with %i rival(s) every row shows its name, coins and square closed, from the engine projection (§3)',
   (rivals) => {
     const store = playerStore(rivals);
     const { observation } = store.getView()!;
     render(<Board observation={observation} />);
-    const { players, lapTarget, activeSeatIndex } = observation.public;
+    const { players, lapTarget, activeSeatIndex, board } = observation.public;
     expect(players).toHaveLength(rivals + 1);
     for (const player of players) {
-      const panel = screen.getByTestId(`player-${player.seatIndex}`);
-      const summary = panel.querySelector<HTMLElement>('.player-summary')!;
-      const text = summary.textContent!;
-      expect(within(panel).getByRole('heading', { level: 2 }).textContent).toBe(
-        seatLabel(player.seatIndex, observation.own.seatIndex),
+      const summary = summaryOf(player.seatIndex);
+      // One name per seat: "You" for the player, the class (unique in a game) for a rival.
+      expect(within(rowOf(player.seatIndex)).getByRole('heading', { level: 2 }).textContent).toBe(
+        player.seatIndex === 0
+          ? `${t('seat.you')} ${className(player.classId)}`
+          : `${className(player.classId)} ${t('row.ai')}`,
       );
-      expect(text).toContain(className(player.classId));
       expect(within(summary).getByLabelText(t('board.coins')).textContent).toBe(
         String(player.coins),
       );
+      const square = board.find((space) => space.position === player.position)!;
       expect(within(summary).getByLabelText(t('board.position')).textContent).toBe(
-        String(player.position),
+        t('beat.square', { kind: t(`board.kind.${square.kind}`), position: player.position }),
       );
-      expect(within(summary).getByLabelText(t('board.lap')).textContent).toBe(
+      // Lap, items and team open under the row's toggle, from the same projection.
+      const body = bodyOf(player.seatIndex);
+      expect(within(body).getByLabelText(t('board.lap')).textContent).toBe(
         `${player.creditedLap} / ${lapTarget}`,
       );
-      expect(within(summary).getByLabelText(t('board.itemCount')).textContent).toBe(
+      expect(within(body).getByLabelText(t('board.itemCount')).textContent).toBe(
         String(player.itemCount),
       );
-      expect(text).toContain(
+      expect(body.textContent).toContain(
         t('board.teamGlance', {
           count: player.team.length,
           name: currentForm(player.team[0]!.speciesId).name,
@@ -81,15 +85,15 @@ test.each([1, 2, 3] as const)(
       );
       // Closed: the rest of the seat is out of the page, not merely out of view.
       expect(toggleOf(player.seatIndex).getAttribute('aria-expanded')).toBe('false');
-      expect(bodyOf(player.seatIndex).hidden).toBe(true);
+      expect(body.hidden).toBe(true);
     }
     // Whose turn it is: one row, marked in words and for assistive technology.
-    const active = document.querySelectorAll('.player-panel[data-active="true"]');
+    const active = document.querySelectorAll('.seat-row[data-active="true"]');
     expect(active).toHaveLength(1);
     expect(active[0]!.getAttribute('data-seat')).toBe(String(activeSeatIndex));
     expect(active[0]!.getAttribute('aria-current')).toBe('true');
     expect(active[0]!.querySelector('.turn-badge')?.textContent).toBe(
-      activeSeatIndex === 0 ? t('board.yourTurn') : t('board.turnBadge'),
+      activeSeatIndex === 0 ? t('row.yourTurn') : t('row.playing'),
     );
     expect(document.querySelectorAll('.turn-badge')).toHaveLength(1);
   },
@@ -125,7 +129,9 @@ test('each toggle is named for its seat and points at the body it opens', () => 
   for (const player of observation.public.players) {
     const toggle = toggleOf(player.seatIndex);
     expect(toggle.getAttribute('aria-label')).toBe(
-      t('board.openDetails', { name: seatLabel(player.seatIndex, 0) }),
+      t('board.openDetails', {
+        name: player.seatIndex === 0 ? t('seat.you') : className(player.classId),
+      }),
     );
     expect(document.getElementById(toggle.getAttribute('aria-controls')!)).toBe(
       bodyOf(player.seatIndex),
@@ -191,30 +197,30 @@ test('a rival opened up shows its team and an item count only; the Ball pouch st
   expect(within(body).getByText(t('board.hiddenInventory'))).toBeTruthy();
   expect(within(body).queryByLabelText(t('board.balls'))).toBeNull();
   expect(within(body).queryByLabelText(t('board.items'))).toBeNull();
-  expect(
-    within(screen.getByTestId('player-1')).getByLabelText(t('board.itemCount')).textContent,
-  ).toBe(String(rival.itemCount));
+  expect(within(body).getByLabelText(t('board.itemCount')).textContent).toBe(
+    String(rival.itemCount),
+  );
   // The player's own body is the only one with the Ball pouch.
   await user.click(toggleOf(0));
   expect(within(bodyOf(0)).getByLabelText(t('board.balls'))).toBeTruthy();
   expect(document.querySelectorAll('.ball-pouch')).toHaveLength(1);
 });
 
-test('a watched game shows every seat’s class, personality and difficulty at a glance, and nobody is “You” (§3, §4.1)', async () => {
+test('a watched game shows every seat’s class, and its personality and difficulty under the row, and nobody is “You” (§3, §4.1)', async () => {
   fakeServer();
   const user = userEvent.setup();
   const store = watchStore(4);
   render(<BoardScreen store={store} />);
+  const players = store.getSpectatorView()!.observation.public.players;
   for (const [seat, setup] of settingsFor(4).entries()) {
-    const panel = screen.getByTestId(`player-${seat}`);
-    const summary = panel.querySelector<HTMLElement>('.player-summary')!;
-    expect(summary.textContent).toContain(
+    expect(summaryOf(seat).textContent).toContain(className(players[seat]!.classId));
+    expect(bodyOf(seat).textContent).toContain(
       t('watch.setup', {
         personality: t(`personality.${setup.personality}`),
         difficulty: t(`difficulty.${setup.difficulty}`),
       }),
     );
-    expect(within(summary).getByLabelText(t('board.itemCount'))).toBeTruthy();
+    expect(within(bodyOf(seat)).getByLabelText(t('board.itemCount'))).toBeTruthy();
     expect(bodyOf(seat).hidden).toBe(true);
   }
   expect(document.querySelectorAll('.turn-badge')).toHaveLength(1);
@@ -234,7 +240,7 @@ test('the turn badge follows the active seat when the view changes', () => {
   moved.public.activeSeatIndex = other.seatIndex;
   const { rerender } = render(<Board observation={observation} />);
   const badgeSeat = () =>
-    document.querySelector('.player-panel[data-active="true"]')?.getAttribute('data-seat');
+    document.querySelector('.seat-row[data-active="true"]')?.getAttribute('data-seat');
   expect(badgeSeat()).toBe(String(observation.public.activeSeatIndex));
   rerender(<Board observation={moved} />);
   expect(badgeSeat()).toBe(String(other.seatIndex));

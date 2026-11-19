@@ -16,6 +16,7 @@ import { useTableTalk } from '../board/useTableTalk.ts';
 import { en, t } from '../i18n/en.ts';
 import { engineContent } from './content.ts';
 import { loadSave, readMeta, saveText, writeSave, type SaveStorage } from './save.ts';
+import type { Pace } from './setup.ts';
 import { createGameStore, type GameStore, type SeatFeedEntry } from './store.ts';
 import {
   bankAnswer,
@@ -158,7 +159,8 @@ function fakeServer(route: Route, status?: Partial<AiStatus['speech']>) {
 }
 
 interface Playback {
-  speed: 'normal' | 'fast' | 'instant';
+  pace: Pace;
+  skipping: boolean;
   paused: boolean;
   status: AiStatus | null;
 }
@@ -177,7 +179,15 @@ function mountTalk(store: GameStore, playback: Partial<Playback> = {}) {
       const view = useSyncExternalStore(store.subscribe, () => viewOf(store));
       return useTableTalk(store, view, props);
     },
-    { initialProps: { speed: 'normal', paused: false, status: null, ...playback } },
+    {
+      initialProps: {
+        pace: 'readable',
+        skipping: false,
+        paused: false,
+        status: null,
+        ...playback,
+      },
+    },
   );
 }
 
@@ -536,7 +546,7 @@ describe('who may speak, and when (§5.7)', () => {
     momentKey: 5,
     spoken: [],
     moment: lead,
-    speed: 'normal',
+    pace: 'readable',
     paused: false,
     hidden: false,
     ...over,
@@ -608,8 +618,8 @@ describe('who may speak, and when (§5.7)', () => {
   });
 
   test.each([
-    ['at Fast speed', { speed: 'fast' as const }],
-    ['at Instant speed', { speed: 'instant' as const }],
+    ['at Fast pace', { pace: 'fast' as const }],
+    ['at Instant pace', { pace: 'instant' as const }],
     ['while paused', { paused: true }],
     ['while hidden', { hidden: true }],
   ])('no comment %s', (_name, over) => {
@@ -1286,10 +1296,10 @@ describe('table talk in a played game (§5.7, §3.1)', () => {
 
   test('a human game is the same game with talk on and off: the player never sees a different game', async () => {
     const results: { actions: unknown; hash: string; lines: number }[] = [];
-    for (const speed of ['normal', 'fast'] as const) {
+    for (const pace of ['readable', 'fast'] as const) {
       fakeServer('haiku');
       const store = gameStore(2, true, 1);
-      mountTalk(store, { speed });
+      mountTalk(store, { pace });
       await play(store);
       results.push({
         actions: store.getSession()!.log.actions,
@@ -1383,7 +1393,12 @@ describe('table talk in a played game (§5.7, §3.1)', () => {
     renderHook(
       () => {
         const view = useSyncExternalStore(store.subscribe, () => viewOf(store));
-        return useTableTalk(store, view, { speed: 'normal', paused: false, status: null });
+        return useTableTalk(store, view, {
+          pace: 'readable',
+          skipping: false,
+          paused: false,
+          status: null,
+        });
       },
       { reactStrictMode: true },
     );
@@ -1571,11 +1586,12 @@ describe('table talk in a played game (§5.7, §3.1)', () => {
   }, 180_000);
 
   test.each([
-    ['Fast', { speed: 'fast' as const }],
-    ['Instant', { speed: 'instant' as const }],
+    ['Fast', { pace: 'fast' as const }],
+    ['Instant', { pace: 'instant' as const }],
+    ['skipping ahead', { skipping: true }],
     ['paused', { paused: true }],
   ])(
-    'at %s speed or while paused the route is never called, nobody speaks and the game still ends',
+    'at %s pace or while paused the route is never called, nobody speaks and the game still ends',
     async (_name, playback) => {
       const calls = fakeServer('haiku');
       const store = gameStore(4, false, 1);
@@ -1654,7 +1670,7 @@ describe('table talk in a played game (§5.7, §3.1)', () => {
     // The greeting is out; pause before it is answered.
     await settle();
     expect(asked).toBe(true);
-    mounted.rerender({ speed: 'normal', paused: true, status: null });
+    mounted.rerender({ pace: 'readable', skipping: false, paused: true, status: null });
     gate.resolve();
     await settle();
     expect(spoken(store)).toHaveLength(0);
@@ -1701,7 +1717,7 @@ describe('table talk in a played game (§5.7, §3.1)', () => {
         personality: 'greedy' as const,
         difficulty: 'normal' as const,
       })),
-      { talk: false, speed: 'normal' },
+      { talk: false, pace: 'readable' },
     );
     mountTalk(store);
     await play(store);

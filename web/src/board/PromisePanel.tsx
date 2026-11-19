@@ -92,7 +92,8 @@ export function PromisePanel({
   );
 }
 
-function PromiseItem({ row, own }: { row: PromiseRow; own: number }) {
+/** One promise with the engine's status and expiry; also listed under a rival's seat row. */
+export function PromiseItem({ row, own }: { row: PromiseRow; own: number }) {
   return (
     <div data-promise-status={row.status}>
       <p>

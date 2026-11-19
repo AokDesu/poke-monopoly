@@ -7,7 +7,7 @@ import { useTableTalk } from './board/useTableTalk.ts';
 import { useTurnPlayback } from './board/useTurnPlayback.ts';
 import { classOptions, engineContent } from './game/content.ts';
 import { META_KEY, SAVE_KEY, WATCH_SETUP_KEY, type SaveStorage } from './game/save.ts';
-import { completeWatchSetup, DEFAULT_WATCH_SETTINGS } from './game/setup.ts';
+import { completeWatchSetup, DEFAULT_WATCH_SETTINGS, type Pace } from './game/setup.ts';
 import { configForWatch, createGameStore, watchOpponentSettings } from './game/store.ts';
 import { t } from './i18n/en.ts';
 import { className } from './i18n/names.ts';
@@ -116,7 +116,7 @@ test.each([2, 3, 4])(
     });
     expect(new Set(state.config.seats.map((seat) => seat.classId)).size).toBe(count);
     expect(store.getOpponents()[0]).toMatchObject({ seatIndex: 0, difficulty: 'normal' });
-    expect(store.getWatchSettings()).toEqual({ talk: false, speed: 'fast' });
+    expect(store.getWatchSettings()).toEqual({ talk: false, pace: 'fast' });
     expect(state.phase.kind).not.toBe('first_player_roll');
     expect(log.actions.slice(0, 2).map((record) => record.action.kind)).toEqual([
       'roll',
@@ -224,7 +224,7 @@ test('a reload on the review screen restores every seat and setting; Back still 
   expect(positions.every((position) => position >= 0)).toBe(true);
   expect([...positions].sort((a, b) => a - b)).toEqual(positions);
   expect(text).toContain(`${t('watchReview.talk')}: ${t('watchReview.off')}`);
-  expect(text).toContain(`${t('watchReview.speed')}: ${t('ai.speed.instant')}`);
+  expect(text).toContain(`${t('watchReview.pace')}: ${t('pace.instant')}`);
   expect(within(document.body).getAllByText(new RegExp(t('difficulty.normal'))).length).toBe(1);
 
   await second.click(button(t('nav.back')));
@@ -237,7 +237,7 @@ test('a reload on the review screen restores every seat and setting; Back still 
   await second.click(button(t('watchOptions.next')));
   await second.click(button(t('watchReview.start')));
   expect(store.getSession()!.state.config.seats.map((seat) => seat.classId)).toEqual(chosen);
-  expect(store.getWatchSettings()).toEqual({ talk: false, speed: 'instant' });
+  expect(store.getWatchSettings()).toEqual({ talk: false, pace: 'instant' });
   expect(storage.data.has(WATCH_SETUP_KEY)).toBe(false);
 });
 
@@ -351,7 +351,8 @@ test('the saved game resumes as a watched game with the same seats and settings 
     .state.config.seats.map((seat) => [seat.seatIndex, seat.classId]);
   const opponents = first.getOpponents();
   expect(JSON.parse(storage.data.get(META_KEY)!)).toMatchObject({
-    watch: { talk: false, speed: 'instant' },
+    watch: { talk: false, pace: 'instant' },
+    pace: 'instant',
   });
   cleanup();
 
@@ -364,7 +365,8 @@ test('the saved game resumes as a watched game with the same seats and settings 
   expect(resumed.config.seats.map((seat) => [seat.seatIndex, seat.classId])).toEqual(seats);
   expect(resumed.config.seats.every((seat) => seat.controller === 'ai')).toBe(true);
   expect(second.getOpponents()).toEqual(opponents);
-  expect(second.getWatchSettings()).toEqual({ talk: false, speed: 'instant' });
+  expect(second.getWatchSettings()).toEqual({ talk: false, pace: 'instant' });
+  expect(second.getPace()).toBe('instant');
   expect(second.getView()).toBeNull();
   expect(second.getSpectatorView()).not.toBeNull();
 });
@@ -380,7 +382,7 @@ test('a normal New game still ends setup on its own first-player roll screen (§
   expect(heading()).toBe(t('firstPlayer.heading'));
 });
 
-function watched(settings: { talk: boolean; speed: 'normal' | 'fast' | 'instant' }) {
+function watched(settings: { talk: boolean; pace: Pace }) {
   const setup = completeWatchSetup(
     {
       mode: 'quick',
@@ -405,24 +407,30 @@ function watched(settings: { talk: boolean; speed: 'normal' | 'fast' | 'instant'
   return store;
 }
 
-test('a watched game starts at its chosen speed and asks for no table talk when talk is off (§3, §5.7)', () => {
-  const quiet = watched({ talk: false, speed: 'fast' });
+test('a watched game starts at its chosen pace and asks for no table talk when talk is off (§3, §5.7)', () => {
+  const quiet = watched({ talk: false, pace: 'fast' });
   const playback = renderHook(() => useTurnPlayback(quiet, quiet.getSpectatorView())).result
     .current;
-  expect(playback.speed).toBe('fast');
+  expect(playback.pace).toBe('fast');
   const talkOff = renderHook(() =>
-    useTableTalk(quiet, quiet.getSpectatorView(), { speed: 'normal', paused: false, status: null }),
+    useTableTalk(quiet, quiet.getSpectatorView(), {
+      pace: 'readable',
+      skipping: false,
+      paused: false,
+      status: null,
+    }),
   ).result.current;
   expect(talkOff.enabled).toBe(false);
 
   const chatty = watched({ ...DEFAULT_WATCH_SETTINGS });
   expect(
-    renderHook(() => useTurnPlayback(chatty, chatty.getSpectatorView())).result.current.speed,
-  ).toBe('normal');
+    renderHook(() => useTurnPlayback(chatty, chatty.getSpectatorView())).result.current.pace,
+  ).toBe('readable');
   expect(
     renderHook(() =>
       useTableTalk(chatty, chatty.getSpectatorView(), {
-        speed: 'normal',
+        pace: 'readable',
+        skipping: false,
         paused: false,
         status: null,
       }),
@@ -430,14 +438,15 @@ test('a watched game starts at its chosen speed and asks for no table talk when 
   ).toBe(true);
 });
 
-test('a game with a human seat keeps Normal speed and table talk on (§5.7)', () => {
+test('a game with a human seat starts at the Readable pace with table talk on (§3, §5.7)', () => {
   const store = createGameStore();
   const hook = renderHook(() => useTurnPlayback(store, store.getSpectatorView()));
-  expect(hook.result.current.speed).toBe('normal');
+  expect(hook.result.current.pace).toBe('readable');
   expect(
     renderHook(() =>
       useTableTalk(store, store.getSpectatorView(), {
-        speed: 'normal',
+        pace: 'readable',
+        skipping: false,
         paused: false,
         status: null,
       }),
