@@ -202,7 +202,9 @@ page lists every spec §3.1 row that has a screen in this build (plus §3's Back
 each labelled `Spec §3.1, row N` under the spec's own wording, and each example rendered by the
 real component: `TurnPanel` (turn copy, Shop, AI badge and banners, the Social window of §4.8),
 `EncounterDialog`, `SellPanel` and `SavePrompt`; one extra row, "PvP and Gym" (spec §4.4), shows the
-challenge, defender, forced, Ability-window, Gym and reward screens. A closing list names the rows
+challenge, defender, forced, Ability-window, Gym and reward screens, and one more, "Promises and
+memory" (spec §4.8), shows the promise offers, an offer waiting for the rival, an accepted and a
+refused one, and the memory a kept, broken or game-ended promise leaves. A closing list names the rows
 with no screen yet (free-text chat, deals, engine-only cases) so every row of the table is accounted
 for.
 

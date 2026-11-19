@@ -1,6 +1,6 @@
 import { useId, type CSSProperties } from 'react';
 import type { SeatFeedEntry, SeatView } from '../game/store.ts';
-import type { DemoChoice } from '../game/demoChoice.ts';
+import { modelNumber, type DemoChoice } from '../game/demoChoice.ts';
 import { t } from '../i18n/en.ts';
 import { fallbackReasonText } from './AiTurn.tsx';
 import { phaseLabel, seatLabel } from './labels.ts';
@@ -42,9 +42,10 @@ export function latestJevChoice(view: SeatView): JevChoice | undefined {
 }
 
 /**
- * The demo-only "What Jev chose" panel (spec §3 AI turns, §11 step 3, issue #220). It copies every
- * number as received and computes none; its banner is shown whenever the panel is, because the
- * options are a rival's private ones (spec §1).
+ * The demo-only "What Jev chose" panel (spec §3 AI turns, §11 step 3, issues #220 and #247). It
+ * computes no number: each one is Jev's, only rounded for display and labelled as model output,
+ * not a measured rate. Its banner is shown whenever the panel is, because the options are a
+ * rival's private ones (spec §1).
  */
 export function JevChoicePanel({ view }: { view: SeatView }) {
   const headingId = useId();
@@ -81,7 +82,7 @@ export function JevChoicePanel({ view }: { view: SeatView }) {
                     {row.chosen && <strong className="jev-chosen">{t('demo.chosen')}</strong>}
                   </th>
                   <td>
-                    <span className="jev-number">{row.probability}</span>
+                    <span className="jev-number">{modelNumber(row.probability)}</span>
                     <span
                       className="jev-bar"
                       aria-hidden="true"
@@ -94,8 +95,9 @@ export function JevChoicePanel({ view }: { view: SeatView }) {
           </table>
           <p className="jev-summary">
             <span>{t('demo.byJev')}</span>
-            <strong>{t('demo.confidence', { value: choice.confidence! })}</strong>
+            <strong>{t('demo.confidence', { value: modelNumber(choice.confidence!) })}</strong>
           </p>
+          <p className="jev-note">{t('demo.modelNote')}</p>
           {choice.perPokemon && <p className="jev-note">{t('demo.sellNote')}</p>}
         </>
       ) : (

@@ -11,6 +11,7 @@ import {
   requestChatWords,
   type ChatReplyRequest,
 } from './chat.ts';
+import { createGameStore } from './store.ts';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -128,6 +129,51 @@ test('the request asks the recipient, from its own observation, and only once a 
   // Moving on leaves nothing to ask about.
   store.choose('skip');
   expect(store.chatReplyRequest()).toBeNull();
+});
+
+test('a recipient without settings is never asked as another personality: the request fails loudly', async () => {
+  fakeServer();
+  const store = socialGame(2, 'social-seed', [
+    { seatIndex: 1, personality: 'cautious', difficulty: 'normal' },
+  ]);
+  expect(await toHumanSocial(store)).toBe(true);
+  expect('rejected' in store.choose('chat:seat-2:trade')).toBe(false);
+  let thrown: unknown;
+  try {
+    store.chatReplyRequest();
+  } catch (error) {
+    thrown = error;
+  }
+  expect(thrown).toBeInstanceOf(ChatReplyError);
+  expect((thrown as ChatReplyError).reason).toBe('invalid');
+  expect((thrown as ChatReplyError).message).toMatch(/seat 2/);
+  // A recipient that has settings is asked as the personality it was set up with.
+  const other = socialGame(2, 'social-seed', [
+    { seatIndex: 1, personality: 'cautious', difficulty: 'normal' },
+  ]);
+  expect(await toHumanSocial(other)).toBe(true);
+  expect('rejected' in other.choose('chat:seat-1:trade')).toBe(false);
+  expect(other.chatReplyRequest()!.personalityId).toBe('cautious');
+});
+
+test('a restore gives each AI seat the save lacks Greedy on Normal and keeps the settings it has', async () => {
+  fakeServer();
+  const original = socialGame(2);
+  expect(await toHumanSocial(original)).toBe(true);
+  const session = original.getSession()!;
+
+  const restored = createGameStore();
+  restored.restore(session, [{ seatIndex: 1, personality: 'cautious', difficulty: 'easy' }]);
+  expect(restored.getOpponents()).toEqual([
+    { seatIndex: 1, personality: 'cautious', difficulty: 'easy' },
+    { seatIndex: 2, personality: 'greedy', difficulty: 'normal' },
+  ]);
+  expect('rejected' in restored.choose('chat:seat-2:trade')).toBe(false);
+  expect(restored.chatReplyRequest()!.personalityId).toBe('greedy');
+
+  const bare = createGameStore();
+  bare.restore(session);
+  expect(bare.getOpponents().map(({ seatIndex }) => seatIndex)).toEqual([1, 2]);
 });
 
 test("the decision is the chat route's: a refusal or the one generic answer, never agreement", () => {

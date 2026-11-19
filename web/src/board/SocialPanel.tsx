@@ -1,12 +1,21 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { ChatMessage, ChatTopic, LegalActions, Observation } from '../../../engine/index.ts';
 import { CHAT_TOPICS, chatChoices, type ChatChoice } from '../game/chat.ts';
+import {
+  pendingOffer,
+  promiseOffers,
+  unavailableReason,
+  type PendingOffer,
+  type PromiseAnswer,
+  type PromiseDirection,
+  type PromiseOffer,
+} from '../game/promises.ts';
 import { en, t, type MessageKey } from '../i18n/en.ts';
 import { className, itemName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
 import { voiceReasonText } from '../game/tableTalk.ts';
 import { backupReasonText } from './AiTurn.tsx';
-import { seatLabel } from './labels.ts';
+import { possessive, seatLabel } from './labels.ts';
 import type { ChatReplyControls } from './useChatReply.ts';
 import './social-panel.css';
 
@@ -16,6 +25,8 @@ export interface SocialPanelProps {
   /** The message already sent in this turn's window, if any. */
   sent: ChatMessage | undefined;
   reply: ChatReplyControls;
+  /** The rival's answer to this turn's promise offer, from the engine's own events. */
+  answer?: PromiseAnswer | null;
   onChoose: (id: string) => void;
 }
 
@@ -23,20 +34,26 @@ const unique = <T,>(values: readonly T[]) => [...new Set(values)];
 
 /**
  * The Social window (spec §3, §4.2, §4.8): five topic buttons, one rival, one message and its reply,
- * or Skip. Every choice is one the engine lists, so a message names only seats and content item IDs
- * and never depends on what a rival holds. The "only words" notice is always on screen; nothing
- * here moves a number, and Skip or Continue is reachable in every state.
+ * a promise offer, or Skip. Every choice is one the engine lists, so a message names only seats and
+ * content item IDs and never depends on what a rival holds, and a promise offer is greyed out
+ * exactly when the engine does not list it. The "only words" notice is always on screen; nothing
+ * here moves a number, and Skip or Continue is reachable in every state except while a rival owes
+ * the answer to a promise offer, which the game waits for (§4.8).
  */
 export function SocialPanel({
   observation,
   legalActions,
   sent,
   reply,
+  answer = null,
   onChoose,
 }: SocialPanelProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
   const ownSeat = observation.own.seatIndex;
   const players = observation.public.players;
   const chats = chatChoices(legalActions);
+  const offers = promiseOffers(legalActions);
+  const pending = pendingOffer(observation);
   const skip = legalActions.enabled.find((action) => action.kind === 'skip');
   const rivalName = (seatIndex: number) =>
     t('social.rival', {
@@ -52,11 +69,28 @@ export function SocialPanel({
       {topic === 'truce' && <p>{t('social.noticeTruce')}</p>}
     </div>
   );
-  const done = chats.length === 0;
+  const done = chats.length === 0 && offers.length === 0;
+  // Send remounts this window (its key is the state revision) and drops the pressed button, so focus
+  // would fall to the page body. Keep a keyboard or screen-reader player's place on Continue; the
+  // reply is announced by its live region. Focus that is anywhere else is left alone.
+  const keepPlace = done && (sent !== undefined || answer !== null);
+  useEffect(() => {
+    const active = document.activeElement;
+    if (!keepPlace || (active && active !== document.body)) return;
+    panelRef.current?.querySelector<HTMLElement>('[data-social-continue]')?.focus();
+  }, [keepPlace]);
+  if (pending) {
+    return (
+      <PendingPromise pending={pending} rivalName={rivalName}>
+        {notices()}
+      </PendingPromise>
+    );
+  }
   const continueButton = skip && (
     <ActionButton
       enabled
-      variant={sent ? 'primary' : 'secondary'}
+      variant={sent || answer ? 'primary' : 'secondary'}
+      data-social-continue=""
       onClick={() => onChoose(skip.id)}
     >
       {t(done ? 'social.continue' : 'social.skip')}
@@ -65,8 +99,15 @@ export function SocialPanel({
 
   if (done) {
     return (
-      <div className="decision-panel social-panel" aria-label={t('social.panel')} role="group">
-        {sent ? (
+      <div
+        ref={panelRef}
+        className="decision-panel social-panel"
+        aria-label={t('social.panel')}
+        role="group"
+      >
+        {answer ? (
+          <PromiseResult answer={answer} ownSeat={ownSeat} rivalName={rivalName} />
+        ) : sent ? (
           <>
             <p className="social-sent">
               {t('social.sent', {
@@ -94,11 +135,67 @@ export function SocialPanel({
     <OpenWindow
       observation={observation}
       chats={chats}
+      offers={offers}
       rivalName={rivalName}
       notices={notices}
       onSend={onChoose}
       skip={continueButton}
     />
+  );
+}
+
+/** The question is out and the rival owes the answer: nothing is active, and the window waits for it. */
+function PendingPromise({
+  pending,
+  rivalName,
+  children,
+}: {
+  pending: PendingOffer;
+  rivalName: (seatIndex: number) => string;
+  children: ReactNode;
+}) {
+  const rival = rivalName(pending.rivalSeatIndex);
+  return (
+    <div
+      className="decision-panel social-panel"
+      aria-label={t('social.panel')}
+      role="group"
+      data-promise="pending"
+    >
+      <p className="social-sent">{t(`promise.pending.${pending.direction}`, { rival })}</p>
+      <p className="social-reply-status" role="status">
+        {t('promise.pending.waiting', { rival })}
+      </p>
+      {children}
+    </div>
+  );
+}
+
+/** The rival's explicit answer and, when accepted, the expiry the engine recorded. */
+function PromiseResult({
+  answer,
+  ownSeat,
+  rivalName,
+}: {
+  answer: PromiseAnswer;
+  ownSeat: number;
+  rivalName: (seatIndex: number) => string;
+}) {
+  const rival = rivalName(
+    answer.promiserSeatIndex === ownSeat ? answer.recipientSeatIndex : answer.promiserSeatIndex,
+  );
+  return (
+    <div role="status" data-promise-answer={answer.kind}>
+      <p className="social-sent">{t(`promise.answer.${answer.kind}`, { rival })}</p>
+      {answer.kind === 'accepted' && (
+        <p className="panel-note">
+          {t('promise.expires', {
+            whose: possessive(answer.promiserSeatIndex, ownSeat),
+            turn: answer.closesOwnTurnNo!,
+          })}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -119,6 +216,7 @@ function summaryOf(message: ChatMessage): string {
 function OpenWindow({
   observation,
   chats,
+  offers,
   rivalName,
   notices,
   onSend,
@@ -126,6 +224,7 @@ function OpenWindow({
 }: {
   observation: Observation;
   chats: ChatChoice[];
+  offers: PromiseOffer[];
   rivalName: (seatIndex: number) => string;
   notices: (topic?: ChatTopic) => ReactNode;
   onSend: (id: string) => void;
@@ -314,8 +413,100 @@ function OpenWindow({
           {t('social.sendNone')}
         </ActionButton>
       )}
+      <PromiseOffers
+        observation={observation}
+        offers={offers}
+        rivalName={rivalName}
+        onSend={onSend}
+      />
       {skip}
     </div>
+  );
+}
+
+const DIRECTIONS: readonly PromiseDirection[] = ['offer', 'ask'];
+
+/**
+ * The promise offers (spec §4.8): for each rival, "I won't attack them" and "Ask them to promise
+ * not to attack me". Only the engine's listed offers can be sent; one it does not list is greyed
+ * out with the reason, which never depends on what any seat holds. The offer is a question, so
+ * nothing is active until the rival's answer.
+ */
+function PromiseOffers({
+  observation,
+  offers,
+  rivalName,
+  onSend,
+}: {
+  observation: Observation;
+  offers: PromiseOffer[];
+  rivalName: (seatIndex: number) => string;
+  onSend: (id: string) => void;
+}) {
+  const ownSeat = observation.own.seatIndex;
+  const [pick, setPick] = useState<string>();
+  const rivals = observation.public.players
+    .map((player) => player.seatIndex)
+    .filter((seat) => seat !== ownSeat)
+    .toSorted((a, b) => a - b);
+  const chosen = offers.find((offer) => offer.id === pick);
+  return (
+    <fieldset className="social-group promise-offers" data-promise="offers">
+      <legend>{t('promise.offers')}</legend>
+      <p className="panel-note">{t('promise.offerNote')}</p>
+      {rivals.map((seat) => (
+        <fieldset className="social-group promise-offer-rival" key={seat}>
+          <legend>{rivalName(seat)}</legend>
+          <div className="social-choices">
+            {DIRECTIONS.map((direction) => {
+              const offer = offers.find(
+                (entry) =>
+                  entry.payload.targetSeatIndex === seat && entry.payload.direction === direction,
+              );
+              const label = t(`promise.direction.${direction}`);
+              return offer ? (
+                <ActionButton
+                  key={direction}
+                  enabled
+                  variant={pick === offer.id ? 'reward' : 'secondary'}
+                  aria-pressed={pick === offer.id}
+                  onClick={() => setPick(offer.id)}
+                >
+                  {label}
+                </ActionButton>
+              ) : (
+                <ActionButton
+                  key={direction}
+                  enabled={false}
+                  variant="secondary"
+                  reasonText={t(
+                    `promise.reason.${unavailableReason(observation, seat, direction)}`,
+                  )}
+                >
+                  {label}
+                </ActionButton>
+              );
+            })}
+          </div>
+        </fieldset>
+      ))}
+      {chosen && (
+        <p className="social-preview" role="status">
+          {t(`promise.preview.${chosen.payload.direction}`, {
+            rival: rivalName(chosen.payload.targetSeatIndex),
+          })}
+        </p>
+      )}
+      {chosen ? (
+        <ActionButton enabled onClick={() => onSend(chosen.id)}>
+          {t('promise.send', { rival: rivalName(chosen.payload.targetSeatIndex) })}
+        </ActionButton>
+      ) : (
+        <ActionButton enabled={false} reasonText={t('promise.reason.choose')}>
+          {t('promise.sendNone')}
+        </ActionButton>
+      )}
+    </fieldset>
   );
 }
 

@@ -49,7 +49,7 @@ test('offline evaluation needs neither a key nor enabled Jev', async () => {
       throw new Error('network forbidden');
     }),
   );
-  expect(new Set((await runOffline()).map((row) => row.fixture)).size).toBe(20);
+  expect(new Set((await runOffline()).map((row) => row.fixture)).size).toBe(SCENARIOS.length);
   expect(globalThis.fetch).not.toHaveBeenCalled();
 });
 

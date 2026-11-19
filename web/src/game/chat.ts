@@ -41,8 +41,8 @@ export type ChatReplyFailure = 'network' | 'timeout' | 'invalid' | 'stale';
 
 export class ChatReplyError extends Error {
   readonly reason: ChatReplyFailure;
-  constructor(reason: ChatReplyFailure) {
-    super(`Chat reply failed: ${reason}`);
+  constructor(reason: ChatReplyFailure, detail?: string) {
+    super(detail ?? `Chat reply failed: ${reason}`);
     this.reason = reason;
   }
 }

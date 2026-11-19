@@ -93,6 +93,8 @@ export const en = {
   'home.watchHint': 'Set up two to four AIs and watch them play each other. You take no seat.',
   'home.watchNotEnough':
     'Watching needs at least two playable classes, one for each AI. Ask the team to check the class file.',
+  'home.presets': 'Quick-start presets',
+  'home.presetsHint': 'Fill every seat in one tap, then check and change it before you start.',
   'home.boardCaption': 'Spaces on the board',
 
   'board.kind.start': 'Start',
@@ -228,6 +230,37 @@ export const en = {
   'setup.step.firstPlayer': 'First roll',
   'setup.step.ais': 'AIs',
   'setup.step.options': 'Table',
+
+  'presets.heading': 'Quick-start presets',
+  'presets.body':
+    'Pick one to fill every seat at once. The next screen shows each seat’s exact choices, and Back there lets you change any seat before you roll.',
+  'presets.rivalsUnit': 'AI',
+  'presets.problem.mode': 'This preset needs {mode} mode, which is closed.',
+  'presets.problem.noMode': 'No mode is open, so this preset cannot start.',
+  'presets.problem.class': 'This preset needs {class}, which is not open to play.',
+  'presets.problem.starter':
+    'This preset gives {class} the Starter {starter}, which that class does not offer.',
+  'presets.problem.duplicate':
+    'This preset gives {class} to two players, and classes cannot repeat in one game.',
+  'presets.problem.personality':
+    'This preset needs the {personality} personality, which is not open yet.',
+  'presets.problem.noPersonality':
+    'No AI personality is open yet, so this preset cannot pick one for each rival.',
+  'presets.problem.difficulty': 'This preset needs {difficulty} difficulty, which is closed.',
+  'presets.problem.seats':
+    'This preset needs {rivals}, but {open} and every player needs a different one.',
+  'presets.openNone': 'no class is open',
+  'presets.openOne': 'only 1 class is open',
+  'presets.openMany': 'only {n} classes are open',
+  'presets.problem.byHand':
+    'It has not been changed for you. Use New game to choose your seats yourself.',
+  'preset.one-rival-easy.name': 'One rival, easy',
+  'preset.one-rival-easy.hint': 'A calm first game: you and one Easy AI.',
+  'preset.two-rivals-normal.name': 'Two rivals, normal',
+  'preset.two-rivals-normal.hint': 'A fuller table: you and two Normal AIs.',
+  'preset.three-rivals-random.name': 'Three rivals, random',
+  'preset.three-rivals-random.hint':
+    'You and three AIs. Every class, Starter, personality and difficulty is picked at random.',
 
   'mode.heading': 'Choose a mode',
   'mode.body': 'The mode sets how many Laps of the board it takes to end the game.',
@@ -792,6 +825,8 @@ export const en = {
   'demo.col.probability': 'Jev’s probability',
   'demo.chosen': 'Chosen',
   'demo.confidence': 'Jev’s confidence: {value}',
+  'demo.modelNote':
+    'These numbers are Jev’s own output, rounded to two decimals. They are not a measured rate.',
   'demo.sellNote':
     'At the Sell Phase Jev answers once per Pokémon, so these chances do not add up to 1.',
   'demo.byJev': 'Jev decided.',
@@ -840,8 +875,10 @@ export const en = {
   // The Social window (spec §3, §4.2, §4.8): topic buttons, one rival, one message, one reply.
   'turn.socialBody':
     'Talk to one rival before your move, or skip. The game waits only in this window.',
+  'turn.promiseBody': 'You offered a promise. The game goes on after the rival answers.',
   'social.panel': 'Social window',
-  'social.open': 'You can send one message to one rival this turn.',
+  'social.open':
+    'You can send one message to one rival this turn, or offer one promise. Either one uses the window up.',
   'social.onlyWords':
     'This is only words. A message never moves coins, items or dice, never changes a rule and never makes a promise.',
   'social.noticeTrade': 'A trade happens only through a Deal Card that you confirm yourself.',
@@ -888,6 +925,69 @@ export const en = {
     'The answer from {rival} did not fit your message, so it was dropped. Your message was sent and the game goes on.',
   'social.retry': 'Ask {rival} again',
 
+  // Promises and memory (spec §4.8 Promise `no_attack`, Memory UI): offered versus active, the
+  // rival's own answer, the engine's expiry and what the game recorded.
+  'promise.offers': 'Offer a promise',
+  'promise.offerNote':
+    'A promise is active only once the rival accepts it. It uses this turn’s social window, not your move. It lasts until the end of the promiser’s next own turn, it is not renewed while it is active, and none can run past the end of the game.',
+  'promise.direction.offer': 'I won’t attack them',
+  'promise.direction.ask': 'Ask them to promise not to attack me',
+  'promise.preview.offer':
+    'You will offer {rival}: you will not attack them until the end of your next own turn. It is not active until they accept.',
+  'promise.preview.ask':
+    'You will ask {rival} to promise not to attack you until the end of their next own turn. It is not active until they agree.',
+  'promise.send': 'Send the offer to {rival}',
+  'promise.sendNone': 'Send the offer',
+  'promise.reason.choose': 'Choose an offer first.',
+  'promise.reason.active':
+    'A promise for this pair is still active, and an active promise is not renewed.',
+  'promise.reason.gameEnd':
+    'The final round has been announced, so no promise that would run past the end of the game can be made.',
+  'promise.reason.unavailable': 'The game offers no promise to this rival right now.',
+  'promise.pending.offer':
+    'You offered {rival}: you will not attack them until the end of your next own turn. It is not active until they accept.',
+  'promise.pending.ask':
+    'You asked {rival} to promise not to attack you. It is not active until they agree.',
+  'promise.pending.waiting':
+    'Waiting for {rival} to accept or refuse. The game goes on after the answer.',
+  'promise.answer.accepted': '{rival} accepted. The promise is active.',
+  'promise.answer.refused': '{rival} refused. Nothing was recorded and no promise is active.',
+  'promise.possessive.you': 'your',
+  'promise.possessive.rival': '{rival}’s',
+  'promise.expires': 'It closes at the end of {whose} own turn {turn}.',
+
+  'promise.panel': 'Promises and memory',
+  'promise.list': 'Promises',
+  'promise.none': 'No promise has been offered or accepted yet.',
+  'promise.offeredRow': 'Offered to {rival}, not active yet.',
+  'promise.row': '{promiser} will not attack {recipient}',
+  'promise.status.offered': 'Offered',
+  'promise.status.active': 'Active',
+  'promise.status.kept': 'Kept',
+  'promise.status.broken': 'Broken',
+  'promise.status.closed_by_game_end': 'Closed by the end of the game',
+  'promise.row.active': 'Accepted on turn {created}. Until the end of {whose} own turn {turn}.',
+  'promise.row.closed': 'Accepted on turn {created}. Closed on turn {closed}.',
+  'promise.turnNote': 'An own turn number counts one player’s turns only.',
+  'promise.trustHeading': 'Trust, as the game keeps it',
+  'promise.trust': 'Your trust in {rival}: {value}',
+  'promise.memory': 'Memory',
+  'promise.memory.empty':
+    'Nothing to remember yet. An entry appears only when the game records a promise accepted, refused, kept or broken. Words in chat are never evidence.',
+  'promise.memory.accepted':
+    '{promiser} promised not to attack {recipient}. Accepted on turn {turn}.',
+  'promise.memory.refused': 'A promise from {promiser} to {recipient} was refused on turn {turn}.',
+  'promise.memory.kept': '{promiser} kept a promise to {recipient}. Closed on turn {turn}.',
+  'promise.memory.broken': '{promiser} broke a promise to {recipient} on turn {turn}.',
+  'promise.memory.closed_by_game_end':
+    'A promise from {promiser} to {recipient} was closed by the end of the game on turn {turn}. It counts as neither kept nor broken.',
+  'promise.memory.settled': 'The game closed it on turn {turn}.',
+  'promise.memory.record': 'Record {record}',
+  'promise.evidence.pvp_declaration': '{actor} declared a battle against {target} on turn {turn}.',
+  'promise.evidence.hostile_item': '{actor} used a hostile item on {target} on turn {turn}.',
+  'promise.evidence.hostile_ability': '{actor} used a hostile Ability on {target} on turn {turn}.',
+  'promise.evidence.ref': 'Event {attackId} · record {record}',
+
   'game.resumedAiTurn': 'Picked up from the last saved action. The AI is deciding its turn again.',
   'sell.rescueStarter':
     'No Pokémon left after the Sell Phase. You got a Rescue Starter, so you can keep playing.',
@@ -902,6 +1002,7 @@ export const en = {
   'gallery.specBattle': 'Spec §4.4, PvP and Gym',
   'gallery.specSocial': 'Spec §4.8, Chat',
   'gallery.specAbilities': 'Spec §4.5, Abilities',
+  'gallery.specPromises': 'Spec §4.8, Promises and memory',
   'gallery.row.abilities':
     'Abilities that are ready, and Abilities that cannot be used, with the reason',
   'gallery.specDemo': 'Spec §3, Demo mode, and §11',
@@ -1012,6 +1113,19 @@ export const en = {
   'gallery.example.demoFailed': 'A scenario that could not be built: the reason, and the way back',
   'gallery.example.demoNone': 'No scenario is open in this build',
   'gallery.example.demoBanner': 'After a reload: the saved scenario game, announced as prepared',
+  'gallery.row.promises':
+    'Promises: offered, accepted or refused by the rival, then kept, broken or closed by the game, with the memory it leaves',
+  'gallery.example.promiseOffers': 'The Social window with the promise offers the game lists',
+  'gallery.example.promiseOffersBlocked':
+    'A promise to this rival is already active: both offers are greyed out and say why',
+  'gallery.example.promisePending': 'The offer is sent; it is not active until the rival answers',
+  'gallery.example.promiseAccepted': 'The rival accepted: the promise is active until its expiry',
+  'gallery.example.promiseRefused': 'The rival refused: nothing is recorded',
+  'gallery.example.promiseEmpty': 'No promise yet: memory says so and says words are no evidence',
+  'gallery.example.promiseKept': 'The game closed the promise as kept; trust is the game’s number',
+  'gallery.example.promiseBroken':
+    'The game closed the promise as broken, with the attack it recorded as evidence',
+  'gallery.example.promiseGameEnd': 'The game ended first: closed, neither kept nor broken',
   'gallery.row.jevPanel': 'Demo mode: the "What Jev chose" panel under a rival’s decision',
   'gallery.example.jevPanelCatch': 'Jev chose a Ball at an encounter',
   'gallery.example.jevPanelItem': 'Jev chose among its items and targets',

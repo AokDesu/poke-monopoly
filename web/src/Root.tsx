@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { App } from './App.tsx';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
+import { demoRequested } from './game/demoMode.ts';
 import { seedFromSearch } from './game/setup.ts';
 import { t } from './i18n/en.ts';
 
@@ -9,13 +10,6 @@ const FixtureRoute = lazy(() => import('./board/FixtureRoute.tsx'));
 // `false` (see web/vite.config.ts), so this branch and the whole gallery chunk are dropped:
 // nothing in the player flow can reach it, and there is no URL to type.
 const GalleryPage = __UI_GALLERY__ ? lazy(() => import('./gallery/GalleryRoute.tsx')) : null;
-
-/** The values of `?demo` that mean on: bare, `1` and `true`; `?demo=0`, `=false` and the rest are off. */
-const DEMO_ON = ['', '1', 'true'];
-const demoRequested = (params: URLSearchParams) => {
-  const values = params.getAll('demo');
-  return values.length > 0 && values.every((value) => DEMO_ON.includes(value));
-};
 
 export function Root({ search, dev = __UI_GALLERY__ }: { search: string; dev?: boolean }) {
   const params = new URLSearchParams(search);
@@ -27,7 +21,7 @@ export function Root({ search, dev = __UI_GALLERY__ }: { search: string; dev?: b
           <GalleryPage />
         </Suspense>
       ) : fixtureName === null ? (
-        <App seed={seedFromSearch(search)} demo={demoRequested(params)} />
+        <App seed={seedFromSearch(search)} demo={demoRequested(search)} />
       ) : (
         <Suspense fallback={<p className="p-8">{t('play.heading')}</p>}>
           <FixtureRoute name={fixtureName} />

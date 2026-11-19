@@ -54,11 +54,14 @@ export function useChatReply(store: GameStore, view: SeatView | null): ChatReply
   } | null>(null);
 
   useEffect(() => {
-    const request = key ? store.chatReplyRequest() : null;
-    if (!key || !message || !request) return;
+    if (!key || !message) return;
     const controller = new AbortController();
     const { signal } = controller;
-    const answer = async (): Promise<Extract<ChatReplyState, { status: 'ready' }>> => {
+    // An async body runs to its first await at once, so the request is still built at effect time.
+    // A seat with no settings throws here and shows as a failed reply; no request is sent.
+    const answer = async (): Promise<Extract<ChatReplyState, { status: 'ready' }> | null> => {
+      const request = store.chatReplyRequest();
+      if (!request) return null;
       const reply = await requestChatReply(request, message, signal);
       const decision = decisionOf(reply);
       const saved = store.getChatWords().find((entry) => messageKey(entry) === messageKey(message));
@@ -81,7 +84,7 @@ export function useChatReply(store: GameStore, view: SeatView | null): ChatReply
     };
     answer().then(
       (outcome) => {
-        if (!signal.aborted) setResult({ key, attempt, outcome });
+        if (!signal.aborted && outcome) setResult({ key, attempt, outcome });
       },
       (error: unknown) => {
         if (controller.signal.aborted) return;

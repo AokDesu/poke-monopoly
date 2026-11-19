@@ -1,4 +1,9 @@
-import type { EngineDecisionPoint } from '../../../engine/index.ts';
+import {
+  legalActions,
+  pendingDecision,
+  type EngineDecisionPoint,
+  type LegalAction,
+} from '../../../engine/index.ts';
 import type { MessageKey } from '../i18n/en.ts';
 import { classOptions, engineContent } from './content.ts';
 import { rollForFirstPlayer } from './firstPlayer.ts';
@@ -6,7 +11,6 @@ import { completeSetup, type GameSetup } from './setup.ts';
 import {
   configForSetup,
   opponentSettings,
-  seatDecision,
   type Command,
   type GameStore,
   type SeatView,
@@ -156,16 +160,34 @@ export type SceneBuild =
   { readonly ok: true } | { readonly ok: false; readonly failure: SceneFailure };
 
 /**
- * Seat `seat` takes its enabled action `id`. A rival's options are read here only, to name its
- * legal action in a script (spec §1); the engine still rejects a seat that is not the one deciding.
+ * Who decides now and what the engine allows them, for any seat: a script names a rival's legal
+ * action as well as the human's. Private to this file, the one adapter besides the dev gallery's
+ * that reads a rival's options (spec §1); nothing else in web/ does. Null while the engine owes a
+ * die or the game is over.
  */
-function applyChoice(store: GameStore, seat: number, id: string): boolean {
+function pendingChoices(
+  store: GameStore,
+): { seatIndex: number; actorId: string; enabled: readonly LegalAction[] } | null {
   const session = store.getSession();
-  const actorId = session?.state.config.seats.find((entry) => entry.seatIndex === seat)?.actorId;
-  if (!actorId) return false;
-  const choice = seatDecision(store, seat).enabledActions.find((entry) => entry.id === id);
+  const pending = session && pendingDecision(session.state);
+  if (!session || !pending) return null;
+  return {
+    seatIndex: pending.seatIndex,
+    actorId: pending.actorId,
+    enabled: legalActions(session.state, pending.seatIndex).enabled,
+  };
+}
+
+function applyChoice(store: GameStore, seat: number, id: string): boolean {
+  const pending = pendingChoices(store);
+  if (pending?.seatIndex !== seat) return false;
+  const choice = pending.enabled.find((entry) => entry.id === id);
   if (!choice) return false;
-  const result = store.submit({ actorId, kind: choice.kind, payload: choice.payload } as Command);
+  const result = store.submit({
+    actorId: pending.actorId,
+    kind: choice.kind,
+    payload: choice.payload,
+  } as Command);
   return 'accepted' in result;
 }
 

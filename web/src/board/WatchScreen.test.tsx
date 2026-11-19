@@ -91,6 +91,7 @@ test('a sentinel secret handed to the spectator view never reaches the screen (Â
           phase: { kind: 'strategy' },
           activeSeatIndex: 1,
           globalTurnNo: 1,
+          pokemon: [],
         },
         record: {
           action: {
