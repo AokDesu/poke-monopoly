@@ -156,6 +156,8 @@ export interface GameStore {
     content: Content,
     opponents?: readonly OpponentSettings[],
     watch?: WatchSettings,
+    /** The prepared scenario the game is opened from; kept beside the game, never in its log. */
+    scene?: string,
   ): void;
   /** Rejected commands change nothing and notify no one. */
   submit(command: Command): ApplyActionResult;
@@ -188,6 +190,8 @@ export interface GameStore {
   getOpponents(): readonly OpponentSettings[];
   /** A watched game's talk and starting-speed settings, kept with the game; absent otherwise. */
   getWatchSettings(): WatchSettings | undefined;
+  /** The prepared scenario this game was opened from (`?demo`), or undefined. Never in the log. */
+  getScene(): string | undefined;
   /** Identifies this game to the speech route; changes when a game starts or is restored. */
   getGameId(): string;
   /**
@@ -206,6 +210,7 @@ export interface GameStore {
     watchSettings?: WatchSettings,
     gameId?: string,
     chatWords?: readonly SavedChatWords[],
+    scene?: string,
   ): void;
   /** Engine winner and coin/badge standings, or null until the game is finished. Stable. */
   getResults(): GameResults | null;
@@ -384,6 +389,7 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
   let results: GameResults | null = null;
   let opponents: readonly OpponentSettings[] = [];
   let watch: WatchSettings | undefined;
+  let scene: string | undefined;
   let chatWords: readonly SavedChatWords[] = [];
   let gameToken = '';
   const listeners = new Set<() => void>();
@@ -547,11 +553,13 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
       content: Content,
       settings: readonly OpponentSettings[] = [],
       watchSettings?: WatchSettings,
+      sceneId?: string,
     ): void {
       const state = createGame(config, content);
       gameToken = crypto.randomUUID();
       opponents = settings;
       watch = watchSettings;
+      scene = sceneId;
       chatWords = [];
       shownFeed = [];
       commit({ state, log: createGameLog(state) }, state, []);
@@ -759,6 +767,9 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
     getWatchSettings(): WatchSettings | undefined {
       return watch;
     },
+    getScene(): string | undefined {
+      return scene;
+    },
     getGameId(): string {
       return gameToken;
     },
@@ -803,6 +814,7 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
       watchSettings?: WatchSettings,
       gameId?: string,
       savedWords: readonly SavedChatWords[] = [],
+      sceneId?: string,
     ): void {
       // A save that lacks a rival's settings plays it as Greedy on Normal, as the save prompt says.
       opponents = [
@@ -820,6 +832,7 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
           })),
       ];
       watch = watchSettings;
+      scene = sceneId;
       // Only words that fit this game: a save from another one cannot lend it a line.
       chatWords = savedWords.filter((entry) => fitsGame(entry, game.state));
       gameToken = gameId ?? crypto.randomUUID();
@@ -836,6 +849,7 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
       results = null;
       opponents = [];
       watch = undefined;
+      scene = undefined;
       chatWords = [];
       gameToken = '';
       for (const listener of listeners) listener();
