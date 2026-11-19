@@ -481,7 +481,7 @@ export const en = {
   'howToPlay.gameWaits': 'Your game waits while this is open.',
   'howToPlay.move.title': 'Roll and move',
   'howToPlay.move.turn':
-    'Players take turns in seat order. On your turn you may talk to one rival and use an item or an Ability, or skip both. The game then rolls the die and moves your token forward around the loop. The square you land on decides what happens next. Every player starts with the kit below.',
+    'Players take turns in seat order. On your turn you may talk to one rival, use one item or challenge a rival (they share one limit), and use one Ability, which has its own limit. The game then rolls the die and moves your token around the loop. The square you land on decides what happens next. Every player starts with the kit below.',
   'howToPlay.move.events': 'On an Event square the game draws a card and applies it at once.',
   'howToPlay.catch.title': 'Meet a Pokémon',
   'howToPlay.catch.catch':
@@ -493,15 +493,15 @@ export const en = {
   'howToPlay.shop.shop':
     'A Shop square offers Balls and a few random items. Buy one offer, or choose “{leaveShop}”. The Shop does not refresh. An offer you cannot afford is greyed out and says “{notEnough}”.',
   'howToPlay.shop.items':
-    'Items stay secret until you use one. Use an item in your Strategy step, before you move. It shows its effect first, and “{skipItems}” moves on without one.',
+    'The starting kit and class item are public. Items you pick up in play stay secret until used. Use an item in your Strategy step, before you move. It shows its effect first, and “{skipItems}” moves on without one.',
   'howToPlay.battle.title': 'Battles and Abilities',
   'howToPlay.battle.battle':
-    'Landing on a Gym lets you challenge it for a badge. In your Strategy step you may also challenge any rival, who can accept or decline. Dice decide the battle, and the winner chooses a reward: coins or an evolution. Badges only break ties.',
+    'Landing on a Gym lets you challenge it for a badge. In your Strategy step you may also challenge any rival, who can accept or decline. Dice decide the battle, and the winner chooses a reward: coins or an evolution. A lost Gym battle pays coins to the bank. Badges only break ties.',
   'howToPlay.battle.abilities':
     'Each Pokémon’s Ability can be used once per Lap, when the game offers it. An Ability shows its effect and its cost before you confirm it.',
   'howToPlay.talk.title': 'Talking to rivals',
   'howToPlay.talk.social':
-    'Before your turn goes on you may send one message to one rival. Choose a topic and a rival, check the preview, then send it. The message is only words, and so is the reply: nothing said changes the rules. You can finish a whole game without talking: choose “{skipTalking}”.',
+    'When you play, before your turn goes on you may send one message to one rival. Choose a topic and a rival, check the preview, then send it. The message is only words, and so is the reply: nothing said changes the rules. You can finish a whole game without talking: choose “{skipTalking}”. In a watched game the AI seats do the talking and you only read it.',
   'howToPlay.end.title': 'How the game ends',
   'howToPlay.end.ending':
     'A game lasts a set number of Laps, shown below. When the first player reaches it, every seat plays the same number of turns in the Final Table Round. Remaining Pokémon are then sold automatically at the final price, with no class bonus. The most coins wins. A tie goes to the most badges, then to co-winners.',
