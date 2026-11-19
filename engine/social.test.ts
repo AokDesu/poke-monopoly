@@ -518,7 +518,10 @@ test('a chat changes nothing beyond its history and the social budget (§4.8 har
             const set = legalActions(state, seat);
             return {
               enabled: set.enabled.filter(
-                (choice) => choice.kind !== 'chat' && choice.kind !== 'offer_promise',
+                (choice) =>
+                  choice.kind !== 'chat' &&
+                  choice.kind !== 'offer_promise' &&
+                  choice.kind !== 'propose_deal',
               ),
               disabled: set.disabled,
             };
