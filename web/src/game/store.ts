@@ -37,14 +37,13 @@ import {
   type GameConfig,
   type GameLog,
   type GameState,
-  type LegalAction,
   type LegalActions,
   type Observation,
   type SpectatorObservation,
   type SeatActionRecord,
   type SeatEvent,
 } from '../../../engine/index.ts';
-import type { ChatReplyRequest, SavedChatWords } from './chat.ts';
+import { ChatReplyError, type ChatReplyRequest, type SavedChatWords } from './chat.ts';
 import { reportOutcome, requestOpponent, type AiDecision } from './ai.ts';
 import { demoChoiceOf } from './demoChoice.ts';
 import type { DifficultyId, GameSetup, PersonalityId, WatchSettings, WatchSetup } from './setup.ts';
@@ -77,8 +76,13 @@ export type ChallengeOdds = NonNullable<ReturnType<typeof challengeOdds>> & {
 
 /** One accepted action as the human seat may see it (engine contract: `actionVisibleTo`). */
 export interface SeatFeedEntry {
-  /** What the seat saw just before the action: the public phase and whose turn it was. */
-  readonly before: Pick<Observation['public'], 'phase' | 'activeSeatIndex' | 'globalTurnNo'>;
+  /**
+   * What the seat saw just before the action: the public phase, whose turn it was and every team
+   * member listed publicly, so a row can name a Pokémon as it was even after a sale or evolution.
+   */
+  readonly before: Pick<Observation['public'], 'phase' | 'activeSeatIndex' | 'globalTurnNo'> & {
+    readonly pokemon: readonly { readonly instanceId: string; readonly speciesId: string }[];
+  };
   readonly record: SeatActionRecord;
   readonly decision?: AiDecision;
   readonly lineContext?: { pokemonSpeciesId?: string; coins?: number; targetSeatIndex?: number };
@@ -300,6 +304,21 @@ function publicOf(state: GameState, seatIndex: number | undefined) {
     : observe(state, seatIndex).public;
 }
 
+/** The public state a feed entry keeps as its `before` view. */
+function beforeOf(
+  game: Pick<Observation['public'], 'phase' | 'activeSeatIndex' | 'globalTurnNo' | 'players'>,
+): SeatFeedEntry['before'] {
+  const { phase, activeSeatIndex, globalTurnNo, players } = game;
+  return {
+    phase,
+    activeSeatIndex,
+    globalTurnNo,
+    pokemon: players.flatMap((player) =>
+      player.team.map(({ instanceId, speciesId }) => ({ instanceId, speciesId })),
+    ),
+  };
+}
+
 /** One record as this viewer may see it, or null for a chat it was not part of (spec §4.8). */
 function recordFor(
   state: GameState,
@@ -340,10 +359,10 @@ function feedFrom(log: GameLog, seatIndex: number | undefined): SeatFeedEntry[] 
   let cursor = log.initialState;
   const feed: SeatFeedEntry[] = [];
   for (const record of log.actions) {
-    const { phase, activeSeatIndex, globalTurnNo } = publicOf(cursor, seatIndex);
+    const before = beforeOf(publicOf(cursor, seatIndex));
     // A chat between two other seats is absent from this seat's feed, not redacted (spec §4.8).
     const visible = recordFor(cursor, record, seatIndex, feed.length);
-    if (visible) feed.push({ before: { phase, activeSeatIndex, globalTurnNo }, record: visible });
+    if (visible) feed.push({ before, record: visible });
     const applied = applyAction(cursor, record.action);
     if (!('accepted' in applied)) throw new Error('Save log does not replay');
     cursor = applied.state;
@@ -352,11 +371,12 @@ function feedFrom(log: GameLog, seatIndex: number | undefined): SeatFeedEntry[] 
 }
 
 /**
- * `demo` is demo mode (`?demo`, issue #220): the store then keeps, beside each AI decision, what
- * the "What Jev chose" panel shows. It is off by default and never changes an action, a save or
- * a request.
+ * `demo` says whether demo mode is open right now (issue #220, #247): the store then keeps, beside
+ * each AI decision, what the "What Jev chose" panel shows. It is read at each AI decision, so a
+ * setting that arrives late (the server's, fetched once the page opens) counts from the next one.
+ * It is off by default and never changes an action, a save or a request.
  */
-export function createGameStore({ demo = false }: { demo?: boolean } = {}): GameStore {
+export function createGameStore({ demo = () => false }: { demo?: () => boolean } = {}): GameStore {
   let session: GameSession | null = null;
   let view: SeatView | null = null;
   let spectatorView: SpectatorView | null = null;
@@ -422,7 +442,9 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
     const seatIndex = humanSeat(before);
     let feed = shownFeed;
     if (records.length > 0) {
-      const { phase, activeSeatIndex, globalTurnNo, players } = publicOf(before, seatIndex);
+      const game = publicOf(before, seatIndex);
+      const { activeSeatIndex, players } = game;
+      const beforeView = beforeOf(game);
       // Each step applies one record (engine contract: `advanceAutomatically` does not loop).
       let shown = feed.length;
       feed = [
@@ -446,7 +468,7 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
               : undefined;
           return [
             {
-              before: { phase, activeSeatIndex, globalTurnNo },
+              before: beforeView,
               record: visible,
               ...(decision && {
                 decision,
@@ -582,15 +604,18 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
         (entry) => entry.fromSeatIndex === seatIndex && entry.globalTurnNo === state.globalTurnNo,
       );
       if (!message) return null;
+      const rival = opponents.find((opponent) => opponent.seatIndex === message.toSeatIndex);
+      // restore() gives every AI seat settings, so a missing one is a bug to surface, never a Greedy rival.
+      if (!rival) {
+        throw new ChatReplyError('invalid', `No opponent settings for seat ${message.toSeatIndex}`);
+      }
       const observation = observe(state, message.toSeatIndex);
       return {
         gameId: gameToken,
         seatIndex: message.toSeatIndex,
         stateRevision: observation.public.stateRevision,
         observation,
-        personalityId:
-          opponents.find((opponent) => opponent.seatIndex === message.toSeatIndex)?.personality ??
-          'greedy',
+        personalityId: rival.personality,
         turnKey: `${state.globalTurnNo}:${message.toSeatIndex}`,
       };
     },
@@ -607,10 +632,14 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
       }
       const enabledActions = legalActions(state, seatIndex).enabled;
       if (enabledActions.length <= 1) return false;
-      const decisionPoint = state.phase.kind;
+      // A promise question (§4.8) is asked of its responder at its own decision point, whatever
+      // phase the human's turn is in; the engine's pending record says so, not the phase.
+      const promiseQuestion = state.pendingResponse?.kind === 'promise_offer';
+      const decisionPoint = promiseQuestion ? 'promise_response' : state.phase.kind;
       if (
-        !['strategy', 'encounter', 'sell', 'shop'].includes(decisionPoint) ||
-        (state.phase.kind === 'encounter' && state.phase.catchRoll)
+        !promiseQuestion &&
+        (!['strategy', 'encounter', 'sell', 'shop'].includes(decisionPoint) ||
+          (state.phase.kind === 'encounter' && state.phase.catchRoll))
       ) {
         // Temporary #55 boundary: the decision API has no Gym, battle, Ability-window or reroll
         // questions yet (Stream B). Take the engine's first listed choice so play continues.
@@ -635,7 +664,7 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
       // Demo mode shows a rival's private options, so only a game with a human seat to show them
       // to keeps anything: a watched game never does (spec §1, issue #220).
       const viewerSeat = humanSeat(state);
-      const keepDemo = demo && viewerSeat !== undefined;
+      const keepDemo = demo() && viewerSeat !== undefined;
       const answer = await requestOpponent(
         JSON.stringify({
           ...ids,
@@ -775,7 +804,21 @@ export function createGameStore({ demo = false }: { demo?: boolean } = {}): Game
       gameId?: string,
       savedWords: readonly SavedChatWords[] = [],
     ): void {
-      opponents = settings;
+      // A save that lacks a rival's settings plays it as Greedy on Normal, as the save prompt says.
+      opponents = [
+        ...settings,
+        ...game.state.config.seats
+          .filter(
+            (seat) =>
+              seat.controller === 'ai' &&
+              !settings.some((entry) => entry.seatIndex === seat.seatIndex),
+          )
+          .map((seat): OpponentSettings => ({
+            seatIndex: seat.seatIndex,
+            personality: 'greedy',
+            difficulty: 'normal',
+          })),
+      ];
       watch = watchSettings;
       // Only words that fit this game: a save from another one cannot lend it a line.
       chatWords = savedWords.filter((entry) => fitsGame(entry, game.state));
@@ -840,20 +883,4 @@ export function createFixtureStore(
   const store = createGameStore();
   store.restore({ state, log: createGameLog(state) });
   return store;
-}
-
-/**
- * Dev gallery adapter (issue #220): what an AI seat's open decision holds, the engine's enabled
- * actions and that seat's own observation, which is exactly what `playOpponent` sends and what the
- * demo panel labels its options from. Nothing here reaches a player's view.
- */
-export function seatDecision(
-  store: GameStore,
-  seatIndex: number,
-): { enabledActions: LegalAction[]; observation: Observation } {
-  const { state } = store.getSession()!;
-  return {
-    enabledActions: legalActions(state, seatIndex).enabled,
-    observation: observe(state, seatIndex),
-  };
 }

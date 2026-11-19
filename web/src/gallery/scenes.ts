@@ -1,13 +1,18 @@
-import type { GameState, LegalAction, PokemonInstance } from '../../../engine/index.ts';
+import type {
+  GameState,
+  LegalAction,
+  NoAttackPromise,
+  PokemonInstance,
+} from '../../../engine/index.ts';
 import type { TurnPlayback } from '../board/useTurnPlayback.ts';
 import type { AiDecision, OpponentAnswer } from '../game/ai.ts';
 import { content, engineContent } from '../game/content.ts';
 import { demoChoiceOf } from '../game/demoChoice.ts';
 import { fakeJevAnswer, type FakeJevAnswerOptions } from '../game/fakeJevAnswer.ts';
 import { readJevDetail } from '../game/jevDetailAdapter.ts';
+import { seatDecision } from './seatDecision.ts';
 import {
   createFixtureStore,
-  seatDecision,
   type Command,
   type GameStore,
   type SeatView,
@@ -149,6 +154,53 @@ function wonBattle(fixtures: GalleryFixtures): GameStore {
   rollDice(store);
   return store;
 }
+
+/** A promise still open on the human's own Social window, closing at the end of this very turn. */
+const openPromiseEdit =
+  (
+    promiserSeatIndex: number,
+    recipientSeatIndex: number,
+    extra: Partial<NoAttackPromise> = {},
+  ): Edit =>
+  (state) => {
+    state.config.socialWindow = true;
+    state.promises = [
+      {
+        promiserSeatIndex,
+        recipientSeatIndex,
+        createdGlobalTurnNo: state.globalTurnNo - 1,
+        closesOwnTurnNo: state.players[promiserSeatIndex]!.ownTurnNo,
+        acceptedActionSeq: 0,
+        ...extra,
+      },
+    ];
+  };
+
+const PASS = ['skip', 'roll', 'keep-die', 'finish-sell', 'skip-shop', 'release'];
+
+/**
+ * Plays the engine on with each deciding seat's quietest choice (never an attack, offer or purchase)
+ * until `done` holds or the game ends, so a scene reaches a closing the engine itself makes.
+ */
+function driveUntil(store: GameStore, done: (state: GameState) => boolean): void {
+  for (let step = 0; step < 600; step++) {
+    const { state } = store.getSession()!;
+    if (done(state) || state.phase.kind === 'finished') return;
+    if (store.advance({ human: true })) continue;
+    const seatIndex = store.getView()!.decision!.seatIndex;
+    const choices = seatDecision(store, seatIndex).enabledActions;
+    const choice =
+      PASS.map((id) => choices.find((entry) => entry.id === id)).find(Boolean) ?? choices[0]!;
+    play(store, {
+      actorId: state.players.find((player) => player.seatIndex === seatIndex)!.actorId,
+      kind: choice.kind,
+      payload: choice.payload,
+    } as Command);
+  }
+  throw new Error('Gallery: the scene never settled');
+}
+
+const promiseSettled = (state: GameState) => (state.promises ?? []).every((entry) => entry.settled);
 
 /** The human's own Social window with its one interaction unspent (spec §4.2). */
 function openSocialWindow(state: GameState): void {
@@ -509,6 +561,61 @@ export function createScenes(fixtures: GalleryFixtures) {
       const store = createFixtureStore(fixtures['shop-low-coins'], engineContent, openSocialWindow);
       const result = store.choose('chat:seat-1:truce');
       if ('rejected' in result) throw new Error(`Gallery: ${result.reason}`);
+      return sceneOf(store);
+    },
+
+    /** §4.8: a promise to this rival is already active, so the same offer is greyed out with its reason. */
+    promiseOffersBlocked: (): Scene =>
+      sceneOf(
+        createFixtureStore(fixtures['shop-low-coins'], engineContent, (state) => {
+          openSocialWindow(state);
+          openPromiseEdit(0, 1)(state);
+        }),
+      ),
+
+    /** §4.8: the human offered a promise; the rival has not answered, so nothing is active. */
+    promiseOffered: (): Scene => {
+      const store = createFixtureStore(fixtures['shop-low-coins'], engineContent, openSocialWindow);
+      const result = store.choose('offer-promise:seat-1:offer');
+      if ('rejected' in result) throw new Error(`Gallery: ${result.reason}`);
+      return sceneOf(store);
+    },
+
+    /** §4.8: the rival's own answer to the offer, `accept` or `reject`, as its engine record. */
+    promiseAnswered: (answer: 'accept' | 'reject'): Scene => {
+      const store = createFixtureStore(fixtures['shop-low-coins'], engineContent, openSocialWindow);
+      const result = store.choose('offer-promise:seat-1:offer');
+      if ('rejected' in result) throw new Error(`Gallery: ${result.reason}`);
+      play(store, { actorId: 'player-1', kind: 'respond', payload: { answer } });
+      return sceneOf(store);
+    },
+
+    /** §4.8: seat 1 promised the player not to attack; the engine closed it as kept, with a public chance. */
+    promiseKept: (): Scene => {
+      const store = battleStore(fixtures, (state) => {
+        openPromiseEdit(1, 0, { chance: true })(state);
+        state.activeSeatIndex = 1;
+      });
+      driveUntil(store, promiseSettled);
+      return sceneOf(store);
+    },
+
+    /** §4.8: the player promised, declared a battle the rival declined, and the engine closed it as broken. */
+    promiseBroken: (): Scene => {
+      const store = battleStore(fixtures, openPromiseEdit(0, 1));
+      play(store, { actorId: 'player-0', kind: 'declare_pvp', payload: { targetSeatIndex: 1 } });
+      play(store, { actorId: 'player-1', kind: 'respond_pvp', payload: { accept: false } });
+      driveUntil(store, promiseSettled);
+      return sceneOf(store);
+    },
+
+    /** §4.8, §4.2: the final round ended the game before the promise's closing turn. */
+    promiseGameEnd: (): Scene => {
+      const store = battleStore(fixtures, (state) => {
+        openPromiseEdit(0, 1, { closesOwnTurnNo: 9 })(state);
+        state.finalTableRound = { triggerSeatIndex: 1, targetOwnTurnNo: 3 };
+      });
+      driveUntil(store, () => false);
       return sceneOf(store);
     },
 

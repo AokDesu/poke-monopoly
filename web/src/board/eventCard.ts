@@ -27,14 +27,20 @@ export function eventCardText(eventId: string): string {
 const coins = (amount: number) =>
   amount === 1 ? t('event.coinOne') : t('event.coins', { amount });
 
+/** A Pokémon on a team, as the public observation lists it. */
+export type TeamPokemon = SeatFeedEntry['before']['pokemon'][number];
+
 /**
  * The engine's result for one drawn card, in words. `entryEvents` are the other records of the
- * same accepted action: only the recipient's own copy of them names a secret reward.
+ * same accepted action: only the recipient's own copy of them names a secret reward. `pokemon` is
+ * every team member as the feed entry saw it before the action, so a Tired row keeps naming the
+ * Pokémon as drawn after it is sold or evolves; without a feed it falls back to the current teams.
  */
 export function eventResultMessage(
   observation: ViewedObservation,
   resolved: Resolved,
   entryEvents: readonly SeatEvent[],
+  pokemon: readonly TeamPokemon[] = observation.public.players.flatMap((player) => player.team),
 ): EventMessage {
   const own = ownSeatOf(observation);
   const name = seatLabel(resolved.seatIndex, own);
@@ -60,11 +66,9 @@ export function eventResultMessage(
       });
     }
     case 'tired': {
-      const pokemon = observation.public.players
-        .flatMap((player) => player.team)
-        .find((member) => member.instanceId === result.instanceId);
-      return pokemon
-        ? message('event.result.tired', { name, pokemon: speciesName(pokemon.speciesId) })
+      const tired = pokemon.find((member) => member.instanceId === result.instanceId);
+      return tired
+        ? message('event.result.tired', { name, pokemon: speciesName(tired.speciesId) })
         : message('event.result.tiredNone', { name });
     }
     case 'item': {
@@ -115,6 +119,8 @@ export function latestEvent(
     eventId: drawn.eventId,
     text: eventCardText(drawn.eventId),
     reshuffled: reshuffledIn(feed, index),
-    result: resolved ? eventResultMessage(observation, resolved, record.events) : null,
+    result: resolved
+      ? eventResultMessage(observation, resolved, record.events, before.pokemon)
+      : null,
   };
 }

@@ -4,6 +4,7 @@ import {
   applyAction,
   createGame,
   createGameConfig,
+  exploitFacts,
   legalActions,
   observe,
   oddsForAllBalls,
@@ -12,7 +13,7 @@ import {
   type GameState,
 } from '../engine/index.ts';
 import { loadContent } from './content.ts';
-import type { PolicyFacts } from './policy.ts';
+import type { PolicyFacts, SeatFacts } from './policy.ts';
 import type { SimEngine } from './runner.ts';
 
 const parsed = loadContent();
@@ -64,12 +65,22 @@ export const realEngine: SimEngine = {
 };
 
 /**
- * The engine's own numbers for the deciding seat (spec §5.2): catch odds from `oddsForAllBalls`,
+ * The engine's own numbers for the deciding seat (spec §5.2): the exploit facts (`exploitFacts`:
+ * action classes and the public-information strength proxy), catch odds from `oddsForAllBalls`,
  * and each sellable Pokémon's payout within one batch selling every one of them (§4.7: a batch
  * is priced as a whole), read from the coin transfers `applyAction` reports on a detached copy
  * and keep values from `saleFacts`. Nothing here is shown to other seats.
  */
-function facts(state: GameState, seatIndex: number): PolicyFacts {
+function facts(state: GameState, seatIndex: number): SeatFacts {
+  // Exploit facts come from the deciding seat's own observation and legal actions alone (§5.4,
+  // §8 Critic); a seat answering a challenge or reaction is not the active one, so they come first.
+  return {
+    ...exploitFacts(state.content, observe(state, seatIndex), legalActions(state, seatIndex)),
+    ...numberFacts(state, seatIndex),
+  };
+}
+
+function numberFacts(state: GameState, seatIndex: number): PolicyFacts {
   if (seatIndex !== state.activeSeatIndex) return {};
   if (state.phase.kind === 'encounter' && !state.phase.catchRoll) {
     const odds = oddsForAllBalls(state, seatIndex);
