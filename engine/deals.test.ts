@@ -351,6 +351,85 @@ describe('legality: every illegal case is refused with the state unchanged (§4.
     expectRefused(state, 'propose_deal', buyPokemon('starter:1', 3));
   });
 
+  describe('the giver keeps a Pokémon (a new rule where §4.8 is silent), both sides, both formats', () => {
+    const dealsIn = (state: GameState) =>
+      choicesOf(state, 0)
+        .filter((choice) => choice.kind === 'propose_deal')
+        .map((choice) => choice.id);
+
+    test('the human cannot sell their last Pokémon and the AI cannot be asked for its last: nothing is listed', () => {
+      const state = social();
+      state.players[0]!.team.pop();
+      state.players[1]!.team.pop();
+      const ids = dealsIn(state);
+      expect(ids.some((id) => id.includes('give:pokemon:starter:0'))).toBe(false);
+      expect(ids.some((id) => id.includes('get:pokemon:starter:1'))).toBe(false);
+      // Item deals are untouched by the rule: both formats stay listed where they are legal.
+      expect(ids.some((id) => id.includes('give:item:item:0:potion'))).toBe(true);
+      expect(ids.some((id) => id.includes('get:item:class-item:1'))).toBe(true);
+      // And a forged action for either side is refused unchanged, whatever the coins.
+      for (const coins of [1, 3, 20]) {
+        expectRefused(state, 'propose_deal', sellPokemon('starter:0', coins));
+        expectRefused(state, 'propose_deal', buyPokemon('starter:1', coins));
+      }
+      for (const item of ['item:0:potion', 'class-item:1']) {
+        const payload = item.startsWith('item:0') ? sellItem(item, 3) : buyItem(item, 3);
+        expect(problem(state, payload)).toBeNull();
+      }
+    });
+
+    test('a team of two deals one Pokémon, not both, in either direction', () => {
+      const state = social();
+      expect(dealsIn(state).some((id) => id.includes('give:pokemon:caught:0:a'))).toBe(true);
+      expect(dealsIn(state).some((id) => id.includes('get:pokemon:caught:1:a'))).toBe(true);
+      const sold = accepted(
+        reply(propose(state, sellPokemon('caught:0:a', 3)).state, 'accept').state,
+        'confirm_deal',
+      ).state;
+      expect(sold.players[0]!.team.map((p) => p.instanceId)).toEqual(['starter:0']);
+      // The quota is spent after a deal, so nothing more is proposed this turn; the last-Pokémon rule still names itself.
+      expect(dealsIn(sold)).toEqual([]);
+      expect(problem(sold, sellPokemon('starter:0', 3))).toBe('last_pokemon');
+    });
+
+    test('a pending deal whose asset became the giver’s last Pokémon is refused at the answer and at the confirm', () => {
+      const sell = propose(social(), sellPokemon('caught:0:a', 6)).state;
+      sell.players[0]!.team.shift();
+      // The AI's only answer left is reject; accepting or countering is not listed.
+      expect(choicesOf(sell, 1).map((choice) => choice.id)).toEqual(['respond-deal:reject']);
+      const refusedAnswer = expectRefused(sell, 'respond_deal', { answer: 'accept' }, 1);
+      expect(refusedAnswer.reason).toBe('illegal_action');
+
+      const agreed = reply(propose(social(), sellPokemon('caught:0:a', 6)).state, 'accept').state;
+      agreed.players[0]!.team.shift();
+      expect(kindsOf(agreed, 0)).toEqual(['cancel_deal']);
+      expect(expectRefused(agreed, 'confirm_deal', {}, 0).reason).toBe('illegal_action');
+
+      const buy = reply(propose(social(), buyPokemon('caught:1:a', 6)).state, 'accept').state;
+      buy.players[1]!.team.shift();
+      expect(kindsOf(buy, 0)).toEqual(['cancel_deal']);
+      expect(expectRefused(buy, 'confirm_deal', {}, 0).reason).toBe('illegal_action');
+    });
+
+    test('a Rescue Starter counts as a team member (§4.5 and D12, §C.7), so it is kept but never dealt', () => {
+      const state = social();
+      // Each side holds one ordinary Pokémon and one Rescue Starter.
+      state.players[0]!.team.shift();
+      state.players[1]!.team.shift();
+      Object.assign(state.players[0]!.team[0]!, { origin: 'rescue_starter', tradeable: false });
+      Object.assign(state.players[1]!.team[0]!, { origin: 'rescue_starter', tradeable: false });
+      state.players[0]!.team.push(caught('caught:0:b', 'pidgey'));
+      state.players[1]!.team.push(caught('caught:1:b', 'rattata'));
+      // The ordinary one may go: the Rescue Starter stays as a team member.
+      expect(problem(state, sellPokemon('caught:0:b', 3))).toBeNull();
+      expect(problem(state, buyPokemon('caught:1:b', 3))).toBeNull();
+      // The Rescue Starter itself is untradeable, so it is never offered.
+      expect(problem(state, sellPokemon('caught:0:a', 3))).toBe('not_tradeable');
+      expect(problem(state, buyPokemon('caught:1:a', 3))).toBe('not_tradeable');
+      expect(dealsIn(state).some((id) => /pokemon:caught:(0|1):a/.test(id))).toBe(false);
+    });
+  });
+
   test('items stay at four or fewer after the deal, for the receiving side', () => {
     const state = social();
     state.players[1]!.items.push(item('item:1:b', 'potion'), item('item:1:c', 'potion'));
