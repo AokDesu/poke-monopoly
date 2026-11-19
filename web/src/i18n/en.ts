@@ -502,6 +502,53 @@ export const en = {
   'credits.trademark':
     'Pokémon names and designs are trademarks of Nintendo, Creatures and Game Freak. These are fan-made models; their licences cover the model files only.',
 
+  // How to play (issue #221). No digit appears in any of these: every rule number is shown from
+  // the content or the engine, and button names are inserted from the keys above.
+  'howToPlay.open': 'How to play',
+  'howToPlay.heading': 'How to play',
+  'howToPlay.close': 'Close',
+  'howToPlay.progress': 'Step {current} of {total}',
+  'howToPlay.firstStep': 'This is the first step.',
+  'howToPlay.lastStep': 'This is the last step.',
+  'howToPlay.empty': 'There is nothing to explain yet.',
+  'howToPlay.gameWaits': 'Your game waits while this is open.',
+  'howToPlay.move.title': 'Roll and move',
+  'howToPlay.move.turn':
+    'Players take turns in seat order. On your turn you may talk to one rival, use one item or challenge a rival (they share one limit), and use one Ability, which has its own limit. The game then rolls the die and moves your token around the loop. The square you land on decides what happens next. Every player starts with the kit below.',
+  'howToPlay.move.events': 'On an Event square the game draws a card and applies it at once.',
+  'howToPlay.catch.title': 'Meet a Pokémon',
+  'howToPlay.catch.catch':
+    'A Wild square shows a Pokémon. Choose a Ball to try to catch it, or choose “{release}”. Each Ball shows its chance of success before you confirm, and a try uses up the Ball even if the Pokémon escapes. With no Ball the game says “{noBall}”, and “{release}” is your only choice.',
+  'howToPlay.sell.title': 'Keep or sell at Start',
+  'howToPlay.sell.sell':
+    'Each time you reach Start, the bank pays your Start income and the Sell Phase opens. Tick the Pokémon you want to sell and choose “{sell}”, or choose “{keep}”. Tired Pokémon sell for less. If your team is empty afterwards, you receive a Rescue Starter.',
+  'howToPlay.shop.title': 'The Shop and items',
+  'howToPlay.shop.shop':
+    'A Shop square offers Balls and a few random items. Buy one offer, or choose “{leaveShop}”. The Shop does not refresh. An offer you cannot afford is greyed out and says “{notEnough}”.',
+  'howToPlay.shop.items':
+    'The starting kit and class item are public. Items you pick up in play stay secret until used. Use an item in your Strategy step, before you move. It shows its effect first, and “{skipItems}” moves on without one.',
+  'howToPlay.battle.title': 'Battles and Abilities',
+  'howToPlay.battle.battle':
+    'Landing on a Gym lets you challenge it for a badge. In your Strategy step you may also challenge any rival, who can accept or decline. Dice decide the battle, and the winner chooses a reward: coins or an evolution. A lost Gym battle pays coins to the bank. Badges only break ties.',
+  'howToPlay.battle.abilities':
+    'Each Pokémon’s Ability can be used once per Lap, when the game offers it. An Ability shows its effect and its cost before you confirm it.',
+  'howToPlay.talk.title': 'Talking to rivals',
+  'howToPlay.talk.social':
+    'When you play, before your turn goes on you may send one message to one rival. Choose a topic and a rival, check the preview, then send it. The message is only words, and so is the reply: nothing said changes the rules. You can finish a whole game without talking: choose “{skipTalking}”. In a watched game the AI seats do the talking and you only read it.',
+  'howToPlay.end.title': 'How the game ends',
+  'howToPlay.end.ending':
+    'A game lasts a set number of Laps, shown below. When the first player reaches it, every seat plays the same number of turns in the Final Table Round. Remaining Pokémon are then sold automatically at the final price, with no class bonus. The most coins wins. A tie goes to the most badges, then to co-winners.',
+  'howToPlay.fact.kit': 'Starting kit',
+  'howToPlay.fact.coins': 'Coins',
+  'howToPlay.fact.starters': 'Starter Pokémon',
+  'howToPlay.fact.balls': 'Poké Balls',
+  'howToPlay.fact.classItems': 'Class item',
+  'howToPlay.fact.incomeName': 'Start income',
+  'howToPlay.fact.income': 'Coins each time you reach Start',
+  'howToPlay.fact.lapsName': 'Game length',
+  'howToPlay.fact.laps': 'Laps in a {mode} game',
+  'howToPlay.fact.wild': 'Pokémon you may meet',
+
   'error.heading': 'This screen could not be shown',
   'error.body':
     'Something went wrong while drawing this screen. Press “Try again”. If you still see this message, reload the page.',
@@ -1002,6 +1049,10 @@ export const en = {
   'gallery.specBattle': 'Spec §4.4, PvP and Gym',
   'gallery.specSocial': 'Spec §4.8, Chat',
   'gallery.specAbilities': 'Spec §4.5, Abilities',
+  'gallery.specHowToPlay': 'Spec §3, How to play',
+  'gallery.row.howToPlay': 'How to play: a short walkthrough you open from Home and the board',
+  'gallery.example.howToPlayFirst': 'The first step: Back is greyed out and says why',
+  'gallery.example.howToPlayLast': 'The last step: Next is greyed out and says why',
   'gallery.specPromises': 'Spec §4.8, Promises and memory',
   'gallery.row.abilities':
     'Abilities that are ready, and Abilities that cannot be used, with the reason',
