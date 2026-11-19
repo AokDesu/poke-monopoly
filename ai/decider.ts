@@ -1,5 +1,6 @@
 import type {
   JevStatus,
+  DecisionDetail,
   DecisionFallbackReason,
   DecisionRequest,
 } from '../engine/contract/decision.ts';
@@ -23,6 +24,8 @@ export type DeciderAnswer = DeciderPick & {
   lineId?: string;
   /** The §6.8 events of this answer, for the app to journal; they never leave the server. */
   events?: readonly DecisionEvent[];
+  /** Jev's numbers; the app sends them only in demo mode (spec §3). */
+  detail?: DecisionDetail;
 } & ({ source: 'jev' } | { source: 'fallback'; fallbackReason: DecisionFallbackReason });
 
 export interface DeciderContext {
@@ -292,6 +295,10 @@ export const createOrchestratorDecider = ({
       decisionPoint: request.decisionPoint,
       rng: rngFor(request),
     });
-    return { ...fromDecision(request, decision), events: decision.events };
+    return {
+      ...fromDecision(request, decision),
+      events: decision.events,
+      ...(decision.detail && { detail: decision.detail }),
+    };
   };
 };

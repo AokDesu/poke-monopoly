@@ -160,7 +160,7 @@ export function demoChoiceOf(context: Context): DemoChoice | undefined {
   if (chosenIds.some((id) => !ids.includes(id))) return undefined;
   return {
     source: 'jev',
-    confidence: detail.confidence,
+    confidence: detail.confidence ?? undefined,
     perPokemon,
     rows: byProbability(rows),
   };
