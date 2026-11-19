@@ -72,7 +72,7 @@ export function eventMessage(
         text: eventCardText(event.eventId),
       });
     case 'event_resolved':
-      return [eventResultMessage(observation, event, entryEvents)];
+      return [eventResultMessage(observation, event, entryEvents, before?.pokemon)];
     case 'random_result':
       if (event.purpose.startsWith('line:')) return [];
       // Strings/arrays may be internal draw IDs or deck order in historical fixtures. Never dump them.
