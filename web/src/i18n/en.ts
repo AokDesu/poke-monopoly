@@ -829,7 +829,7 @@ export const en = {
     'Step {step} of {total} is no longer allowed by the rules, so the scenario stopped there.',
   'demo.failed.moment':
     'The set-up steps ran, but the game is not at the moment this scenario promises.',
-  'demo.failed.engine': 'The game could not be built: {message}',
+  'demo.failed.engine': 'The game could not be built.',
   'demo.failed.next': 'Nothing was started. Pick another scenario, or go back to Home.',
 
   'chat.unclassified':

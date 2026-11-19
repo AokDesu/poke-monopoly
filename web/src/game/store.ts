@@ -857,9 +857,9 @@ export function createFixtureStore(
 }
 
 /**
- * Dev gallery adapter (issue #220): what an AI seat's open decision holds, the engine's enabled
- * actions and that seat's own observation, which is exactly what `playOpponent` sends and what the
- * demo panel labels its options from. Nothing here reaches a player's view.
+ * Dev gallery and demo-scene adapter (issues #220, #222): what a seat's open decision holds, the
+ * engine's enabled actions and that seat's own observation, which is exactly what `playOpponent`
+ * sends and what the demo panel labels its options from. Nothing here reaches a player's view.
  */
 export function seatDecision(
   store: GameStore,
@@ -869,28 +869,5 @@ export function seatDecision(
   return {
     enabledActions: legalActions(state, seatIndex).enabled,
     observation: observe(state, seatIndex),
-  };
-}
-
-/** The seat the engine waits on and its enabled actions, as a prepared scenario's script reads them. */
-export interface PendingChoices {
-  readonly seatIndex: number;
-  readonly actorId: string;
-  readonly enabled: readonly LegalAction[];
-}
-
-/**
- * Demo scenes (issue #222): who decides now and what the engine allows, for any seat, so a script
- * can name a rival's legal action as well as the human's. Null while the engine owes a die or the
- * game is over. Reads only; the choice itself goes through `store.submit`.
- */
-export function pendingChoices(store: GameStore): PendingChoices | null {
-  const session = store.getSession();
-  const pending = session && pendingDecision(session.state);
-  if (!session || !pending) return null;
-  return {
-    seatIndex: pending.seatIndex,
-    actorId: pending.actorId,
-    enabled: legalActions(session.state, pending.seatIndex).enabled,
   };
 }

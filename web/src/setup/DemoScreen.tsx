@@ -19,7 +19,7 @@ function failureText(failure: SceneFailure): string {
     case 'moment':
       return t('demo.failed.moment');
     case 'engine':
-      return t('demo.failed.engine', { message: failure.message });
+      return t('demo.failed.engine');
   }
 }
 

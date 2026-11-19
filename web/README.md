@@ -101,7 +101,7 @@ name and shape (proposed, `decisionDetailSchema`); until the server sends it onl
 decisions show. `game/fakeJevAnswer.ts` is a typed fake of that answer for tests and the dev
 gallery.
 
-Prepared scenarios (`?demo` without a participant code, issue #222) add a "Prepared scenarios"
+Prepared scenarios (`?demo`, issue #222; `?demo=0` and `?demo=false` are off) add a "Prepared scenarios"
 entry to Home. `game/demoScenes.ts` lists each scene as a seed plus a short script of legal engine
 actions (`{ engine: n }` applies pending dice or sole choices, `{ seat, choose }` takes an enabled
 action by its ID) that `buildScene` applies through the normal store after the first-player roll;

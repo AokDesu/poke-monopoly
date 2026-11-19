@@ -138,7 +138,7 @@ test('a script that runs but ends away from its moment fails the build', () => {
   expect(store.getSession()).toBeNull();
 });
 
-test('a setup the engine refuses fails the build with its message', () => {
+test('a setup the engine refuses fails the build, and the failure carries no engine text', () => {
   const real = scene('ball');
   const broken: DemoScene = {
     ...real,
@@ -149,7 +149,7 @@ test('a setup the engine refuses fails the build with its message', () => {
   };
   const { store, result } = opened(broken);
   expect(result.ok).toBe(false);
-  expect(!result.ok && result.failure.kind).toBe('engine');
+  expect(!result.ok && result.failure).toEqual({ kind: 'engine' });
   expect(store.getSession()).toBeNull();
 });
 

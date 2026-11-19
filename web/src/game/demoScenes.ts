@@ -6,7 +6,7 @@ import { completeSetup, type GameSetup } from './setup.ts';
 import {
   configForSetup,
   opponentSettings,
-  pendingChoices,
+  seatDecision,
   type Command,
   type GameStore,
   type SeatView,
@@ -150,21 +150,22 @@ export function sceneById(id: string | undefined): DemoScene | undefined {
 export type SceneFailure =
   | { readonly kind: 'step'; readonly step: number; readonly total: number }
   | { readonly kind: 'moment' }
-  | { readonly kind: 'engine'; readonly message: string };
+  | { readonly kind: 'engine' };
 
 export type SceneBuild =
   { readonly ok: true } | { readonly ok: false; readonly failure: SceneFailure };
 
+/**
+ * Seat `seat` takes its enabled action `id`. A rival's options are read here only, to name its
+ * legal action in a script (spec §1); the engine still rejects a seat that is not the one deciding.
+ */
 function applyChoice(store: GameStore, seat: number, id: string): boolean {
-  const pending = pendingChoices(store);
-  if (pending?.seatIndex !== seat) return false;
-  const choice = pending.enabled.find((entry) => entry.id === id);
+  const session = store.getSession();
+  const actorId = session?.state.config.seats.find((entry) => entry.seatIndex === seat)?.actorId;
+  if (!actorId) return false;
+  const choice = seatDecision(store, seat).enabledActions.find((entry) => entry.id === id);
   if (!choice) return false;
-  const result = store.submit({
-    actorId: pending.actorId,
-    kind: choice.kind,
-    payload: choice.payload,
-  } as Command);
+  const result = store.submit({ actorId, kind: choice.kind, payload: choice.payload } as Command);
   return 'accepted' in result;
 }
 
@@ -204,10 +205,8 @@ export function buildScene(store: GameStore, scene: DemoScene): SceneBuild {
     const view = store.getView();
     if (!view || !scene.atMoment(view)) return fail({ kind: 'moment' });
     return { ok: true };
-  } catch (error) {
-    return fail({
-      kind: 'engine',
-      message: error instanceof Error ? error.message : String(error),
-    });
+  } catch {
+    // The engine's own text is not for the player; the failure says only that the build stopped.
+    return fail({ kind: 'engine' });
   }
 }
