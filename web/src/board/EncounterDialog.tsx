@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from 'react';
 import type { BallType, CatchOdds, LegalActions, Observation } from '../../../engine/index.ts';
+import { HowToPlayButton } from '../howToPlay/HowToPlay.tsx';
 import { t } from '../i18n/en.ts';
 import { speciesName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
@@ -98,6 +99,9 @@ export function EncounterDialog({
             {t('encounter.release')}
           </ActionButton>
         )}
+      </div>
+      <div className="encounter-help">
+        <HowToPlayButton />
       </div>
     </dialog>
   );

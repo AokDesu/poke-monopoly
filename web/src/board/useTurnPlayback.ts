@@ -6,6 +6,7 @@ import { inSocialWindow } from '../game/chat.ts';
 import { rivalOwesAnswer } from '../game/promises.ts';
 import type { Pace } from '../game/setup.ts';
 import { spokenLines } from '../game/tableTalk.ts';
+import { useHowToPlayOpen } from '../howToPlay/HowToPlay.tsx';
 import { t } from '../i18n/en.ts';
 import { latestTurns, tableBeats, turnSpeech, type Beat, type StorySpeech } from './beats.ts';
 import { holdMs, PACE_TIMING } from './pace.ts';
@@ -161,6 +162,10 @@ export function useTurnPlayback(
   const finished = game?.phase.kind === 'finished';
   // A step runs until the next action lands, then the game holds again.
   const stepping = stepFrom === position;
+  // The walkthrough holds the game: no automatic step starts and a rival's pending question is
+  // withdrawn (it is asked again on Close), so opening and closing it changes nothing.
+  const reading = useHowToPlayOpen();
+  const held = (paused && !stepping) || reading;
   const stepBlocked = !paused
     ? t('watch.stepWhileRunning')
     : finished
@@ -188,9 +193,9 @@ export function useTurnPlayback(
     if (shown >= beats.length) return;
     let next = shown;
     while (next < beats.length && holdFor(next) === 0) next++;
-    const held = next < beats.length;
-    setTold({ gameId, shown: held ? next + 1 : next });
-    if (held) setHold({ start: Date.now(), beat: next, extraMs: 0 });
+    const found = next < beats.length;
+    setTold({ gameId, shown: found ? next + 1 : next });
+    if (found) setHold({ start: Date.now(), beat: next, extraMs: 0 });
   });
 
   // A seat's one speech line adds its time to the beat it sits in (spec §3: inside its beat).
@@ -253,7 +258,7 @@ export function useTurnPlayback(
   useEffect(() => {
     // Nothing starts while a beat is held or waits to be told.
     if (!view || finished || hold || shown < beats.length) return;
-    if ((paused && !stepping) || failed || thinking) return;
+    if (held || failed || thinking) return;
     // The game pauses only in the human's Social window, and there it waits for the player: the
     // sole Skip that follows a message is Continue, not a step to apply (spec §4.2). A promise
     // question is the exception: the rival owes the answer, so it is asked (spec §4.8).
@@ -273,7 +278,7 @@ export function useTurnPlayback(
     running,
     failed,
     thinking,
-    paused,
+    held,
     stepping,
     retry,
     finished,
@@ -283,13 +288,13 @@ export function useTurnPlayback(
   ]);
 
   useEffect(() => {
-    if (!view || requested !== position) return;
+    if (!view || requested !== position || reading) return;
     const controller = new AbortController();
     void store.playOpponent(controller.signal).catch(() => {
       if (!controller.signal.aborted) setFailure(position!);
     });
     return () => controller.abort();
-  }, [store, view, requested, retry]);
+  }, [store, view, requested, retry, reading]);
 
   /** Everything waiting is told at once, with nothing held: before a step or a skip. */
   const tellAll = () => {
