@@ -38,11 +38,11 @@ test('spec §8: at least 60 scenarios and 15 per personality; the 20 Greedy ones
   expect(byPersonality('greedy')).toHaveLength(20);
   expect(SCENARIOS.slice(0, 20)).toEqual(GREEDY_SCENARIOS);
   for (const id of ['aggressive', 'cautious', 'opportunist'])
-    expect(byPersonality(id)).toHaveLength(15);
+    expect(byPersonality(id)).toHaveLength(16);
   expect(new Set(SCENARIOS.map((scenario) => scenario.id)).size).toBe(SCENARIOS.length);
 });
 
-test('each new personality covers 6 Strategy, 4 Encounter and 5 Sell decisions', async () => {
+test('each new personality covers 6 Strategy, 4 Encounter and 6 Sell decisions', async () => {
   const phases = async (scenarios: EvalScenario[]) => {
     const requests = await Promise.all(scenarios.map((scenario) => scenarioRequest(scenario)));
     return requests.map((request) => (request.state as { phase: string }).phase);
@@ -50,7 +50,7 @@ test('each new personality covers 6 Strategy, 4 Encounter and 5 Sell decisions',
   for (const id of ['aggressive', 'cautious', 'opportunist']) {
     const counts: Record<string, number> = {};
     for (const phase of await phases(byPersonality(id))) counts[phase] = (counts[phase] ?? 0) + 1;
-    expect(counts).toEqual({ strategy: 6, encounter: 4, sell: 5 });
+    expect(counts).toEqual({ strategy: 6, encounter: 4, sell: 6 });
   }
 });
 
@@ -70,7 +70,7 @@ test("every new scenario's reason cites weights, and each cited value matches th
 
 test('within a table state the requests differ only in the personality, and match a Greedy twin', async () => {
   const groups = groupedNew();
-  expect(groups.size).toBe(15);
+  expect(groups.size).toBe(16);
   for (const [group, members] of groups) {
     expect(members.map((m) => m.personality.id).sort(), group).toEqual([
       'aggressive',
