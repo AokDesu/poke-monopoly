@@ -1,4 +1,5 @@
 import { useContext, useEffect, useId, useRef } from 'react';
+import { HowToPlayButton } from '../howToPlay/HowToPlay.tsx';
 import { t } from '../i18n/en.ts';
 import { Board3D, type BoardSpace } from '../ui/Board3D.tsx';
 import { Button } from '../ui/Button.tsx';
@@ -117,6 +118,9 @@ export function HomeScreen({
               <p className="mt-2 ps-2 text-sm text-ink-soft">{t('demo.scenes.entryHint')}</p>
             </div>
           )}
+          <div>
+            <HowToPlayButton />
+          </div>
           {!canStart && <DisabledReason id={reasonId}>{t('home.notEnoughClasses')}</DisabledReason>}
           {!canWatch && (
             <DisabledReason id={watchReasonId}>{t('home.watchNotEnough')}</DisabledReason>

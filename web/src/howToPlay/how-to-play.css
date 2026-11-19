@@ -1,0 +1,198 @@
+/* How to play (issue #221): the same toy-plastic panel as the encounter and Sell dialogs. */
+.guide {
+  position: relative;
+  width: min(40rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  padding: clamp(1.25rem, 4vw, 2.25rem);
+  border: 0;
+  color: var(--color-ink);
+  overflow-y: auto;
+  scrollbar-color: var(--color-panel-lip) var(--color-panel-tint);
+}
+section.guide {
+  width: 100%;
+  max-width: 40rem;
+}
+dialog.guide {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+}
+.guide::backdrop {
+  background: rgb(15 35 61 / 0.65);
+}
+.guide-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+}
+.guide-head h2 {
+  font-size: clamp(1.6rem, 4vw, 2rem);
+  line-height: 1.2;
+  outline: none;
+}
+.guide-progress {
+  color: var(--color-ink-soft);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+/* Stops along the walkthrough, drawn like the setup progress route. */
+.guide-bar {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.9rem;
+  list-style: none;
+  padding: 0;
+}
+.guide-bar li {
+  flex: 1;
+  height: 0.35rem;
+  border-radius: 9999px;
+  background: var(--color-line);
+}
+.guide-bar li[data-state='done'],
+.guide-bar li[data-state='now'] {
+  background: var(--color-action);
+}
+.guide-step {
+  min-height: 19rem;
+  margin-top: 1.5rem;
+}
+.guide-step-body h3 {
+  font-size: clamp(1.3rem, 3.4vw, 1.6rem);
+  line-height: 1.25;
+  text-wrap: balance;
+}
+.guide-step-body > p {
+  max-width: 60ch;
+  margin-top: 0.8rem;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+.guide-visuals {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1.25rem;
+  margin-top: 1.1rem;
+}
+.guide-facts,
+.guide-pokemon {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.guide-facts li {
+  display: flex;
+  min-width: 6.25rem;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 14px;
+  background: var(--color-panel-tint);
+  box-shadow: inset 0 0 0 2px var(--color-line);
+}
+.guide-facts strong {
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.guide-facts span {
+  max-width: 11rem;
+  color: var(--color-ink-soft);
+  font-size: 0.85rem;
+  line-height: 1.3;
+}
+.guide-pokemon li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.9rem 0.45rem 0.5rem;
+  border-radius: 9999px;
+  background: var(--color-panel-tint);
+  box-shadow: inset 0 0 0 2px var(--color-line);
+}
+.guide-pokemon strong {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.2;
+}
+.guide-pokemon small {
+  display: block;
+  color: var(--color-ink-soft);
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+.guide-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-line);
+}
+.guide-nav .action-control {
+  flex: 0 0 9.5rem;
+}
+.guide-nav .btn {
+  width: 100%;
+  min-height: 3rem;
+  padding-inline: 1.5rem;
+}
+.guide-nav .guide-close {
+  width: auto;
+  margin-inline-start: auto;
+}
+.guide-open {
+  min-height: 2.75rem;
+  padding-inline: 1.25rem;
+  font-size: 1rem;
+}
+.guide-wait {
+  margin-top: 0.9rem;
+  color: var(--color-ink-soft);
+  font-size: 0.875rem;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .guide-step-body {
+    animation: guide-step-in 220ms var(--ease-out);
+  }
+}
+@keyframes guide-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (max-width: 30rem) {
+  .guide-step {
+    min-height: 0;
+  }
+  .guide-nav .action-control {
+    flex: 1 1 8rem;
+  }
+  .guide-nav .guide-close {
+    width: 100%;
+    margin-inline-start: 0;
+  }
+}
+/* The opener inside the two protected dialogs, where the page behind is inert. */
+.encounter-help,
+.sell-help {
+  display: flex;
+  margin-top: 1.2rem;
+}
+.encounter-help:empty,
+.sell-help:empty {
+  display: none;
+}

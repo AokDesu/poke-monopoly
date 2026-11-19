@@ -69,6 +69,7 @@ import { OpponentScreen } from './setup/OpponentScreen.tsx';
 import { PresetScreen } from './setup/PresetScreen.tsx';
 import { ReviewScreen } from './setup/ReviewScreen.tsx';
 import { WatchOptionsScreen } from './setup/WatchOptionsScreen.tsx';
+import { HowToPlayButton, HowToPlayProvider } from './howToPlay/HowToPlay.tsx';
 import { Button } from './ui/Button.tsx';
 import { BallIcon } from './ui/icons.tsx';
 import { FocusHeadingContext, Screen } from './ui/Screen.tsx';
@@ -369,7 +370,12 @@ export function App({
   switch (route.screen) {
     case 'home':
       screen = prompt ? (
-        <SavePrompt {...prompt} />
+        <>
+          <SavePrompt {...prompt} />
+          <div className="mt-8">
+            <HowToPlayButton />
+          </div>
+        </>
       ) : (
         <HomeScreen
           board={gameContent.board}
@@ -606,53 +612,56 @@ export function App({
   }
 
   return (
-    <div className={`flex min-h-dvh flex-col ${route.screen === 'play' ? 'app-playing' : ''}`}>
-      {route.screen !== 'home' && (
-        <header className="mx-auto flex w-full max-w-6xl items-center gap-3 px-5 pt-5 sm:px-8">
-          <BallIcon className="size-9 drop-shadow-[0_3px_0_rgb(16_38_84/0.35)]" />
-          <p className="title-3d text-2xl">{t('app.title')}</p>
-        </header>
-      )}
-      {announced && <DemoBanner />}
-      <main
-        className={`mx-auto flex w-full max-w-6xl flex-1 flex-col px-5 py-8 sm:px-8 sm:py-12 ${
-          route.screen === 'home' ? 'justify-center' : ''
-        }`}
-      >
-        {savingOff && (
-          <p role="status" className="panel mb-6 px-5 py-3 text-sm font-bold">
-            {t('save.off')}
-          </p>
+    <HowToPlayProvider gameWaits={route.screen === 'play'}>
+      <div className={`flex min-h-dvh flex-col ${route.screen === 'play' ? 'app-playing' : ''}`}>
+        {route.screen !== 'home' && (
+          <header className="mx-auto flex w-full max-w-6xl items-center gap-3 px-5 pt-5 sm:px-8">
+            <BallIcon className="size-9 drop-shadow-[0_3px_0_rgb(16_38_84/0.35)]" />
+            <p className="title-3d text-2xl">{t('app.title')}</p>
+            {route.screen === 'play' && <HowToPlayButton className="ms-auto" />}
+          </header>
         )}
-        <FocusHeadingContext value={navigated}>
-          <div
-            key={
-              route.screen === 'setup'
-                ? route.step
-                : route.screen === 'watch'
-                  ? `watch-${route.step}`
-                  : route.screen
-            }
-          >
-            {screen}
-          </div>
-        </FocusHeadingContext>
-      </main>
-      {route.screen !== 'credits' && (
-        <footer className="mx-auto w-full max-w-6xl px-5 pb-6 text-sm sm:px-8">
-          <button
-            type="button"
-            className="font-bold underline underline-offset-4"
-            onClick={() => {
-              setCreditsFrom(route);
-              go({ screen: 'credits' });
-            }}
-          >
-            {t('credits.link')}
-          </button>
-        </footer>
-      )}
-    </div>
+        {announced && <DemoBanner />}
+        <main
+          className={`mx-auto flex w-full max-w-6xl flex-1 flex-col px-5 py-8 sm:px-8 sm:py-12 ${
+            route.screen === 'home' ? 'justify-center' : ''
+          }`}
+        >
+          {savingOff && (
+            <p role="status" className="panel mb-6 px-5 py-3 text-sm font-bold">
+              {t('save.off')}
+            </p>
+          )}
+          <FocusHeadingContext value={navigated}>
+            <div
+              key={
+                route.screen === 'setup'
+                  ? route.step
+                  : route.screen === 'watch'
+                    ? `watch-${route.step}`
+                    : route.screen
+              }
+            >
+              {screen}
+            </div>
+          </FocusHeadingContext>
+        </main>
+        {route.screen !== 'credits' && (
+          <footer className="mx-auto w-full max-w-6xl px-5 pb-6 text-sm sm:px-8">
+            <button
+              type="button"
+              className="font-bold underline underline-offset-4"
+              onClick={() => {
+                setCreditsFrom(route);
+                go({ screen: 'credits' });
+              }}
+            >
+              {t('credits.link')}
+            </button>
+          </footer>
+        )}
+      </div>
+    </HowToPlayProvider>
   );
 }
 
