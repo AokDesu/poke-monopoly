@@ -234,6 +234,32 @@ describe('which Deal Cards the human may propose (§4.8)', () => {
     expectRefused(state, 'propose_deal', sellPokemon('caught:0:a', 3, 1));
     expect(kindsOf(state, 0)).not.toContain('propose_deal');
   });
+
+  test('with two human seats (local multiplayer) proposals go to the AI seats only (§6: no deals between people)', () => {
+    const state = social({ seats: 3 });
+    state.config.seats[1]!.controller = 'human';
+    const targets = (seat: number) =>
+      choicesOf(state, seat)
+        .filter((choice) => choice.kind === 'propose_deal')
+        .map((choice) => (choice.payload as { targetSeatIndex: number }).targetSeatIndex);
+    // The active human is offered deals with the one AI seat and with no human seat.
+    expect(new Set(targets(0))).toEqual(new Set([2]));
+    // The other human is not the active seat, so it is offered none.
+    expect(targets(1)).toEqual([]);
+    // A forged or stale proposal naming the human seat, in any of the four formats, is refused with the state unchanged.
+    for (const payload of [
+      sellPokemon('caught:0:a', 3, 1),
+      sellItem('item:0:potion', 3, 1),
+      buyPokemon('caught:1:a', 3, 1),
+      buyItem('item:1:repel', 3, 1),
+    ]) {
+      expectRefused(state, 'propose_deal', payload);
+    }
+    // The same proposal to the AI seat is still fine, so the refusal is about the target and nothing else.
+    expect(attempt(state, 'propose_deal', sellPokemon('caught:0:a', 3, 2))).toHaveProperty(
+      'accepted',
+    );
+  });
 });
 
 describe('legality: every illegal case is refused with the state unchanged (§4.8)', () => {
