@@ -13,6 +13,19 @@ import { ENGINE_VERSION } from './versions.ts';
 export const CHAT_HISTORY_PER_PAIR = 3;
 
 /**
+ * The AI opponents of the active human during Social (§4.2, §4.8). Chat and promise choices also
+ * check that the window is open and its interaction is available.
+ */
+export function socialTargets(state: GameState): number[] {
+  if (state.phase.kind !== 'social') return [];
+  const active = state.config.seats.find((seat) => seat.seatIndex === state.activeSeatIndex);
+  if (active?.controller !== 'human') return [];
+  return state.config.seats
+    .filter((seat) => seat.controller === 'ai')
+    .map((seat) => seat.seatIndex);
+}
+
+/**
  * Whether the active human may start a conversation now (§4.2): the flag is on, it is the Social
  * window, and this turn's one social interaction is unspent. AI seats never start conversations.
  */
@@ -34,7 +47,7 @@ function chatPayloads(state: GameState, seatIndex: number): ChatPayload[] {
   const utilityItems = state.content.items.filter((item) => item.kind === 'utility');
   const seats = state.players.map((player) => player.seatIndex);
   const payloads: ChatPayload[] = [];
-  for (const targetSeatIndex of seats.filter((seat) => seat !== seatIndex)) {
+  for (const targetSeatIndex of socialTargets(state)) {
     payloads.push({ targetSeatIndex, topic: 'truce' }, { targetSeatIndex, topic: 'trade' });
     // Pointing at the leader names a third seat; words only, so it is not checked against the lead.
     for (const leaderSeatIndex of seats) {

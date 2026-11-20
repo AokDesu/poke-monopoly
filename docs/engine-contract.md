@@ -634,8 +634,8 @@ Spec: §4.2 social window, §4.4 attack counting, §4.8 evidence only, §5.2/5.3
   `move`, `encounter`, `sell`, `shop`, `pvp_response`, `ability_window`, `reroll`, `reward` or
   `gym_entry`; `null` while the engine owes a die or the game is over. It complements
   `pendingDecision`, which names the deciding seat.
-- `socialTargets(state)` lists the opponents a human seat may talk to in its own Social phase and
-  is empty for AI seats, so there is no AI↔AI conversation. Leaving Social spends no budget.
+- `socialTargets(state)` lists only AI opponents during any human seat's own Social phase. Chat and
+  promise choices also check whether the interaction is available. Leaving Social spends no budget.
 - `sim/mixed-seats.test.ts` plays one scripted human with 1, 2 and 3 AI seats to the end. At every
   new decision point an AI answer is first injected as a timeout, error, invalid or stale command
   (each leaves the state hash unchanged), then `FallbackPolicy` answers from the engine's options.
