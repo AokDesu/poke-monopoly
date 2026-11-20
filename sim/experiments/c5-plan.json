@@ -932,9 +932,27 @@
       "last": 1100507,
       "partition": "eval",
       "status": "consumed",
-      "opened": "2026-11-20T10:22:03Z",
-      "openedBy": "punkharb (Stream A)",
-      "openedCommit": "5b9661923006809e746053191d1dad1705d1bfd4"
+      "opened": "2026-11-18",
+      "openedBy": "punkharb (Stream A), by accident (see accidentalRun)",
+      "openedCommit": "124a3beb080798b880d880e3abb71ecc84b4c935 plus uncommitted A61-5 changes, committed afterwards as ce661039cc2d6b830d643a42997d9cbe49c80515",
+      "accidentalRun": {
+        "what": "A CLI guard test in the A61-5 runner work ran `--held-out --policy sell-all` against the real manifest, expecting a refusal. It did not refuse and played the sell-all cells.",
+        "cells": ["sell-all/2", "sell-all/3", "sell-all/4"],
+        "seeds": "1100148-1100219",
+        "games": "144 by the manifest (3 cells x 24 blocks x 2 arms); the run exited 0; the rows were deleted, so the count could not be checked against rows",
+        "when": "inside one vitest run that started 2026-11-18T08:02:48Z and had returned by 2026-11-18T08:05:14Z; the start of the games within it was not recorded",
+        "outputsRead": false,
+        "outputs": "written to a file in a temporary directory that the test removes when it ends; the failing assertion showed only the exit code and an empty error list",
+        "changedBecauseOfIt": "nothing: no policy, manifest cell, seed, analysis rule or run setting. The only change after it was to the test, which no longer passes --held-out with the real manifest.",
+        "notClaimed": "that these games equal the evaluation run's games for the same seeds: main moved from 124a3be to 1456099 in between (engine version string unchanged at 0.20.0) and the earlier rows no longer exist",
+        "disclosure": "PR #237 description; its reviewer Mrmo0p wrote on 2026-11-18T09:09:17Z that he would treat those cells as not consumed and asked for it to be recorded in this ledger. It was not recorded until this entry."
+      },
+      "evaluationRun": {
+        "opened": "2026-11-20T10:22:03Z",
+        "openedBy": "punkharb (Stream A)",
+        "commit": "5b9661923006809e746053191d1dad1705d1bfd4",
+        "games": "all 1,008 planned games, once each, including the sell-all seeds above"
+      }
     },
     {
       "id": "c5-contingency",

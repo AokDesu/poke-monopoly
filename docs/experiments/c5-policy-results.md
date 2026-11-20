@@ -23,7 +23,7 @@ The training matrix checked four pairs per policy and seat count before the eval
 | 3 | 27 | 2 | 24 | 2 |
 | 4 | 49 | 0 | 51 | 0 |
 
-The held-out range opened on 2026-11-20 at 10:22:03 UTC. The C4 published and C5 contingency ranges were unused here. All planned games ran once, with zero failing seeds.
+The evaluation run opened on 2026-11-20 at 10:22:03 UTC. All 1,008 planned games ran once in it, with zero failing seeds. It was not the first time games in the held-out range had been played. On 2026-11-18 an accidental test run played the 144 `sell-all` held-out games (seeds 1,100,148 to 1,100,219) and discarded the rows unread. Under plan rule 1 that run opened the range. Nothing was changed because of it, and the `sell-all` rows reported here come only from the evaluation run. The [seed-use ledger](c5-policy-plan.md#seed-use-ledger) gives its time, commit and what is and is not known about it. The C4 published and C5 contingency ranges were unused.
 
 ### Reproduce
 
@@ -37,12 +37,14 @@ env -u TYPESAFE_API_KEY -u ANTHROPIC_API_KEY JEV_ENABLED=false HAIKU_ENABLED=fal
   npm run experiment -- --held-out --out "$output_dir/held-out-games.jsonl"
 ```
 
-For the recorded runs, cells were played in separate processes with `--policy` and `--seats`, then concatenated in manifest order. The combined command above uses that same order. For a single game, also pass `--blocks <block>-<block> --arms <arm>`. The sanitized game and pair rows and analysis output are retained in the task evidence directory.
+For the recorded runs, cells were played in separate processes with `--policy` and `--seats`, then concatenated in manifest order. The combined command above uses that same order. For a single game, also pass `--blocks <block>-<block> --arms <arm>`. The sanitized game rows, pair rows and analysis output for both runs are committed in [`c5-policy-evidence/`](c5-policy-evidence/README.md), with the script that produced the pair rows and analysis.
 
 | SHA-256 | Training | Held out |
 | --- | --- | --- |
-| Manifest at run time | `3ddcf8b108f67867fdb4282ebb9a3c3dc3bcaba63fc2f5d83e11143e38d85c9b` | same manifest |
+| Manifest at run time (`5b96619`) | `3ddcf8b108f67867fdb4282ebb9a3c3dc3bcaba63fc2f5d83e11143e38d85c9b` | same manifest |
 | Game rows in manifest order | `bedf084624e06685c054df7e1ee2040ca5c5dc0276ae4c873103c031a0d38ae0` | `c2119dcf5f77654e6effba8c92b7300e880d615568b737af557f1bd94015ba15` |
+| Pair rows | `f7e444c09b47a0d1e5e7168e034c05bd82260a5c0453c6f8bab676a911c3e5af` | `6b3eed2a31d4d6c957ccc17c64a77fed9965ffbc37e2777b8cddfbf9db4f4dff` |
+| Analysis output | `3bf6c430c163ac92c065c1c86240051c7ac2e7c05e773f27c9bd197f6dee06c0` | `397d8caa5fad52102072a18d0c4ee371e89aad0945409115a856e05b6f2f0cd4` |
 
 Analyze the held-out rows using the merged `toPairedRecord` adapter and `analyzePaired`:
 
