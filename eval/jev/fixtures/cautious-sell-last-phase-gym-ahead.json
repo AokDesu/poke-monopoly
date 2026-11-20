@@ -152,18 +152,18 @@
     "sell_team_2": ["true", "false"]
   },
   "reason": "Cautious: a Gym follows this last Sell Phase; risk 0.2 and loyalty 0.8 favour keeping a steady team for the battle, while liquidity 0.5 allows taking the coins now, so selling and keeping are both defensible.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "642684460be8c9ca376bcd97c12973998846aa3eb3d355367fbe43a33c1d58cd",
   "recorded": {
     "ok": true,
     "answers": {
-      "sell_team_0": { "type": "noul", "noul": 0.89 },
-      "sell_team_1": { "type": "noul", "noul": 0.6 },
-      "sell_team_2": { "type": "noul", "noul": 0.76 }
+      "sell_team_0": { "type": "noul", "noul": 0.55 },
+      "sell_team_1": { "type": "noul", "noul": 0.76 },
+      "sell_team_2": { "type": "noul", "noul": 0.85 }
     },
-    "requestId": "synthetic-cautious-sell-last-phase-gym-ahead",
+    "requestId": "req_01a1f94125a174e4b6a2b1e802d38e28",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 300,
+    "usage": { "inputTokens": 2377, "outputTokens": 61 }
   }
 }

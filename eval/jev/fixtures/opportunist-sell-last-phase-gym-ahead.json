@@ -152,18 +152,18 @@
     "sell_team_2": ["true", "false"]
   },
   "reason": "Opportunist: a Gym follows this last Sell Phase; liquidity 0.7 takes the coins now while risk 0.6 can still back a Gym win with the team, so selling and keeping are both defensible.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "beff9cdb6f928046772f934a30c25caa5bb38df9c0a87e865a2e1013d41e711b",
   "recorded": {
     "ok": true,
     "answers": {
-      "sell_team_0": { "type": "noul", "noul": 0 },
-      "sell_team_1": { "type": "noul", "noul": 0.09 },
-      "sell_team_2": { "type": "noul", "noul": 0.71 }
+      "sell_team_0": { "type": "noul", "noul": 0.51 },
+      "sell_team_1": { "type": "noul", "noul": 0.82 },
+      "sell_team_2": { "type": "noul", "noul": 0.87 }
     },
-    "requestId": "synthetic-opportunist-sell-last-phase-gym-ahead",
+    "requestId": "req_01a1f941270c73e5ad97dc12b34076e4",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 259,
+    "usage": { "inputTokens": 2376, "outputTokens": 61 }
   }
 }

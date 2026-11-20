@@ -152,18 +152,18 @@
     "sell_team_2": ["true", "false"]
   },
   "reason": "Aggressive: a Gym follows this last Sell Phase, so a kept Pokémon can still win it; risk 0.8 and aggression 0.9 like the battle, while liquidity 0.3 does not press for coins now, so selling and keeping are both defensible.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "d42437afb86c97498e1aa35d7deac297db5dc837c8cf03b04f33bf25531636c9",
   "recorded": {
     "ok": true,
     "answers": {
-      "sell_team_0": { "type": "noul", "noul": 0.04 },
-      "sell_team_1": { "type": "noul", "noul": 0.99 },
-      "sell_team_2": { "type": "noul", "noul": 0 }
+      "sell_team_0": { "type": "noul", "noul": 0.49 },
+      "sell_team_1": { "type": "noul", "noul": 0.77 },
+      "sell_team_2": { "type": "noul", "noul": 0.86 }
     },
-    "requestId": "synthetic-aggressive-sell-last-phase-gym-ahead",
+    "requestId": "req_01a1f94123ec795f8e47a4743094e9c5",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 470,
+    "usage": { "inputTokens": 2378, "outputTokens": 61 }
   }
 }
