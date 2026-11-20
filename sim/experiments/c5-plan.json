@@ -1,8 +1,8 @@
 {
   "id": "c5-policy-plan",
   "version": 1,
-  "status": "planned",
-  "note": "Pre-registered design. No game in the evaluation ranges below has been run. Frozen when the seed ledger opens its first evaluation range; until then changes need a PR that says why. Prose and interpretation rules: docs/experiments/c5-policy-plan.md.",
+  "status": "evaluated",
+  "note": "Frozen design with the evaluation opening recorded in the seed ledger. The run used the manifest at openedCommit. See docs/experiments/c5-policy-results.md.",
   "spec": ["§8 Simulation", "§9 Sim limits", "§10 C5"],
   "epic": "AokDesu/poke-monopoly#61",
   "ticket": "A61-4",
@@ -931,9 +931,10 @@
       "first": 1100004,
       "last": 1100507,
       "partition": "eval",
-      "status": "unopened",
-      "opened": null,
-      "openedBy": null
+      "status": "consumed",
+      "opened": "2026-11-20T10:22:03Z",
+      "openedBy": "punkharb (Stream A)",
+      "openedCommit": "5b9661923006809e746053191d1dad1705d1bfd4"
     },
     {
       "id": "c5-contingency",

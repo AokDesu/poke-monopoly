@@ -73,10 +73,12 @@ The C4 report used evaluation seeds 1,000,002–1,000,101 and published their ob
 | `c4-published`         | 1,000,002–1,000,101    | C4 300-game report                                                       | consumed                     |
 | `withheld-below-c5`    | 1,000,000–1,099,999    | Holds the C4 range. No C5 evaluation seeds.                              | withheld                     |
 | `alignment-gap`        | 1,100,000–1,100,003    | Skipped so every cell starts at a multiple of 6 and keeps class rotation | withheld                     |
-| **`c5-held-out`**      | **1,100,004–1,100,507** | **The 1,008 evaluation games**                                           | **unopened**                 |
+| **`c5-held-out`**      | **1,100,004–1,100,507** | **The 1,008 evaluation games**                                           | **consumed**                 |
 | `c5-contingency`       | 1,200,000–1,200,503    | One replacement set, same layout, only if a fix forces re-evaluation     | unopened                     |
 
 Each of the 21 cells owns 24 consecutive seeds, in the order of the policies in the data file, seat counts 2, 3, 4 within each policy. Cell `i` (counting from 0) uses `1,100,004 + 24i` to `1,100,027 + 24i`. The contingency range has the same 504 seeds and the same cell order; cell `i` uses `1,200,000 + 24i` to `1,200,023 + 24i`. Its first seed is a multiple of 6 (1,200,000 = 6 × 200,000), so every row of the schedule gets the same focal class as in the held-out range. Each seed is played twice, once per arm, so the 504 seeds give 1,008 physical games. No seed is shared between cells, so the 504 control arms are different games.
+
+Stream A (punkharb) opened `c5-held-out` on 2026-11-20 at 10:22:03 UTC from `5b9661923006809e746053191d1dad1705d1bfd4`. [Run record and results](c5-policy-results.md)
 
 Rules:
 
