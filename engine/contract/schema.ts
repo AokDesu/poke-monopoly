@@ -113,6 +113,9 @@ export const contentSchema = z.strictObject({
       z.strictObject({ id, name: id, kind: z.literal('utility'), price: count }),
     ]),
   ),
+  // The AI's concession budget for Deal Cards (§4.8). Optional for historical contract fixtures; real
+  // authored content always supplies it, and when absent no budget is enforced.
+  dealBudget: z.strictObject({ perDeal: count, perGame: count }).optional(),
 });
 export const gameConfigSchema = z.strictObject({
   seats: z
@@ -228,6 +231,32 @@ export const proposeDealPayloadSchema = z.strictObject({
 /** A counter keeps the asset and its direction and names a new coin amount (§4.8, #164 plan note). */
 export const counterDealPayloadSchema = z.strictObject({ coins: z.int().positive() });
 export const dealStageSchema = z.enum(['proposed', 'accepted', 'countered']);
+/** Named buckets for a pending deal's valuation, never raw numbers (§5.4); the scheme of the Sell facts (§4.7). */
+export const dealValueBucketSchema = z.enum(['low', 'medium', 'high']);
+export const dealCountBucketSchema = z.enum(['none', 'one', 'few', 'many']);
+/**
+ * What the AI answering a Deal Card is told about it (§4.8, §5.4): the value it gives and receives, the concession
+ * it would make and the budget it has left. `budgetLeft` is absent when the content sets no budget.
+ */
+export const dealFactsSchema = z.strictObject({
+  valueGiven: dealValueBucketSchema,
+  valueReceived: dealValueBucketSchema,
+  concession: dealCountBucketSchema,
+  budgetLeft: dealCountBucketSchema.optional(),
+});
+// A Deal Card in progress (§4.8), told only to its two parties. `proposed`: the target owes accept, reject
+// or counter. `accepted` or `countered`: the proposer owes confirm or cancel. `responderSeatIndex` is whoever
+// owes the next command; the item named in the terms is shown here to the pair and nobody else.
+const dealPendingSchema = z.strictObject({
+  kind: z.literal('deal'),
+  stage: dealStageSchema,
+  initiatorSeatIndex: count,
+  responderSeatIndex: count,
+  targetSeatIndex: count,
+  terms: dealTermsSchema,
+  revealedItem: itemInstanceSchema.optional(),
+  counterDepth: z.int().min(0).max(1),
+});
 /**
  * A question another seat owes an answer to before the game goes on (a pending decision, engine/decisions.ts).
  * `initiatorSeatIndex` is the seat whose turn it is; `responderSeatIndex` owes the next command.
@@ -240,19 +269,15 @@ export const pendingResponseSchema = z.discriminatedUnion('kind', [
     // `offer`: the initiator promises the responder; `ask`: the initiator asks the responder to promise.
     direction: promiseDirectionSchema,
   }),
-  // A Deal Card in progress (§4.8), told only to its two parties. `proposed`: the target owes accept, reject
-  // or counter. `accepted` or `countered`: the proposer owes confirm or cancel. `responderSeatIndex` is whoever
-  // owes the next command; the item named in the terms is shown here to the pair and nobody else.
-  z.strictObject({
-    kind: z.literal('deal'),
-    stage: dealStageSchema,
-    initiatorSeatIndex: count,
-    responderSeatIndex: count,
-    targetSeatIndex: count,
-    terms: dealTermsSchema,
-    revealedItem: itemInstanceSchema.optional(),
-    counterDepth: z.int().min(0).max(1),
-  }),
+  dealPendingSchema,
+]);
+/**
+ * A pending question as its seat observes it: the AI answering a deal also gets the engine's buckets for it
+ * (`facts`), which the proposer, a third seat and a spectator never do (the budget is the AI's own).
+ */
+export const observedPendingResponseSchema = z.discriminatedUnion('kind', [
+  pendingResponseSchema.options[0],
+  dealPendingSchema.extend({ facts: dealFactsSchema.optional() }),
 ]);
 export const respondPayloadSchema = z.strictObject({ answer: z.enum(['accept', 'reject']) });
 export const offerPromisePayloadSchema = z.strictObject({
@@ -315,6 +340,9 @@ export const playerSchema = z.strictObject({
   privateResults: z.array(privateResultSchema),
   // `creditedLap` whose one deal (§4.8, counting both sides) is used; absent until a deal commits.
   dealUsedLap: count.optional(),
+  // Concession coins an AI seat has given away in committed Deal Cards (§4.8); charged on commit only, absent until the
+  // first charge. Private to the seat: it reaches the AI only as a bucket (`dealFactsSchema`).
+  dealConcessionSpent: count.optional(),
   // Accepted records this seat may not see (chats between two other seats, §4.8); absent when none.
   unseenRecords: count.optional(),
 });
@@ -899,7 +927,7 @@ export const observationSchema = z.strictObject({
     promises: z.array(seatPromiseSchema).optional(),
     // This seat's trust in every other seat, -3..3 (§4.8); Social window only. Never another seat's trust.
     trust: z.array(z.strictObject({ seatIndex: count, value: z.int().min(-3).max(3) })).optional(),
-    pendingResponse: pendingResponseSchema.optional(),
+    pendingResponse: observedPendingResponseSchema.optional(),
   }),
 });
 export const fixtureSchema = z.strictObject({
@@ -971,6 +999,7 @@ export type SeatPromise = z.infer<typeof seatPromiseSchema>;
 export type PromiseOutcome = z.infer<typeof promiseOutcomeSchema>;
 export type Trust = z.infer<typeof trustSchema>;
 export type PendingResponse = z.infer<typeof pendingResponseSchema>;
+export type DealFacts = z.infer<typeof dealFactsSchema>;
 export type DealTerms = z.infer<typeof dealTermsSchema>;
 export type ProposeDealPayload = z.infer<typeof proposeDealPayloadSchema>;
 export type ItemInstance = z.infer<typeof itemInstanceSchema>;

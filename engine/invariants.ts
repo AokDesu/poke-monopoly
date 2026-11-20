@@ -1,5 +1,6 @@
 import { ABILITY_EFFECTS, abilityEffectOf } from './abilities.ts';
 import { pendingDecision } from './decisions.ts';
+import { concessionWithinBudget, dealValuation } from './deal-facts.ts';
 import { applyAction, legalActions } from './contract/stubs.ts';
 import {
   actionSchema,
@@ -662,6 +663,20 @@ function checkDealsAtomic({ before, parsed, result }: Step): string[] {
     if (eventsOf(result.events, 'deal_committed').length !== 1) {
       errors.push('a confirmed deal must log exactly one deal_committed');
     }
+    // §4.8: the AI's concession is charged on commit, once, and never past its budget.
+    const { concession } = dealValuation(
+      before,
+      pending.initiatorSeatIndex,
+      pending.targetSeatIndex,
+      terms,
+    );
+    const charged = result.state.players.find((p) => p.seatIndex === pending.targetSeatIndex)!;
+    if ((charged.dealConcessionSpent ?? 0) !== (target.dealConcessionSpent ?? 0) + concession) {
+      errors.push('a confirmed deal did not charge exactly its concession to the AI budget');
+    }
+    if (!concessionWithinBudget(before, target, concession)) {
+      errors.push('a confirmed deal conceded more than the AI budget allows');
+    }
     for (const seatIndex of [pending.initiatorSeatIndex, pending.targetSeatIndex]) {
       const after = result.state.players.find((p) => p.seatIndex === seatIndex)!;
       if (after.dealUsedLap !== after.creditedLap) errors.push('a deal did not use its Lap quota');
@@ -682,6 +697,14 @@ function checkDealsAtomic({ before, parsed, result }: Step): string[] {
       }
     }
     if (result.state.pendingResponse) errors.push('a confirmed deal left its question pending');
+  }
+  if (parsed?.kind !== 'confirm_deal') {
+    for (const player of result.state.players) {
+      const previous = before.players.find((p) => p.actorId === player.actorId);
+      if ((player.dealConcessionSpent ?? 0) !== (previous?.dealConcessionSpent ?? 0)) {
+        errors.push('a concession was charged outside a confirmed deal');
+      }
+    }
   }
   const after = result.state.pendingResponse;
   if (after?.kind === 'deal' && after.counterDepth > 1) errors.push('counter depth exceeds 1');

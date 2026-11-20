@@ -9,6 +9,7 @@ import type {
   Player,
   ProposeDealPayload,
 } from './contract/schema.ts';
+import { concessionWithinBudget, dealValuation } from './deal-facts.ts';
 import { hideFromBystanders, socialOpen } from './social.ts';
 
 /**
@@ -16,8 +17,8 @@ import { hideFromBystanders, socialOpen } from './social.ts';
  * The AI answers accept, reject or counter (once); the human confirms or cancels; only a confirm commits, and a
  * commit moves everything or nothing. The question lives beside the Social phase as a `pendingResponse` owned by
  * the seat that owes the next command (as for a promise), and the turn's one social interaction is spent when the
- * exchange ends, never the tactical action (§4.2). No number is computed here: valuation and the concession
- * budget belong to a later slice.
+ * exchange ends, never the tactical action (§4.2). Values are computed in `deal-facts.ts`: this file only checks
+ * the AI's concession budget at the answer and the confirm, and charges it on commit.
  */
 
 /** The reasons a deal is not legal, for the legality check below and the tests that name each. */
@@ -30,7 +31,8 @@ export type DealProblem =
   | 'last_pokemon'
   | 'not_enough_coins'
   | 'items_full'
-  | 'quota';
+  | 'quota'
+  | 'budget';
 
 /** Coin amounts offered as ready-made proposals; `propose_deal` itself accepts any amount that is legal. */
 export const DEAL_COIN_LADDER = [1, 2, 5] as const;
@@ -59,8 +61,9 @@ function quotaSpent(who: Player): boolean {
 
 /**
  * Why `terms` is not a legal deal between `initiator` (who gives `give` and gets `get`) and `target`, or `null`.
- * `targetQuota` is false when the offer is being made: whether the target already dealt this Lap is not public, so
- * it is not asked then; it is checked again when the target answers and when the human confirms.
+ * `targetQuota` is false when the offer is being made: whether the target already dealt this Lap, and whether the
+ * deal is within its concession budget (§4.8), are the target's own and not public, so neither is asked then; both
+ * are checked when the target answers and again when the human confirms.
  */
 export function dealProblem(
   state: GameState,
@@ -102,6 +105,11 @@ export function dealProblem(
   }
   if (payer.coins < coinSide.coins) return 'not_enough_coins';
   if (quotaSpent(initiator) || (targetQuota && quotaSpent(target))) return 'quota';
+  // The target's concession must fit its budget (§4.8): over budget, only a reject is legal.
+  if (targetQuota) {
+    const { concession } = dealValuation(state, initiatorSeatIndex, targetSeatIndex, terms);
+    if (!concessionWithinBudget(state, target, concession)) return 'budget';
+  }
   return null;
 }
 
@@ -397,6 +405,8 @@ export function confirmDeal(next: GameState): EngineEvent[] {
   ) {
     throw new RangeError('The Deal Card is no longer legal');
   }
+  // Valued before the asset moves: it is read from the giver's holdings.
+  const { concession } = dealValuation(next, initiatorSeatIndex, targetSeatIndex, terms);
   const initiator = player(next, initiatorSeatIndex)!;
   const target = player(next, targetSeatIndex)!;
   const assetSide = terms.give.pokemonInstanceIds.length + terms.give.itemInstanceIds.length > 0;
@@ -416,6 +426,8 @@ export function confirmDeal(next: GameState): EngineEvent[] {
   // The receiver pays: the one coin side is its alone.
   receiver.coins -= coins;
   giver.coins += coins;
+  // The AI's concession is charged to its budget here and nowhere else (§4.8): a reject or a cancel costs nothing.
+  if (concession > 0) target.dealConcessionSpent = (target.dealConcessionSpent ?? 0) + concession;
   initiator.dealUsedLap = initiator.creditedLap;
   target.dealUsedLap = target.creditedLap;
   const item = pending.revealedItem;

@@ -1,5 +1,6 @@
 import { pendingGymChoices, recordGymCommand, recordGymRoll } from '../gym.ts';
 import { pendingDecision } from '../decisions.ts';
+import { dealFacts } from '../deal-facts.ts';
 import {
   abilityChoices,
   abilityDisabled,
@@ -57,6 +58,17 @@ import type {
   LegalAction,
   ApplyActionResult,
 } from './schema.ts';
+
+/**
+ * The question as this seat sees it: its two parties' alone, and the AI answering a Deal Card also gets the
+ * engine's buckets for it (§5.4). The proposer never does: the AI's valuation and budget are its own.
+ */
+function observedPending(state: GameState, seatIndex: number) {
+  const pending = state.pendingResponse!;
+  if (pending.kind !== 'deal') return pending;
+  const facts = dealFacts(state, seatIndex);
+  return facts ? { ...pending, facts } : pending;
+}
 
 /** Explicit allowlist: snapshots and logs must never be passed to AI as observations. */
 export function observe(state: GameState, seatIndex: number): Observation {
@@ -119,7 +131,7 @@ export function observe(state: GameState, seatIndex: number): Observation {
           state.pendingResponse.responderSeatIndex === seatIndex ||
           (state.pendingResponse.kind === 'deal' &&
             state.pendingResponse.targetSeatIndex === seatIndex)) && {
-          pendingResponse: state.pendingResponse,
+          pendingResponse: observedPending(state, seatIndex),
         }),
     },
   });

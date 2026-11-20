@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { legalActionSchema, observationSchema } from './schema.ts';
+import { dealFactsSchema, legalActionSchema, observationSchema } from './schema.ts';
 
 // The AI decision endpoint's wire contract (spec §5.2, §6 item 2, §9): types and schemas only,
 // so web/ and ai/ share it without importing each other.
@@ -70,18 +70,11 @@ export const decisionFactsSchema = z.strictObject({
     .max(64)
     .optional(),
   /**
-   * The engine's numbers for a pending deal, for the responder (S05, S08): net values to each side,
-   * the concession asked and the budget left. All optional until the engine provides them; ai/
-   * turns them into buckets and never computes its own.
+   * The engine's buckets for a pending deal, for the AI answering it (spec §4.8, §5.4): the value it gives and
+   * receives, the concession it would make and the budget it has left, as named buckets and never numbers.
+   * `dealFacts` from the engine; ai/ passes them on and computes nothing.
    */
-  deal: z
-    .strictObject({
-      netValueToYou: z.int().optional(),
-      netValueToProposer: z.int().optional(),
-      concession: count.optional(),
-      budgetLeft: count.optional(),
-    })
-    .optional(),
+  deal: dealFactsSchema.optional(),
 });
 
 export const decisionRequestSchema = z
