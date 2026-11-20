@@ -276,7 +276,7 @@ test('a human targeted by Pickpocket can use Snorlaxâ€™s Block during the rivalâ
   log.actions.push(result.record);
   const store = open(result.state, log);
   expect(screen.getByText(t('turn.pickpocketReaction'))).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: 'Block', exact: true }));
+  fireEvent.click(screen.getByRole('button', { name: 'Block' }));
   fireEvent.click(screen.getByRole('button', { name: t('ability.confirm', { ability: 'Block' }) }));
   expect(store.getSession()!.state.players[0]!.coins).toBe(state.players[0]!.coins);
   expect(store.getSession()!.state.pendingPickpocket).toBeUndefined();
