@@ -14,11 +14,11 @@ import {
   eventsVisibleTo,
   legalActions,
   observe,
+  observeSpectator,
   pendingDecision,
   replay,
   type Action,
   type ActionRecord,
-  type Content,
   type GameState,
 } from './index.ts';
 
@@ -29,15 +29,8 @@ const files = Object.fromEntries(
 );
 const content = toEngineContent(parseContent(files));
 
-/** C4 content decides who carries `track`; this scenario binds it to Growlithe (§4.5 peek). */
-function withTrack(): Content {
-  const bound = structuredClone(content);
-  bound.species.find((entry) => entry.id === 'growlithe')!.ability!.effect = 'track';
-  return bound;
-}
-
 /** Seat 0 Fisherman (Magikarp) is in Strategy; the log starts at revision 0 (§6.8). */
-function game(seed: number, engineContent = content): GameState {
+function game(seed: number): GameState {
   const state = createGame(
     createGameConfig({
       seats: ['fisherman', 'researcher', 'bug-catcher'].map((classId, seatIndex) => ({
@@ -49,7 +42,7 @@ function game(seed: number, engineContent = content): GameState {
       seed,
       lapTarget: 2,
     }),
-    engineContent,
+    content,
   );
   state.phase = { kind: 'strategy' };
   state.globalTurnNo = 5;
@@ -130,8 +123,68 @@ test.each([
   },
 );
 
+test.each([
+  { face: 2, shielded: false, cap: true },
+  { face: 3, shielded: false, cap: false },
+  { face: 4, shielded: true, cap: false },
+])('Thunder Shock on $face (shielded: $shielded) applies cap: $cap', ({ face, shielded, cap }) => {
+  const state = game(seedFor((value) => value === face));
+  const user = state.players[0]!;
+  user.team[0]!.speciesId = 'pikachu';
+  const target = state.players[1]!;
+  target.pendingSlows = ['repel'];
+  if (shielded) target.armedShield = { scope: 'price', visibility: 'secret' };
+  const log = createGameLog(state);
+  const activated = step(state, 'activate_ability', {
+    instanceId: user.team[0]!.instanceId,
+    targetSeatIndex: target.seatIndex,
+  });
+  expect(activated.state.players[1]!.armedShield).toBeUndefined();
+  expect(activated.state.players[0]!.team[0]!.abilityReady).toBe(false);
+  expect(activated.events).toContainEqual(expect.objectContaining({ kind: 'attack_attempt' }));
+  expect(activated.events.some((event) => event.kind === 'protection_applied')).toBe(shielded);
+  expect(observe(activated.state, 2).public.phase).toEqual({
+    kind: 'chance_roll',
+    rollId: 'ability:1',
+    seatIndex: 0,
+    effect: { kind: 'thunder_shock' },
+  });
+  expect(observeSpectator(activated.state).public.phase).toEqual(
+    observe(activated.state, 2).public.phase,
+  );
+
+  const rolled = advanceAutomatically(activated.state);
+  expect(rolled.state.phase.kind).toBe('strategy');
+  expect(rolled.state.players[1]!.pendingSlows).toEqual(
+    cap ? ['repel', 'thunder_shock'] : ['repel'],
+  );
+  expect(
+    actionVisibleTo(activated.state, rolled.records[0]!, 2, 1)!.action.payload,
+  ).not.toHaveProperty('value');
+  log.actions.push(activated.record, ...rolled.records);
+  expect(replay(log)).toEqual(rolled.state);
+
+  const moving = rolled.state;
+  moving.activeSeatIndex = 1;
+  moving.phase = { kind: 'move' };
+  moving.rng = createRng(seedFor((value) => value === 6));
+  moving.players[1]!.team[0]!.abilityReady = false;
+  const moved = advanceAutomatically(step(moving, 'roll').state).state;
+  expect(moved.players[1]!.routeProgress).toBe(cap ? 3 : 4);
+  expect(moved.players[1]!.pendingSlows).toBeUndefined();
+});
+
+test('Thunder Shock cannot target a player with Sticky Web already pending (C.5 D8)', () => {
+  const state = game(1);
+  state.players[0]!.team[0]!.speciesId = 'pikachu';
+  state.players[1]!.pendingSlows = ['sticky_web'];
+  expect(legalActions(state, 0).disabled).toContainEqual(
+    expect.objectContaining({ id: 'ability:starter:0:1', reasonCode: 'NO_VALID_TARGET' }),
+  );
+});
+
 test('Track peeks the top Event card privately: a logged first shuffle fills the deck, nothing is drawn or reordered, and other seats see no card or order (§4.5 peek, §5.4)', () => {
-  const initial = game(3, withTrack());
+  const initial = game(3);
   initial.players[0]!.team = [{ ...initial.players[0]!.team[0]!, speciesId: 'growlithe' }];
   expect(initial.eventDeck).toEqual({ drawPile: [], discardPile: [] });
   expect(initial.rng.cursor).toBe(0); // setup draws no RNG (§6.8)
@@ -164,7 +217,7 @@ test('Track peeks the top Event card privately: a logged first shuffle fills the
 });
 
 test('an empty draw pile reshuffles the discard pile before a peek (§3.1, §4.6)', () => {
-  const state = game(3, withTrack());
+  const state = game(3);
   state.players[0]!.team = [{ ...state.players[0]!.team[0]!, speciesId: 'growlithe' }];
   state.eventDeck = { drawPile: [], discardPile: ['e2', 'e5'] };
   const after = step(state, 'activate_ability', { instanceId: 'starter:0' }).state;

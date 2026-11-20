@@ -5,6 +5,7 @@ export const SLOWS = {
   repel: { kind: 'minus', n: 2 },
   string_shot: { kind: 'minus', n: 1 },
   sticky_web: { kind: 'cap', n: 2 },
+  thunder_shock: { kind: 'cap', n: 3 },
 } as const;
 
 export type SlowId = keyof typeof SLOWS;

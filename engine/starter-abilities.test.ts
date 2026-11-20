@@ -17,7 +17,6 @@ import {
   saleQuote,
   type AbilityEffectId,
   type Action,
-  type Content,
   type GameState,
 } from './index.ts';
 
@@ -28,12 +27,7 @@ const files = Object.fromEntries(
 );
 const content = toEngineContent(parseContent(files));
 
-/** Representative C4 bindings for the two primitives no core Starter carries (S14 scope). */
-const representative: Content = structuredClone(content);
-representative.species.find((entry) => entry.id === 'machop')!.ability!.effect = 'challenge';
-representative.species.find((entry) => entry.id === 'growlithe')!.ability!.effect = 'track';
-
-/** Seat 0 owns one `formId`; seats 1 and 2 hold Pikachu (no bound Ability). */
+/** Seat 0 owns one `formId`; seats 1 and 2 hold Pikachu. */
 function game(formId: string, active = 0): GameState {
   const state = createGame(
     createGameConfig({
@@ -46,7 +40,7 @@ function game(formId: string, active = 0): GameState {
       seed: 2,
       lapTarget: 2,
     }),
-    representative,
+    content,
   );
   state.phase = { kind: 'strategy' };
   state.activeSeatIndex = active;
@@ -118,6 +112,13 @@ const ROWS: [AbilityEffectId, Window, string[], (after: GameState) => void][] = 
       expect(s.phase).toMatchObject({ battle: { snapshot: { attacker: { abilityBonus: 1 } } } }),
   ],
   [
+    'quick_slash',
+    'attacker',
+    ['scyther'],
+    (s) =>
+      expect(s.phase).toMatchObject({ battle: { snapshot: { attacker: { abilityBonus: 1 } } } }),
+  ],
+  [
     'shell_guard',
     'defender',
     ['squirtle', 'wartortle', 'blastoise'],
@@ -170,10 +171,24 @@ const ROWS: [AbilityEffectId, Window, string[], (after: GameState) => void][] = 
   [
     'challenge',
     'strategy',
-    ['machop'],
+    ['machop', 'machoke', 'machamp'],
     (s) => expect(s.phase).toMatchObject({ kind: 'pvp', battle: { forced: true } }),
   ],
-  ['track', 'strategy', ['growlithe'], (s) => expect(s.players[0]!.privateResults).toHaveLength(1)],
+  [
+    'track',
+    'strategy',
+    ['growlithe', 'arcanine'],
+    (s) =>
+      expect(s.players[0]!.privateResults).toEqual([
+        { kind: 'peek', eventId: s.eventDeck.drawPile[0] },
+      ]),
+  ],
+  [
+    'thunder_shock',
+    'strategy',
+    ['pikachu', 'raichu'],
+    (s) => expect(s.phase.kind).toBe('chance_roll'),
+  ],
 ];
 
 test.each(
@@ -183,7 +198,7 @@ test.each(
 )(
   '%s reaches its %s activation (%s window) with an observable effect (Appendix C.2)',
   (form, effect, window, check) => {
-    expect(effectiveForm(representative, form).ability?.effect).toBe(effect);
+    expect(effectiveForm(content, form).ability?.effect).toBe(effect);
     const state = reach(form, window);
     expect(pendingDecision(state)?.seatIndex).toBe(0);
     const choice = legalActions(state, 0).enabled.find(
@@ -224,7 +239,6 @@ test('the engine maps every effect to exactly the eight §4.5 primitives, and ea
         ABILITY_EFFECTS[effect].timing,
       ]);
   }
-  // Real content binds every core Starter line plus Pidgey and Dratini, and nothing else.
   const bound = content.species.filter((entry) => entry.ability?.effect).map((entry) => entry.id);
   expect(bound.sort()).toEqual(
     [
@@ -234,10 +248,14 @@ test('the engine maps every effect to exactly the eight §4.5 primitives, and ea
       'charmander',
       'dratini',
       'eevee',
+      'growlithe',
       'gyarados',
+      'machop',
       'magikarp',
       'pidgey',
+      'pikachu',
       'porygon',
+      'scyther',
       'squirtle',
     ].sort(),
   );

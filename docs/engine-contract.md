@@ -557,11 +557,11 @@ command of the active seat as its own move.
 Spec: §4.2 movement, §4.5, §4.6 slows, §4.7, §6.1/6.5, §8; Appendix C.1 `fixedMove`/`moveDebuff`,
 C.5 D8/D9.
 
-`engine/slows.ts` owns the slow table: `repel` (`minus` 2), `string_shot` (`minus` 1) and
-`sticky_web` (`cap` 2). `player.pendingSlows` holds their IDs; `hasSlowKind` forbids a second slow
-of a pending kind (items are greyed out with "Target is already slowed"; String Shot is not offered
-against such a target). `slowedSteps(player, v)` returns `max(1, min(v − minus, cap))` and clears
-every pending slow; only the owner's own Move calls it.
+`engine/slows.ts` owns the slow table: `repel` (`minus` 2), `string_shot` (`minus` 1),
+`sticky_web` (`cap` 2) and `thunder_shock` (`cap` 3). `player.pendingSlows` holds their IDs.
+`hasSlowKind` disables a second slow of a pending kind with "Target is already slowed".
+`slowedSteps(player, v)` returns `max(1, min(v − minus, cap))` and clears every pending slow on
+the owner's actual move.
 
 - **Sticky Web** is a hostile item like Repel: a private `hostile_item` attempt, blocked whole by an
   armed Price Shield.
@@ -590,7 +590,8 @@ pending slow may disappear only on its owner's actual move, and that move clears
 Spec: §4.5 primitives, §4.6 deck, §5.4 privacy, §6.1/6.8, §8; Appendix C.1 `gainBall`/`peek`.
 
 - **Lucky Splash** (`lucky_splash`, S window; content binds Magikarp) enters phase
-  `{ kind: 'chance_roll', rollId: 'ability:<public revision>', seatIndex }`. The engine owes one
+  `{ kind: 'chance_roll', rollId: 'ability:<public revision>', seatIndex, effect: { kind: 'lucky_splash' } }`.
+  The engine owes one
   `dice_result` with purpose `<rollId>:chance`; faces 5–6 add one Great Ball and emit
   `ball_gained` (visible only to the owner), 1–4 change nothing. The die reveals the gain, so
   `eventsVisibleTo` hides its `random_result` and `actionVisibleTo` drops its `dice_result.value`
@@ -616,8 +617,11 @@ Content 1.3.0 binds `ability.effect` for Bulbasaur `vine_pull`, Charmander `blaz
 `dragon_rush`. Fallback forms (Ivysaur/Venusaur, Charmeleon/Charizard, Wartortle/Blastoise,
 Vaporeon/Jolteon/Flareon, Metapod/Butterfree, Dragonair/Dragonite) inherit through
 `effectiveForm`; Gyarados has its own definition, so Magikarp's evolution changes the Ability but
-keeps the spent readiness. `challenge` (forcePvP: a forced, hostile PvP declaration that also
-spends the tactical action) and `track` (peek) are executable but unbound; C4 content binds them.
+keeps the spent readiness. Content 1.4.0 also binds Growlithe to `track` (private top Event peek),
+Machop to `challenge` (forced hostile PvP that also spends the tactical action), Scyther to
+`quick_slash` (+1 before a PvP or Gym roll) and Pikachu to `thunder_shock` (next-move cap of 3
+on an even chance die). A blocked Thunder Shock keeps the same logged chance step and applies no
+slow. Observations redact the slow's target, and the die face is private to its roller.
 
 `engine/starter-abilities.test.ts` is the coverage ledger: a table reaches each form's legal window
 (S, B attacker, R defender or A reroll) and checks an observable effect, the effect table maps to
@@ -699,9 +703,9 @@ CI runs `npm run sim -- --games 100 --seed 1` at `--seats 2`, `3` and `4`, each 
 active invariant after every action and failing on any abort, illegal applied action or invariant
 failure (job timeout 15 minutes). The sim summary's `features` counts Ability primitives, class
 passives and battles; `sim/features.test.ts` requires all six core class passives, the five Ability
-primitives real content reaches in random play (`fixedMove`, `moveDebuff`, `rollBonus`, `shield`,
-`gainBall`) and PvP, forced PvP and Gym battles. `heal` (rare in random play), `peek` and `forcePvP`
-(unbound until C4) have their trigger evidence in the engine scenario tables. Replay and resume at
+primitives pinned in the random-play test (`fixedMove`, `moveDebuff`, `rollBonus`, `shield`,
+`gainBall`, `peek`, `forcePvP`) and PvP, forced PvP and Gym battles. `heal` has trigger coverage
+in the engine scenario tables. Replay and resume at
 pending decisions are covered per slice (S06 PvP steps, S10 defender window, S11 rerolls, S13
 peek) and by the 200-game replay property test.
 

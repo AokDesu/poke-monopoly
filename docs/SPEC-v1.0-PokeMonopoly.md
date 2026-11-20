@@ -245,9 +245,9 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 
 - **S11 roll modifiers scope (#55):** `rollBonus` effects run in the approved Appendix C windows. Blaze (+1) and Dragon Rush (+2) add to the activating side's `abilityBonus` for the current PvP or Gym battle; Adaptability adds +1 to the chosen scope (catch or combat) for every own snapshot until the end of the current `globalTurnNo`; Gyarados' Intimidate is a hostile Ability that adds a debuff of 1 to the PvP opponent's snapshot (blocked whole by an armed Price Shield, still an attack). Displayed odds use the same frozen terms. Porygon's Calculate opens an A window after its owner's own move, catch, PvP or Gym die: reroll (a new logged die that replaces the old one, even when worse) or keep; in PvP the challenger decides first, then the defender, each seeing both dice, and nothing resolves before. Dragon Rush's source becomes Tired after the result and any reward (D13). See the [roll modifier contract](engine-contract.md#roll-modifiers-and-porygons-reroll-issue-55-s11).
 
-- **S13 resource scope (#55):** Magikarp's Lucky Splash (`gainBall` `chanceBall`) rolls one logged d6 in Strategy: on 5–6 the owner gains one Great Ball (told only to the owner, since Ball pouches are private, §4.1; the die face is likewise shown only to the owner, while the activation itself is public); on 1–4 nothing changes, and the costs stay spent. The `peek` primitive (`topEvent`) privately shows its owner the top Event card without drawing or reordering it; only the owner's observation carries it. No core Starter binds `peek` or `forcePvP`; the engine ships their operations and C4 content decides which species carry them.
+- **S13 resource scope (#55):** Magikarp's Lucky Splash (`gainBall` `chanceBall`) rolls one logged d6 in Strategy: on 5–6 the owner gains one Great Ball (told only to the owner, since Ball pouches are private, §4.1; the die face is likewise shown only to the owner, while the activation itself is public); on 1–4 nothing changes, and the costs stay spent. Growlithe's Track uses the `peek` primitive (`topEvent`) to privately show its owner the top Event card without drawing or reordering it. Only the owner's observation carries the card.
 
-- **S14 binding scope (#55):** content binds every core Starter line (Bulbasaur, Charmander, Squirtle, Eevee and its three branches, Magikarp and Gyarados, Chansey, Caterpie, Porygon) plus Pidgey and Dratini to the Appendix C.2 effects; fallback evolved forms inherit them. The engine's effect table uses exactly the eight primitives. `forcePvP` (`challenge`) and `peek` (`track`) ship as engine operations with no bound species: C4 content decides who carries them, and engine tests bind them to Machop and Growlithe only as representatives. Squirtle's Shell Guard arms a battle-scoped shield, unlike Price Shield (C.4).
+- **Ability bindings (#55 S14, #58):** Appendix C.2 lists the executable Abilities, including Challenge, Track, Quick Slash and Thunder Shock. Fallback evolved forms inherit the base form's Ability. The engine's effect table uses exactly the eight primitives. Squirtle's Shell Guard arms a battle-scoped shield (C.4).
 
 **Timing contract (#55 S00, approved):** the PvP and Gym decision order, shield and Nurse Joy protection, and the order of reward and after-battle effects are fixed in [Appendix C](#appendix-c--ability-and-battle-timing-contract); the S-scope notes above record how each slice implements them.
 
@@ -308,7 +308,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 - Blocks one whole hostile action and is then consumed.
 - The declaration still counts against a promise.
 
-**S12 movement scope (#55):** implements Appendix C.5 D8/D9. Pending slows are `repel` (minus 2), `string_shot` (minus 1, Caterpie's String Shot) and `sticky_web` (cap 2, the Sticky Web item); a target with a pending slow of one kind cannot receive another of that kind. The next actual move from value `v` takes `max(1, min(v − minus, cap))` steps and then clears every pending slow. Pidgey's Quick Flight (`replaceRoll` 3) makes this turn's move use 3 steps with no die; it is owner movement, so Start income, Lap credit, Ability reset and Sell apply. Bulbasaur's Vine Pull (`displace` −2) is a hostile Ability that moves the target back at once: no income, no Lap change, no Resolve, and pending slows stay. See the [movement effects contract](engine-contract.md#fixed-movement-slows-and-displacement-issue-55-s12).
+**Movement scope (#55 S12, #58):** Appendix C.5 D8/D9 defines `repel` (minus 2), `string_shot` (minus 1), `sticky_web` (cap 2) and `thunder_shock` (cap 3). A target with a pending slow of one kind cannot receive another of that kind. The next actual move from value `v` takes `max(1, min(v − minus, cap))` steps and then clears every pending slow. Pidgey's Quick Flight (`replaceRoll` 3) makes this turn's move use 3 steps with no die; it is owner movement, so Start income, Lap credit, Ability reset and Sell apply. Bulbasaur's Vine Pull (`displace` −2) is a hostile Ability that moves the target back at once: no income, no Lap change, no Resolve, and pending slows stay. See the [movement effects contract](engine-contract.md#fixed-movement-slows-and-displacement-issue-55-s12).
 
 **Approved (#55 S00):** Price Shield arming, whole-action versus coin-loss-only protection, slow kinds and fixed movement under a pending slow follow [Appendix C](#appendix-c--ability-and-battle-timing-contract).
 
@@ -983,12 +983,18 @@ The table covers every base Starter of the six core classes and every form it ca
 | Caterpie, Metapod, Butterfree | String Shot | S | moveDebuff · `minus` · 1 | one opponent, any distance | yes |
 | Porygon | Calculate | A | rollBonus · `reroll` | one own die | no |
 
-Two bindings outside the core lines are needed: Pidgey's fixed movement for AC-4 and Dratini's post-resolution consequence as a real in-game Tired source. Other non-core Abilities, including Machop's Challenge, Growlithe's Track and Scavenge's coin gain, are mapped with C4 content and are not part of this contract.
+The bindings below extend the core lines. Pidgey supplies fixed movement for AC-4 and Dratini supplies an in-game Tired source.
 
-| Species | Ability | Timing | Primitive · operation · parameters | Hostile |
-|---|---|---|---|---|
-| Pidgey | Quick Flight | S | fixedMove · `replaceRoll` · 3 | no |
-| Dratini | Dragon Rush | B | rollBonus · `add` · combat +2, this battle, `afterResolution: tiredSelf` | no |
+| Species | Ability | Timing | Primitive · operation · parameters | Target | Hostile |
+|---|---|---|---|---|---|
+| Pidgey | Quick Flight | S | fixedMove · `replaceRoll` · 3 | self | no |
+| Dratini | Dragon Rush | B | rollBonus · `add` · combat +2, this battle, `afterResolution: tiredSelf` | self | no |
+| Growlithe | Track | S | peek · `topEvent` | self | no |
+| Machop | Challenge | C | forcePvP · `forceChallenge` | one battle-ready opponent, any distance | yes |
+| Scyther | Quick Slash | B | rollBonus · `add` · combat +1, this battle | self | no |
+| Pikachu | Thunder Shock | S | moveDebuff · `cap` · 3 on an even d6 | one opponent without a pending cap, any distance | yes |
+
+Thunder Shock follows the hostile Ability visibility rule in §4.1. It spends the Ability allowance and records the hostile attempt at activation. The logged chance die is visible to its user. The same chance roll runs when a Price Shield blocks the effect so an observer cannot identify a block from the decision sequence. A blocked use or odd face applies no slow.
 
 Hostile means the Ability targets an opponent with a harmful effect (`hostileAbility`, §4.5). It counts against a `no_attack` promise (§4.8), and an armed Price Shield blocks it (C.4).
 
@@ -1084,7 +1090,7 @@ Skipping a Gym costs nothing, and a challenge spends no `tacticalAction`. A Gym 
 
 **D8 — Approved.**
 
-- Slows have two kinds: `minus` (Repel −2, String Shot −1) and `cap` (Sticky Web 2). A target that already has a pending slow of one kind cannot receive another of that kind (§4.6).
+- Slows have two kinds: `minus` (Repel −2, String Shot −1) and `cap` (Sticky Web 2, Thunder Shock 3). A target that already has a pending slow of one kind cannot receive another of that kind (§4.6).
 - The target's next actual move from value `v` takes `steps = max(1, min(v − minus, cap))`. `v` is the d6 after any Porygon reroll, or the `replaceRoll` steps. A missing `minus` counts as 0 and a missing `cap` sets no limit. This reproduces §4.6: Repel alone gives `max(1, d6 − 2)`, Sticky Web alone at most 2, and both `max(1, min(d6 − 2, 2))`.
 - A fixed move is an actual move. Pending slows reduce or cap its steps and then clear. No die is drawn.
 

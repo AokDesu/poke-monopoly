@@ -33,6 +33,7 @@ const boardSchema = z.array(boardSpaceSchema).length(24);
 export const abilityEffectIdSchema = z.enum([
   'vine_pull',
   'blaze',
+  'quick_slash',
   'shell_guard',
   'adaptability',
   'lucky_splash',
@@ -44,6 +45,7 @@ export const abilityEffectIdSchema = z.enum([
   'dragon_rush',
   'challenge',
   'track',
+  'thunder_shock',
 ]);
 /** Authored description plus, when the engine implements it, the effect it names. */
 export const abilityDefinitionSchema = z.strictObject({
@@ -264,7 +266,7 @@ export const playerSchema = z.strictObject({
   highestRewardedMilestone: count.optional(),
   ownTurnNo: count,
   // Slowing effects waiting for this player's next actual move (§4.6); absent when none.
-  pendingSlows: z.array(z.enum(['repel', 'string_shot', 'sticky_web'])).optional(),
+  pendingSlows: z.array(z.enum(['repel', 'string_shot', 'sticky_web', 'thunder_shock'])).optional(),
   // At most one armed shield from any source (D7); absent when none.
   armedShield: armedShieldSchema.optional(),
   team: z.array(pokemonInstanceSchema),
@@ -438,8 +440,16 @@ export const phaseSchema = z.discriminatedUnion('kind', [
     face: z.int().min(1).max(6).optional(),
     rerolling: z.literal(true).optional(),
   }),
-  // gainBall `chanceBall`: the engine owes one logged d6 for this activation (C.1).
-  z.strictObject({ kind: z.literal('chance_roll'), rollId: id, seatIndex: count }),
+  // The engine owes one logged d6 for this activation (Appendix C.1 and C.2).
+  z.strictObject({
+    kind: z.literal('chance_roll'),
+    rollId: id,
+    seatIndex: count,
+    effect: z.discriminatedUnion('kind', [
+      z.strictObject({ kind: z.literal('lucky_splash') }),
+      z.strictObject({ kind: z.literal('thunder_shock'), slowTargetSeatIndex: count.optional() }),
+    ]),
+  }),
   z.strictObject({ kind: z.literal('sell'), destinationPosition: z.int().min(0).max(23) }),
   z.strictObject({ kind: z.literal('shop'), offers: z.array(shopOfferSchema) }),
 ]);

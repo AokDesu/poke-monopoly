@@ -83,7 +83,10 @@ export function observe(state: GameState, seatIndex: number): Observation {
               .map(seatAttackAttempt),
           }
         : {}),
-      phase: state.phase,
+      phase:
+        state.phase.kind === 'chance_roll' && state.phase.effect.kind === 'thunder_shock'
+          ? { ...state.phase, effect: { kind: 'thunder_shock' as const } }
+          : state.phase,
       lapTarget: state.config.lapTarget,
       finalTableRound: state.finalTableRound,
       ...(state.lastEvent ? { lastEvent: state.lastEvent } : {}),

@@ -91,7 +91,7 @@ function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): bo
   return true;
 }
 
-/** Lucky Splash's die reveals a private Ball gain, so only the rolling seat sees its face (§4.1). */
+/** Chance dice can reveal private Ball gains or a hostile Ability's outcome (§4.1). */
 function isHiddenChanceRoll(before: GameState, purpose: string, seatIndex: number): boolean {
   return (
     before.phase.kind === 'chance_roll' &&

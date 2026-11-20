@@ -100,7 +100,8 @@
     "ability": {
       "name": "Track",
       "text": "privately view the top Event card",
-      "timing": "OWN_STRATEGY"
+      "timing": "OWN_STRATEGY",
+      "effect": "track"
     }
   },
   {
@@ -115,7 +116,8 @@
     "ability": {
       "name": "Challenge",
       "text": "the target cannot decline this PvP; uses tacticalAction",
-      "timing": "CHALLENGE_DECLARE"
+      "timing": "CHALLENGE_DECLARE",
+      "effect": "challenge"
     }
   },
   {
@@ -143,7 +145,12 @@
     "base": 14,
     "tags": ["bug"],
     "inEncounterPool": true,
-    "ability": { "name": "Quick Slash", "text": "+1 combat", "timing": "BEFORE_OWN_ROLL" }
+    "ability": {
+      "name": "Quick Slash",
+      "text": "+1 combat",
+      "timing": "BEFORE_OWN_ROLL",
+      "effect": "quick_slash"
+    }
   },
   {
     "id": "chansey",
@@ -284,7 +291,8 @@
     "ability": {
       "name": "Thunder Shock",
       "text": "d6 even, target moves at most 3 spaces next time",
-      "timing": "OWN_STRATEGY"
+      "timing": "OWN_STRATEGY",
+      "effect": "thunder_shock"
     }
   }
 ]
