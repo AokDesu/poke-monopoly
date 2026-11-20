@@ -10,7 +10,9 @@ const BATTLE_COINS = ['pvp_reward', 'gym_reward', 'gym_loss'];
 /**
  * What has happened in the latest PvP or Gym battle of this turn, from the accepted seat-visible
  * records alone (§6.1): the challenge, the answer, both dice, the result, any badge, and the
- * reward with the amount that actually moved. Empty when no battle began this turn.
+ * reward with the amount that actually moved. Only the battle's own records count: the first one
+ * that leaves the battle is its last, so what a rival does afterwards (an item, a catch) never
+ * reads as part of it. Empty when no battle began this turn.
  */
 export function battleResultRows(view: SeatView): { key: string; text: string }[] {
   const { observation, feed } = view;
@@ -26,8 +28,15 @@ export function battleResultRows(view: SeatView): { key: string; text: string }[
   if (activeSeatIndex === view.seatIndex && globalTurnNo > feed[opened]!.before.globalTurnNo) {
     return [];
   }
+  const closed = feed.findIndex(
+    ({ record }, index) =>
+      index >= opened &&
+      record.events.some(
+        (event) => event.kind === 'phase_changed' && (event.from === 'pvp' || event.from === 'gym'),
+      ),
+  );
   return feed
-    .slice(opened)
+    .slice(opened, closed < 0 ? undefined : closed + 1)
     .flatMap((entry) => [
       ...turnMessages(entry, view.seatIndex).filter(({ key }) => key.startsWith('battle.gym')),
       ...entry.record.events.flatMap((event) =>

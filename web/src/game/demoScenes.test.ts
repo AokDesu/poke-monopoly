@@ -8,6 +8,7 @@ import {
   verifyReplay,
 } from '../../../engine/index.ts';
 import { t } from '../i18n/en.ts';
+import { memoryEntries, trustShown } from './promises.ts';
 import {
   buildScene,
   DEMO_SCENES,
@@ -107,6 +108,22 @@ test('reward scene: a won battle offers the coins or an evolution (spec §11 ste
   const ids = legalActions(store.getSession()!.state, 0).enabled.map((choice) => choice.id);
   expect(ids).toContain('reward:coins');
   expect(ids.some((id) => id.startsWith('reward:evolve:'))).toBe(true);
+});
+
+test('promise scene: a broken promise is in the seat’s memory with the trust it cost (spec §4.8, §11 step 6)', () => {
+  const { store } = opened(scene('promise'));
+  const view = store.getView()!;
+  const broken = memoryEntries(view.observation, view.feed).filter(
+    (entry) => entry.kind === 'broken',
+  );
+  expect(broken).toHaveLength(1);
+  expect(broken[0]).toMatchObject({ promiserSeatIndex: 1, recipientSeatIndex: 0 });
+  // The engine's own trust number is shown for the rival that broke its word.
+  expect(trustShown(view.observation)).toEqual([{ seatIndex: 1, value: expect.any(Number) }]);
+  expect(trustShown(view.observation)[0]!.value).toBeLessThan(0);
+  // The game plays on: the seat may offer the rival a new promise now that the old one is closed.
+  const ids = legalActions(store.getSession()!.state, 0).enabled.map((choice) => choice.id);
+  expect(ids).toContain('offer-promise:seat-1:offer');
 });
 
 test('a script step the engine no longer allows fails the build and leaves no game', () => {

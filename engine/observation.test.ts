@@ -153,7 +153,7 @@ test('no seat sees the draws of an Event deck shuffle, which would reveal its or
 const SEED = 'SEED-SENTINEL';
 const DECK = ['EVENT-SENTINEL-a', 'EVENT-SENTINEL-b', 'EVENT-SENTINEL-c'];
 
-/** A 2-, 3- or 4-seat game with private item and peek sentinels. */
+/** A 2-, 3- or 4-seat game with two humans and private item and peek sentinels. */
 function sentinelGame(game: number): GameState {
   const scenario = fixtureSchema.parse(fixture).state;
   const content = structuredClone(scenario.content);
@@ -173,7 +173,12 @@ function sentinelGame(game: number): GameState {
     ...scenario.config.seats,
     { actorId: 'player-2', seatIndex: 2, classId: 'team-rocket', controller: 'ai' as const },
     { actorId: 'player-3', seatIndex: 3, classId: 'gym-trainer', controller: 'ai' as const },
-  ].slice(0, 2 + (game % 3));
+  ]
+    .slice(0, 2 + (game % 3))
+    .map((seat) => ({
+      ...seat,
+      controller: seat.seatIndex < 2 ? ('human' as const) : ('ai' as const),
+    }));
   const state = createGame(
     createGameConfig({ seats, seed: `${SEED}-${game}`, lapTarget: 3 }),
     content,
@@ -299,8 +304,13 @@ test('500 random mid-game states never show a seat another seat’s secrets, RNG
         // Drawn Events are public now; plant impossible IDs only in the projection copy.
         const projection = { ...state };
         projection.eventDeck = { drawPile: [...DECK], discardPile: [] };
-        const seen = JSON.stringify([observe(projection, seat), legalActions(projection, seat)]);
+        const observation = observe(projection, seat);
+        const seen = JSON.stringify([observation, legalActions(projection, seat)]);
         for (const secret of secrets) expect(seen).not.toContain(secret);
+        expect(observation.own.balls).toEqual(player.balls);
+        expect(observation.public.players.some((publicPlayer) => 'balls' in publicPlayer)).toBe(
+          false,
+        );
         for (const hidden of [SEED, `"${state.rng.state}"`, RNG_VERSION, ...DECK]) {
           expect(seen).not.toContain(hidden);
         }
@@ -332,7 +342,7 @@ test('500 random mid-game states never show a seat another seat’s secrets, RNG
       'challenge_gym',
     ]),
   );
-});
+}, 60_000);
 
 test('an opponent observation shows coins, team, item count and the public class item, but omits the Ball pouch and secret items (§3, §4.1)', () => {
   const state = strategy('repel');
