@@ -966,26 +966,26 @@
     "primaryMetric": "focal seat win credit: 1/k for k co-winners, 0 for a loss",
     "primaryEstimate": "mean over complete pairs of (treatment win credit - control win credit), per policy and seat count",
     "uncertainty": {
-      "method": "paired block bootstrap",
-      "resample": "pairs within one cell",
+      "method": "stratified paired block bootstrap",
+      "resample": "whole pairs within each focal seat at the given seat count",
       "resamples": 10000,
       "level": 0.95,
       "interval": "percentile",
       "analysisRngSeed": 610004,
-      "owner": "sim/analysis/paired.ts (A61-3) implements exactly these rules; any other documented paired method must be named before opening c5-held-out",
-      "boundsUnderTwoBlocks": "null: a cell or stratum with fewer than 2 complete blocks reports counts only, never a zero-width interval"
+      "owner": "sim/analysis/paired.ts (A61-3)",
+      "boundsUnderTwoBlocks": "null if any resampling group has fewer than two complete blocks"
     },
     "secondary": [
       "tie rate per arm",
-      "focal final coins difference",
+      "focal final coins difference; paired Cohen's d for win credit and coins",
       "win/tie/loss counts per arm",
       "focal-class, focal-seat and background-personality strata, per seat count, descriptive only"
     ],
     "strata": {
       "dimensions": ["focalClass", "focalSeat", "backgroundPersonality"],
-      "personality": "the BACKGROUND personality of the block, never the focal seat, which plays the arm's policy",
+      "personality": "the observed combination of non-focal seat personalities, including unassigned when a non-focal human controller plays random",
       "reportedPer": "seat count; a pooled figure, if shown, is labelled pooled and is never the primary result",
-      "bounds": "null below 2 complete blocks in the stratum; descriptive, no inference"
+      "bounds": "null if any resampling group has fewer than two complete blocks; descriptive"
     },
     "missing": "An abort, max-step stop or any game with invariantFailures above 0 makes its pair incomplete: it is not scored, is counted as missing and is reported. Report planned, complete and missing pairs per cell and every failing seed; never replace, retry or drop a seed. pairsPlanned per cell comes from this manifest (24), not from sim/analysis/paired.ts; A61-5 integrates it.",
     "order": "Results do not depend on input order: pairs are sorted by blockId before resampling.",
@@ -1006,6 +1006,7 @@
       "seed",
       "seatClasses",
       "seatPolicies",
+      "seatPersonalities",
       "focalSeat",
       "focalClass",
       "backgroundPersonality",
@@ -1021,6 +1022,8 @@
       "finalCoins",
       "illegalAppliedActionCount",
       "invariantFailures",
+      "replayPass",
+      "failureReasons",
       "focalOpportunities",
       "focalUses",
       "hostility",
@@ -1063,6 +1066,6 @@
       "vacuous",
       "failingSeeds"
     ],
-    "note": "Planned fields. A61-5 owns the game row and A61-3 the pair and result types; reconcile this list with them before the ledger opens."
+    "note": "The game fields follow sim/experiments/run.ts. Pair rows and the report join the planned cells with sim/analysis/paired.ts results."
   }
 }
