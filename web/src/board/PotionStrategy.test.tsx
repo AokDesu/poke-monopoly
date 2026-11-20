@@ -63,7 +63,7 @@ function start(state = potionState()) {
 function selectSecond() {
   fireEvent.click(screen.getAllByRole('button', { name: 'Potion' })[0]!);
   const targets = screen.getByRole('group', { name: t('strategy.potion.targets') });
-  fireEvent.click(within(targets).getByRole('button', { name: /bulbasaur-second/ }));
+  fireEvent.click(within(targets).getByRole('button', { name: 'Bulbasaur #2' }));
 }
 
 const confirm = () =>
@@ -79,15 +79,15 @@ test('two same-species Tired members stay distinct; separate confirmation heals 
   const before = store.getSession();
   fireEvent.click(screen.getAllByRole('button', { name: 'Potion' })[0]!);
   const targets = screen.getByRole('group', { name: t('strategy.potion.targets') });
-  expect(within(targets).getByRole('button', { name: /Bulbasaur.*bulbasaur-first/ })).toBeTruthy();
-  expect(within(targets).getByRole('button', { name: /Bulbasaur.*bulbasaur-second/ })).toBeTruthy();
+  expect(within(targets).getByRole('button', { name: 'Bulbasaur #1' })).toBeTruthy();
+  expect(within(targets).getByRole('button', { name: 'Bulbasaur #2' })).toBeTruthy();
   expect(screen.queryByLabelText(t('strategy.preview'))).toBeNull();
   expect(store.getSession()).toBe(before);
-  fireEvent.click(within(targets).getByRole('button', { name: /bulbasaur-second/ }));
+  fireEvent.click(within(targets).getByRole('button', { name: 'Bulbasaur #2' }));
   const preview = screen.getByLabelText(t('strategy.preview'));
-  expect(preview.textContent).toContain('bulbasaur-second');
+  expect(preview.textContent).toContain('Bulbasaur #2');
   expect(preview.textContent).toContain('Tired');
-  expect(preview.textContent).not.toContain('bulbasaur-first');
+  expect(preview.textContent).not.toContain('Bulbasaur #1');
   expect(store.getSession()).toBe(before);
   fireEvent.click(confirm());
   const { state, log } = store.getSession()!;
@@ -132,9 +132,9 @@ test('healthy own members and foreign Tired members never become invented target
   start(state);
   fireEvent.click(screen.getAllByRole('button', { name: 'Potion' })[0]!);
   const targets = screen.getByRole('group', { name: t('strategy.potion.targets') });
-  expect(within(targets).queryByRole('button', { name: /bulbasaur-first/ })).toBeNull();
+  expect(within(targets).queryByRole('button', { name: 'Bulbasaur #1' })).toBeNull();
   expect(within(targets).queryByRole('button', { name: /Eevee/ })).toBeNull();
-  expect(within(targets).getByRole('button', { name: /bulbasaur-second/ })).toBeTruthy();
+  expect(within(targets).getByRole('button', { name: 'Bulbasaur #2' })).toBeTruthy();
 });
 
 test.each(['removed', 'disabled', 'still-legal'] as const)(
@@ -182,7 +182,7 @@ test('a changed engine-disabled target reason stays visible through the shared a
     />,
   );
   fireEvent.click(screen.getAllByRole('button', { name: 'Potion' })[0]!);
-  const target = screen.getByRole('button', { name: /bulbasaur-first/ });
+  const target = screen.getByRole('button', { name: 'Bulbasaur #1' });
   expect(target.hasAttribute('disabled')).toBe(true);
   expect(document.getElementById(target.getAttribute('aria-describedby')!)!.textContent).toBe(
     'Target no longer has Tired',

@@ -18,6 +18,7 @@ import {
   pendingDecision,
   replay,
   serialize,
+  socialTargets,
   verifyReplay,
   type ActionRecord,
   type ChatPayload,
@@ -224,11 +225,82 @@ test('the engine keeps the last 3 messages per pair, in order, and pairs are uno
   state.config.seats[2]!.controller = 'human';
   state.activeSeatIndex = 2;
   state.turnBudgets.socialInteraction = 1;
-  state = accepted(state, 'chat', { targetSeatIndex: 0, topic: 'truce' }).state;
+  state = accepted(state, 'chat', { targetSeatIndex: 1, topic: 'truce' }).state;
   expect(state.chats).toHaveLength(2);
   const pair01 = state.chats!.find((entry) => entry.seats.join() === '0,1')!;
   expect(pair01.messages.map((message) => message.globalTurnNo)).toEqual([2, 3, 4]);
-  expect(state.chats!.find((entry) => entry.seats.join() === '0,2')!.messages).toHaveLength(1);
+  expect(state.chats!.find((entry) => entry.seats.join() === '1,2')!.messages).toHaveLength(1);
+});
+
+test('each human can chat or offer a promise only to AI opponents (§4.2, §4.8, #255)', () => {
+  const state = social({ seats: 4 });
+  state.config.seats[2]!.controller = 'human';
+  for (const [active, otherHuman] of [
+    [0, 2],
+    [2, 0],
+  ] as const) {
+    state.activeSeatIndex = active;
+    expect(socialTargets(state)).toEqual([1, 3]);
+    const choices = legalActions(state, active).enabled;
+    const chats = choices.filter((choice) => choice.kind === 'chat');
+    expect(new Set(chats.map((choice) => choice.payload.targetSeatIndex))).toEqual(new Set([1, 3]));
+    // A human can still be the third seat named in a message to an AI.
+    expect(chats.map((choice) => choice.payload)).toContainEqual({
+      targetSeatIndex: 1,
+      topic: 'point_leader',
+      leaderSeatIndex: otherHuman,
+    });
+    expect(
+      choices.filter((choice) => choice.kind === 'offer_promise').map((choice) => choice.id),
+    ).toEqual([
+      'offer-promise:seat-1:offer',
+      'offer-promise:seat-1:ask',
+      'offer-promise:seat-3:offer',
+      'offer-promise:seat-3:ask',
+    ]);
+    for (const [kind, payload] of [
+      ['chat', { targetSeatIndex: otherHuman, topic: 'truce' }],
+      ['offer_promise', { targetSeatIndex: otherHuman, direction: 'offer' }],
+      ['offer_promise', { targetSeatIndex: otherHuman, direction: 'ask' }],
+    ] as const) {
+      expect(command(state, kind, payload)).toMatchObject({
+        rejected: true,
+        reason: 'illegal_action',
+        state,
+      });
+    }
+    const chat = accepted(state, 'chat', { targetSeatIndex: 1, topic: 'truce' });
+    for (const viewer of [0, 1, 2, 3]) {
+      if (viewer === active || viewer === 1) {
+        expect(observe(chat.state, viewer).own.chats).toEqual([
+          {
+            fromSeatIndex: active,
+            toSeatIndex: 1,
+            topic: 'truce',
+            globalTurnNo: state.globalTurnNo,
+          },
+        ]);
+        expect(eventsVisibleTo(state, chat.events, viewer)).toEqual(chat.events);
+      } else {
+        expect(observe(chat.state, viewer)).toEqual(observe(state, viewer));
+        expect(eventsVisibleTo(state, chat.events, viewer)).toEqual([]);
+        expect(actionVisibleTo(state, chat.record, viewer, 0)).toBeNull();
+      }
+    }
+
+    const offer = accepted(state, 'offer_promise', { targetSeatIndex: 3, direction: 'offer' });
+    expect(pendingDecision(offer.state)?.seatIndex).toBe(3);
+    expect(observe(offer.state, otherHuman)).toEqual(observe(state, otherHuman));
+    expect(eventsVisibleTo(state, offer.events, otherHuman)).toEqual([]);
+  }
+  state.activeSeatIndex = 1;
+  expect(socialTargets(state)).toEqual([]);
+  expect(legalActions(state, 1).enabled.map((choice) => choice.kind)).toEqual(['skip']);
+
+  for (const seat of state.config.seats) seat.controller = 'human';
+  expect(socialTargets(state)).toEqual([]);
+  expect(legalActions(state, 1).enabled.map((choice) => choice.kind)).toEqual(['skip']);
+  expect(advanceAutomatically(state).state.phase.kind).toBe('strategy');
 });
 
 test('asking about an item leaks nothing: choices and outcome ignore what the target holds (§4.8)', () => {

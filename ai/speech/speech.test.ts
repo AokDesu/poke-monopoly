@@ -49,14 +49,14 @@ const seatOf = (classId: string) => ({
   starterSpeciesId: content.classes.find((entry) => entry.id === classId)!.starterSpeciesIds[0]!,
 });
 
-/** 2 to 4 seats, human-controlled with the Social window open so chats happen, each holding secret items. */
+/** 2 to 4 seats with one AI recipient and the Social window open, each holding secret items. */
 function game(index: number): GameState {
   const seatCount = 2 + (index % 3);
   const seats = Array.from({ length: seatCount }, (_, seatIndex) => ({
     actorId: `player-${seatIndex}`,
     seatIndex,
     ...seatOf(CLASSES[(index + seatIndex) % CLASSES.length]!),
-    controller: 'human' as const,
+    controller: seatIndex === seatCount - 1 ? ('ai' as const) : ('human' as const),
   }));
   const state = createGame(
     createGameConfig({ seats, seed: `${SEED}-${index}`, lapTarget: 3, socialWindow: true }),
