@@ -112,21 +112,21 @@
   },
   "acceptable": { "deal": ["reject", "counter"] },
   "reason": "Greedy: liquidity 0.9 values cash now over a team member and the deal spends its coins, so it haggles for a lower price or declines; a fair price still pays out coins it would rather keep.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "b62a67a82971c4ccf2fe2e36e642a4dad69e7dd001c334af06ab351965060ab6",
   "recorded": {
     "ok": true,
     "answers": {
       "deal": {
         "type": "choice",
-        "choice": "accept",
-        "confidence": 0.845,
-        "probabilities": { "accept": 0.897, "reject": 0.075, "counter": 0.027 }
+        "choice": "reject",
+        "confidence": 0.24,
+        "probabilities": { "accept": 0.22, "reject": 0.49, "counter": 0.29 }
       }
     },
-    "requestId": "synthetic-greedy-deal-fair-eevee-sale",
+    "requestId": "req_01a1f96b493572e6a37b5fe918134f85",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 471,
+    "usage": { "inputTokens": 1796, "outputTokens": 38 }
   }
 }

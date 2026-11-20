@@ -112,21 +112,21 @@
   },
   "acceptable": { "deal": ["accept"] },
   "reason": "Greedy: risk 0.3, aggression 0.3, liquidity 0.9 and loyalty 0.5; a rare Pokémon for a few coins is a large gain and costs no budget, so every personality takes it and a counter would only risk a good deal (an agreement control).",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "667711f301fa943e65b817a1e0912b05f8a8210df54f21e87151d76cf2c10bcf",
   "recorded": {
     "ok": true,
     "answers": {
       "deal": {
         "type": "choice",
-        "choice": "reject",
-        "confidence": 0.337,
-        "probabilities": { "accept": 0.246, "reject": 0.558, "counter": 0.196 }
+        "choice": "accept",
+        "confidence": 0.48,
+        "probabilities": { "accept": 0.65, "reject": 0.19, "counter": 0.16 }
       }
     },
-    "requestId": "synthetic-greedy-deal-lopsided-snorlax-sale",
+    "requestId": "req_01a1f96b4aa57bfd8c84af600c350ee2",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 261,
+    "usage": { "inputTokens": 1798, "outputTokens": 38 }
   }
 }

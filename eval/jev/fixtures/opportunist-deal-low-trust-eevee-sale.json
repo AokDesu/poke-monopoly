@@ -112,21 +112,21 @@
   },
   "acceptable": { "deal": ["accept", "counter"] },
   "reason": "Opportunist: loyalty 0.2 means trust barely matters to it, and liquidity 0.7 and risk 0.6 still take a fair deal, so it answers as it does at neutral trust.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "e883dde828688d67c8997ae431eff33e7992d9b31d60474511c7c816ddbea27f",
   "recorded": {
     "ok": true,
     "answers": {
       "deal": {
         "type": "choice",
-        "choice": "accept",
-        "confidence": 0.706,
-        "probabilities": { "accept": 0.804, "reject": 0.078, "counter": 0.118 }
+        "choice": "counter",
+        "confidence": 0.18,
+        "probabilities": { "accept": 0.34, "reject": 0.21, "counter": 0.45 }
       }
     },
-    "requestId": "synthetic-opportunist-deal-low-trust-eevee-sale",
+    "requestId": "req_01a1f96b5cc67a36bd1362b3ef6099f8",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 336,
+    "usage": { "inputTokens": 1800, "outputTokens": 38 }
   }
 }
