@@ -42,31 +42,33 @@ Some states are agreement controls (every personality gives the same answer), so
 
 The captain recorded all 45 personality scenarios live on 2026-11-18 (`jev-1.13.0`, one request each, through the orchestrator). With the 20 Greedy recordings the set is **65 fixtures, 65 recorded, 0 synthetic**. These figures come from `npm run eval:jev -- --offline` on that set; counts are Jev answers (Choice and Noul rows) scored against the acceptable sets, with n as shown:
 
-| Measure                              | Result                                          |
-| ------------------------------------ | ----------------------------------------------- |
-| Accuracy, recorded fixtures          | 78/91 (85.7%)                                   |
-| `illegalAppliedActionCount`          | 0                                               |
-| Fallbacks (`low_confidence`)         | 16 of 65 decisions                              |
-| Mean confidence, correct / incorrect | 0.688 (n=37) / 0.480 (n=7); Noul rows have none |
+| Measure                              | Result                                                      |
+| ------------------------------------ | ----------------------------------------------------------- |
+| Accuracy, recorded fixtures          | 77/91 (84.6%); 78/91 before the Sell scoring fix, see below |
+| `illegalAppliedActionCount`          | 0                                                           |
+| Fallbacks (`low_confidence`)         | 16 of 65 decisions                                          |
+| Mean confidence, correct / incorrect | 0.688 (n=37) / 0.480 (n=7); Noul rows have none             |
 
 | Personality | Fixtures | Rows correct / total | Strategy | Encounter |  Sell |
 | ----------- | -------: | -------------------: | -------: | --------: | ----: |
 | Greedy      |       20 |                27/28 |      8/8 |       6/6 | 13/14 |
 | Aggressive  |       15 |                16/21 |      5/6 |       3/4 |  8/11 |
 | Cautious    |       15 |                15/21 |      5/6 |       1/4 |  9/11 |
-| Opportunist |       15 |                20/21 |      5/6 |       4/4 | 11/11 |
+| Opportunist |       15 |                19/21 |      5/6 |       4/4 | 10/11 |
 
 These are small counts, not a general claim about Jev or the personalities, and the acceptable sets are themselves judgements. The misses below are inputs for #59: tuning the personality instructions, or correcting an acceptable set, whichever the evidence favours. They are not failures of this change.
 
 - **Cautious Encounter, 3 of 4 missed.** Jev answered `release` on `pidgey-poke-or-great`, `weedle-poke-or-great` and `rare-snorlax-ultra` at low confidence (0.35, 0.28 and 0.19). Each fell below the floor, so the fallback policy chose a catch (Poké Ball, Poké Ball, Ultra Ball), which is acceptable. The set expects a catch for all three.
-- **Aggressive and Cautious Sell, 5 rows.** Jev's Noul was `true` (sell) where the set expects `false` (keep): Aggressive on `magikarp-low-sale-high-keep` (0.59), `snorlax-high-sale-low-keep` (0.66) and `tired-eevee` (0.63); Cautious on `magikarp-low-sale-high-keep` (0.59) and `tired-eevee` (0.64). None was applied: each Noul is below that personality's sell threshold (0.92 Aggressive, 0.8 Cautious), so nothing was sold. Cautious on `snorlax-high-sale-low-keep` accepts either answer and is not a miss.
+- **Sell is scored at the personality's own threshold (#59).** The first scoring counted a Sell Noul as `true` at 0.5, but the game sells only at or above `personality.sellThreshold` (`decideSales` in `ai/questions/sell.ts`; derived from `liquidity`, read from `content/personalities/*.json` at run time: Aggressive 0.92, Cautious 0.8, Opportunist 0.68, Greedy 0.56). The eval now scores each Sell Noul at that threshold, from the same recordings, with no re-recording and no change to any acceptable set. The total moves from **78/91 to 77/91**; counts per personality are Greedy 27/28 (unchanged), Aggressive 16/21 (unchanged), Cautious 15/21 (unchanged), Opportunist 20/21 to 19/21. Rows that flipped:
+  - Wrong to correct (5): Aggressive `sell-magikarp-low-sale-high-keep` (Noul 0.59), `sell-snorlax-high-sale-low-keep` (0.66) and `sell-tired-eevee` (0.63); Cautious `sell-magikarp-low-sale-high-keep` (0.59) and `sell-tired-eevee` (0.64). Each is below the threshold, so nothing is sold in play, which is what the set expects. They were never real misses.
+  - Correct to wrong (6), all `sell-last-phase-final-round`, whose set expects a full sale: Aggressive `sell_team_0` (0.50), `sell_team_1` (0.77), `sell_team_2` (0.86) against 0.92; Cautious `sell_team_0` (0.50) and `sell_team_1` (0.73) against 0.8; Opportunist `sell_team_0` (0.54) against 0.68. Jev answers sell, but below the threshold, so the game would keep these Pokémon and the end of the game sells them for less. These are real misses, left as they are: the set is not widened to hide them. They are the floor or Sell wording question for #59.
 - **Aggressive, `strategy-mixed-items-two-rivals`.** Jev picked Pickpocket on the rich rival (confidence 0.75, applied); the set expects Repel on that rival.
 - **Aggressive, `encounter-weedle-poke-or-great`.** Jev picked the Poké Ball (0.67, applied); the set expects the Great Ball.
 - **Opportunist, `strategy-battle-ticket-ahead`.** Jev used the Battle Ticket while far ahead (0.80, applied); the set expects skip.
 - **Cautious, `strategy-repel-leader-near-start`.** Jev chose Repel on the leader at 0.32; the fallback applied skip, which is the acceptable answer.
 - **Greedy, `sell-researcher-class-bonus`.** The one earlier miss (recorded before this change).
 
-Still out of scope: tuning the confidence floors and pinning a baseline.
+Still out of scope: tuning the confidence floors and pinning a baseline. Scoring Choice answers as the raw recorded answer, before the floor and fallback, is unchanged.
 
 ## Synthetic placeholders
 

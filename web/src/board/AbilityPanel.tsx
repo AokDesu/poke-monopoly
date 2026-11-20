@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { LegalActions, Observation } from '../../../engine/index.ts';
 import { abilityFacts, content, currentForm } from '../game/content.ts';
 import { t } from '../i18n/en.ts';
-import { speciesName } from '../i18n/names.ts';
+import { memberName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
 import { seatLabel } from './labels.ts';
 
@@ -58,7 +58,7 @@ export function AbilityPanel({
     };
     return ability.effect && own.enabled.length + own.disabled.length === 0
       ? []
-      : [{ pokemon, form, ability, ...own }];
+      : [{ pokemon, ability, ...own }];
   });
   const peek = observation.own.privateResults.findLast((result) => result.kind === 'peek');
   if (members.length === 0) return null;
@@ -88,15 +88,13 @@ export function AbilityPanel({
     if (payload.targetSeatIndex !== undefined) return seatLabel(payload.targetSeatIndex, ownSeat);
     return t(payload.scope === 'catch' ? 'ability.scope.catch' : 'ability.scope.combat');
   };
-  const memberLabel = (instanceId: string, seatIndex = ownSeat) => {
-    const target = observation.public.players
-      .find((entry) => entry.seatIndex === seatIndex)
-      ?.team.find((entry) => entry.instanceId === instanceId);
-    return t('ability.member', {
-      pokemon: target ? speciesName(target.speciesId) : instanceId,
-      instanceId,
+  const memberLabel = (instanceId: string, seatIndex = ownSeat) =>
+    t('ability.member', {
+      pokemon: memberName(
+        observation.public.players.find((entry) => entry.seatIndex === seatIndex)?.team ?? [],
+        instanceId,
+      ),
     });
-  };
   const optionHeading = options.some(({ action }) => action.payload.targetSeatIndex !== undefined)
     ? t('ability.targets')
     : options.some(({ action }) => action.payload.targetPokemonInstanceId !== undefined)
@@ -109,7 +107,7 @@ export function AbilityPanel({
       <h3>{t('ability.heading')}</h3>
       {selection && !current && <p role="alert">{t('ability.stale')}</p>}
       <ul className="ability-list">
-        {members.map(({ pokemon, form, ability, enabled: usable, disabled: blocked }) => {
+        {members.map(({ pokemon, ability, enabled: usable, disabled: blocked }) => {
           const reasons = [...new Set(blocked.map((action) => action.reasonText))];
           const availability =
             usable.length > 0
@@ -139,7 +137,7 @@ export function AbilityPanel({
                 {ability.name}
               </ActionButton>
               <p className="ability-source">
-                {t('ability.source', { pokemon: form.name, instanceId: pokemon.instanceId })}
+                {t('ability.source', { pokemon: memberName(team, pokemon.instanceId) })}
               </p>
               <p className="ability-text">{ability.text}</p>
             </li>
@@ -173,8 +171,7 @@ export function AbilityPanel({
           <p>
             {t('ability.previewSource', {
               ability: selected.ability.name,
-              pokemon: selected.form.name,
-              instanceId: selected.pokemon.instanceId,
+              pokemon: memberName(team, selected.pokemon.instanceId),
             })}
           </p>
           <p>{t('ability.previewEffect', { effect: selected.ability.text })}</p>

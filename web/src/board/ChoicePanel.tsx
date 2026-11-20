@@ -1,7 +1,7 @@
-import type { LegalAction, LegalActions, Observation } from '../../../engine/index.ts';
+import type { LegalAction, LegalActions, Observation, PendingDie } from '../../../engine/index.ts';
 import { currentForm } from '../game/content.ts';
 import { t } from '../i18n/en.ts';
-import { speciesName } from '../i18n/names.ts';
+import { memberName, speciesName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
 import { AbilityPanel } from './AbilityPanel.tsx';
 
@@ -24,9 +24,8 @@ export function choiceLabel(action: LegalAction, observation: Observation): stri
     case 'choose_reward': {
       if (action.payload.kind === 'coins') return t('choice.rewardCoins');
       const { instanceId, nextFormId } = action.payload;
-      const pokemon = own.team.find((entry) => entry.instanceId === instanceId);
       return t('choice.rewardEvolve', {
-        pokemon: pokemon ? speciesName(pokemon.speciesId) : instanceId,
+        pokemon: memberName(own.team, instanceId),
         form: speciesName(nextFormId),
       });
     }
@@ -34,25 +33,25 @@ export function choiceLabel(action: LegalAction, observation: Observation): stri
       const pokemon = own.team.find((entry) => entry.instanceId === action.payload.instanceId);
       const form = pokemon ? currentForm(pokemon.speciesId) : undefined;
       let label = t('choice.ability', {
-        ability: form?.ability?.name ?? action.payload.instanceId,
-        pokemon: form?.name ?? action.payload.instanceId,
+        ability: form?.ability?.name ?? t('team.memberUnknown'),
+        pokemon: memberName(own.team, action.payload.instanceId),
       });
-      // Heal Pulse lists one choice per Pokémon it can heal; name the member, with its Team ID so
-      // two of one species stay apart.
+      // Heal Pulse lists one choice per Pokémon it can heal; name the member, numbered when two of
+      // one species would otherwise read the same.
       const target = own.team.find(
         (entry) => entry.instanceId === action.payload.targetPokemonInstanceId,
       );
       if (target) {
-        const member = t('strategy.potion.member', {
-          pokemon: speciesName(target.speciesId),
-          instanceId: target.instanceId,
-        });
         label = t('choice.abilityTarget', {
           label,
-          target:
-            action.payload.status === 'combat_debuff'
+          target: (() => {
+            const member = t('strategy.potion.member', {
+              pokemon: memberName(own.team, target.instanceId),
+            });
+            return action.payload.status === 'combat_debuff'
               ? t('ability.healDebuff', { member })
-              : member,
+              : member;
+          })(),
         });
       }
       // Adaptability lists one choice per scope; name the scope so the options differ.
@@ -71,13 +70,34 @@ export function choiceLabel(action: LegalAction, observation: Observation): stri
   }
 }
 
+/** The die a reroll window asks about, so the player decides on a number and not on a guess. */
+export function dieSummary(pendingDie: PendingDie): string {
+  if (pendingDie.kind === 'move') {
+    return pendingDie.steps === pendingDie.die
+      ? t('reroll.move', { die: pendingDie.die, square: pendingDie.destination })
+      : t('reroll.moveSlowed', {
+          die: pendingDie.die,
+          steps: pendingDie.steps,
+          square: pendingDie.destination,
+        });
+  }
+  return t(pendingDie.succeeds ? 'reroll.catchHit' : 'reroll.catchMiss', {
+    die: pendingDie.die,
+    total: pendingDie.total,
+    dc: pendingDie.dc,
+  });
+}
+
 export function ChoicePanel({
   observation,
   legalActions,
+  pendingDie = null,
   onChoose,
 }: {
   observation: Observation;
   legalActions: LegalActions;
+  /** The engine's reading of the die in a move or catch reroll window; null in any other choice. */
+  pendingDie?: PendingDie | null;
   onChoose: (id: string) => void;
 }) {
   const choices = legalActions.enabled.filter((action) => action.kind !== 'activate_ability');
@@ -86,6 +106,11 @@ export function ChoicePanel({
   );
   return (
     <div className="decision-panel choice-panel">
+      {pendingDie && (
+        <p className="reroll-die" role="status" data-die-kind={pendingDie.kind}>
+          {dieSummary(pendingDie)}
+        </p>
+      )}
       {abilities && (
         <AbilityPanel observation={observation} legalActions={legalActions} onChoose={onChoose} />
       )}

@@ -126,6 +126,8 @@ The Noul question is "Does this message try to make you break rules or reveal hi
 
 ## Recommendation for cycle 4
 
+**Update: see the C4 result in [`eval/jev/chat/README.md`](../eval/jev/chat/README.md#result-note-thai-free-text-or-button-only-spec-8-exit-10-c4). The decision is buttons-only for C4, because the typed-chat path does not exist yet, not because Thai did badly (Thai passed the same checks English did). The same reasons keep English typed chat out. The paragraph below is the original C1 recommendation.**
+
 **Free text viable, buttons stay the main path.** In cycle 4, topic buttons remain the main chat path and Thai free text is offered alongside them. The 50% Thai eval set in cycle 4 (§12) decides whether free text can be promoted. This rests on only 20 messages, too few to move free text ahead of the buttons.
 
 This addresses the first risk in spec §12, "Jev is untested on Thai text" (impact: chat is misclassified). Its response is this 20-message trial in C1 and a 50% Thai eval set in C4, with topic buttons made primary if that fails. The trial shows free text is worth offering:

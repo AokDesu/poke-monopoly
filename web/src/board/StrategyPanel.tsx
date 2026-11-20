@@ -3,7 +3,7 @@ import type { LegalActions, Observation } from '../../../engine/index.ts';
 import type { ChallengeOdds } from '../game/store.ts';
 import { content, itemStatus } from '../game/content.ts';
 import { t } from '../i18n/en.ts';
-import { itemName, speciesName } from '../i18n/names.ts';
+import { itemName, memberName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
 import { AbilityPanel } from './AbilityPanel.tsx';
 import { ChallengePanel } from './ChallengePanel.tsx';
@@ -186,10 +186,7 @@ export function StrategyPanel({
                       action.payload.status === 'combat_debuff'
                         ? 'strategy.potion.debuffMember'
                         : 'strategy.potion.member',
-                      {
-                        pokemon: speciesName(pokemon.speciesId),
-                        instanceId: pokemon.instanceId,
-                      },
+                      { pokemon: memberName(ownTeam, pokemon.instanceId) },
                     )}
                   </ActionButton>
                 );
@@ -209,8 +206,7 @@ export function StrategyPanel({
               <p>
                 {targetPokemon
                   ? t('strategy.potion.target', {
-                      pokemon: speciesName(targetPokemon.speciesId),
-                      instanceId: targetPokemon.instanceId,
+                      pokemon: memberName(ownTeam, targetPokemon.instanceId),
                     })
                   : t('strategy.target', { target: seatLabel(targetSeat ?? ownSeat, ownSeat) })}
               </p>
