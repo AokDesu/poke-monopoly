@@ -8,7 +8,7 @@ Spec §8 asks for at least 60 decision scenarios, 15 per personality, each with 
 npm run eval:jev -- --offline   # replays every fixture: no key, no network
 ```
 
-The report counts the scenarios per personality, and splits recorded fixtures from synthetic ones (see below). The 65 Strategy, Encounter and Sell scenarios are recorded; see the results. The 16 promise response scenarios (below) are synthetic placeholders until a person records them.
+The report counts the scenarios per personality, and splits recorded fixtures from synthetic ones (see below). All 81 scenarios are recorded: the 65 Strategy, Encounter and Sell scenarios and the 16 promise response scenarios (below); see the results.
 
 ## The scenarios
 
@@ -95,7 +95,7 @@ A new scenario starts as a **synthetic placeholder** so the offline run, the cou
 npm run eval:jev -- --placeholders   # writes placeholders for scenarios with no fixture; offline, no key
 ```
 
-The 16 promise response fixtures are synthetic now (listed below). Never run `--placeholders` expecting it to change a recording: it does not replace one.
+No fixture is synthetic now. Never run `--placeholders` expecting it to change a recording: it does not replace one.
 
 ## Recording (needs the key; a person does it)
 
@@ -107,7 +107,7 @@ npm run eval:jev -- --record
 
 It makes one request per scenario that is missing, synthetic or stale, through the orchestrator, and writes each fixture with `synthetic: false`. Requests are logged to the usage ledger and stop at the spend cap or daily budget (spec §9). A scenario whose request changed (for example after a wording change) is stale and recorded again; a current recording is kept. Afterwards run `npm run eval:jev -- --offline` and commit the changed fixtures.
 
-Fixtures still to record: 16, the promise response scenarios (one request each; `npm run eval:jev -- --record` replaces only synthetic or stale fixtures and keeps every recording):
+Fixtures still to record: none. The 16 promise response fixtures were recorded by the captain on 2026-11-20 (`jev-1.13.0`, one request each, through the orchestrator):
 
 - `greedy-promise-recipient-high-trust`
 - `aggressive-promise-recipient-high-trust`
@@ -126,7 +126,7 @@ Fixtures still to record: 16, the promise response scenarios (one request each; 
 - `cautious-promise-promiser-low-trust`
 - `opportunist-promise-promiser-low-trust`
 
-Any synthetic fixture added later must be listed here by ID, one per line, until it is recorded.
+Any synthetic fixture added later must be listed under "Fixtures still to record" by ID, one per line, until it is recorded.
 
 ## Adding a scenario
 
