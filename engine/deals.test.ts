@@ -1276,6 +1276,76 @@ describe('the deals-atomic invariant (§8)', () => {
       expect(otherSide.found).toMatch(/a counter changed more than the coin amount/);
     });
 
+    test('a Pokémon or an item that changes hands before the commit is reported', () => {
+      const steps: [string, string, object, GameState][] = [
+        ['propose_deal', 'propose_deal', sellPokemon('caught:0:a', 6), social({ seats: 3 })],
+        ['respond_deal', 'respond_deal', { answer: 'accept' }, proposed()],
+        ['counter_deal', 'counter_deal', { coins: 4 }, proposed()],
+      ];
+      for (const [name, kind, payload, before] of steps) {
+        const pokemon = tampered(before, kind, payload, (state) => {
+          state.players[1]!.team.push(state.players[0]!.team.pop()!);
+        });
+        expect(pokemon.found, `${name}: a Pokémon moved`).toMatch(
+          /an asset changed owner outside a confirmed deal/,
+        );
+        expect(pokemon.found, `${name}: a Pokémon moved`).toMatch(
+          new RegExp(`${kind} changed the coins, deal quota or holdings`),
+        );
+      }
+      const withItem = social({ seats: 3 });
+      const item = tampered(withItem, 'propose_deal', sellItem('item:0:potion', 3), (state) => {
+        state.players[1]!.items.push(state.players[0]!.items.pop()!);
+      });
+      expect(item.found).toMatch(/an asset changed owner outside a confirmed deal/);
+      expect(item.found).toMatch(/propose_deal changed the coins, deal quota or holdings/);
+      // A copy that only appears (no owner change) is still a changed holding.
+      const copied = tampered(proposed(), 'respond_deal', { answer: 'accept' }, (state) => {
+        state.players[0]!.items = [];
+      });
+      expect(copied.found).toMatch(/respond_deal changed the coins, deal quota or holdings/);
+    });
+
+    test('a reject or a cancel that alters anything beyond closing the question is reported', () => {
+      const tamperings: [string, (state: GameState) => void, RegExp][] = [
+        [
+          'a Pokémon moves',
+          (state) => {
+            state.players[1]!.team.push(state.players[0]!.team.pop()!);
+          },
+          /an asset changed owner outside a confirmed deal/,
+        ],
+        [
+          'a coin moves',
+          (state) => {
+            state.players[0]!.coins -= 1;
+            state.players[1]!.coins += 1;
+          },
+          /changed the coins, deal quota or holdings/,
+        ],
+        [
+          'a Lap quota is used up',
+          (state) => {
+            state.players[1]!.dealUsedLap = state.players[1]!.creditedLap;
+          },
+          /changed the coins, deal quota or holdings/,
+        ],
+        [
+          'the Deal Card is left pending',
+          (state) => {
+            state.pendingResponse = structuredClone(proposed().pendingResponse);
+          },
+          /left its question pending/,
+        ],
+      ];
+      for (const [what, edit, expected] of tamperings) {
+        const reject = tampered(proposed(), 'respond_deal', { answer: 'reject' }, edit);
+        expect(reject.found, `reject: ${what}`).toMatch(expected);
+        const cancel = tampered(agreedDeal(), 'cancel_deal', {}, edit);
+        expect(cancel.found, `cancel: ${what}`).toMatch(expected);
+      }
+    });
+
     test('a commit that leaves a balance off is reported', () => {
       const wrongBalance = tampered(agreedDeal(), 'confirm_deal', {}, (state) => {
         // Receiver pays one coin too few, as a rounding slip would.

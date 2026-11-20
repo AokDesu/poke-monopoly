@@ -635,7 +635,7 @@ function termsWithoutCoinAmount(terms: DealTerms): string {
  * through one sourced `coin_transfer` (reason `deal`), with every other holding, coin balance and player untouched,
  * and both parties' one-deal-per-Lap marker set. Every other deal step (propose, respond, counter, cancel) leaves
  * every player's coins, Lap marker, Pokémon and items exactly as they were, an accept leaves the terms untouched and
- * a counter changes only the coin amount and stays within depth 1; a refused deal step leaves the state hash
+ * a counter changes only the coin amount and stays within depth 1, a reject or cancel closes the question; a refused deal step leaves the state hash
  * unchanged (the generic check names a stale or refused action).
  */
 function checkDealsAtomic({ before, parsed, result }: Step): string[] {
@@ -679,6 +679,14 @@ function checkDealsAtomic({ before, parsed, result }: Step): string[] {
           canonicalJson(after.terms) !== canonicalJson(pending.terms))
       ) {
         errors.push('an accepted deal changed its terms');
+      }
+      if (
+        ((parsed.kind === 'respond_deal' && parsed.payload.answer === 'reject') ||
+          parsed.kind === 'cancel_deal') &&
+        pending?.kind === 'deal' &&
+        after?.kind === 'deal'
+      ) {
+        errors.push('a rejected or cancelled deal left its question pending');
       }
       if (
         parsed.kind === 'counter_deal' &&
