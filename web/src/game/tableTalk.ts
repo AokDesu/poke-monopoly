@@ -153,6 +153,9 @@ export function detectMoment(
   }
   for (const event of events) {
     if (event.kind !== 'coin_transfer' || event.amount <= 0) continue;
+    // A Deal Card's payment is its two parties' alone (§4.8): it is never table news, so no seat is asked to
+    // speak about it, however it reached this feed.
+    if (event.reason === 'deal') continue;
     if (event.source.kind !== 'player' || event.destination.kind !== 'player') continue;
     const payer = seatOf(event.source.actorId);
     const paid = seatOf(event.destination.actorId);

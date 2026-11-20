@@ -453,8 +453,9 @@ describe('the deals-atomic invariant also covers the budget (§8)', () => {
     before: GameState,
     edit: (state: GameState) => void,
     kind = 'confirm_deal',
+    payload: object = {},
   ) => {
-    const action = command(before, kind);
+    const action = command(before, kind, payload);
     const result = applyAction(before, action);
     if ('rejected' in result) throw new Error(result.reason);
     const state = structuredClone(result.state);
@@ -493,6 +494,18 @@ describe('the deals-atomic invariant also covers the budget (§8)', () => {
         'skip',
       ),
     ).toMatch(/outside a confirmed deal/);
+    // A deal step before the commit leaves the budget untouched too, with the holdings (deals-atomic's comparison).
+    const proposedDeal = propose(scenario({ mine: 6 }), sellPokemon('caught:0:a', 8));
+    expect(
+      violations(
+        proposedDeal,
+        (state) => {
+          state.players[1]!.dealConcessionSpent = 1;
+        },
+        'respond_deal',
+        { answer: 'accept' },
+      ),
+    ).toMatch(/respond_deal changed the coins, deal quota or holdings/);
     // A commit that spends past the budget: the AI had already conceded 2, and this deal concedes 2 more.
     const forged = agreed();
     const action = command(forged, 'confirm_deal');

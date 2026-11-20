@@ -365,6 +365,32 @@ describe('a public moment (§5.7)', () => {
     expect(detectMoment(entry('dice_result', [bankPays], 1), publicGame(), null)).toBeNull();
   });
 
+  test('a deal payment is never table news: no moment, so no seat is asked to speak about it (§4.8)', () => {
+    const payment = (reason: string): EngineEvent => ({
+      kind: 'coin_transfer',
+      source: { kind: 'player', actorId: 'player-1' },
+      destination: { kind: 'player', actorId: 'player-0' },
+      amount: 6,
+      reason,
+    });
+    // The seed 1 case: seat 2 would have been asked for a `coins_other` line about a payment between seats 0 and 1.
+    expect(
+      detectMoment(entry('confirm_deal', [payment('deal')], 0), publicGame(), null),
+    ).toBeNull();
+    // The same payment for another reason is still a moment, so only the deal tag removes it.
+    expect(
+      detectMoment(entry('choose_reward', [payment('pvp_reward')], 0), publicGame(), null),
+    ).toMatchObject({ kind: 'coins', subjectSeat: 0, counterSeat: 1 });
+    // A deal payment does not hide a public payment that happens in the same record.
+    expect(
+      detectMoment(
+        entry('choose_reward', [payment('deal'), payment('pvp_reward')], 0),
+        publicGame(),
+        null,
+      ),
+    ).toMatchObject({ kind: 'coins' });
+  });
+
   test('any catch is a moment, found in the engine die result, with the species caught', () => {
     const caught = (speciesId: string) => {
       const game = publicGame();

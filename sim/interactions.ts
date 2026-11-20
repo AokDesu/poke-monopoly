@@ -37,6 +37,21 @@ export type PromiseSummary = {
   pending: number;
 };
 
+/** Deal Cards by outcome (§4.8, #164): what the human seat proposed and how each exchange ended. */
+export type DealSummary = {
+  proposed: number;
+  accepted: number;
+  rejected: number;
+  countered: number;
+  cancelled: number;
+  /** Deals that moved assets and coins (`deal_committed`). */
+  committed: number;
+};
+
+export function emptyDealSummary(): DealSummary {
+  return { proposed: 0, accepted: 0, rejected: 0, countered: 0, cancelled: 0, committed: 0 };
+}
+
 export function emptyHostilitySummary(): HostilitySummary {
   return {
     hostileUsed: 0,
@@ -68,6 +83,7 @@ export function emptyPromiseSummary(): PromiseSummary {
 export function createInteractionMetrics() {
   const hostility = emptyHostilitySummary();
   const promises = emptyPromiseSummary();
+  const deals = emptyDealSummary();
   const rows = new Map<string, HostilityRow>();
   const turns = new Set<string>();
 
@@ -124,6 +140,12 @@ export function createInteractionMetrics() {
     ) {
       if (decision) decisionEvidence(before, events, decision);
       for (const event of events) {
+        if (event.kind === 'deal_proposed') deals.proposed++;
+        if (event.kind === 'deal_accepted') deals.accepted++;
+        if (event.kind === 'deal_rejected') deals.rejected++;
+        if (event.kind === 'deal_countered') deals.countered++;
+        if (event.kind === 'deal_cancelled') deals.cancelled++;
+        if (event.kind === 'deal_committed') deals.committed++;
         if (event.kind === 'promise_offered') promises.offered++;
         if (event.kind === 'promise_rejected') promises.rejected++;
         if (event.kind === 'promise_accepted') {
@@ -148,13 +170,14 @@ export function createInteractionMetrics() {
         }
       });
     },
-    summary(): { hostility: HostilitySummary; promises: PromiseSummary } {
+    summary(): { hostility: HostilitySummary; promises: PromiseSummary; deals: DealSummary } {
       const rate = (counts: HostilityCounts) =>
         counts.legalHostileOpportunity === 0
           ? null
           : counts.hostileUsed / counts.legalHostileOpportunity;
       return {
         promises: { ...promises },
+        deals: { ...deals },
         hostility: {
           ...hostility,
           usedPerOpportunity: rate(hostility),

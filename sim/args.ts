@@ -4,7 +4,7 @@ import { checkSeedSet, DEFAULT_OPTIONS, type SimOptions } from './runner.ts';
 
 /**
  * `--games <n> --seed <n> [--seats 2|3|4] [--max-steps n] [--lap-target n] [--policy name]
- * [--seed-set tune|eval] [--social] [--human-policy name] [--seat-policies a,b,..] [--save file]`.
+ * [--seed-set tune|eval] [--social] [--require-deals] [--human-policy name] [--seat-policies a,b,..] [--save file]`.
  */
 export function parseSimArgs(args: string[]): SimOptions {
   const { values } = parseArgs({
@@ -20,6 +20,7 @@ export function parseSimArgs(args: string[]): SimOptions {
       policy: { type: 'string', default: DEFAULT_OPTIONS.policy },
       'seed-set': { type: 'string', default: DEFAULT_OPTIONS.seedSet },
       social: { type: 'boolean', default: false },
+      'require-deals': { type: 'boolean', default: false },
       'human-policy': { type: 'string' },
       'seat-policies': { type: 'string' },
       save: { type: 'string' },
@@ -28,6 +29,9 @@ export function parseSimArgs(args: string[]): SimOptions {
   const seats = integer('seats', values.seats, 2);
   if (seats > 4) throw new RangeError('--seats must be 2, 3 or 4');
   knownPolicy('policy', values.policy);
+  if (values['require-deals'] && !values.social) {
+    throw new RangeError('--require-deals needs --social');
+  }
   const humanPolicy = values['human-policy'];
   if (humanPolicy !== undefined) {
     if (!values.social) throw new RangeError('--human-policy needs --social');
@@ -53,6 +57,7 @@ export function parseSimArgs(args: string[]): SimOptions {
     policy: values.policy,
     seedSet,
     ...(values.social ? { social: true } : {}),
+    ...(values['require-deals'] ? { requireDeals: true } : {}),
     ...(humanPolicy === undefined ? {} : { humanPolicy }),
     ...(seatPolicies ? { seatPolicies } : {}),
     ...(values.save === undefined ? {} : { save: nonEmpty('save', values.save) }),

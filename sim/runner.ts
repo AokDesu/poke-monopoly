@@ -90,6 +90,11 @@ export type SimOptions = {
   /** `--human-policy <name>`: the policy of the human seat 0 under `--social`; default `random`. */
   humanPolicy?: string;
   /**
+   * `--require-deals` (needs `--social`): the run fails unless at least one Deal Card committed, so a change that
+   * quietly stops the human seat from dealing, or the engine from committing, cannot pass CI (§4.8, #164).
+   */
+  requireDeals?: boolean;
+  /**
    * `--seat-policies a,b,..`: one registered policy per seat, which replaces `policy` on the AI
    * seats (the human seat under `--social` still plays `humanPolicy`). Absent leaves every seat on
    * `policy`.
@@ -138,6 +143,8 @@ export type SocialSummary = {
   promiseOffers: number;
   promisesAccepted: number;
   promisesRejected: number;
+  dealsProposed: number;
+  dealsCommitted: number;
 };
 
 export type GameFailure = { seed: number; reasons: string[]; reproduce: string };
@@ -228,6 +235,8 @@ export async function runSim(
       promiseOffers: summary.promises.offered,
       promisesAccepted: summary.promises.accepted,
       promisesRejected: summary.promises.rejected,
+      dealsProposed: summary.deals.proposed,
+      dealsCommitted: summary.deals.committed,
     };
   }
   if (policyCounts) {
@@ -261,6 +270,11 @@ function emptySummary(options: SimOptions, classIds: readonly string[]): SimSumm
 }
 
 /** Non-zero exit when an illegal action was applied, an invariant failed or a game aborted. */
+/** `--require-deals`: true when it was asked for and no Deal Card committed in the whole run. */
+export function noDealCommitted(options: SimOptions, summary: SimSummary): boolean {
+  return options.requireDeals === true && summary.deals.committed === 0;
+}
+
 export function failed(summary: SimSummary): boolean {
   return (
     summary.illegalAppliedActionCount > 0 || summary.invariantFailures > 0 || summary.aborted > 0
@@ -296,6 +310,7 @@ export function reproduceCommand(options: SimOptions, seed: number): string {
     `--policy ${options.policy}`,
     ...(options.seatPolicies ? [`--seat-policies ${options.seatPolicies.join(',')}`] : []),
     ...(options.social ? ['--social'] : []),
+    ...(options.requireDeals ? ['--require-deals'] : []),
     ...(options.social && options.humanPolicy ? [`--human-policy ${options.humanPolicy}`] : []),
     ...(options.seedSet === 'eval' ? ['--seed-set eval'] : []),
   ].join(' ');
