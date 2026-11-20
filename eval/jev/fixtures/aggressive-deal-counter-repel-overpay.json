@@ -105,21 +105,21 @@
   },
   "acceptable": { "deal": ["accept", "counter"] },
   "reason": "Aggressive: risk 0.8 accepts a small loss for an item that could be used on the leader, and aggression 0.9 wants the weapon; it may still push the price down once.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "0b1b18e7f02817d4307e740efd499f23364ed59f17377996f3a6d183f7e4ac50",
   "recorded": {
     "ok": true,
     "answers": {
       "deal": {
         "type": "choice",
-        "choice": "reject",
-        "confidence": 0.199,
-        "probabilities": { "accept": 0.401, "reject": 0.466, "counter": 0.133 }
+        "choice": "accept",
+        "confidence": 0.22,
+        "probabilities": { "accept": 0.48, "reject": 0.35, "counter": 0.17 }
       }
     },
-    "requestId": "synthetic-aggressive-deal-counter-repel-overpay",
+    "requestId": "req_01a1f96b513875188eaca759a005cd1c",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 256,
+    "usage": { "inputTokens": 1768, "outputTokens": 38 }
   }
 }

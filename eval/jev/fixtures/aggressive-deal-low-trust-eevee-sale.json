@@ -112,7 +112,7 @@
   },
   "acceptable": { "deal": ["reject", "counter"] },
   "reason": "Aggressive: loyalty 0.4 gives distrust some weight and risk 0.8 does not outweigh it for a deal with nothing to gain; it may counter or refuse.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "5c1291b0c64e7b57494a6e9ef6c285f8df1adf3a1abd078bd39f2d5b0cd6d745",
   "recorded": {
     "ok": true,
@@ -120,13 +120,13 @@
       "deal": {
         "type": "choice",
         "choice": "reject",
-        "confidence": 0.096,
-        "probabilities": { "accept": 0.269, "reject": 0.397, "counter": 0.333 }
+        "confidence": 0.14,
+        "probabilities": { "accept": 0.17, "reject": 0.43, "counter": 0.4 }
       }
     },
-    "requestId": "synthetic-aggressive-deal-low-trust-eevee-sale",
+    "requestId": "req_01a1f96b524a75068f1e0f69035fd0d8",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 262,
+    "usage": { "inputTokens": 1802, "outputTokens": 38 }
   }
 }

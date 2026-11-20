@@ -112,21 +112,21 @@
   },
   "acceptable": { "deal": ["reject", "counter"] },
   "reason": "Greedy: liquidity 0.9 already prefers to keep its coins, and loyalty 0.5 adds distrust of a player who broke a promise; counter or refuse.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "8ef41f5351dd58d97d9d965545330d5ab26215770f754aeeb8b25aa60d619454",
   "recorded": {
     "ok": true,
     "answers": {
       "deal": {
         "type": "choice",
-        "choice": "counter",
-        "confidence": 0.58,
-        "probabilities": { "accept": 0, "reject": 0.279, "counter": 0.72 }
+        "choice": "reject",
+        "confidence": 0.44,
+        "probabilities": { "accept": 0.07, "reject": 0.63, "counter": 0.3 }
       }
     },
-    "requestId": "synthetic-greedy-deal-low-trust-eevee-sale",
+    "requestId": "req_01a1f96b4ccc7547acfa7ed64b46c2d0",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 269,
+    "usage": { "inputTokens": 1796, "outputTokens": 38 }
   }
 }

@@ -112,7 +112,7 @@
   },
   "acceptable": { "deal": ["accept", "counter"] },
   "reason": "Aggressive: risk 0.8 takes a fair deal without fear and liquidity 0.3 does not hoard the coins it pays out; loyalty 0.4 leaves room to haggle once.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "4b3add24a673a2b752bbfe510e388eb0f91a710773c2d208834480f39e566780",
   "recorded": {
     "ok": true,
@@ -120,13 +120,13 @@
       "deal": {
         "type": "choice",
         "choice": "accept",
-        "confidence": 0.574,
-        "probabilities": { "accept": 0.716, "reject": 0.079, "counter": 0.205 }
+        "confidence": 0.25,
+        "probabilities": { "accept": 0.5, "reject": 0.24, "counter": 0.26 }
       }
     },
-    "requestId": "synthetic-aggressive-deal-fair-eevee-sale",
+    "requestId": "req_01a1f96b4f017026bbb00265596300d5",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 267,
+    "usage": { "inputTokens": 1802, "outputTokens": 38 }
   }
 }

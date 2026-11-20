@@ -112,21 +112,21 @@
   },
   "acceptable": { "deal": ["accept"] },
   "reason": "Cautious: risk 0.2, aggression 0.2, liquidity 0.5 and loyalty 0.8; a rare Pokémon for a few coins is a large gain and costs no budget, so every personality takes it and a counter would only risk a good deal (an agreement control).",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "5fdac17ac3219fcedef866cf3e2c43494e3baaf218e0fab9113997c8c887e1a4",
   "recorded": {
     "ok": true,
     "answers": {
       "deal": {
         "type": "choice",
-        "choice": "reject",
-        "confidence": 0.459,
-        "probabilities": { "accept": 0.031, "reject": 0.639, "counter": 0.33 }
+        "choice": "accept",
+        "confidence": 0.7,
+        "probabilities": { "accept": 0.8, "reject": 0.11, "counter": 0.09 }
       }
     },
-    "requestId": "synthetic-cautious-deal-lopsided-snorlax-sale",
+    "requestId": "req_01a1f96b556e74c884553ba98e1380d6",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 245,
+    "usage": { "inputTokens": 1803, "outputTokens": 38 }
   }
 }

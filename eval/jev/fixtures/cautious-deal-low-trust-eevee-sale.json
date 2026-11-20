@@ -112,21 +112,21 @@
   },
   "acceptable": { "deal": ["reject"] },
   "reason": "Cautious: loyalty 0.8 holds a broken promise against the player and risk 0.2 will not trade with someone it distrusts, so it refuses (the neutral-trust twin is accepted).",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "9c01c598a48e345a0d8767ac85992f441770f3f325bb39e89845d74a7de544ee",
   "recorded": {
     "ok": true,
     "answers": {
       "deal": {
         "type": "choice",
-        "choice": "accept",
-        "confidence": 0.575,
-        "probabilities": { "accept": 0.717, "reject": 0.001, "counter": 0.281 }
+        "choice": "reject",
+        "confidence": 0.67,
+        "probabilities": { "accept": 0.05, "reject": 0.78, "counter": 0.17 }
       }
     },
-    "requestId": "synthetic-cautious-deal-low-trust-eevee-sale",
+    "requestId": "req_01a1f96b577b74dcaee9ae038fc45c07",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 250,
+    "usage": { "inputTokens": 1801, "outputTokens": 38 }
   }
 }

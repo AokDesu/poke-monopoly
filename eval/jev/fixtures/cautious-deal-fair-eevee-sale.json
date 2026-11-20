@@ -112,21 +112,21 @@
   },
   "acceptable": { "deal": ["accept"] },
   "reason": "Cautious: risk 0.2 and a fair price with no value lost make this a safe deal, and loyalty 0.8 keeps goodwill with a trading partner, so it takes the deal as offered.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "3b41b8ec63378dbcbc8723e54feb08960bf20f65ab93ec2716d044481ec4637d",
   "recorded": {
     "ok": true,
     "answers": {
       "deal": {
         "type": "choice",
-        "choice": "reject",
-        "confidence": 0.593,
-        "probabilities": { "accept": 0.204, "reject": 0.729, "counter": 0.068 }
+        "choice": "accept",
+        "confidence": 0.26,
+        "probabilities": { "accept": 0.51, "reject": 0.34, "counter": 0.15 }
       }
     },
-    "requestId": "synthetic-cautious-deal-fair-eevee-sale",
+    "requestId": "req_01a1f96b546f7068bb67b409ee0286dc",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 243,
+    "usage": { "inputTokens": 1801, "outputTokens": 38 }
   }
 }
