@@ -1231,7 +1231,9 @@ describe('responder decisions (spec §4.8, §5.3, §6 item 2; S06)', () => {
     const response = await decide(request);
     expect(response.status).toBe(200);
     const body = decisionResponseSchema.parse(await response.json());
-    expect(body).toMatchObject({ source: 'fallback', fallbackReason: 'auto' });
+    // The promise is a Jev question now (S09): the test app's client has no network, so the
+    // fallback answers for that reason, not as an unasked `auto` decision.
+    expect(body).toMatchObject({ source: 'fallback', fallbackReason: 'network' });
     expect(request.enabledActions.map((action) => action.id)).toContain(
       (body as { choice: string }).choice,
     );
@@ -1256,13 +1258,13 @@ describe('responder decisions (spec §4.8, §5.3, §6 item 2; S06)', () => {
     ).toBe(400);
   });
 
-  test('the orchestrator routes both responder points to the auto policy without asking Jev', async () => {
+  test('the orchestrator asks Jev the promise question and keeps the deal response on the auto policy', async () => {
     const state = pendingGame();
     const request = responderRequest(state, 1);
     const ask = vi.fn(async () => ({ ok: false as const, fallbackReason: 'network' as const }));
     const orchestrator = new Orchestrator({ client: { ask } });
-    for (const decisionPoint of ['promise_response', 'deal_response'] as const) {
-      const decision = await orchestrator.decide({
+    const decide = (decisionPoint: 'promise_response' | 'deal_response') =>
+      orchestrator.decide({
         turnKey: 'k',
         observation: request.observation,
         legalActions: { enabled: request.enabledActions, disabled: [] },
@@ -1272,9 +1274,14 @@ describe('responder decisions (spec §4.8, §5.3, §6 item 2; S06)', () => {
         decisionPoint,
         rng: createPolicyRng('r'),
       });
-      expect(decision).toMatchObject({ source: 'auto', requests: 0 });
-      expect(decision.events[0]!.questionId).toBe(decisionPoint);
-    }
+    // No deal question exists yet (S10): the deal response is applied without asking Jev.
+    const deal = await decide('deal_response');
+    expect(deal).toMatchObject({ source: 'auto', requests: 0 });
+    expect(deal.events[0]!.questionId).toBe('deal_response');
     expect(ask).not.toHaveBeenCalled();
+    const promise = await decide('promise_response');
+    expect(promise).toMatchObject({ source: 'fallback', fallbackReason: 'network', requests: 1 });
+    expect(promise.events[0]!.questionId).toBe('promise_response');
+    expect(ask).toHaveBeenCalledTimes(1);
   });
 });

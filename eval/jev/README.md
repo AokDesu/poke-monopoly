@@ -1,6 +1,6 @@
 # Jev decision-scenario eval
 
-Spec: v1.0 §5.5, §5.4, §8, §12. Issues #59 (eval set) and #233 (personality scenarios, stream B).
+Spec: v1.0 §5.5, §5.4, §8, §12. Issues #59 (eval set), #233 (personality scenarios, stream B) and #56 (S09/S11, the promise response).
 
 Spec §8 asks for at least 60 decision scenarios, 15 per personality, each with an acceptable-answer set. Every scenario is one engine state where seat 0 (the AI) decides a Strategy, an Encounter or a Sell Phase. The request goes through the real question builders and the orchestrator, so every number is an engine fact turned into a named bucket, and nothing hidden reaches Jev (the leak, number and size guards run on every scenario).
 
@@ -8,7 +8,7 @@ Spec §8 asks for at least 60 decision scenarios, 15 per personality, each with 
 npm run eval:jev -- --offline   # replays every fixture: no key, no network
 ```
 
-The report counts the scenarios per personality, and splits recorded fixtures from synthetic ones (see below). All 65 are recorded; see the results.
+The report counts the scenarios per personality, and splits recorded fixtures from synthetic ones (see below). The 65 Strategy, Encounter and Sell scenarios are recorded; see the results. The 16 promise response scenarios (below) are synthetic placeholders until a person records them.
 
 ## The scenarios
 
@@ -37,6 +37,19 @@ Each scenario has an acceptable set and a written `reason` (also stored in its f
 Some states are agreement controls (every personality gives the same answer), so a model that only echoes the personality text is not rewarded.
 
 **PvP.** Spec §5.3 (the temporary #55 exception) keeps `declare_pvp` out of Strategy questions until Stream B adds PvP questions, and there is no PvP response question yet. The PvP contrast is therefore expressed through the Battle Ticket item, which is a real Strategy option that forces PvP. When the PvP questions arrive, add scenarios for them here.
+
+## Promise response scenarios (S09, S11 promise half)
+
+`promise-scenarios.ts`: 16 scenarios of the `promise_response` decision point, four tables by four personalities. Seat 0, the AI, owes the answer to a `no_attack` promise question the human at seat 1 opened in its Social window with the engine's own `offer_promise` action (`promiseTable` in `scenario-kit.ts`). The request is the real `buildPromiseResponseQuestion`: the AI's trust in the human as a named bucket (`low` or `high`), the memory as event evidence (`P2 broke no_attack on turn 3`), the human's earlier message as quoted data, and nothing else; no number reaches Jev. A scenario ID is `<personality>-promise-<role>-<trust>-trust`.
+
+| Table                          | The AI is                     | Trust | History            |
+| ------------------------------ | ----------------------------- | ----- | ------------------ |
+| `promise-recipient-high-trust` | the recipient: it is promised | high  | two promises kept  |
+| `promise-recipient-low-trust`  | the recipient: it is promised | low   | one promise broken |
+| `promise-promiser-high-trust`  | the promiser: it is asked     | high  | two promises kept  |
+| `promise-promiser-low-trust`   | the promiser: it is asked     | low   | one promise broken |
+
+Within a table the four personalities share the exact table state, so a pair differs only in the personality text. The acceptable sets (`respond:accept`, `respond:reject`) are judgements from `content/personalities/<id>.json` with a `reason` that cites the weights (a test checks the cited values). Greedy accepts at high trust and rejects at low trust in both roles; Cautious, the most loyal, accepts or rejects at low trust; Aggressive and Opportunist may accept or reject when asked to promise at high trust. The fallback policy's own answer is a cross-check: a test requires it to be an acceptable answer for every scenario. These are small counts and judgements, not a claim about Jev.
 
 ## Results of the recording
 
@@ -82,7 +95,7 @@ A new scenario starts as a **synthetic placeholder** so the offline run, the cou
 npm run eval:jev -- --placeholders   # writes placeholders for scenarios with no fixture; offline, no key
 ```
 
-No fixture is synthetic now. Never run `--placeholders` expecting it to change a recording: it does not replace one.
+The 16 promise response fixtures are synthetic now (listed below). Never run `--placeholders` expecting it to change a recording: it does not replace one.
 
 ## Recording (needs the key; a person does it)
 
@@ -94,7 +107,26 @@ npm run eval:jev -- --record
 
 It makes one request per scenario that is missing, synthetic or stale, through the orchestrator, and writes each fixture with `synthetic: false`. Requests are logged to the usage ledger and stop at the spend cap or daily budget (spec §9). A scenario whose request changed (for example after a wording change) is stale and recorded again; a current recording is kept. Afterwards run `npm run eval:jev -- --offline` and commit the changed fixtures.
 
-Fixtures still to record: none. Any synthetic fixture added later must be listed here by ID, one per line, until it is recorded.
+Fixtures still to record: 16, the promise response scenarios (one request each; `npm run eval:jev -- --record` replaces only synthetic or stale fixtures and keeps every recording):
+
+- `greedy-promise-recipient-high-trust`
+- `aggressive-promise-recipient-high-trust`
+- `cautious-promise-recipient-high-trust`
+- `opportunist-promise-recipient-high-trust`
+- `greedy-promise-recipient-low-trust`
+- `aggressive-promise-recipient-low-trust`
+- `cautious-promise-recipient-low-trust`
+- `opportunist-promise-recipient-low-trust`
+- `greedy-promise-promiser-high-trust`
+- `aggressive-promise-promiser-high-trust`
+- `cautious-promise-promiser-high-trust`
+- `opportunist-promise-promiser-high-trust`
+- `greedy-promise-promiser-low-trust`
+- `aggressive-promise-promiser-low-trust`
+- `cautious-promise-promiser-low-trust`
+- `opportunist-promise-promiser-low-trust`
+
+Any synthetic fixture added later must be listed here by ID, one per line, until it is recorded.
 
 ## Adding a scenario
 
