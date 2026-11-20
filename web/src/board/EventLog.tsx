@@ -89,6 +89,17 @@ export function eventMessage(
     case 'coin_transfer': {
       // The Event's own result row already says who gained or paid what.
       if (event.reason.startsWith('event:')) return [];
+      // A Deal Card's payment is its two parties' alone (§4.8): a seat that is not one of the pair, and a watcher,
+      // never see it in the shared log.
+      if (event.reason === 'deal') {
+        const own = ownSeatOf(observation);
+        const parties = [event.source, event.destination].flatMap((value) =>
+          value.kind === 'player'
+            ? observation.public.players.filter((entry) => entry.actorId === value.actorId)
+            : [],
+        );
+        if (own === undefined || !parties.some((entry) => entry.seatIndex === own)) return [];
+      }
       const endpoint = (value: typeof event.source) =>
         value.kind === 'bank' ? t('board.event.bank') : playerLabel(observation, value.actorId);
       return message('board.event.coins', {
