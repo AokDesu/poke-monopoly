@@ -123,7 +123,7 @@ test('promise scene: a broken promise is in the seat’s memory with the trust i
   expect(trustShown(view.observation)[0]!.value).toBeLessThan(0);
   // The game plays on: the seat may offer the rival a new promise now that the old one is closed.
   const ids = legalActions(store.getSession()!.state, 0).enabled.map((choice) => choice.id);
-  expect(ids).toContain('offer-promise:seat-1:offer');
+  expect(ids).toContain('offer-promise:seat-1:ask');
 });
 
 test('a script step the engine no longer allows fails the build and leaves no game', () => {
