@@ -182,7 +182,7 @@ export const personalityFor = (id: string) =>
 /**
  * Spec §5.7: the line a seat says with its answer to a Deal Card, from `deal_accept` or `deal_reject`; only trust
  * `neutral` is authored. Picked by a seeded draw on a presentation RNG apart from the game's, so a retried
- * decision says the same line. A counter has no line: the Deal Card shows its new terms.
+ * decision says the same line. A counter has no line, by decision: the Deal Card shows its new terms as an engine record, not as speech.
  */
 const lineFor = (request: DecisionRequest, choice: string): { lineId?: string } => {
   if (request.decisionPoint !== 'deal_response') return {};
