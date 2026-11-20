@@ -7,6 +7,7 @@ import {
 import type { MessageKey } from '../i18n/en.ts';
 import { classOptions, engineContent } from './content.ts';
 import { rollForFirstPlayer } from './firstPlayer.ts';
+import { memoryEntries, trustShown } from './promises.ts';
 import { completeSetup, type GameSetup } from './setup.ts';
 import {
   configForSetup,
@@ -17,7 +18,7 @@ import {
 } from './store.ts';
 
 /**
- * Prepared scenarios for demo mode (`?demo`, spec §3, §11 steps 2, 4 and 5, issue #222).
+ * Prepared scenarios for demo mode (`?demo`, spec §3, §11 steps 2, 4, 5 and 6, issues #222 and #64).
  *
  * A scene is a seed plus a short script of legal engine actions, applied through the normal store
  * from a fresh game: never a hand-edited state, and no rule lives here. The script only names the
@@ -36,7 +37,7 @@ export interface DemoScene {
   readonly title: MessageKey;
   readonly description: MessageKey;
   /** Spec §11 steps this scene opens, for the pull request and the test names. */
-  readonly demoStep: 2 | 4 | 5;
+  readonly demoStep: 2 | 4 | 5 | 6;
   readonly setup: GameSetup;
   readonly seed: number;
   /** Runs after the first-player roll, which every game starts with. */
@@ -128,6 +129,43 @@ export const DEMO_SCENES: readonly DemoScene[] = [
         rewards.some((choice) => choice.payload.kind === 'evolve')
       );
     },
+  },
+  {
+    id: 'promise',
+    title: 'demo.scene.promise.title',
+    description: 'demo.scene.promise.description',
+    demoStep: 6,
+    setup: {
+      mode: 'quick',
+      human: MAIN_CHARACTER,
+      opponents: [{ ...RIVAL, personality: 'aggressive', difficulty: 'easy' }],
+    },
+    seed: 1,
+    script: [
+      { engine: 1 },
+      // Social: ask the rival to promise not to attack, and the rival accepts (§4.8).
+      { seat: HUMAN, choose: 'offer-promise:seat-1:ask' },
+      { seat: 1, choose: 'respond:accept' },
+      { seat: HUMAN, choose: 'skip' },
+      { seat: HUMAN, choose: 'skip' },
+      { engine: 3 },
+      { seat: HUMAN, choose: 'skip-shop' },
+      { engine: 3 },
+      // The rival's own turn: it declares a battle on the seat it promised, and the seat declines.
+      { seat: 1, choose: 'declare-pvp:0' },
+      { seat: HUMAN, choose: 'decline-pvp' },
+      { engine: 6 },
+    ],
+    atMoment: (view) =>
+      decidesAt(view, 'turn_step') &&
+      view.observation.public.phase.kind === 'social' &&
+      memoryEntries(view.observation, view.feed).some(
+        (entry) =>
+          entry.kind === 'broken' &&
+          entry.promiserSeatIndex === 1 &&
+          entry.recipientSeatIndex === HUMAN,
+      ) &&
+      trustShown(view.observation).some((entry) => entry.seatIndex === 1),
   },
 ];
 
