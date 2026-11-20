@@ -419,5 +419,7 @@ test('real social games conserve promise accounting and preserve the existing so
     promiseOffers: p.offered,
     promisesAccepted: p.accepted,
     promisesRejected: p.rejected,
+    dealsProposed: summary.deals.proposed,
+    dealsCommitted: summary.deals.committed,
   });
 }, 15_000);

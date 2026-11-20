@@ -29,6 +29,8 @@ import {
 import { realEngine } from './engine.ts';
 import {
   failed,
+  noDealCommitted,
+  reproduceCommand,
   runSim,
   seatSetup,
   type GameSetup,
@@ -896,6 +898,47 @@ describe('--social: seat 0 plays as a human with the random policy (#56 S03, §4
     expect(human.config.seats.map((seat) => seat.controller)).toEqual(['human', 'ai']);
     expect(human.config.socialWindow).toBe(true);
   }, 60_000);
+
+  test('--require-deals needs --social, is kept in the reproduce command and fails a run with no commit', async () => {
+    expect(() => parseSimArgs(['--require-deals'])).toThrow(/needs --social/);
+    expect(parseSimArgs(['--social', '--require-deals']).requireDeals).toBe(true);
+    expect(parseSimArgs(['--social'])).not.toHaveProperty('requireDeals');
+    const asked = options({ social: true, requireDeals: true });
+    expect(reproduceCommand(asked, 1)).toContain('--social --require-deals');
+    const none = (await runSim(realEngine, options({ games: 1 }), POLICIES, checkInvariants))
+      .summary;
+    expect(none.deals).toEqual({
+      proposed: 0,
+      accepted: 0,
+      rejected: 0,
+      countered: 0,
+      cancelled: 0,
+      committed: 0,
+    });
+    expect(noDealCommitted(asked, none)).toBe(true);
+    expect(noDealCommitted(options({ social: true }), none)).toBe(false);
+    expect(noDealCommitted(asked, { ...none, deals: { ...none.deals, committed: 1 } })).toBe(false);
+  }, 60_000);
+
+  test('the human seat deals: deals are proposed and committed, and each exchange ends once', async () => {
+    const { summary, failures } = await runSim(
+      realEngine,
+      options({ games: 8, seed: 1, social: true, seats: 3 }),
+      POLICIES,
+      checkInvariants,
+    );
+    expect(failures).toEqual([]);
+    const { deals } = summary;
+    expect(deals.proposed).toBeGreaterThan(0);
+    expect(deals.committed).toBeGreaterThan(0);
+    expect(summary.social).toMatchObject({
+      dealsProposed: deals.proposed,
+      dealsCommitted: deals.committed,
+    });
+    // A counter ends in a commit or a cancel; a proposal otherwise ends in a reject, an accept's commit or a cancel.
+    expect(deals.rejected + deals.cancelled + deals.committed).toBe(deals.proposed);
+    expect(deals.accepted + deals.countered).toBe(deals.committed + deals.cancelled);
+  }, 120_000);
 
   test('a failing game reproduces with the flag', async () => {
     const { failures } = await runSim(

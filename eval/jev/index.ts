@@ -7,6 +7,7 @@ import {
   resolveJevModel,
   type JevClient,
 } from '../../ai/jev/client.ts';
+import { PERSONALITIES } from '../../ai/fallback/index.ts';
 import { defaultUsageLedger, type UsageRecorder } from '../../ai/jev/spend.ts';
 import { billedUsage } from '../../ai/jev/usage.ts';
 import type { OrchestratorFallbackReason } from '../../ai/orchestrator.ts';
@@ -61,18 +62,31 @@ export interface EvalRow {
   applied?: string;
   fallbackReason?: OrchestratorFallbackReason | null;
 }
-/** Score: most probable rubric ID, first ID wins ties. Noul: >= 0.5 means true. */
-const answerId = (answer: Fixture['recorded']['answers'][string]): string =>
+/**
+ * A Sell Phase Noul counts as `true` only at the seat's own sell threshold (spec §5.3: sell when
+ * `noul >= threshold(personality)`), because that is the decision the game makes. Any other
+ * Noul keeps the 0.5 cut-off.
+ */
+const noulCutoff = (fixture: Fixture): number => {
+  if (fixture.tags.decisionPoint !== 'sell') return 0.5;
+  const personality = Object.values(PERSONALITIES).find(
+    ({ name }) => name === fixture.tags.personality,
+  );
+  if (!personality) throw new Error(`${fixture.id}: no personality "${fixture.tags.personality}"`);
+  return personality.sellThreshold;
+};
+/** Score: most probable rubric ID, first ID wins ties. Noul: true at or above `cutoff`. */
+const answerId = (answer: Fixture['recorded']['answers'][string], cutoff: number): string =>
   answer.type === 'choice'
     ? answer.choice
     : answer.type === 'noul'
-      ? String(answer.noul >= 0.5)
+      ? String(answer.noul >= cutoff)
       : Object.entries(answer.probabilities).reduce((best, next) =>
           next[1] > best[1] ? next : best,
         )[0];
 const rowsFor = (fixture: Fixture, extra: Partial<EvalRow> = {}): EvalRow[] =>
   Object.entries(fixture.recorded.answers).map(([name, answer]) => {
-    const id = answerId(answer);
+    const id = answerId(answer, noulCutoff(fixture));
     return {
       fixture: fixture.id,
       personality: fixture.tags.personality,

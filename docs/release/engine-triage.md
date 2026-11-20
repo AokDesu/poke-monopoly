@@ -51,7 +51,7 @@ Ordered by what to look at first: completion and information invariants, then de
 
 | ID                       | Candidate                                                          | Class           | Severity | Status                | Owner                         |
 | ------------------------ | ------------------------------------------------------------------ | --------------- | -------- | --------------------- | ----------------------------- |
-| [ET-01](#et-01-deal-cards) | Deal Cards have no engine implementation                           | Upstream-owned  | S1       | owned upstream        | Mrmo0p (Stream B)             |
+| [ET-01](#et-01-deal-cards) | Deal Cards: engine legality and atomic commit in review (D1); budget, valuation and AI response (D2, D3) remain | Upstream-owned  | S1       | D1 in review ([#262](https://github.com/AokDesu/poke-monopoly/pull/262)) | Mrmo0p (Stream B)             |
 | [ET-02](#et-02-promise-settlement) | Promise settlement and `promise-closes-on-own-turn` not on main    | Upstream-owned  | S1       | owned upstream        | Mrmo0p (Stream B)             |
 | [ET-03](#et-03-event-deck) | Event squares are still a logged no-op                             | Upstream-owned  | S2       | owned upstream        | punkharb (Stream A)           |
 | [ET-04](#et-04-stale-bases-and-version-stamps) | #188 and #198 are stale against main and claim overlapping version stamps | Upstream-owned  | S2       | owned upstream        | punkharb and Mrmo0p           |
@@ -68,6 +68,7 @@ Ordered by what to look at first: completion and information invariants, then de
 - **Build and test**: main `56fb27f`. `deals-atomic` is `status: 'pending'` at `engine/invariants.ts:885`. `deal` is an empty-payload placeholder at `engine/contract/schema.ts:369` and `:476`, and `engine/contract/stubs.ts` has no deal path. No test names it.
 - **Expected**: a Deal commits atomically or leaves the state unchanged; over budget is rejected by code with no Jev call; a revealed item is visible only to the two parties; save, resume and replay reproduce a game with deals ([#164](https://github.com/AokDesu/poke-monopoly/issues/164) acceptance).
 - **Observed**: none of that exists. `git branch -r` and `gh pr list` show no Deal branch or pull request. The issue has no comment and no ETA. [#138](https://github.com/AokDesu/poke-monopoly/issues/138) (the Deal screen) is blocked behind it.
+- **Update (#164 D1, [#262](https://github.com/AokDesu/poke-monopoly/pull/262), in review)**: the five deal actions, legality, the atomic commit and the `deals-atomic` invariant (active, comparing every seat's coins, Lap marker, Pokémon and items on each deal step) are built, and `npm run sim -- --social` commits deals. Still open: the budget, valuation and concession numbers (D2), the AI's response and its eval (D3), the web filtering of the private payment from Table Talk and the Event Log (stream C, with the Deal screen #138), and the engine's illegal-reason and custom-amount check (D2). The Observed text above is the state before D1.
 - **Reproduction**: owned upstream. There is nothing to run.
 - **Severity**: S1. A core conversation feature the spec forbids cutting, and one of the two pending invariants.
 - **Owner**: Mrmo0p, per the issue.
