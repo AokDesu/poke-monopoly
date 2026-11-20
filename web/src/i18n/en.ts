@@ -906,6 +906,9 @@ export const en = {
   'demo.scene.reward.title': 'Win a battle, pick a reward',
   'demo.scene.reward.description':
     'You have just beaten a rival. Take the coins, or evolve your Eevee into a new form.',
+  'demo.scene.promise.title': 'A promise the rival broke',
+  'demo.scene.promise.description':
+    'The rival promised not to attack you, then challenged you anyway. See what the game remembers.',
   'demo.failed.heading': 'This scenario could not be opened',
   'demo.failed.step':
     'Step {step} of {total} is no longer allowed by the rules, so the scenario stopped there.',
