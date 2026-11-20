@@ -595,10 +595,11 @@ test('a defender reaction names the Pokémon it heals, and commits only that cho
   click(t('choice.acceptBattle'));
   expect(store.getView()!.decision).toEqual({ seatIndex: 0, point: 'ability_window' });
   expect(heading()).toBe(t('battle.heading.window'));
-  const heal = (instanceId: string) =>
-    screen.getByRole('button', { name: new RegExp(`Heal Pulse.* on Eevee · ${instanceId}`) });
-  expect(heal('sleepy-a')).toBeTruthy();
-  fireEvent.click(heal('sleepy-b'));
+  // Two Eevee stay apart by number, never by their internal ids.
+  const heal = (number: number) =>
+    screen.getByRole('button', { name: new RegExp(`Heal Pulse.* on Eevee #${number}$`) });
+  expect(heal(1)).toBeTruthy();
+  fireEvent.click(heal(2));
   const team = stateOf(store).players[0]!.team;
   expect(team.find((member) => member.instanceId === 'sleepy-b')!.tired).toBe(false);
   expect(team.find((member) => member.instanceId === 'sleepy-a')!.tired).toBe(true);
