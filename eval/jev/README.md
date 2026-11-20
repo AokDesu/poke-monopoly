@@ -8,7 +8,7 @@ Spec §8 asks for at least 60 decision scenarios, 15 per personality, each with 
 npm run eval:jev -- --offline   # replays every fixture: no key, no network
 ```
 
-The report counts the scenarios per personality, and splits recorded fixtures from synthetic ones (see below). Of 68, 65 are recorded and 3 are synthetic; see the results.
+The report counts the scenarios per personality, and splits recorded fixtures from synthetic ones (see below). All 68 are recorded and none is synthetic; see the results.
 
 ## The scenarios
 
@@ -40,23 +40,23 @@ Some states are agreement controls (every personality gives the same answer), so
 
 ## Results of the recording
 
-The captain recorded all 45 personality scenarios live on 2026-11-18 (`jev-1.13.0`, one request each, through the orchestrator). With the 20 Greedy recordings the set is **65 fixtures, 65 recorded, 0 synthetic**. These figures come from `npm run eval:jev -- --offline` on that set; counts are Jev answers (Choice and Noul rows) scored against the acceptable sets, with n as shown:
+The captain recorded all 45 personality scenarios live on 2026-11-18 (`jev-1.13.0`, one request each, through the orchestrator), and the three `sell-last-phase-gym-ahead` twins on 2026-11-20. With the 20 Greedy recordings the set is **68 fixtures, 68 recorded, 0 synthetic**. These figures come from `npm run eval:jev -- --offline` on that set; counts are Jev answers (Choice and Noul rows) scored against the acceptable sets, with n as shown:
 
-| Measure                              | Result                                                        |
-| ------------------------------------ | ------------------------------------------------------------- |
-| Accuracy, recorded fixtures          | 83/91 (91.2%); 77/91 at the Sell scoring fix, 78/91 before it |
-| `illegalAppliedActionCount`          | 0                                                             |
-| Fallbacks (`low_confidence`)         | 16 of 68 decisions                                            |
-| Mean confidence, correct / incorrect | 0.688 (n=37) / 0.480 (n=7); Noul rows have none               |
+| Measure                              | Result                                                                                                         |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| Accuracy, recorded fixtures          | 92/100 (92.0%); 83/91 with the three Gym twins still synthetic, 77/91 at the Sell scoring fix, 78/91 before it |
+| `illegalAppliedActionCount`          | 0                                                                                                              |
+| Fallbacks (`low_confidence`)         | 16 of 68 decisions                                                                                             |
+| Mean confidence, correct / incorrect | 0.688 (n=37) / 0.480 (n=7); Noul rows have none                                                                |
 
 | Personality | Fixtures | Rows correct / total | Strategy | Encounter |  Sell |
 | ----------- | -------: | -------------------: | -------: | --------: | ----: |
 | Greedy      |       20 |                27/28 |      8/8 |       6/6 | 13/14 |
-| Aggressive  |       15 |                19/21 |      5/6 |       3/4 | 11/11 |
-| Cautious    |       15 |                17/21 |      5/6 |       1/4 | 11/11 |
-| Opportunist |       15 |                20/21 |      5/6 |       4/4 | 11/11 |
+| Aggressive  |       16 |                22/24 |      5/6 |       3/4 | 14/14 |
+| Cautious    |       16 |                20/24 |      5/6 |       1/4 | 14/14 |
+| Opportunist |       16 |                23/24 |      5/6 |       4/4 | 14/14 |
 
-Twelve of the 91 rows (`sell-last-phase-final-round`, four fixtures) are not Jev answers any more: Jev is not asked in the last Sell Phase (spec §5.6, below), so each is scored from the sale the orchestrator applies. Recorded answers for those four fixtures are kept and still checked against the request Jev would be sent, but they do not move the score. The three personalities' set of 15 gained one scenario, `sell-last-phase-gym-ahead` (synthetic, not in these counts).
+Twelve of the 100 rows (`sell-last-phase-final-round`, four fixtures) are not Jev answers any more: Jev is not asked in the last Sell Phase (spec §5.6, below), so each is scored from the sale the orchestrator applies. Recorded answers for those four fixtures are kept and still checked against the request Jev would be sent, but they do not move the score. The three personalities' set of 15 gained one scenario, `sell-last-phase-gym-ahead`, recorded on 2026-11-20; its nine rows all score right and bring the total from 83/91 to 92/100.
 
 These are small counts, not a general claim about Jev or the personalities, and the acceptable sets are themselves judgements. The misses below are inputs for #59: tuning the personality instructions, or correcting an acceptable set, whichever the evidence favours. They are not failures of this change.
 
@@ -64,7 +64,7 @@ These are small counts, not a general claim about Jev or the personalities, and 
 - **Sell is scored at the personality's own threshold (#59).** The first scoring counted a Sell Noul as `true` at 0.5, but the game sells only at or above `personality.sellThreshold` (`decideSales` in `ai/questions/sell.ts`; derived from `liquidity`, read from `content/personalities/*.json` at run time: Aggressive 0.92, Cautious 0.8, Opportunist 0.68, Greedy 0.56). The eval now scores each Sell Noul at that threshold, from the same recordings, with no re-recording and no change to any acceptable set. The total moves from **78/91 to 77/91**; counts per personality are Greedy 27/28 (unchanged), Aggressive 16/21 (unchanged), Cautious 15/21 (unchanged), Opportunist 20/21 to 19/21. Rows that flipped:
   - Wrong to correct (5): Aggressive `sell-magikarp-low-sale-high-keep` (Noul 0.59), `sell-snorlax-high-sale-low-keep` (0.66) and `sell-tired-eevee` (0.63); Cautious `sell-magikarp-low-sale-high-keep` (0.59) and `sell-tired-eevee` (0.64). Each is below the threshold, so nothing is sold in play, which is what the set expects. They were never real misses.
   - Correct to wrong (6), all `sell-last-phase-final-round`, whose set expects a full sale: Aggressive `sell_team_0` (0.50), `sell_team_1` (0.77), `sell_team_2` (0.86) against 0.92; Cautious `sell_team_0` (0.50) and `sell_team_1` (0.73) against 0.8; Opportunist `sell_team_0` (0.54) against 0.68. Jev answers sell, but below the threshold, so the game would keep these Pokémon and the end of the game sells them for less. These were real misses, left as they were by the Sell scoring fix. They are now closed by the rule below, not by Jev: the game sells everything in the last Sell Phase unless a Gym follows (spec §5.6), so Jev is not asked there and these six rows score right (**77/91 to 83/91**), as do the three Greedy rows that were already right. The acceptable sets are unchanged.
-- **Last Sell Phase (#59, spec §5.6).** In the Final Table Round's Sell Phase every personality sells every sellable Pokémon, on the Jev path and the fallback alike, unless the space after selling is a Gym, where Jev still decides. The engine facts are `finalTableRound` and the Sell phase's `destinationPosition` read against the engine's `board` (`ai/last-sell.ts`). Known limit: later seats can still battle a seat that sold, and a kept team could have helped there; this is accepted. `--record` and `--placeholders` skip these scenarios, which ask no request. The twin `sell-last-phase-gym-ahead` (Gym destination, both answers acceptable) is synthetic: its Jev request is the same as `sell-last-phase-final-round`'s, since Jev is not told where the seat lands, so recording it only adds a second sample of that request.
+- **Last Sell Phase (#59, spec §5.6).** In the Final Table Round's Sell Phase every personality sells every sellable Pokémon, on the Jev path and the fallback alike, unless the space after selling is a Gym, where Jev still decides. The engine facts are `finalTableRound` and the Sell phase's `destinationPosition` read against the engine's `board` (`ai/last-sell.ts`). Known limit: later seats can still battle a seat that sold, and a kept team could have helped there; this is accepted. `--record` and `--placeholders` skip these scenarios, which ask no request. The twin `sell-last-phase-gym-ahead` (Gym destination, both answers acceptable) is recorded: its Jev request is the same as `sell-last-phase-final-round`'s, since Jev is not told where the seat lands, so recording it only adds a second sample of that request.
 - **Aggressive, `strategy-mixed-items-two-rivals`.** Jev picked Pickpocket on the rich rival (confidence 0.75, applied); the set expects Repel on that rival.
 - **Aggressive, `encounter-weedle-poke-or-great`.** Jev picked the Poké Ball (0.67, applied); the set expects the Great Ball.
 - **Opportunist, `strategy-battle-ticket-ahead`.** Jev used the Battle Ticket while far ahead (0.80, applied); the set expects skip.
@@ -85,7 +85,7 @@ A new scenario starts as a **synthetic placeholder** so the offline run, the cou
 npm run eval:jev -- --placeholders   # writes placeholders for scenarios with no fixture; offline, no key
 ```
 
-Three fixtures are synthetic now (below). Never run `--placeholders` expecting it to change a recording: it does not replace one.
+No fixture is synthetic now (below). Never run `--placeholders` expecting it to change a recording: it does not replace one.
 
 ## Recording (needs the key; a person does it)
 
@@ -97,7 +97,9 @@ npm run eval:jev -- --record
 
 It makes one request per scenario that is missing, synthetic or stale, through the orchestrator, and writes each fixture with `synthetic: false`. Requests are logged to the usage ledger and stop at the spend cap or daily budget (spec §9). A scenario whose request changed (for example after a wording change) is stale and recorded again; a current recording is kept. Afterwards run `npm run eval:jev -- --offline` and commit the changed fixtures.
 
-Fixtures still to record: the three below. Any synthetic fixture added later must be listed here by ID, one per line, until it is recorded.
+Fixtures still to record: none. Any synthetic fixture added later must be listed here by ID, one per line, until it is recorded.
+
+Recorded on 2026-11-20 (the captain, `jev-1.13.0`, replacing the synthetic placeholders):
 
 - aggressive-sell-last-phase-gym-ahead
 - cautious-sell-last-phase-gym-ahead
