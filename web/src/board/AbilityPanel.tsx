@@ -75,13 +75,23 @@ export function AbilityPanel({
     : [];
   const choice = selected?.enabled.find((action) => action.id === current?.choiceId);
   const optionLabel = ({ payload }: Enabled | Disabled) => {
+    if (payload.targetPokemonInstanceId !== undefined) {
+      const member = memberLabel(payload.targetPokemonInstanceId, payload.targetSeatIndex);
+      if (payload.targetSeatIndex !== undefined) {
+        return t('ability.targetMember', {
+          member,
+          target: seatLabel(payload.targetSeatIndex, ownSeat),
+        });
+      }
+      return payload.status === 'combat_debuff' ? t('ability.healDebuff', { member }) : member;
+    }
     if (payload.targetSeatIndex !== undefined) return seatLabel(payload.targetSeatIndex, ownSeat);
-    if (payload.targetPokemonInstanceId !== undefined)
-      return memberLabel(payload.targetPokemonInstanceId);
     return t(payload.scope === 'catch' ? 'ability.scope.catch' : 'ability.scope.combat');
   };
-  const memberLabel = (instanceId: string) => {
-    const target = team.find((entry) => entry.instanceId === instanceId);
+  const memberLabel = (instanceId: string, seatIndex = ownSeat) => {
+    const target = observation.public.players
+      .find((entry) => entry.seatIndex === seatIndex)
+      ?.team.find((entry) => entry.instanceId === instanceId);
     return t('ability.member', {
       pokemon: target ? speciesName(target.speciesId) : instanceId,
       instanceId,
@@ -178,7 +188,10 @@ export function AbilityPanel({
           {choice.payload.targetPokemonInstanceId !== undefined && (
             <p>
               {t('ability.previewMember', {
-                member: memberLabel(choice.payload.targetPokemonInstanceId),
+                member: memberLabel(
+                  choice.payload.targetPokemonInstanceId,
+                  choice.payload.targetSeatIndex,
+                ),
               })}
             </p>
           )}

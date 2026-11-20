@@ -56,7 +56,12 @@
     "base": 4,
     "tags": ["normal"],
     "inEncounterPool": true,
-    "ability": { "name": "Scavenge", "text": "d6 even gains 1 coin", "timing": "OWN_STRATEGY" }
+    "ability": {
+      "name": "Scavenge",
+      "text": "d6 even gains 1 coin",
+      "timing": "OWN_STRATEGY",
+      "effect": "scavenge"
+    }
   },
   {
     "id": "weedle",
@@ -70,7 +75,8 @@
     "ability": {
       "name": "Poison Sting",
       "text": "d6 even, target −1 combat in its next battle",
-      "timing": "OWN_STRATEGY"
+      "timing": "OWN_STRATEGY",
+      "effect": "poison_sting"
     }
   },
   {
@@ -85,7 +91,8 @@
     "ability": {
       "name": "Confusion",
       "text": "d6 even, target must reroll its next movement",
-      "timing": "OWN_STRATEGY"
+      "timing": "OWN_STRATEGY",
+      "effect": "confusion"
     }
   },
   {
@@ -196,7 +203,8 @@
     "ability": {
       "name": "Block",
       "text": "prevent the next coin loss from PvP/Pickpocket",
-      "timing": "REACTION"
+      "timing": "REACTION",
+      "effect": "block"
     }
   },
   {

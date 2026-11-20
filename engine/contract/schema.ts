@@ -13,6 +13,7 @@ export const pokemonInstanceSchema = z.strictObject({
   tired: z.boolean(),
   // UID-bound lifetime, measured in the owner's turns (§4.4).
   tiredExpiresOwnTurnNo: count.optional(),
+  combatDebuffed: z.literal(true).optional(),
   abilityReady: z.boolean(),
   // Historical instances omit this; newly granted Rescue Starters explicitly forbid trading.
   tradeable: z.boolean().optional(),
@@ -37,6 +38,7 @@ export const abilityEffectIdSchema = z.enum([
   'shell_guard',
   'adaptability',
   'lucky_splash',
+  'scavenge',
   'intimidate',
   'heal_pulse',
   'string_shot',
@@ -46,6 +48,9 @@ export const abilityEffectIdSchema = z.enum([
   'challenge',
   'track',
   'thunder_shock',
+  'confusion',
+  'poison_sting',
+  'block',
 ]);
 /** Authored description plus, when the engine implements it, the effect it names. */
 export const abilityDefinitionSchema = z.strictObject({
@@ -251,8 +256,8 @@ const eventResolutionSchema = z.strictObject({
 /** One armed shield, independent of the consumed item UID (Appendix C.4 D6/D7). */
 export const armedShieldSchema = z.strictObject({
   // `price` blocks a whole hostile item/Ability action or a PvP coin loss; `battle_coin_loss`
-  // (Shell Guard) blocks only the owner's next PvP or Gym coin loss.
-  scope: z.enum(['price', 'battle_coin_loss']),
+  // (Shell Guard) covers PvP or Gym coin loss. `pvp_pickpocket` is Snorlax's Block scope.
+  scope: z.enum(['price', 'battle_coin_loss', 'pvp_pickpocket']),
   visibility: z.enum(['public', 'secret']),
 });
 export const playerSchema = z.strictObject({
@@ -267,6 +272,7 @@ export const playerSchema = z.strictObject({
   ownTurnNo: count,
   // Slowing effects waiting for this player's next actual move (§4.6); absent when none.
   pendingSlows: z.array(z.enum(['repel', 'string_shot', 'sticky_web', 'thunder_shock'])).optional(),
+  confused: z.literal(true).optional(),
   // At most one armed shield from any source (D7); absent when none.
   armedShield: armedShieldSchema.optional(),
   team: z.array(pokemonInstanceSchema),
@@ -400,6 +406,7 @@ export const phaseSchema = z.discriminatedUnion('kind', [
     // Porygon's A window: the revealed die awaiting reroll or keep, then the pending reroll (D11).
     rolled: z.int().min(1).max(6).optional(),
     rerolling: z.literal(true).optional(),
+    confusionReroll: z.literal(true).optional(),
   }),
   z.strictObject({
     kind: z.literal('first_player_roll'),
@@ -447,7 +454,16 @@ export const phaseSchema = z.discriminatedUnion('kind', [
     seatIndex: count,
     effect: z.discriminatedUnion('kind', [
       z.strictObject({ kind: z.literal('lucky_splash') }),
-      z.strictObject({ kind: z.literal('thunder_shock'), slowTargetSeatIndex: count.optional() }),
+      z.strictObject({ kind: z.literal('scavenge') }),
+      z.strictObject({
+        kind: z.enum(['thunder_shock', 'confusion']),
+        targetSeatIndex: count.optional(),
+      }),
+      z.strictObject({
+        kind: z.literal('poison_sting'),
+        targetSeatIndex: count.optional(),
+        targetPokemonInstanceId: id.optional(),
+      }),
     ]),
   }),
   z.strictObject({ kind: z.literal('sell'), destinationPosition: z.int().min(0).max(23) }),
@@ -456,6 +472,7 @@ export const phaseSchema = z.discriminatedUnion('kind', [
 const finalTableRoundSchema = z
   .strictObject({ triggerSeatIndex: count, targetOwnTurnNo: count })
   .nullable();
+export const pokemonStatusSchema = z.enum(['tired', 'combat_debuff']);
 export const gameStateSchema = z.strictObject({
   config: gameConfigSchema,
   content: contentSchema,
@@ -490,6 +507,9 @@ export const gameStateSchema = z.strictObject({
   chatsSent: count.optional(),
   // Accepted promise offers and answers, which no seat outside the pair sees (§4.8); same use.
   promiseRecords: count.optional(),
+  // Passing on a private Pickpocket reaction must not shift public IDs or bystander revisions.
+  pickpocketPassRecords: count.optional(),
+  pendingPickpocket: z.strictObject({ targetSeatIndex: count, attackId: id }).optional(),
   finalTableRound: finalTableRoundSchema,
   // Active-turn item effects, cleared when the next turn starts; absent when none.
   turnEffects: z
@@ -517,6 +537,7 @@ const actionBodySchema = z.discriminatedUnion('kind', [
       instanceId: id,
       targetSeatIndex: count.optional(),
       targetPokemonInstanceId: id.optional(),
+      status: pokemonStatusSchema.optional(),
       scope: z.enum(['catch', 'combat']).optional(),
     }),
   }),
@@ -551,7 +572,7 @@ const actionBodySchema = z.discriminatedUnion('kind', [
       itemInstanceId: id,
       targetSeatIndex: count.optional(),
       targetPokemonInstanceId: id.optional(),
-      status: z.literal('tired').optional(),
+      status: pokemonStatusSchema.optional(),
     }),
   }),
   z.object({
@@ -647,9 +668,16 @@ export const engineEventSchema = z.discriminatedUnion('kind', [
     actorId: id,
     targetId: id,
     actionId: id,
-    source: z.enum(['hostile_item', 'hostile_ability', 'pvp_coin_loss', 'gym_coin_loss']),
-    protection: z.enum(['price', 'battle_coin_loss', 'nurse_joy']),
+    source: z.enum([
+      'hostile_item',
+      'hostile_ability',
+      'pvp_coin_loss',
+      'gym_coin_loss',
+      'pickpocket_coin_loss',
+    ]),
+    protection: z.enum(['price', 'battle_coin_loss', 'pvp_pickpocket', 'nurse_joy']),
   }),
+  z.strictObject({ kind: z.literal('block_triggered'), ownerId: id }),
   z.strictObject({ kind: z.literal('gym_confirmed'), battleId: id, snapshot: gymSnapshotSchema }),
   z.strictObject({
     kind: z.literal('gym_resolved'),
@@ -696,7 +724,7 @@ export const engineEventSchema = z.discriminatedUnion('kind', [
     kind: z.literal('status_changed'),
     ownerId: id,
     instanceId: id,
-    status: z.literal('tired'),
+    status: pokemonStatusSchema,
     operation: z.enum(['applied', 'reapplied', 'cleared']),
     expiresOwnTurnNo: count.optional(),
     reason: id,
@@ -823,6 +851,8 @@ export const observationSchema = z.strictObject({
     armedShield: armedShieldSchema.optional(),
     balls: ballPouchSchema,
     privateResults: z.array(privateResultSchema),
+    combatDebuffedPokemonIds: z.array(id).optional(),
+    pickpocketReaction: z.literal(true).optional(),
     lastEventReward: eventRewardSchema.optional(),
     // Only messages this seat sent or received; present only when `config.socialWindow` is on.
     chats: z.array(chatMessageSchema).optional(),

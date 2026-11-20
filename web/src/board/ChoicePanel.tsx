@@ -43,12 +43,16 @@ export function choiceLabel(action: LegalAction, observation: Observation): stri
         (entry) => entry.instanceId === action.payload.targetPokemonInstanceId,
       );
       if (target) {
+        const member = t('strategy.potion.member', {
+          pokemon: speciesName(target.speciesId),
+          instanceId: target.instanceId,
+        });
         label = t('choice.abilityTarget', {
           label,
-          target: t('strategy.potion.member', {
-            pokemon: speciesName(target.speciesId),
-            instanceId: target.instanceId,
-          }),
+          target:
+            action.payload.status === 'combat_debuff'
+              ? t('ability.healDebuff', { member })
+              : member,
         });
       }
       // Adaptability lists one choice per scope; name the scope so the options differ.

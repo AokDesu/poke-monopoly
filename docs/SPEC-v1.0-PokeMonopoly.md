@@ -167,7 +167,7 @@ Wherever this specification uses `round`, a half rounds up (approved 2026-10-07)
 - **Hidden information:** the starting kit is public; utility items gained later are secret.
   - **Approved rule (#37, captain, 2026-10-07):** opponents' Ball counts are not exposed directly in observations. A seat sees each opponent's coins, position, team and item count, plus the public starting-kit items, but never their Ball pouch or later items; only its own pouch and items are shown. Opponents' Ball counts can be inferred from public play (the public starting kit, the Ball type of each catch and Shop purchase prices); the captain accepts this (2026-10-17). See [Engine contract v1](engine-contract.md#public-seam-and-visibility).
   - **Approved rule (#37, captain, 2026-10-17):** using a hostile item (Repel, Pickpocket) is told only to its user and its target; other seats see only its already-public effects, such as Pickpocket's coin transfer. This lets a target learn why it was slowed and lets a broken `no_attack` promise (§4.4) be judged from real events. Raw action records and logs are never shown to a seat; each seat gets a copy redacted for it.
-  - **Approved rule (#192, captain, 2026-11-17): hostile Ability policy:** that a hostile Ability (Vine Pull, String Shot, Intimidate, Challenge) was used, by whom and which Pokémon, is public: its `ability_activated` event, the user's spent `abilityReady` and the per-player allowance are shown to every seat, because readiness is already public and #136 needs visible cooldown reasons. Its target, any slow, the shield state, whether it was blocked, the `attack_attempt` and `protection_applied` events stay private to its user and its target. Effects that are public by nature stay public, such as Vine Pull's displacement, because positions are public. Where an unblocked use has no public effect (String Shot, Intimidate), a blocked and an unblocked use look the same to a third seat.
+  - **Approved rule (#192, captain, 2026-11-17): hostile Ability policy:** that a hostile Ability (Vine Pull, String Shot, Intimidate, Challenge, Thunder Shock, Poison Sting, Confusion) was used, by whom and which Pokémon, is public: its `ability_activated` event, the user's spent `abilityReady` and the per-player allowance are shown to every seat, because readiness is already public and #136 needs visible cooldown reasons. Its target, any slow, the shield state, whether it was blocked, the `attack_attempt` and `protection_applied` events stay private to its user and its target. Effects that are public by nature stay public, such as Vine Pull's displacement, because positions are public. Where an unblocked use has no public effect (String Shot, Intimidate), a blocked and an unblocked use look the same to a third seat.
 - **Spectator (watch mode):** a spectator is not a seat. It sees the public view only: coins, positions, teams, item counts and public items; never a Ball pouch, a secret item, a peek result, a chat, a private hostile attack/Ability target (the use itself is public, §4.1), a secret shield, Lucky Splash's die or Ball gain, the seed or the Event order. Public battle phases and public shields remain visible. See [Engine contract v1](engine-contract.md#spectator-projection-issue-169).
 - **Start income:** the owner's forward movement passing or landing on a new Start milestone pays 5 coins from the bank, once per rewarded milestone (§6.5). Forced movement pays nothing. Nothing is paid at setup.
 
@@ -247,7 +247,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 
 - **S13 resource scope (#55):** Magikarp's Lucky Splash (`gainBall` `chanceBall`) rolls one logged d6 in Strategy: on 5–6 the owner gains one Great Ball (told only to the owner, since Ball pouches are private, §4.1; the die face is likewise shown only to the owner, while the activation itself is public); on 1–4 nothing changes, and the costs stay spent. Growlithe's Track uses the `peek` primitive (`topEvent`) to privately show its owner the top Event card without drawing or reordering it. Only the owner's observation carries the card.
 
-- **Ability bindings (#55 S14, #58):** Appendix C.2 lists the executable Abilities, including Challenge, Track, Quick Slash and Thunder Shock. Fallback evolved forms inherit the base form's Ability. The engine's effect table uses exactly the eight primitives. Squirtle's Shell Guard arms a battle-scoped shield (C.4).
+- **Ability bindings (#55 S14, #58):** Appendix C.2 lists all 19 executable Abilities. Fallback evolved forms inherit the base form's Ability. Squirtle's Shell Guard arms a battle-scoped shield (C.4).
 
 **Timing contract (#55 S00, approved):** the PvP and Gym decision order, shield and Nurse Joy protection, and the order of reward and after-battle effects are fixed in [Appendix C](#appendix-c--ability-and-battle-timing-contract); the S-scope notes above record how each slice implements them.
 
@@ -261,7 +261,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
   - An Ability that starts PvP also costs the `tacticalAction`.
   - An Ability that targets an opponent with a harmful effect is a `hostileAbility`.
   - Evolution does not reset cooldowns.
-  - The engine supports only these effect primitives: fixedMove, moveDebuff, rollBonus, forcePvP, shield, heal, gainBall, peek.
+  - The engine supports only these effect primitives: fixedMove, moveDebuff, rollBonus, forcePvP, shield, heal, gainBall, gainCoin, peek. C4 adds `gainCoin.chanceCoin` for Scavenge.
   - **S10 lifecycle scope (#55):** a species' Ability names an engine-owned `effect` ID (content binds it; the engine owns the primitive, operation, numbers and timing). `activate_ability` is offered only in an open window (Appendix C.3) for a ready instance whose player has not activated this `globalTurnNo`; the active player also needs `pokemonAbility`. Activation spends the instance's readiness, the player's allowance and, for the active player only, `pokemonAbility`, whatever the effect does (D10). A qualifying owner Start credit makes every team instance ready again after income and Lap credit, before Sell; nothing else does, and evolution keeps both restrictions. PvP opens an attacker window and then a defender window (B, or B/R for the defender), and a Gym challenge opens one B window, each only when an eligible Ability exists. `heal` (Chansey's Heal Pulse) is the first executable effect. See the [Ability lifecycle contract](engine-contract.md#ability-lifecycle-and-windows-issue-55-s10).
   - **Mapping (#55 S00, approved):** [Appendix C](#appendix-c--ability-and-battle-timing-contract) maps every core Starter Ability to one operation of these primitives, with its timing window and costs.
 - **Evolution:**
@@ -289,7 +289,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
 
 **C4 Shop pool (#58):** draw the 2 utility offers without replacement from all 7 Appendix A utility items using the logged RNG. Payment goes to the bank. Bought items are secret. See the [Shop contract](engine-contract.md#shop-issue-29).
 
-**C2 item scope (#31), approved defaults (captain, 2026-10-07):** in Strategy a player may use one Lucky Egg, Repel or Pickpocket per turn, spending the turn's `tacticalAction`; the used item instance is removed and logged. **Lucky Egg** gives +1 to the user's own catch roll until the end of that turn and no movement bonus. **Repel** records a pending slow on the target: its next actual move is `max(1, d6 − 2)`, after which the slow clears. **Pickpocket** moves `min(5, target coins)` from the target to the user. The hostile-item and slowing rules below apply. A second item use in the same turn is greyed out with "Tactical action already used this turn"; an invalid target is greyed out with "Target has no coins" or "Target is already slowed". Each item has its own instance ID; class items are public and items bought after setup are secret. S05 adds Lucky Egg's +1 to the shared combat snapshot for its active-turn owner, matching Appendix A. Price Shield, Sticky Web and Battle Ticket remain deferred. S03 implements Strategy Potion: select one owned Pokémon UID and one present status (currently Tired); clear only that status, consume the Potion UID and tactical action, and log both changes. Missing, foreign or healthy targets are illegal and leave state unchanged. The shared status/heal seam will support later combat debuffs. See the [item contract](engine-contract.md#utility-items-issue-31).
+**C2 item scope (#31), approved defaults (captain, 2026-10-07):** in Strategy a player may use one Lucky Egg, Repel or Pickpocket per turn, spending the turn's `tacticalAction`; the used item instance is removed and logged. **Lucky Egg** gives +1 to the user's own catch roll until the end of that turn and no movement bonus. **Repel** records a pending slow on the target: its next actual move is `max(1, d6 − 2)`, after which the slow clears. **Pickpocket** moves `min(5, target coins)` from the target to the user. The hostile-item and slowing rules below apply. A second item use in the same turn is greyed out with "Tactical action already used this turn"; an invalid target is greyed out with "Target has no coins" or "Target is already slowed". Each item has its own instance ID; class items are public and items bought after setup are secret. S05 adds Lucky Egg's +1 to the shared combat snapshot for its active-turn owner, matching Appendix A. Price Shield, Sticky Web and Battle Ticket use the protection, slow and forced PvP rules below. In Strategy, Potion removes one chosen status (Tired or a combat debuff) from one owned Pokémon UID. It consumes the Potion UID and the tactical action and logs both changes. Missing, foreign or healthy targets are illegal and leave state unchanged. See the [item contract](engine-contract.md#utility-items-issue-31).
 
 **Hostile items: Repel, Sticky Web, Pickpocket and Battle Ticket**
 
@@ -933,13 +933,13 @@ In this example `strategy.confidence = 0.48` is below the 0.6 starting floor for
 
 ## Appendix C — Ability and battle timing contract
 
-Issue #55 S00. Status: **approved and implemented.** The Stream A reviewer approved D1–D13 on the S00 pull request and D14 was recorded at the reviewer's suggestion; issue #55 slices S06–S14 implement them (see the S-scope notes in §4.4–§4.6). It maps every core Starter Ability to one of the eight effect primitives (§4.5) and fixes the order of battle and Ability decisions. The worked cases in C.8 are acceptance cases for those slices.
+Issue #55 S00. Status: **approved and implemented.** The Stream A reviewer approved D1–D13 on the S00 pull request and D14 was recorded at the reviewer's suggestion; issue #55 slices S06–S14 implement them (see the S-scope notes in §4.4–§4.6). It maps every core Starter Ability to a §4.5 effect primitive and fixes the order of battle and Ability decisions. The worked cases in C.8 are acceptance cases for those slices.
 
 Each choice that §4 and Appendix A do not already settle is numbered D1–D14. Each was proposed separately for Stream A review and is now approved; changing one is a rule change (§7).
 
 These base rules stay as they are:
 
-- The engine has exactly eight effect primitives and no ninth engine system (§4.5).
+- The engine uses the effect primitives listed in §4.5.
 - Porygon's reroll is the only change allowed after dice are revealed (§4.4).
 - Declaring a challenge counts as an attack attempt, whatever happens next (§4.4).
 - When Nurse Joy's passive already blocks a coin loss, no shield is consumed (§4.4).
@@ -955,14 +955,17 @@ These base rules stay as they are:
 | fixedMove | `displace` | `steps` (signed; negative is backwards) | Changes the target's `routeProgress` at once. It is forced movement: no Start income, no Lap credit, no Ability reset, no Sell, and the square reached is not resolved. It is not the target's actual move (C.5). |
 | moveDebuff | `minus` | `n` | Records a pending slow of kind `minus` on the target. |
 | moveDebuff | `cap` | `n` | Records a pending slow of kind `cap` on the target. |
+| moveDebuff | `forceReroll` | none | Gives the opponent a mandatory replacement die on its next actual move (C.3). |
 | rollBonus | `add` | `scope` (catch or combat), `n`, `duration` (this roll, or until the end of the current `globalTurnNo`) | Adds `n` to the owner's own snapshot in that scope. |
 | rollBonus | `opponentAdd` | `n` (negative) | Adds `n` to the PvP opponent's snapshot for this battle. It is a debuff in the §4.4 formula. |
+| rollBonus | `memberDebuff` | `n` (negative) | Reduces one Pokémon UID’s adjusted battle. Its next confirmed PvP or Gym appearance consumes the status after the snapshot freezes. |
 | rollBonus | `reroll` | none | Porygon's after-roll operation (C.3). |
 | rollBonus | consequence `afterResolution: tiredSelf` | none | Attached to an `add`. After the battle and its reward resolve, the source UID becomes Tired by the §4.4 rule (D13). |
 | forcePvP | `forceChallenge` | none | Declares PvP that the target cannot decline (§4.4). |
 | shield | `arm` | `scope` | Arms one shield on the owner (C.4). |
 | heal | `removeStatus` | none | Removes one chosen status from one own Pokémon. |
 | gainBall | `chanceBall` | `faces`, `ballType` | Rolls a logged d6. On a listed face, adds one Ball of that type to the owner's pouch. |
+| gainCoin | `chanceCoin` | `faces`, `amount` | Rolls a logged d6. On a listed face, transfers the specified coins from the bank to the owner. |
 | peek | `topEvent` | none | Shows the owner, privately, the top Event card without drawing or reordering it. |
 
 The Tired consequence reuses the existing Tired status seam (§4.4); it is a `rollBonus` parameter, not a new effect system. The items Repel (`minus 2`), Sticky Web (`cap 2`) and Price Shield (`arm`) and Rival's once-per-Lap force reuse these seams without becoming Abilities.
@@ -993,8 +996,12 @@ The bindings below extend the core lines. Pidgey supplies fixed movement for AC-
 | Machop | Challenge | C | forcePvP · `forceChallenge` | one battle-ready opponent, any distance | yes |
 | Scyther | Quick Slash | B | rollBonus · `add` · combat +1, this battle | self | no |
 | Pikachu | Thunder Shock | S | moveDebuff · `cap` · 3 on an even d6 | one opponent without a pending cap, any distance | yes |
+| Rattata | Scavenge | S | gainCoin · `chanceCoin` · 1 coin on an even d6 | self | no |
+| Weedle | Poison Sting | S | rollBonus · `memberDebuff` · combat −1 on an even d6, until that Pokémon's next PvP or Gym appearance | one rival Pokémon UID, any distance | yes |
+| Psyduck | Confusion | S | moveDebuff · `forceReroll` · on an even d6 | one opponent, any distance | yes |
+| Snorlax | Block | R | shield · `arm` · PvP or Pickpocket coin loss | self | no |
 
-Thunder Shock follows the hostile Ability visibility rule in §4.1. It spends the Ability allowance and records the hostile attempt at activation. The logged chance die is visible to its user. The same chance roll runs when a Price Shield blocks the effect so an observer cannot identify a block from the decision sequence. A blocked use or odd face applies no slow.
+Thunder Shock, Poison Sting and Confusion spend the Ability allowance and record the hostile attempt at activation. Their logged chance die is visible to its user. An armed Price Shield is consumed and prevents the effect. The same chance step runs in either case to preserve the visibility rule in §4.1. Poison Sting stays on the selected rival UID until that Pokémon is selected for a confirmed battle or its status is healed. Repeat hits on that UID do not stack. The combat snapshot uses the adjusted member stats before it selects the combatant, so a Pokémon left out of the battle retains its status.
 
 Hostile means the Ability targets an opponent with a harmful effect (`hostileAbility`, §4.5). It counts against a `no_attack` promise (§4.8), and an armed Price Shield blocks it (C.4).
 
@@ -1021,7 +1028,7 @@ These rules extend the Appendix A timing legend.
 
 - No B window opens before a movement roll, because no B Ability affects movement.
 - A PvP defender may use either a B or an R Ability in its window, within its one activation.
-- A hostile item or hostile Ability opens an R window for its target only if the target holds a ready reaction whose effect covers that action. No core Ability does, so in C3 a hostile item or Ability opens no window. A hostile item stays private to its user and target; a hostile Ability's use is public, but its target, slow, shield state and block stay private to its user and target (§4.1, #37, #192).
+- A hostile item or hostile Ability opens an R window for its target only if the target holds a ready reaction whose effect covers that action. Block opens a window for the target of Pickpocket after Price Shield and before the coin transfer. The choice belongs to the target. Passing keeps the reaction private. A successful Block is public and its Pickpocket and target details stay private. A hostile item stays private to its user and target; a hostile Ability's use is public, but its target, slow, shield state and block stay private to its user and target (§4.1, #37, #192).
 - A window is offered only to a player with a ready, eligible Ability and an unused allowance for the current `globalTurnNo`. Otherwise the engine continues without asking (§3.1).
 - Items are used only in Strategy (Appendix A), never in a window. Item modifiers in a snapshot come only from effects already active.
 
@@ -1063,7 +1070,7 @@ Skipping a Gym costs nothing, and a challenge spends no `tacticalAction`. A Gym 
 
 **Catch order.** In Encounter, the catcher may first activate one B Ability (catch scope), then confirms a Ball or releases. The snapshot is frozen at Ball confirmation, the engine rolls, and an eligible A window follows before success is decided.
 
-**Move order.** If a `replaceRoll` Ability was activated in Strategy, Move draws no die and uses its steps. Otherwise the engine rolls a d6 and an eligible A window follows. Pending slows then apply to the final value (C.5), the player moves, and Start crossing and Resolve follow (§4.2, §4.7).
+**Move order.** Move starts with the steps supplied by `replaceRoll` or a logged d6. Pending Confusion replaces that value with a mandatory logged d6, including when the first value was fixed. An eligible Calculate may then replace the revealed die using its normal allowance. Pending slows apply to the final value (C.5). Actual movement clears Confusion and the slows, then Start crossing and Resolve follow (§4.2, §4.7).
 
 ### C.4 Protection: Price Shield, Shell Guard and Nurse Joy
 
@@ -1083,6 +1090,7 @@ Skipping a Gym costs nothing, and a challenge spends no `tacticalAction`. A Gym 
 **D7 — Approved.**
 
 - Shell Guard, activated in a PvP defender's R window, arms a shield whose scope is battle coin loss: the owner's next coin loss from a PvP or Gym battle. It lasts until it prevents one.
+- Block arms protection for the next actual PvP or Pickpocket coin loss. A Gym loss cannot consume it. A blocked Pickpocket still spends the item and tactical action and records its directed attempt. Only the user and target can see the Pickpocket and the protection details. Other seats see the public Block result.
 - A player may have at most one armed shield from any source. Arming a second is illegal and greyed out with "A shield is already armed". No priority rule between shields is needed.
 - Nurse Joy's passive comes first (§4.4): when it already prevents a PvP coin loss, no armed shield is consumed. The passive does not block whole actions, so a Battle Ticket against Nurse Joy with an armed Price Shield consumes the shield.
 

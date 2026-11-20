@@ -9,6 +9,7 @@ export function pendingDecision(state: GameState): { seatIndex: number; actorId:
   let seatIndex = state.activeSeatIndex;
   // A promise question (§4.8) is answered by its responder while the active seat waits.
   if (state.pendingResponse) seatIndex = state.pendingResponse.responderSeatIndex;
+  else if (state.pendingPickpocket) seatIndex = state.pendingPickpocket.targetSeatIndex;
   else if (state.phase.kind === 'pvp') {
     const battle = state.phase.battle;
     if (battle.step === 'response' || battle.step === 'defender_window') {
@@ -46,6 +47,7 @@ export type EngineDecisionPoint =
 
 export function decisionPoint(state: GameState): EngineDecisionPoint | null {
   if (!pendingDecision(state)) return null;
+  if (state.pendingPickpocket) return 'ability_window';
   const phase = state.phase;
   switch (phase.kind) {
     case 'pvp':

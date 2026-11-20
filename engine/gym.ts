@@ -1,6 +1,6 @@
 import type { Action, EngineEvent, GameState, LegalActions } from './contract/schema.ts';
 import { gymSnapshotSchema } from './contract/combat.ts';
-import { gymSnapshot, resolveGym } from './combat.ts';
+import { consumeCombatDebuff, gymSnapshot, resolveGym } from './combat.ts';
 import { abilityChoices, applyAfterResolution, canReroll } from './abilities.ts';
 import { sideModifiers } from './pvp.ts';
 import { applyCoinLossProtection } from './protection.ts';
@@ -57,7 +57,10 @@ export function confirmGym(next: GameState): EngineEvent[] {
     sideModifiers(next, next.activeSeatIndex, battle.modifiers),
   );
   next.phase.battle = { ...battle, step: 'roll', snapshot };
-  return [{ kind: 'gym_confirmed', battleId: battle.battleId, snapshot }];
+  return [
+    { kind: 'gym_confirmed', battleId: battle.battleId, snapshot },
+    ...consumeCombatDebuff(next, snapshot.challenger),
+  ];
 }
 
 /** Close the Gym window after the challenger activated an Ability. */

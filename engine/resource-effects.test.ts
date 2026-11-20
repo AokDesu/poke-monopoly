@@ -3,6 +3,7 @@ import { expect, test } from 'vitest';
 import { parseContent, toEngineContent } from '../content/schema.ts';
 import {
   actionVisibleTo,
+  actionVisibleToSpectator,
   advanceAutomatically,
   applyAction,
   checkInvariants,
@@ -182,6 +183,209 @@ test('Thunder Shock cannot target a player with Sticky Web already pending (C.5 
     expect.objectContaining({ id: 'ability:starter:0:1', reasonCode: 'NO_VALID_TARGET' }),
   );
 });
+
+test.each([2, 3])('Scavenge awards one bank coin only on an even face (%i)', (face) => {
+  const state = game(seedFor((value) => value === face));
+  state.players[0]!.team[0]!.speciesId = 'rattata';
+  const before = state.players[0]!.coins;
+  const activated = step(state, 'activate_ability', { instanceId: 'starter:0' });
+  const result = advanceAutomatically(activated.state);
+  expect(result.state.players[0]!.coins).toBe(before + (face === 2 ? 1 : 0));
+  expect(result.events.filter((event) => event.kind === 'coin_transfer')).toEqual(
+    face === 2
+      ? [
+          {
+            kind: 'coin_transfer',
+            source: { kind: 'bank' },
+            destination: { kind: 'player', actorId: 'p0' },
+            amount: 1,
+            reason: 'scavenge',
+          },
+        ]
+      : [],
+  );
+});
+
+function poison(): GameState {
+  const state = game(seedFor((value) => value % 2 === 0));
+  state.players[0]!.team[0]!.speciesId = 'weedle';
+  const activated = step(state, 'activate_ability', {
+    instanceId: 'starter:0',
+    targetSeatIndex: 1,
+    targetPokemonInstanceId: 'starter:1',
+  });
+  const bystander = actionVisibleTo(state, activated.record, 2, 0);
+  expect(bystander?.action.payload).toEqual({ instanceId: 'starter:0' });
+  expect(observeSpectator(activated.state).public.phase).not.toHaveProperty(
+    'effect.targetPokemonInstanceId',
+  );
+  const rolled = advanceAutomatically(activated.state);
+  expect(rolled.state.players[1]!.team[0]!.combatDebuffed).toBe(true);
+  expect(observe(rolled.state, 1).own.combatDebuffedPokemonIds).toEqual(['starter:1']);
+  expect(observe(rolled.state, 2).public.players[1]!.team[0]).not.toHaveProperty('combatDebuffed');
+  expect(eventsVisibleTo(activated.state, rolled.events, 2)).toEqual([
+    { kind: 'phase_changed', from: 'chance_roll', to: 'strategy' },
+  ]);
+  return rolled.state;
+}
+
+test('Poison Sting is spent by the selected combatant after the next PvP snapshot freezes', () => {
+  const state = poison();
+  const first = step(state, 'declare_pvp', { targetSeatIndex: 1 });
+  const declined = step(first.state, 'respond_pvp', { accept: false }).state;
+  expect(declined.players[1]!.team[0]!.combatDebuffed).toBe(true);
+  declined.turnBudgets.tacticalAction = 1;
+  const second = step(declined, 'declare_pvp', { targetSeatIndex: 1 });
+  const accepted = step(second.state, 'respond_pvp', { accept: true });
+  expect(accepted.state.phase).toMatchObject({
+    kind: 'pvp',
+    battle: { snapshot: { defender: { member: { instanceId: 'starter:1', debuffs: 1 } } } },
+  });
+  expect(accepted.state.players[1]!.team[0]!.combatDebuffed).toBeUndefined();
+});
+
+test('a Gym snapshot applies Poison Sting to the affected combatant and clears it', () => {
+  const state = poison();
+  state.activeSeatIndex = 1;
+  state.phase = { kind: 'resolve' };
+  state.players[1]!.routeProgress = 6;
+  const gym = step(state, 'skip').state;
+  const accepted = step(gym, 'challenge_gym');
+  expect(accepted.state.phase).toMatchObject({
+    kind: 'gym',
+    battle: { snapshot: { challenger: { member: { debuffs: 1 } } } },
+  });
+  expect(accepted.state.players[1]!.team[0]!.combatDebuffed).toBeUndefined();
+});
+
+test('a second Poison Sting leaves one status and Potion clears it without clearing Tired', () => {
+  const state = poison();
+  state.globalTurnNo++;
+  state.turnBudgets.pokemonAbility = 1;
+  state.players[0]!.team[0]!.abilityReady = true;
+  state.rng = createRng(seedFor((value) => value % 2 === 0));
+  const activated = step(state, 'activate_ability', {
+    instanceId: 'starter:0',
+    targetSeatIndex: 1,
+    targetPokemonInstanceId: 'starter:1',
+  });
+  const second = advanceAutomatically(activated.state);
+  expect(second.events.some((event) => event.kind === 'status_changed')).toBe(false);
+  const potionState = second.state;
+  potionState.activeSeatIndex = 1;
+  potionState.players[1]!.team[0]!.tired = true;
+  const potion = potionState.players[1]!.items.find((item) => item.itemId === 'potion')!;
+  const choices = legalActions(potionState, 1).enabled.filter(
+    (choice) => choice.kind === 'use_item',
+  );
+  expect(choices.map((choice) => choice.payload)).toEqual([
+    { itemInstanceId: potion.instanceId, targetPokemonInstanceId: 'starter:1', status: 'tired' },
+    {
+      itemInstanceId: potion.instanceId,
+      targetPokemonInstanceId: 'starter:1',
+      status: 'combat_debuff',
+    },
+  ]);
+  const healed = step(potionState, 'use_item', choices[1]!.payload);
+  expect(healed.state.players[1]!.team[0]).toMatchObject({ tired: true });
+  expect(healed.state.players[1]!.team[0]!.combatDebuffed).toBeUndefined();
+  expect(healed.state.players[1]!.items).toEqual([]);
+  expect(healed.state.turnBudgets.tacticalAction).toBe(0);
+  expect(healed.events).toContainEqual(
+    expect.objectContaining({
+      kind: 'status_changed',
+      reason: 'potion',
+      status: 'combat_debuff',
+      operation: 'cleared',
+    }),
+  );
+});
+
+test.each([false, true])(
+  'Confusion applies a logged replacement die after movement selection (fixed: %s)',
+  (fixed) => {
+    const state = game(seedFor((value) => value % 2 === 0));
+    state.players[0]!.team[0]!.speciesId = 'psyduck';
+    const activated = step(state, 'activate_ability', {
+      instanceId: 'starter:0',
+      targetSeatIndex: 1,
+    });
+    const moving = advanceAutomatically(activated.state).state;
+    expect(moving.players[1]!.confused).toBe(true);
+    moving.activeSeatIndex = 1;
+    moving.globalTurnNo++;
+    moving.turnBudgets.pokemonAbility = fixed ? 0 : 1;
+    moving.phase = { kind: 'move' };
+    if (fixed) moving.turnEffects = { fixedMove: 3 };
+    const initial = step(moving, 'roll').state;
+    const beforeForced = fixed ? initial : advanceAutomatically(initial).state;
+    const forced = advanceAutomatically(beforeForced);
+    const die = forced.records[0]!.action;
+    if (die.kind !== 'dice_result') throw new Error('Expected Confusion replacement die');
+    expect(die.payload.purpose).toMatch(/:confusion$/);
+    if (fixed) {
+      expect(forced.state.players[1]!.routeProgress).toBe(die.payload.value);
+      expect(forced.state.players[1]!.confused).toBeUndefined();
+    } else {
+      expect(forced.state.phase).toMatchObject({ kind: 'move', rolled: die.payload.value });
+      const rerolling = step(forced.state, 'activate_ability', { instanceId: 'starter:1' });
+      const finished = advanceAutomatically(rerolling.state);
+      expect(finished.records[0]!.action.payload).toMatchObject({
+        purpose: expect.stringMatching(/:reroll$/),
+        value: finished.state.players[1]!.routeProgress,
+      });
+      expect(finished.state.players[1]!.confused).toBeUndefined();
+    }
+  },
+);
+
+test.each([false, true])(
+  'Pickpocket reaction belongs to Snorlax’s owner and protects private details (block: %s)',
+  (block) => {
+    const state = game(1);
+    state.players[0]!.items = [
+      {
+        instanceId: 'secret-pickpocket',
+        itemId: 'pickpocket',
+        name: 'Pickpocket',
+        visibility: 'secret',
+      },
+    ];
+    state.players[1]!.team[0]!.speciesId = 'snorlax';
+    const log = createGameLog(state);
+    const started = step(state, 'use_item', {
+      itemInstanceId: 'secret-pickpocket',
+      targetSeatIndex: 1,
+    });
+    expect(pendingDecision(started.state)?.seatIndex).toBe(1);
+    expect(observe(started.state, 1).own.pickpocketReaction).toBe(true);
+    expect(observe(started.state, 2).own.pickpocketReaction).toBeUndefined();
+    expect(actionVisibleToSpectator(state, started.record, 0)?.action.payload).toEqual({});
+    const reaction = block
+      ? step(started.state, 'activate_ability', { instanceId: 'starter:1' })
+      : step(started.state, 'skip');
+    log.actions.push(started.record, reaction.record);
+    expect(replay(log)).toEqual(reaction.state);
+    expect(reaction.state.pendingPickpocket).toBeUndefined();
+    expect(reaction.state.players[1]!.coins).toBe(state.players[1]!.coins - (block ? 0 : 5));
+    expect(reaction.state.players[0]!.items).toEqual([]);
+    expect(reaction.state.turnBudgets.tacticalAction).toBe(0);
+    if (block) {
+      const seen = actionVisibleTo(started.state, reaction.record, 2, 1);
+      expect(seen?.events).toEqual([
+        expect.objectContaining({ kind: 'ability_activated', effect: 'block' }),
+        { kind: 'block_triggered', ownerId: 'p1' },
+      ]);
+      expect(actionVisibleToSpectator(started.state, reaction.record, 1)?.events).toEqual(
+        seen?.events,
+      );
+    } else {
+      expect(actionVisibleTo(started.state, reaction.record, 2, 1)).toBeNull();
+      expect(actionVisibleToSpectator(started.state, reaction.record, 1)).toBeNull();
+      expect(observe(reaction.state, 2).public.stateRevision).toBe(1);
+    }
+  },
+);
 
 test('Track peeks the top Event card privately: a logged first shuffle fills the deck, nothing is drawn or reordered, and other seats see no card or order (§4.5 peek, §5.4)', () => {
   const initial = game(3);

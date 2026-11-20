@@ -33,7 +33,12 @@ export function observeSpectator(state: GameState): SpectatorObservation {
 
 function isPublicItem(before: GameState, instanceId: string): boolean {
   return before.players.some((player) =>
-    player.items.some((item) => item.instanceId === instanceId && item.visibility === 'public'),
+    player.items.some(
+      (item) =>
+        item.instanceId === instanceId &&
+        item.visibility === 'public' &&
+        item.itemId !== 'pickpocket',
+    ),
   );
 }
 
@@ -62,6 +67,9 @@ function publicEvent(before: GameState, event: EngineEvent): boolean {
       return event.visibility === 'public';
     case 'protection_applied':
       return event.source === 'pvp_coin_loss' || event.source === 'gym_coin_loss';
+    case 'status_changed':
+      return event.status !== 'combat_debuff';
+    case 'block_triggered':
     case 'player_displaced':
     case 'event_deck_shuffled':
     case 'event_drawn':
@@ -75,7 +83,6 @@ function publicEvent(before: GameState, event: EngineEvent): boolean {
     case 'pvp_resolved':
     case 'pokemon_evolved':
     case 'battle_reward_resolved':
-    case 'status_changed':
     case 'coin_transfer':
     case 'space_resolved':
     case 'phase_changed':
@@ -110,6 +117,7 @@ export function actionVisibleToSpectator(
 ): SeatActionRecord | null {
   const { kind } = record.action;
   if (kind === 'chat' || kind === 'offer_promise' || kind === 'respond') return null;
+  if (kind === 'skip' && before.pendingPickpocket) return null;
   const action: SeatAction = structuredClone(record.action);
   action.actionSeq = shownBefore + 1;
   action.stateRevisionBefore = shownBefore;
@@ -119,8 +127,18 @@ export function actionVisibleToSpectator(
       delete action.payload.itemInstanceId;
     }
     delete action.payload.targetSeatIndex;
+    if (action.payload.status === 'combat_debuff') {
+      delete action.payload.status;
+      delete action.payload.targetPokemonInstanceId;
+    }
   }
-  if (action.kind === 'activate_ability') delete action.payload.targetSeatIndex;
+  if (action.kind === 'activate_ability') {
+    if (action.payload.targetSeatIndex !== undefined || action.payload.status === 'combat_debuff') {
+      delete action.payload.targetPokemonInstanceId;
+    }
+    delete action.payload.targetSeatIndex;
+    delete action.payload.status;
+  }
   if (
     action.kind === 'dice_result' &&
     before.phase.kind === 'chance_roll' &&

@@ -137,6 +137,30 @@ const ROWS: [AbilityEffectId, Window, string[], (after: GameState) => void][] = 
   ],
   ['lucky_splash', 'strategy', ['magikarp'], (s) => expect(s.phase.kind).toBe('chance_roll')],
   [
+    'scavenge',
+    'strategy',
+    ['rattata', 'raticate'],
+    (s) => expect(s.phase.kind).toBe('chance_roll'),
+  ],
+  [
+    'poison_sting',
+    'strategy',
+    ['weedle', 'kakuna', 'beedrill'],
+    (s) => expect(s.phase.kind).toBe('chance_roll'),
+  ],
+  [
+    'confusion',
+    'strategy',
+    ['psyduck', 'golduck'],
+    (s) => expect(s.phase.kind).toBe('chance_roll'),
+  ],
+  [
+    'block',
+    'defender',
+    ['snorlax'],
+    (s) => expect(s.players[0]!.armedShield?.scope).toBe('pvp_pickpocket'),
+  ],
+  [
     'intimidate',
     'attacker',
     ['gyarados'],
@@ -214,7 +238,7 @@ test.each(
   },
 );
 
-test('the engine maps every effect to exactly the eight §4.5 primitives, and each is exercised above (no ninth system)', () => {
+test('the engine maps every effect to a §4.5 primitive, and each primitive is exercised above', () => {
   const primitives = new Set(Object.values(ABILITY_EFFECTS).map((effect) => effect.primitive));
   expect([...primitives].sort()).toEqual(
     [
@@ -225,6 +249,7 @@ test('the engine maps every effect to exactly the eight §4.5 primitives, and ea
       'shield',
       'heal',
       'gainBall',
+      'gainCoin',
       'peek',
     ].sort(),
   );
@@ -255,8 +280,12 @@ test('the engine maps every effect to exactly the eight §4.5 primitives, and ea
       'pidgey',
       'pikachu',
       'porygon',
+      'psyduck',
+      'rattata',
       'scyther',
+      'snorlax',
       'squirtle',
+      'weedle',
     ].sort(),
   );
 });

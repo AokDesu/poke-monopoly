@@ -420,7 +420,13 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
         !state.phase.catchRoll
           ? oddsForAllBalls(state, seatIndex)
           : [],
-      decision: pending && { seatIndex: pending.seatIndex, point: decisionPoint(state)! },
+      decision:
+        pending &&
+        (!state.pendingPickpocket ||
+          seatIndex === state.activeSeatIndex ||
+          seatIndex === state.pendingPickpocket.targetSeatIndex)
+          ? { seatIndex: pending.seatIndex, point: decisionPoint(state)! }
+          : null,
       battle:
         state.phase.kind === 'pvp' || state.phase.kind === 'gym'
           ? battlePreview(state, seatIndex)
@@ -646,7 +652,8 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
       const decisionPoint = promiseQuestion ? 'promise_response' : state.phase.kind;
       if (
         !promiseQuestion &&
-        (!['strategy', 'encounter', 'sell', 'shop'].includes(decisionPoint) ||
+        (state.pendingPickpocket ||
+          !['strategy', 'encounter', 'sell', 'shop'].includes(decisionPoint) ||
           (state.phase.kind === 'encounter' && state.phase.catchRoll))
       ) {
         // Temporary #55 boundary: the decision API has no Gym, battle, Ability-window or reroll

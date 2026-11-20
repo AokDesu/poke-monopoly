@@ -33,6 +33,7 @@ test('random 4-seat games trigger all six core class passives and every content-
     'rollBonus',
     'shield',
     'gainBall',
+    'gainCoin',
     'peek',
     'forcePvP',
   ]) {

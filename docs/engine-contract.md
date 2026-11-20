@@ -113,7 +113,7 @@ Spec: §4.1, §4.5, §4.7, Appendix A. A content class may name a `passive`; the
 
 Within one atomic sale, the bonus goes to exactly one sold Pokémon: the highest `saleBasis` (before the tired adjustment), ties broken by the lowest instance ID in string order, so listing order never matters ([spec §4.7 step 2](SPEC-v1.0-PokeMonopoly.md#47-selling-at-start-laps-and-game-end)). A Rescue Starter is never a candidate. An empty sale pays nothing and uses no bonus. Each Sell Phase follows exactly one credited Lap, so once per phase is once per Lap; the bonus is available again after the next qualifying Start crossing without extra state. The sale event's `sale` field shows the parts, for example `{ basePrice: 12, classBonus: 3 }` for amount 15.
 
-The Researcher's starting kit comes from the generic setup: 20 coins, an Original Starter Porygon (sale basis 5 in base form), 5 Poké Balls and a public Potion. Potion now uses the targeted S03 healing path described below. With no own Tired Pokémon it is disabled with `NO_VALID_TARGET`; combat debuffs and remaining class passives remain deferred. The engine version advances as recorded in [engine/versions.ts](../engine/versions.ts) because sale payouts and events changed; command-log and RNG versions are unchanged, and prior executable versions are rejected by setup/replay.
+The Researcher's starting kit comes from the generic setup: 20 coins, an Original Starter Porygon (sale basis 5 in base form), 5 Poké Balls and a public Potion. Potion now uses the targeted S03 healing path described below. With no own Tired or combat-debuffed Pokémon it is disabled with `NO_VALID_TARGET`. The engine version advances as recorded in [engine/versions.ts](../engine/versions.ts) because sale payouts and events changed; command-log and RNG versions are unchanged, and prior executable versions are rejected by setup/replay.
 
 ## Main Character (issue #35)
 
@@ -185,7 +185,7 @@ Spec: §4.1, §4.2, §4.3, §4.6, Appendix A, §8. Current-version Strategy list
 
 Both new state fields are optional and absent when no effect is active. `observe` does not project them yet. The engine version advances as recorded in [engine/versions.ts](../engine/versions.ts) because Strategy commands now change state; command-log and RNG versions are unchanged. AI item selection and the remaining items stay deferred.
 
-`itemEffectStatus(contentItem)` ([engine/items.ts](../engine/items.ts), exported from the engine) tells screens how much of an item's Appendix A effect this engine applies, so a card never claims more: `active` for every Ball and for Lucky Egg, Repel, Pickpocket, Price Shield, Sticky Web and Battle Ticket; `partial` for Potion, which clears Tired only because combat debuffs are not tracked yet; `planned` is reserved for utility effects that have no Strategy choice or effect, and none of the current catalogue is in that category. It is a read-only classification: it draws no randomness and changes no rule or number, and its test holds it to whether Strategy offers a choice for the held item. Whoever implements one of the planned effects moves it to `active` there.
+`itemEffectStatus(contentItem)` ([engine/items.ts](../engine/items.ts), exported from the engine) tells screens how much of an item's Appendix A effect this engine applies, so a card never claims more: `active` for every Ball and all seven utility items, including Potion. `partial` is reserved for utility items whose effects are incomplete and `planned` for items without an implemented effect. It is a read-only classification: it draws no randomness and changes no rule or number, and its test holds it to whether Strategy offers a choice for the held item. Whoever implements one of the planned effects moves it to `active` there.
 
 ## Invariant checker (issue #14)
 
@@ -241,12 +241,12 @@ Start, including the first selected turn, using the same healing helper. Coin-lo
 belongs to later combat work. Browser setup keeps Nurse Joy unavailable until that portion ships;
 status event records do not add new UI announcements in this engine slice.
 
-Strategy Potion choices carry `itemInstanceId`, `targetPokemonInstanceId` and
-`status: 'tired'`. Only own Tired UIDs are enabled; no target produces `NO_VALID_TARGET`,
+Strategy Potion choices carry `itemInstanceId`, `targetPokemonInstanceId` and the chosen
+`status` (`tired` or `combat_debuff`). Only owned UIDs carrying that status are enabled. No target produces `NO_VALID_TARGET`,
 and a spent tactical budget produces `ALREADY_USED_THIS_TURN`. Use clears the selected
 status, destroys that item UID, and spends one tactical action. Foreign, absent or healthy
-targets reject atomically. Later debuffs extend the typed status seam; none are invented here.
-Statuses, expiry and events round-trip through saves, observations and command replay.
+targets reject atomically. Tired expiry and pending combat debuffs round-trip through saves and
+command replay. Combat debuff status is visible to the affected owner.
 The combined engine stamp advances to 0.14.0; older executable saves are refused rather than migrated.
 No battle, Event or Ability Tired source is introduced by this slice.
 
@@ -625,9 +625,24 @@ slow. Observations redact the slow's target, and the die face is private to its 
 
 `engine/starter-abilities.test.ts` is the coverage ledger: a table reaches each form's legal window
 (S, B attacker, R defender or A reroll) and checks an observable effect, the effect table maps to
-exactly the eight §4.5 primitives with every one exercised, authored timings equal the engine's,
+the §4.5 primitives with every one exercised, authored timings equal the engine's,
 and an actually caught Dratini becomes Tired after Dragon Rush (not battle-ready, ×0.8 sale) and
 recovers by expiry or Potion (Nurse Joy and Chansey recovery are covered in the S03/S10 tests).
+
+## Remaining C4 Abilities and healing (issue #58)
+
+Spec: §4.5, §4.6, Appendices A and C.
+
+- Scavenge opens the logged chance step and emits a bank-to-player `coin_transfer` on an even die.
+- Poison Sting selects one rival Pokémon UID. Its combat debuff follows that UID through evolution.
+  A confirmed PvP or Gym snapshot includes the debuff in adjusted member selection, then clears it
+  from the selected combatant. Potion and Heal Pulse can clear the status earlier.
+- Confusion queues a replacement die for the target's next actual move. The mandatory die
+  follows the initial die or fixed value and precedes Calculate. Actual movement clears the
+  pending reroll.
+- Block arms one PvP/Pickpocket coin-loss shield. Pickpocket offers a private reaction to its target
+  when Block is available. Passing does not change public record numbering. A successful block is
+  public without its Pickpocket details.
 
 ## Mixed-seat completion and Streams B/C handoff (issue #55 S15)
 
@@ -704,7 +719,7 @@ active invariant after every action and failing on any abort, illegal applied ac
 failure (job timeout 15 minutes). The sim summary's `features` counts Ability primitives, class
 passives and battles; `sim/features.test.ts` requires all six core class passives, the five Ability
 primitives pinned in the random-play test (`fixedMove`, `moveDebuff`, `rollBonus`, `shield`,
-`gainBall`, `peek`, `forcePvP`) and PvP, forced PvP and Gym battles. `heal` has trigger coverage
+`gainBall`, `gainCoin`, `peek`, `forcePvP`) and PvP, forced PvP and Gym battles. `heal` has trigger coverage
 in the engine scenario tables. Replay and resume at
 pending decisions are covered per slice (S06 PvP steps, S10 defender window, S11 rerolls, S13
 peek) and by the 200-game replay property test.

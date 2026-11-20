@@ -414,7 +414,7 @@ test.each([
   ['lucky-egg', 'active'],
   ['repel', 'active'],
   ['pickpocket', 'active'],
-  ['potion', 'partial'],
+  ['potion', 'active'],
   ['price-shield', 'active'],
   ['sticky-web', 'active'],
   ['battle-ticket', 'active'],
