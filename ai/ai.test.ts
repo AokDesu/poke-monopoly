@@ -1361,6 +1361,30 @@ describe('POST /api/ai/decide: the demo detail (spec §3, §1, §11 step 3)', ()
     },
   );
 
+  test('with DEMO_MODE off, a query string, a header or a body field cannot turn the detail on', async () => {
+    withDemo(undefined);
+    const app = testApp({ jevClient: () => createFakeJevClient(pickSkip) });
+    const post = (url: string, headers: Record<string, string>, payload: object) =>
+      app.request(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...headers },
+        body: JSON.stringify(payload),
+      });
+    for (const url of ['/api/ai/decide?demo=1', '/api/ai/decide?demo=true&DEMO_MODE=1']) {
+      const body = await (
+        await post(url, { 'x-demo': '1', 'x-demo-mode': 'true', demo: '1' }, strategy)
+      ).json();
+      expect(body.source).toBe('jev');
+      expect(body).not.toHaveProperty('detail');
+    }
+    const forged = await post('/api/ai/decide', {}, { ...strategy, demo: true });
+    expect(forged.status).toBe(400);
+    const status = await (
+      await app.request('/api/ai/status?demo=1', { headers: { 'x-demo': '1' } })
+    ).json();
+    expect(status.demo).toBe(false);
+  });
+
   test('with DEMO_MODE on, a fallback, an auto decision and the fallback route carry no detail', async () => {
     withDemo('1');
     vi.stubEnv('JEV_ENABLED', 'false');
