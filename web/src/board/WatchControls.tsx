@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { t } from '../i18n/en.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
 import { Button } from '../ui/Button.tsx';
-import { SpeedSelect } from './AiTurn.tsx';
+import { KeyHint, PaceSelect, usePaceKeys } from './AiTurn.tsx';
 import type { TurnPlayback } from './useTurnPlayback.ts';
 
 /** An enabled button, or a greyed one that says why (spec §3.1). */
@@ -67,8 +67,9 @@ export interface WatchControlsProps {
   onLeave?: (how: 'save' | 'end') => void;
 }
 
-/** Pause, Step, Speed, Skip to results and Leave: every disabled control says why. */
+/** Pause, Next, Step, Pace, Skip to results and Leave: every disabled control says why. */
 export function WatchControls({ playback, finished, savingOff, onLeave }: WatchControlsProps) {
+  usePaceKeys(playback, { next: !finished, pause: !finished });
   const [asking, setAsking] = useState<'skip' | 'leave' | null>(null);
   const opener = useRef<Element | null>(null);
   const ask = (question: 'skip' | 'leave') => {
@@ -86,6 +87,11 @@ export function WatchControls({ playback, finished, savingOff, onLeave }: WatchC
       <div className="watch-buttons">
         <Control reason={gone} onClick={() => playback.setPaused(!playback.paused)}>
           {playback.paused ? t('watch.resume') : t('watch.pause')}
+          <KeyHint>{t('pace.keyPause')}</KeyHint>
+        </Control>
+        <Control reason={gone ?? playback.nextBlocked} variant="primary" onClick={playback.next}>
+          {t('pace.next')}
+          <KeyHint>{t('pace.keyNext')}</KeyHint>
         </Control>
         <Control reason={gone ?? playback.stepBlocked} onClick={playback.step}>
           {t('watch.step')}
@@ -99,7 +105,7 @@ export function WatchControls({ playback, finished, savingOff, onLeave }: WatchC
           </Control>
         )}
       </div>
-      <SpeedSelect playback={playback} />
+      <PaceSelect playback={playback} />
       {asking === 'skip' && (
         <Ask question={t('watch.skipAsk')} onCancel={close}>
           <Button

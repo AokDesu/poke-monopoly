@@ -155,7 +155,7 @@ describe('a watch setup starts a game with every seat as chosen, none human (§3
     const ais = open
       .slice(0, count)
       .map((option, index) => ai(option.id, { difficulty: index % 2 ? 'normal' : 'easy' }));
-    const setup = completeWatchSetup(draftOf(ais, { talk: false, speed: 'fast' }), classOptions)!;
+    const setup = completeWatchSetup(draftOf(ais, { talk: false, pace: 'fast' }), classOptions)!;
     const store = createGameStore();
     store.start(
       configForWatch(setup, 5),
@@ -179,7 +179,8 @@ describe('a watch setup starts a game with every seat as chosen, none human (§3
         difficulty: entry.difficulty,
       })),
     );
-    expect(store.getWatchSettings()).toEqual({ talk: false, speed: 'fast' });
+    expect(store.getWatchSettings()).toEqual({ talk: false, pace: 'fast' });
+    expect(store.getPace()).toBe('fast');
     expect(store.getView()).toBeNull();
 
     // Every AI rolled once, in seat order, before any tie re-roll; the game then started.
@@ -216,7 +217,7 @@ describe('saved watch settings (§3.1, §6.9)', () => {
       removeItem: (key) => void data.delete(key),
     };
   };
-  const started = (settings = { talk: false, speed: 'instant' } as const) => {
+  const started = (settings = { talk: false, pace: 'instant' } as const) => {
     const setup = completeWatchSetup(
       draftOf([ai('fisherman'), ai('researcher', { difficulty: 'normal' })], settings),
       classOptions,
@@ -231,17 +232,36 @@ describe('saved watch settings (§3.1, §6.9)', () => {
     return { store, setup };
   };
 
-  test('the engine save keeps its opponents and the game keeps talk and speed beside it', () => {
+  test('the engine save keeps its opponents and the game keeps talk, starting pace and pace beside it', () => {
     const { store, setup } = started();
+    store.setPace('step');
     const storage = memory();
     writeSave(storage, store.getSession()!, {
       opponents: store.getOpponents(),
       watch: store.getWatchSettings(),
+      pace: store.getPace(),
     });
     expect(readMeta(storage)).toEqual({
       opponents: watchOpponentSettings(setup),
-      watch: { talk: false, speed: 'instant' },
+      watch: { talk: false, pace: 'instant' },
+      pace: 'step',
     });
+  });
+
+  test('a save from before paces reads each old speed as the pace it became', () => {
+    const storage = memory();
+    for (const [speed, pace] of [
+      ['normal', 'readable'],
+      ['fast', 'fast'],
+      ['instant', 'instant'],
+    ] as const) {
+      storage.setItem(
+        'poke-monopoly.save-meta',
+        JSON.stringify({ opponents: [], watch: { talk: true, speed } }),
+      );
+      expect(readMeta(storage).watch).toEqual({ talk: true, pace });
+      expect(readMeta(storage)).not.toHaveProperty('pace');
+    }
   });
 
   test('a game without watch settings reads back without any', () => {
@@ -252,13 +272,20 @@ describe('saved watch settings (§3.1, §6.9)', () => {
   });
 
   test.each([
-    ['a speed that does not exist', { talk: true, speed: 'warp' }],
-    ['a talk flag that is not a boolean', { talk: 'yes', speed: 'fast' }],
+    ['a pace that does not exist', { talk: true, pace: 'warp' }],
+    ['an old speed that does not exist', { talk: true, speed: 'toString' }],
+    ['a talk flag that is not a boolean', { talk: 'yes', pace: 'fast' }],
     ['a value that is not an object', 'fast'],
   ])('%s is dropped, never repaired', (_name, watch) => {
     const storage = memory();
     storage.setItem('poke-monopoly.save-meta', JSON.stringify({ opponents: [], watch }));
     expect(readMeta(storage)).not.toHaveProperty('watch');
+  });
+
+  test('a pace that does not exist is dropped, and the game starts at its own', () => {
+    const storage = memory();
+    storage.setItem('poke-monopoly.save-meta', JSON.stringify({ opponents: [], pace: 'warp' }));
+    expect(readMeta(storage)).not.toHaveProperty('pace');
   });
 });
 
@@ -269,7 +296,7 @@ describe('an unfinished watch setup after a reload (§3.1)', () => {
     mode: 'quick',
     ais: [ai('fisherman'), ai('researcher', { difficulty: 'normal' })],
     talk: false,
-    speed: 'fast',
+    pace: 'fast',
     ...extra,
   });
 
@@ -280,7 +307,7 @@ describe('an unfinished watch setup after a reload (§3.1)', () => {
       expect(restored?.draft).toEqual({
         mode: 'quick',
         ais: saved(step).ais,
-        settings: { talk: false, speed: 'fast' },
+        settings: { talk: false, pace: 'fast' },
       });
     }
   });
@@ -289,7 +316,7 @@ describe('an unfinished watch setup after a reload (§3.1)', () => {
     const closedMode = restoreWatchProgress(saved('review'), classOptions, []);
     expect(closedMode).toEqual({
       step: 'mode',
-      draft: { settings: { talk: false, speed: 'fast' } },
+      draft: { settings: { talk: false, pace: 'fast' } },
     });
     const closedClass = restoreWatchProgress(saved('review'), onlyClasses('fisherman'), modes);
     expect(closedClass?.step).toBe('ais');
@@ -334,12 +361,22 @@ describe('an unfinished watch setup after a reload (§3.1)', () => {
     expect(restored?.draft.ais).toEqual(withRivalCount(classOptions, undefined, [], 2));
   });
 
-  test('unreadable settings fall back to talk on at Normal speed', () => {
+  test('unreadable settings fall back to talk on at the Readable pace', () => {
     const restored = restoreWatchProgress(
-      saved('options', { talk: 'maybe', speed: 'warp' }),
+      saved('options', { talk: 'maybe', pace: 'warp' }),
       classOptions,
       modes,
     );
     expect(restored?.draft.settings).toEqual(DEFAULT_WATCH_SETTINGS);
+    expect(DEFAULT_WATCH_SETTINGS.pace).toBe('readable');
+  });
+
+  test('a setup saved before paces keeps its speed as the pace it became', () => {
+    const old: Record<string, unknown> = { ...saved('options'), speed: 'normal' };
+    delete old.pace;
+    expect(restoreWatchProgress(old, classOptions, modes)?.draft.settings).toEqual({
+      talk: false,
+      pace: 'readable',
+    });
   });
 });

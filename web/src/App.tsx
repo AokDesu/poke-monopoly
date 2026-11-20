@@ -98,6 +98,7 @@ type SaveOffer =
       session: GameSession;
       opponents: SaveMeta['opponents'];
       watch: SaveMeta['watch'];
+      pace: SaveMeta['pace'];
       chatWords: SaveMeta['chatWords'];
       gameId: SaveMeta['gameId'];
       scene: SaveMeta['scene'];
@@ -141,6 +142,7 @@ function inspect(
       session: loaded.game,
       opponents: meta.opponents,
       watch: meta.watch,
+      pace: meta.pace,
       chatWords: meta.chatWords,
       gameId: meta.gameId,
       scene: meta.scene,
@@ -209,6 +211,7 @@ export function App({
             writeSave(storage, session, {
               opponents: store.getOpponents(),
               watch: store.getWatchSettings(),
+              pace: store.getPace(),
               chatWords: store.getChatWords(),
               gameId: store.getGameId(),
               scene: store.getScene(),
@@ -260,6 +263,7 @@ export function App({
         offer.gameId,
         offer.chatWords,
         offer.scene,
+        offer.pace,
       );
     } catch {
       setOffer({ kind: 'unreadable' });
