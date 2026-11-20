@@ -3,7 +3,7 @@ import type { LegalAction, LegalActions, Observation } from '../../../engine/ind
 import { currentForm } from '../game/content.ts';
 import type { SeatView } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
-import { speciesName } from '../i18n/names.ts';
+import { memberName, speciesName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
 import { DieFace } from '../ui/DieFace.tsx';
 import { BattleTerms, chancesText } from './BattleTerms.tsx';
@@ -205,11 +205,7 @@ function RewardChooser({
   const owner =
     chosenEvolve && team.find((member) => member.instanceId === chosenEvolve.instanceId);
   const pokemonLabel = (instanceId: string) => {
-    const member = team.find((entry) => entry.instanceId === instanceId);
-    return t('strategy.potion.member', {
-      pokemon: member ? speciesName(member.speciesId) : instanceId,
-      instanceId,
-    });
+    return t('strategy.potion.member', { pokemon: memberName(team, instanceId) });
   };
   const groups = [...new Set(evolutions.map((entry) => entry.instanceId))];
   return (
