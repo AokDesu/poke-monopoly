@@ -38,7 +38,7 @@ Some states are agreement controls (every personality gives the same answer), so
 
 **Sell scenarios and the live question.** Since #189 the Sell scenarios take `keepValue` from the engine's `saleFacts` (`eval/jev/scenarios.ts`) (the same facts the live question gets), not from made-up values. The scenario descriptions' keep wording (for example "worth a medium amount to keep") is prose and is not checked against that engine number.
 
-**Known limit.** The sim's Jev policy asks no Sell questions, so sim fallback figures exclude Sell.
+**Known limit.** The sim sends no Sell facts, so every sim Sell decision falls back as `missing_facts`. Those decisions are counted in the fallback rate (about 9 of 60 decisions in a short run). See `docs/sim.md`.
 
 **PvP.** Spec §5.3 (the temporary #55 exception) keeps `declare_pvp` out of Strategy questions until Stream B adds PvP questions, and there is no PvP response question yet. The PvP contrast is therefore expressed through the Battle Ticket item, which is a real Strategy option that forces PvP. When the PvP questions arrive, add scenarios for them here.
 
