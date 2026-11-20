@@ -35,7 +35,7 @@ A web board game for 2–4 seats on a 24-space loop. One to four people can play
 
 - **Catch:** players catch Pokémon with Balls.
 - **Keep or sell:** each catch is kept for its Ability, for battle or to evolve, or sold when passing Start.
-- **Social play:** players use items against opponents and can chat or bargain with AI opponents that remember what happened in the game.
+- **Social play:** players use items and bargain. Human players can chat with and offer promises to AI opponents, which remember what happened in the game.
 - **Win:** the player with the most coins wins.
 - **Setup:** each AI's class, personality and difficulty are set before the game. In watch mode the player sets every seat this way and holds no seat.
 
@@ -88,7 +88,7 @@ AI writes more of the code and makes more of the in-game decisions, but the team
 
 ## 3. User flow and screens
 
-One-human path: Home → choose Quick/Standard → choose class → choose 1–3 AIs → set each AI's class/personality/difficulty → review setup → roll for first player → play → results
+For one human, the flow is Home → choose Quick/Standard → choose class → choose 1–3 AIs → set each AI's class/personality/difficulty → review setup → roll for first player → play → results.
 
 Watch path: Home → Watch AIs → choose Quick → choose 2–4 AIs → set each AI's class/personality/difficulty → review setup → first-player roll (automatic) → watch → results. The watcher can pause, step, change speed, skip to the results or leave.
 
@@ -97,7 +97,7 @@ Watch path: Home → Watch AIs → choose Quick → choose 2–4 AIs → set eac
 - Random All and presets for a quick start.
 - Presets: Home offers a few named arrangements ("One rival, easy", "Two rivals, normal" and "Three rivals, random"). One tap fills every seat's class, Starter, personality and difficulty, and the review screen shows each seat's exact choices before the roll. Back reaches the same per-seat editor, where a change touches only the seat it is made on. Random presets use the Random All path for every seat, and need at least one open personality. Random All is not a preset: it keeps its own button on Home. A reason that names a personality or difficulty uses its label, and counts read "1 AI rival" and "2 AI rivals". A preset is always a legal Quick game; one that stops being legal after a content change (a closed class, personality, difficulty or mode, a repeated class or too few open classes) stays visible, greyed, with the reason, and is never swapped for another arrangement. Random All and New game stay reachable without a preset. A game started from a preset is saved and resumed like any other.
 - Classes are unique within a game; class and personality are independent.
-- Local multiplayer (#255): each of the 2–4 fixed seats is set up as human or AI. M1 provides the engine support. M2 covers multiplayer setup and handing the shared computer to the deciding human. Each seat's view contains only its own Ball pouch, secret items, peek results and chats alongside the public board. During a voluntary challenge, the defender owns the response even if both seats are human and the challenger still holds the turn (C.3, §6.4).
+- In local multiplayer (#255), each of the 2–4 fixed seats is set up as human or AI. M1 provides the engine support. M2 covers multiplayer setup and handing the shared computer to the deciding human. Each seat's view contains only its own Ball pouch, secret items, peek results and chats alongside the public board. During a voluntary challenge, the defender owns the response even if both seats are human and the challenger still holds the turn (C.3, §6.4).
 - Watch setup: after the mode and the number of AIs (two to four), the player sets each AI's class, Starter, personality and difficulty, whether the AIs talk at the table (AI talk on or off) and the speed the game starts at. Random All fills every AI and keeps the requested number. Choices the browser cannot play stay visible, greyed, with the reason. The setup is kept across a reload, and AI talk and the starting speed are saved with the game.
 
 **Turn order**

@@ -711,11 +711,11 @@ Spec: §4.2, §4.8 Chat, §5.4, §9.
 
 **Flag.** `GameConfig.socialWindow` is optional. Absent or `false`, Social offers only `skip` to every seat, a `chat` command is rejected as `illegal_action`, no budget key exists and `observe` has no `own.chats`: behaviour is exactly as before. The browser turns the flag on for every game it creates with a human seat (`configForSetup`, #137), so the human's Social window offers the topic buttons and the game waits there for the player; watched games and saves made without the flag keep skipping Social.
 
-**Command.** `chat` has the payload `{ targetSeatIndex, topic, leaderSeatIndex?, itemId? }`, with `topic` one of `truce`, `trade`, `point_leader`, `use_item`, `hold_item`. Free text is not part of this slice. It is accepted only from the active **human** seat in Social while the flag is on and the turn's social interaction is unspent. AI seats are never offered one (§4.2: the human starts conversations). Validity is decided by `validChat` in [engine/social.ts](../engine/social.ts) over exactly the set `legalActions` enumerates (id `chat:seat-<target>:<topic>[:seat-<leader>|:<itemId>]`):
+**Command.** `chat` has the payload `{ targetSeatIndex, topic, leaderSeatIndex?, itemId? }`, with `topic` one of `truce`, `trade`, `point_leader`, `use_item`, `hold_item`. Free text is not part of this slice. The active human may send it to an AI opponent in Social while the flag is on and the turn's social interaction is unspent (§4.2, #255). `validChat` in [engine/social.ts](../engine/social.ts) checks the same choices `legalActions` enumerates (id `chat:seat-<target>:<topic>[:seat-<leader>|:<itemId>]`).
 
 | Topic | Extra fields | Allowed values |
 | --- | --- | --- |
-| `truce`, `trade` | none | any other seat as target |
+| `truce`, `trade` | none | any AI opponent as target |
 | `point_leader` | `leaderSeatIndex` | a seat that is neither the speaker nor the target (so none in a 2-seat game); words only, it is not checked against who actually leads |
 | `use_item`, `hold_item` | `itemId` | a content utility item ID, never an instance ID and never a Ball |
 
@@ -808,7 +808,7 @@ Choice IDs are `offer-promise:seat-<n>:offer|ask`. The choices depend on seats, 
 
 **Not in this slice.** Settling promises at End, breaches, trust and memory (S07, below), Deal Cards and the Deal response (S05), and the AI's Jev decisions for `respond` (the `ai/` layer). `GameState.promises` therefore keeps every promise, closed ones included, for S07.
 
-**Sim.** `npm run sim -- --games <n> --seed <n> --social` plays seat 0 as a `human` with the random policy and `socialWindow` on; the other seats keep `--policy`. The summary gains `social { promiseOffers, promisesAccepted, promisesRejected }` only with the flag, so a run without it is byte-for-byte unchanged.
+**Sim.** `npm run sim -- --games <n> --seed <n> --social` plays seat 0 as a `human` with the random policy and `socialWindow` on. `--human-seats <count>` scripts that many human seats starting at seat 0. Both flags add `social { promiseOffers, promisesAccepted, promisesRejected }` to the summary. [Simulator flags](../sim/README.md)
 
 **Versioning.** The stamp advances to 0.18.0: the action union, events, state and observation gain fields. Saves of 0.17.0 and earlier are refused rather than migrated. Tests: [engine/promises.test.ts](../engine/promises.test.ts), the `--social` cases in [sim/sim.test.ts](../sim/sim.test.ts) and the social property in [sim/legal-games.property.test.ts](../sim/legal-games.property.test.ts).
 
