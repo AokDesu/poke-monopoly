@@ -250,16 +250,23 @@ export function decideRequest(scenario: EvalScenario): {
   request: DecideRequest;
 } {
   const { state } = scenario.build();
-  const legal = legalActions(state, 0);
+  const seat = scenario.seat ?? 0;
+  const legal = legalActions(state, seat);
   const request: DecideRequest = {
     turnKey: scenario.id,
-    observation: observe(state, 0),
+    observation: observe(state, seat),
     legalActions: legal,
     facts: {},
     difficulty: 'normal',
     personality: scenario.personality,
     rng: createPolicyRng(scenario.id),
   };
+  const pending = request.observation.own.pendingResponse;
+  if (pending?.kind === 'deal') {
+    // A Deal Card is answered by its target at its own decision point, whatever phase the proposer is in (§5.3).
+    request.decisionPoint = 'deal_response';
+    if (pending.facts) request.facts = { deal: pending.facts };
+  }
   if (state.phase.kind === 'encounter') {
     const odds = oddsForAllBalls(state, 0);
     request.facts = {

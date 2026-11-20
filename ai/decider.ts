@@ -3,7 +3,9 @@ import type {
   DecisionFallbackReason,
   DecisionRequest,
 } from '../engine/contract/decision.ts';
+import { createRng } from '../engine/index.ts';
 import { createPolicyRng, type PolicyChoice, type PolicyFacts } from '../sim/policy.ts';
+import { selectLine, type Situation } from './lines.ts';
 import { FallbackPolicy, PERSONALITIES } from './fallback/index.ts';
 import { createSdkJevClient, jevEnabled, type JevClient } from './jev/client.ts';
 import type { DecisionEvent } from './jev/decision-log.ts';
@@ -54,7 +56,14 @@ export const fallbackAnswer = (
   request: DecisionRequest,
   fallbackReason: DecisionFallbackReason,
 ): DeciderAnswer => {
-  const first = request.enabledActions[0]!;
+  // A Deal Card is never accepted by a last resort: the safe answer is the refusal (§3 fallback table).
+  const refusal =
+    request.decisionPoint === 'deal_response'
+      ? request.enabledActions.find(
+          (action) => action.kind === 'respond_deal' && action.payload.answer === 'reject',
+        )
+      : undefined;
+  const first = refusal ?? request.enabledActions[0]!;
   if (request.decisionPoint === 'sell') {
     const sellUids = first.kind === 'sell' ? first.payload.pokemonInstanceIds : [];
     return { sellUids, source: 'fallback', fallbackReason };
@@ -137,6 +146,12 @@ const sellFactsOf = (
  * the Sell Phase's prices for the Sell Nouls and the policy's sale values.
  */
 const toFacts = (request: DecisionRequest): DecideFacts => {
+  if (request.decisionPoint === 'deal_response') {
+    // The engine's buckets for the AI's own pending deal: on the wire, or in its own observation (§5.4).
+    const pending = request.observation.own.pendingResponse;
+    const deal = request.facts.deal ?? (pending?.kind === 'deal' ? pending.facts : undefined);
+    return deal ? { deal } : {};
+  }
   const sale = sellFactsOf(request);
   if (sale)
     return { policy: { saleValue: sale.saleValue, keepValue: sale.keepValue }, sell: sale.facts };
@@ -164,6 +179,30 @@ export const personalityFor = (id: string) =>
     ? PERSONALITIES[id as keyof typeof PERSONALITIES]
     : PERSONALITIES.greedy;
 
+/**
+ * Spec §5.7: the line a seat says with its answer to a Deal Card, from `deal_accept` or `deal_reject`; only trust
+ * `neutral` is authored. Picked by a seeded draw on a presentation RNG apart from the game's, so a retried
+ * decision says the same line. A counter has no line: the Deal Card shows its new terms.
+ */
+const lineFor = (request: DecisionRequest, choice: string): { lineId?: string } => {
+  if (request.decisionPoint !== 'deal_response') return {};
+  const action = request.enabledActions.find((entry) => entry.id === choice);
+  const situation: Situation | undefined =
+    action?.kind !== 'respond_deal'
+      ? undefined
+      : action.payload.answer === 'accept'
+        ? 'deal_accept'
+        : 'deal_reject';
+  if (!situation) return {};
+  const { lineId } = selectLine(
+    situation,
+    personalityFor(request.personalityId).id,
+    'neutral',
+    createRng(`${request.gameId}:${request.turnKey}:${request.stateRevision}:deal-line`),
+  );
+  return { lineId };
+};
+
 /** A wire answer from a policy choice; the Sell Phase answers in Pokémon, never an action ID. */
 const answerFor = (
   request: DecisionRequest,
@@ -173,7 +212,7 @@ const answerFor = (
   if (request.decisionPoint !== 'sell') {
     // Only the Sell Phase has batches; the app turns this into a `decider_error` fallback.
     if (typeof choice !== 'string') throw new Error('A Sell batch outside the Sell Phase');
-    return { choice, ...meta };
+    return { choice, ...lineFor(request, choice), ...meta };
   }
   if (typeof choice !== 'string') return { sellUids: [...choice.sellUids], ...meta };
   const action = request.enabledActions.find((entry) => entry.id === choice);

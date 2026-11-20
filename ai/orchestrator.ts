@@ -1,4 +1,5 @@
 import type { DecisionPoint } from '../engine/contract/decision.ts';
+import type { DealFacts } from '../engine/index.ts';
 import type { Personality } from '../content/personality-schema.ts';
 import type { LegalAction, LegalActions, Observation } from '../engine/index.ts';
 import type { PolicyChoice, PolicyFacts, PolicyRng } from '../sim/policy.ts';
@@ -17,8 +18,10 @@ import {
 import type { UsageRecorder } from './jev/spend.ts';
 import { billedUsage, UsageMeter } from './jev/usage.ts';
 import {
+  buildDealQuestion,
   buildEncounterQuestion,
   buildSellQuestions,
+  pendingDeal,
   buildStrategyQuestion,
   decideSales,
   REQUESTS_PER_TURN,
@@ -28,7 +31,7 @@ import {
 } from './questions/index.ts';
 
 /** The Choice decision points; a confidence floor applies only to these (spec §5.6). */
-export type ChoiceQuestion = 'strategy' | 'encounter';
+export type ChoiceQuestion = 'strategy' | 'encounter' | 'deal';
 
 /**
  * A Choice's confidence floor by option count: `few` up to `fewMax` options, falling in a straight
@@ -48,6 +51,8 @@ export const ORCHESTRATOR_CONFIG = Object.freeze({
   confidenceFloor: Object.freeze({
     strategy: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
     encounter: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
+    // Accept / reject / counter: at most 3 options, so the few-option floor.
+    deal: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
   }) satisfies Readonly<Record<ChoiceQuestion, FloorCurve>>,
 });
 
@@ -93,6 +98,8 @@ export interface DecideFacts {
   encounter?: EncounterFacts;
   /** For the Sell Phase Nouls: sale prices, class bonuses and keep values. */
   sell?: SellFacts;
+  /** For the Deal response question: the engine's buckets for the pending Deal Card (`dealFacts`, §5.4). */
+  deal?: DealFacts;
 }
 
 export type Difficulty = 'easy' | 'normal';
@@ -247,11 +254,11 @@ export class Orchestrator {
     const log = { turnKey: request.turnKey, decision: this.#quota.nextDecision(), finished };
     try {
       const { phase } = request.observation.public;
-      // Responder decisions use the `auto` policy until S09 and S10 add their question builders.
-      if (
-        request.decisionPoint === 'promise_response' ||
-        request.decisionPoint === 'deal_response'
-      ) {
+      // A Deal Card is a Choice (§5.3); a promise response uses the `auto` policy until its question lands.
+      if (request.decisionPoint === 'deal_response') {
+        return await this.#decideChoice(request, 'deal', log);
+      }
+      if (request.decisionPoint === 'promise_response') {
         return policyDecision(request, 'auto', null);
       }
       if (phase.kind === 'strategy' || phase.kind === 'encounter') {
@@ -274,6 +281,20 @@ export class Orchestrator {
     let decision;
     if (question === 'strategy') {
       decision = buildStrategyQuestion(observation, enabled, personality);
+    } else if (question === 'deal') {
+      // Not this seat's proposed Deal Card to answer: nothing to ask.
+      if (!pendingDeal(observation)) return policyDecision(request, 'auto', null);
+      // Without the engine's buckets the question cannot be asked; the policy answers (and rejects).
+      if (!facts.deal && enabled.length > 1) {
+        return policyDecision(
+          request,
+          'fallback',
+          this.#blocked(request.turnKey) ?? 'missing_facts',
+        );
+      }
+      decision = facts.deal
+        ? buildDealQuestion(observation, enabled, facts.deal, personality)
+        : { kind: 'skip' as const };
     } else {
       if (!facts.encounter && enabled.length > 1) {
         return policyDecision(

@@ -26,7 +26,11 @@ import {
   scenarioFixture,
   scenarioRequest,
 } from './replay.ts';
+import { DEAL_SCENARIOS } from './deal-scenarios.ts';
 import { SCENARIOS, type EvalScenario } from './scenarios.ts';
+
+/** Every scenario Jev answers: the decision-point scenarios (§8) and the Deal Card ones (#164 D3). */
+export const ALL_SCENARIOS: readonly EvalScenario[] = [...SCENARIOS, ...DEAL_SCENARIOS];
 
 export const DEFAULT_FIXTURES = join(import.meta.dirname, 'fixtures');
 export const RECORD_COMMAND = 'npm run eval:jev -- --record';
@@ -117,7 +121,7 @@ async function replayScenario(fixture: Fixture, scenario: EvalScenario, rows: Ev
  */
 export const runOffline = async (
   directory = DEFAULT_FIXTURES,
-  scenarios: readonly EvalScenario[] = SCENARIOS,
+  scenarios: readonly EvalScenario[] = ALL_SCENARIOS,
 ): Promise<EvalRow[]> => {
   const files = (await readdir(directory)).filter((name) => name.endsWith('.json')).sort();
   if (!files.length) throw new Error(`${directory}: schema error: no fixtures`);
@@ -294,7 +298,7 @@ const write = async (directory: string, fixture: Fixture) =>
 export const recordScenarios = async (
   directory = DEFAULT_FIXTURES,
   createClient: () => JevClient = createSdkJevClient,
-  scenarios: readonly EvalScenario[] = SCENARIOS,
+  scenarios: readonly EvalScenario[] = ALL_SCENARIOS,
   createUsage: () => UsageRecorder = defaultUsageLedger,
 ): Promise<{ recorded: string[]; current: string[] }> => {
   if (process.env.CI !== undefined) throw new Error('--record refuses to run when CI is set.');
@@ -337,7 +341,7 @@ export const recordScenarios = async (
  */
 export const writePlaceholders = async (
   directory = DEFAULT_FIXTURES,
-  scenarios: readonly EvalScenario[] = SCENARIOS,
+  scenarios: readonly EvalScenario[] = ALL_SCENARIOS,
 ): Promise<string[]> => {
   const written: string[] = [];
   for (const scenario of scenarios) {

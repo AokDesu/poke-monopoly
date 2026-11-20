@@ -1242,7 +1242,7 @@ describe('responder decisions (spec §4.8, §5.3, §6 item 2; S06)', () => {
     // The initiator is the active seat but owes nothing; seat 2 never sees the question.
     expect((await decide(responderRequest(state, 0))).status).toBe(400);
     expect((await decide(responderRequest(state, 2))).status).toBe(400);
-    // The point must name the question the seat is asked: no deal is pending in the contract yet.
+    // The point must name the question the seat is asked: a promise is pending, not a Deal Card.
     expect((await decide(responderRequest(state, 1, 'deal_response'))).status).toBe(400);
     // A responder point with a non-respond action list is refused.
     const mixed = responderRequest(state, 1);
@@ -1256,25 +1256,35 @@ describe('responder decisions (spec §4.8, §5.3, §6 item 2; S06)', () => {
     ).toBe(400);
   });
 
-  test('the orchestrator routes both responder points to the auto policy without asking Jev', async () => {
+  test('the orchestrator answers a promise question with the auto policy, never asking Jev', async () => {
     const state = pendingGame();
     const request = responderRequest(state, 1);
     const ask = vi.fn(async () => ({ ok: false as const, fallbackReason: 'network' as const }));
     const orchestrator = new Orchestrator({ client: { ask } });
-    for (const decisionPoint of ['promise_response', 'deal_response'] as const) {
-      const decision = await orchestrator.decide({
-        turnKey: 'k',
-        observation: request.observation,
-        legalActions: { enabled: request.enabledActions, disabled: [] },
-        facts: {},
-        difficulty: 'normal',
-        personality: PERSONALITIES.greedy,
-        decisionPoint,
-        rng: createPolicyRng('r'),
-      });
-      expect(decision).toMatchObject({ source: 'auto', requests: 0 });
-      expect(decision.events[0]!.questionId).toBe(decisionPoint);
-    }
+    const decision = await orchestrator.decide({
+      turnKey: 'k',
+      observation: request.observation,
+      legalActions: { enabled: request.enabledActions, disabled: [] },
+      facts: {},
+      difficulty: 'normal',
+      personality: PERSONALITIES.greedy,
+      decisionPoint: 'promise_response',
+      rng: createPolicyRng('r'),
+    });
+    expect(decision).toMatchObject({ source: 'auto', requests: 0 });
+    expect(decision.events[0]!.questionId).toBe('promise_response');
+    // A deal point with no Deal Card pending has nothing to ask either.
+    const deal = await orchestrator.decide({
+      turnKey: 'k',
+      observation: request.observation,
+      legalActions: { enabled: request.enabledActions, disabled: [] },
+      facts: {},
+      difficulty: 'normal',
+      personality: PERSONALITIES.greedy,
+      decisionPoint: 'deal_response',
+      rng: createPolicyRng('r'),
+    });
+    expect(deal).toMatchObject({ source: 'auto', requests: 0 });
     expect(ask).not.toHaveBeenCalled();
   });
 });

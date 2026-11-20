@@ -92,7 +92,30 @@ npm run eval:jev -- --record
 
 It makes one request per scenario that is missing, synthetic or stale, through the orchestrator, and writes each fixture with `synthetic: false`. Requests are logged to the usage ledger and stop at the spend cap or daily budget (spec §9). A scenario whose request changed (for example after a wording change) is stale and recorded again; a current recording is kept. Afterwards run `npm run eval:jev -- --offline` and commit the changed fixtures.
 
-Fixtures still to record: none. Any synthetic fixture added later must be listed here by ID, one per line, until it is recorded.
+Fixtures still to record: the 20 Deal Card placeholders of #164 D3, which the captain records on a machine with the key.
+
+- `greedy-deal-fair-eevee-sale`
+- `greedy-deal-lopsided-snorlax-sale`
+- `greedy-deal-counter-repel-overpay`
+- `greedy-deal-low-trust-eevee-sale`
+- `greedy-deal-reject-repel-overpay-low-trust`
+- `aggressive-deal-fair-eevee-sale`
+- `aggressive-deal-lopsided-snorlax-sale`
+- `aggressive-deal-counter-repel-overpay`
+- `aggressive-deal-low-trust-eevee-sale`
+- `aggressive-deal-reject-repel-overpay-low-trust`
+- `cautious-deal-fair-eevee-sale`
+- `cautious-deal-lopsided-snorlax-sale`
+- `cautious-deal-counter-repel-overpay`
+- `cautious-deal-low-trust-eevee-sale`
+- `cautious-deal-reject-repel-overpay-low-trust`
+- `opportunist-deal-fair-eevee-sale`
+- `opportunist-deal-lopsided-snorlax-sale`
+- `opportunist-deal-counter-repel-overpay`
+- `opportunist-deal-low-trust-eevee-sale`
+- `opportunist-deal-reject-repel-overpay-low-trust`
+
+Any synthetic fixture added later must be listed here by ID, one per line, until it is recorded.
 
 ## Adding a scenario
 
