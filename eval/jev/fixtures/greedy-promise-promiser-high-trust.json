@@ -105,7 +105,7 @@
   },
   "acceptable": { "promise_response": ["accept"] },
   "reason": "Greedy: loyalty 0.5 and aggression 0.3: it avoids fights it may lose and the rival has earned its trust, so it makes the promise.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "9ba6dbfffa4ab2838905d529dbbf535ff398789a8159351f742133f6c50d03fe",
   "recorded": {
     "ok": true,
@@ -113,13 +113,13 @@
       "promise_response": {
         "type": "choice",
         "choice": "accept",
-        "confidence": 0.72,
-        "probabilities": { "accept": 0.86, "reject": 0.14 }
+        "confidence": 0.9,
+        "probabilities": { "accept": 0.95, "reject": 0.05 }
       }
     },
-    "requestId": "synthetic-greedy-promise-promiser-high-trust",
+    "requestId": "req_01a1f973d4de7f058b54f4e51684ce6f",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 243,
+    "usage": { "inputTokens": 1789, "outputTokens": 32 }
   }
 }

@@ -105,21 +105,21 @@
   },
   "acceptable": { "promise_response": ["reject"] },
   "reason": "Opportunist: loyalty 0.2 and a rival that broke the last promise: binding itself for nothing does not pay, so it rejects.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "f2e9a99562fa1f5bf3de5fef44f74452fd15f5eb249efd31cbf70b1370ee0d4c",
   "recorded": {
     "ok": true,
     "answers": {
       "promise_response": {
         "type": "choice",
-        "choice": "accept",
-        "confidence": 0.748,
-        "probabilities": { "accept": 0.874, "reject": 0.126 }
+        "choice": "reject",
+        "confidence": 0.76,
+        "probabilities": { "accept": 0.12, "reject": 0.88 }
       }
     },
-    "requestId": "synthetic-opportunist-promise-promiser-low-trust",
+    "requestId": "req_01a1f973dc267ebc99df5e4e9f0f48f0",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 249,
+    "usage": { "inputTokens": 1777, "outputTokens": 32 }
   }
 }

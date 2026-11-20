@@ -105,21 +105,21 @@
   },
   "acceptable": { "promise_response": ["accept"] },
   "reason": "Cautious: loyalty 0.8 and aggression 0.2: it avoids fights and values a kept promise, and this rival has kept two, so it accepts.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "9265d77ce0eecd20992a709d28e6485d390b0e84c8c4d5ba51086135c19a2f02",
   "recorded": {
     "ok": true,
     "answers": {
       "promise_response": {
         "type": "choice",
-        "choice": "reject",
-        "confidence": 0.082,
-        "probabilities": { "accept": 0.459, "reject": 0.541 }
+        "choice": "accept",
+        "confidence": 0.96,
+        "probabilities": { "accept": 0.98, "reject": 0.02 }
       }
     },
-    "requestId": "synthetic-cautious-promise-recipient-high-trust",
+    "requestId": "req_01a1f973ce8f7131b4e60839b3e3205e",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 302,
+    "usage": { "inputTokens": 1804, "outputTokens": 32 }
   }
 }

@@ -105,21 +105,21 @@
   },
   "acceptable": { "promise_response": ["reject"] },
   "reason": "Aggressive: aggression 0.9 and loyalty 0.4: it owes a rival that broke its word nothing and keeps itself free to strike back, so it rejects.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "25258eb6302c3061c9b78d690ae3ce2e39ab0291edc57e07b5c3365f3a1ef08f",
   "recorded": {
     "ok": true,
     "answers": {
       "promise_response": {
         "type": "choice",
-        "choice": "accept",
-        "confidence": 0.018,
-        "probabilities": { "accept": 0.509, "reject": 0.491 }
+        "choice": "reject",
+        "confidence": 0.96,
+        "probabilities": { "accept": 0.02, "reject": 0.98 }
       }
     },
-    "requestId": "synthetic-aggressive-promise-recipient-low-trust",
+    "requestId": "req_01a1f973d1b67227bd8734ec2d4ddbed",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 241,
+    "usage": { "inputTokens": 1789, "outputTokens": 32 }
   }
 }

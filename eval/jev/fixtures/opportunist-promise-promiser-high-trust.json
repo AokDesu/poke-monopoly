@@ -105,21 +105,21 @@
   },
   "acceptable": { "promise_response": ["accept", "reject"] },
   "reason": "Opportunist: loyalty 0.2 means a promise binds it only while it suits; a trusted rival makes it cheap, so either answer fits.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "d52a3206cc3c8ea11bc8de96f521893459e4c04498d1488d4b7a0ee4b0ee9e2e",
   "recorded": {
     "ok": true,
     "answers": {
       "promise_response": {
         "type": "choice",
-        "choice": "reject",
-        "confidence": 0.138,
-        "probabilities": { "accept": 0.431, "reject": 0.569 }
+        "choice": "accept",
+        "confidence": 0.84,
+        "probabilities": { "accept": 0.92, "reject": 0.08 }
       }
     },
-    "requestId": "synthetic-opportunist-promise-promiser-high-trust",
+    "requestId": "req_01a1f973d80871359f2d82ad23b308c0",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 239,
+    "usage": { "inputTokens": 1793, "outputTokens": 32 }
   }
 }

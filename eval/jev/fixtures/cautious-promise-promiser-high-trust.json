@@ -105,21 +105,21 @@
   },
   "acceptable": { "promise_response": ["accept"] },
   "reason": "Cautious: loyalty 0.8 and aggression 0.2: it keeps promises to protect a lead and the rival is trusted, so it makes the promise.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "6225ae962abf97e1bc43711c66e8c679d47ab7236798a06c853e4e93b94f468f",
   "recorded": {
     "ok": true,
     "answers": {
       "promise_response": {
         "type": "choice",
-        "choice": "reject",
-        "confidence": 0.682,
-        "probabilities": { "accept": 0.159, "reject": 0.841 }
+        "choice": "accept",
+        "confidence": 0.98,
+        "probabilities": { "accept": 0.99, "reject": 0.01 }
       }
     },
-    "requestId": "synthetic-cautious-promise-promiser-high-trust",
+    "requestId": "req_01a1f973d70675cf91f8e17824c6690a",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 261,
+    "usage": { "inputTokens": 1794, "outputTokens": 32 }
   }
 }

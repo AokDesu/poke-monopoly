@@ -105,21 +105,21 @@
   },
   "acceptable": { "promise_response": ["accept", "reject"] },
   "reason": "Cautious: loyalty 0.8 keeps its own word even to a doubtful rival, but aggression 0.2 and the recorded break make rejecting safe too; either fits.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "5e5d218a804c96943993cf9a08653de550499d343b2e1b2bd589fa05c80ebcd3",
   "recorded": {
     "ok": true,
     "answers": {
       "promise_response": {
         "type": "choice",
-        "choice": "accept",
-        "confidence": 0.288,
-        "probabilities": { "accept": 0.644, "reject": 0.356 }
+        "choice": "reject",
+        "confidence": 0.64,
+        "probabilities": { "accept": 0.18, "reject": 0.82 }
       }
     },
-    "requestId": "synthetic-cautious-promise-promiser-low-trust",
+    "requestId": "req_01a1f973db287ebba236ac26b24631a3",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 246,
+    "usage": { "inputTokens": 1778, "outputTokens": 32 }
   }
 }

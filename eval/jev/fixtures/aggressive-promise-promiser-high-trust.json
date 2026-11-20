@@ -105,21 +105,21 @@
   },
   "acceptable": { "promise_response": ["accept", "reject"] },
   "reason": "Aggressive: aggression 0.9 wants to stay free to strike, yet loyalty 0.4 and a rival that kept its word twice make a promise possible; either answer fits.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "37b199ef9fa7538c97cd883dbbcc80f537be1e883e6ac4e155f650f54713891a",
   "recorded": {
     "ok": true,
     "answers": {
       "promise_response": {
         "type": "choice",
-        "choice": "reject",
-        "confidence": 0.396,
-        "probabilities": { "accept": 0.302, "reject": 0.698 }
+        "choice": "accept",
+        "confidence": 0.52,
+        "probabilities": { "accept": 0.76, "reject": 0.24 }
       }
     },
-    "requestId": "synthetic-aggressive-promise-promiser-high-trust",
+    "requestId": "req_01a1f973d5f177caa5ee31fa96286e86",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 255,
+    "usage": { "inputTokens": 1795, "outputTokens": 32 }
   }
 }

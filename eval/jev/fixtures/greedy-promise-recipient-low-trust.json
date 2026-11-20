@@ -105,21 +105,21 @@
   },
   "acceptable": { "promise_response": ["reject"] },
   "reason": "Greedy: loyalty 0.5 is not enough to take the word of a rival that already broke one to it; it rejects.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "b42be25db0c05ee127aa3bf426f7a7dec0a6d252d19042b4016ebd922106adbc",
   "recorded": {
     "ok": true,
     "answers": {
       "promise_response": {
         "type": "choice",
-        "choice": "accept",
-        "confidence": 0.756,
-        "probabilities": { "accept": 0.878, "reject": 0.122 }
+        "choice": "reject",
+        "confidence": 0.72,
+        "probabilities": { "accept": 0.14, "reject": 0.86 }
       }
     },
-    "requestId": "synthetic-greedy-promise-recipient-low-trust",
+    "requestId": "req_01a1f973d0b6710ebdff52cb7d727a48",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 254,
+    "usage": { "inputTokens": 1783, "outputTokens": 32 }
   }
 }

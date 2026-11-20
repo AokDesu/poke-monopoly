@@ -105,7 +105,7 @@
   },
   "acceptable": { "promise_response": ["reject"] },
   "reason": "Aggressive: aggression 0.9 and loyalty 0.4: no reason to tie its hands for a rival that broke a promise to it, so it rejects.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "90ee3f4128245edaaf54301b2d5bf05076487dfdf5d2f3d369f9b31da4c8b63a",
   "recorded": {
     "ok": true,
@@ -113,13 +113,13 @@
       "promise_response": {
         "type": "choice",
         "choice": "reject",
-        "confidence": 0.968,
-        "probabilities": { "accept": 0.016, "reject": 0.984 }
+        "confidence": 0.96,
+        "probabilities": { "accept": 0.02, "reject": 0.98 }
       }
     },
-    "requestId": "synthetic-aggressive-promise-promiser-low-trust",
+    "requestId": "req_01a1f973da1c715a95d37761718c8a1a",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 273,
+    "usage": { "inputTokens": 1779, "outputTokens": 32 }
   }
 }

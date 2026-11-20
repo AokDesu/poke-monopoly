@@ -105,7 +105,7 @@
   },
   "acceptable": { "promise_response": ["accept"] },
   "reason": "Opportunist: loyalty 0.2 is a steady friend only while it suits, and a free protection from a rival that keeps its word suits it.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "9a52b8af0f452b3cd5a1563984edec9afaa8ea4df950bdf30977ebf22f06dfe9",
   "recorded": {
     "ok": true,
@@ -113,13 +113,13 @@
       "promise_response": {
         "type": "choice",
         "choice": "accept",
-        "confidence": 0.908,
-        "probabilities": { "accept": 0.954, "reject": 0.046 }
+        "confidence": 0.82,
+        "probabilities": { "accept": 0.91, "reject": 0.09 }
       }
     },
-    "requestId": "synthetic-opportunist-promise-recipient-high-trust",
+    "requestId": "req_01a1f973cfa777aebe9287205894eb6d",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 258,
+    "usage": { "inputTokens": 1803, "outputTokens": 32 }
   }
 }

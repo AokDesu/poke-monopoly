@@ -105,21 +105,21 @@
   },
   "acceptable": { "promise_response": ["accept"] },
   "reason": "Aggressive: loyalty 0.4 gives its trust little weight, but the promise binds only the rival and the rival has kept its word twice, so accepting costs nothing.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "e7d30961006431a30166dd5fd2d1042d3398c1823a353deb4e284cf4fbb43a27",
   "recorded": {
     "ok": true,
     "answers": {
       "promise_response": {
         "type": "choice",
-        "choice": "reject",
-        "confidence": 0.956,
-        "probabilities": { "accept": 0.022, "reject": 0.978 }
+        "choice": "accept",
+        "confidence": 0.32,
+        "probabilities": { "accept": 0.66, "reject": 0.34 }
       }
     },
-    "requestId": "synthetic-aggressive-promise-recipient-high-trust",
+    "requestId": "req_01a1f973cd56746f82cb83c957f918cb",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 265,
+    "usage": { "inputTokens": 1805, "outputTokens": 32 }
   }
 }
