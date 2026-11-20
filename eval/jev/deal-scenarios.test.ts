@@ -223,7 +223,6 @@ describe('fixtures', () => {
     expect(new Set(deal.map((row) => row.fixture)).size).toBe(DEAL_SCENARIOS.length);
     for (const row of deal) {
       expect(row.question).toBe('deal');
-      expect(row.synthetic).toBe(true);
       expect(row.applied).toMatch(/^(respond-deal:(accept|reject)|counter-deal:coins-\d+)$/);
     }
   });

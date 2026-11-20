@@ -8,7 +8,7 @@ Spec §8 asks for at least 60 decision scenarios, 15 per personality, each with 
 npm run eval:jev -- --offline   # replays every fixture: no key, no network
 ```
 
-The report counts the scenarios per personality, and splits recorded fixtures from synthetic ones (see below). All 65 are recorded; see the results.
+The report counts the scenarios per personality, and splits recorded fixtures from synthetic ones (see below). All 85 are recorded (65 decision-point scenarios and 20 Deal Card scenarios); see the results.
 
 ## The scenarios
 
@@ -70,6 +70,52 @@ These are small counts, not a general claim about Jev or the personalities, and 
 
 Still out of scope: tuning the confidence floors and pinning a baseline. Scoring Choice answers as the raw recorded answer, before the floor and fallback, is unchanged.
 
+## Deal Card scenarios (#164 D3)
+
+Spec §4.8, §5.3, §5.5. Seat 1 is the AI answering a Deal Card; seat 0 is the human who proposed it. There are 5 table states for each of the four personalities (`deal-scenarios.ts`: fair, lopsided, counter within budget, low trust, reject within budget), each with an acceptable set and a reason citing the personality's weights. Three over-budget states per personality have no fixture: code rejects and Jev is not asked, so the test replays them through the orchestrator and checks that no request goes out.
+
+**Recorded on 2026-11-20** (`jev-1.13.0`, one request each, through the orchestrator), 20 fixtures, 0 synthetic:
+
+- `greedy-deal-fair-eevee-sale`
+- `greedy-deal-lopsided-snorlax-sale`
+- `greedy-deal-counter-repel-overpay`
+- `greedy-deal-low-trust-eevee-sale`
+- `greedy-deal-reject-repel-overpay-low-trust`
+- `aggressive-deal-fair-eevee-sale`
+- `aggressive-deal-lopsided-snorlax-sale`
+- `aggressive-deal-counter-repel-overpay`
+- `aggressive-deal-low-trust-eevee-sale`
+- `aggressive-deal-reject-repel-overpay-low-trust`
+- `cautious-deal-fair-eevee-sale`
+- `cautious-deal-lopsided-snorlax-sale`
+- `cautious-deal-counter-repel-overpay`
+- `cautious-deal-low-trust-eevee-sale`
+- `cautious-deal-reject-repel-overpay-low-trust`
+- `opportunist-deal-fair-eevee-sale`
+- `opportunist-deal-lopsided-snorlax-sale`
+- `opportunist-deal-counter-repel-overpay`
+- `opportunist-deal-low-trust-eevee-sale`
+- `opportunist-deal-reject-repel-overpay-low-trust`
+
+| Personality | Fixtures | Correct / total (Jev's answer against the set) |
+| ----------- | -------: | ---------------------------------------------: |
+| Greedy      |        5 |                                            4/5 |
+| Aggressive  |        5 |                                            5/5 |
+| Cautious    |        5 |                                            4/5 |
+| Opportunist |        5 |                                            3/5 |
+| All         |       20 |                                    16/20 (80%) |
+
+The whole offline set is now 93/111 rows (83.8%), up from 77/91 (84.6%) before the deal scenarios: the 20 deal rows added 16 correct. These are small counts and the acceptable sets are judgements.
+
+Four Jev answers are outside their set. All were below the confidence floor, so the fallback policy chose the applied action, and each applied action is in its set (illegalAppliedActionCount 0). They are findings, not changes to a set:
+
+- `cautious-deal-counter-repel-overpay`: Jev `accept` (0.480); applied `respond-deal:reject`; set counter or reject.
+- `greedy-deal-counter-repel-overpay`: Jev `accept` (0.280); applied `respond-deal:reject`; set counter or reject.
+- `opportunist-deal-counter-repel-overpay`: Jev `accept` (0.500); applied `counter-deal:coins-4`; set counter or reject.
+- `opportunist-deal-reject-repel-overpay-low-trust`: Jev `accept` (0.240); applied `respond-deal:reject`; set counter or reject.
+
+All four are the small-overpay Repel states, where Jev prefers to accept a loss of one or two coins that the personality weights say to counter or refuse.
+
 ## Synthetic placeholders
 
 A new scenario starts as a **synthetic placeholder** so the offline run, the counts and the guards work before anyone records it. A placeholder is a seeded stand-in, not a Jev answer. It cannot be mistaken for a recording:
@@ -94,30 +140,7 @@ npm run eval:jev -- --record
 
 It makes one request per scenario that is missing, synthetic or stale, through the orchestrator, and writes each fixture with `synthetic: false`. Requests are logged to the usage ledger and stop at the spend cap or daily budget (spec §9). A scenario whose request changed (for example after a wording change) is stale and recorded again; a current recording is kept. Afterwards run `npm run eval:jev -- --offline` and commit the changed fixtures.
 
-Fixtures still to record: the 20 Deal Card placeholders of #164 D3, which the captain records on a machine with the key.
-
-- `greedy-deal-fair-eevee-sale`
-- `greedy-deal-lopsided-snorlax-sale`
-- `greedy-deal-counter-repel-overpay`
-- `greedy-deal-low-trust-eevee-sale`
-- `greedy-deal-reject-repel-overpay-low-trust`
-- `aggressive-deal-fair-eevee-sale`
-- `aggressive-deal-lopsided-snorlax-sale`
-- `aggressive-deal-counter-repel-overpay`
-- `aggressive-deal-low-trust-eevee-sale`
-- `aggressive-deal-reject-repel-overpay-low-trust`
-- `cautious-deal-fair-eevee-sale`
-- `cautious-deal-lopsided-snorlax-sale`
-- `cautious-deal-counter-repel-overpay`
-- `cautious-deal-low-trust-eevee-sale`
-- `cautious-deal-reject-repel-overpay-low-trust`
-- `opportunist-deal-fair-eevee-sale`
-- `opportunist-deal-lopsided-snorlax-sale`
-- `opportunist-deal-counter-repel-overpay`
-- `opportunist-deal-low-trust-eevee-sale`
-- `opportunist-deal-reject-repel-overpay-low-trust`
-
-Any synthetic fixture added later must be listed here by ID, one per line, until it is recorded.
+Fixtures still to record: none. Any synthetic fixture added later must be listed here by ID, one per line, until it is recorded.
 
 ## Adding a scenario
 
