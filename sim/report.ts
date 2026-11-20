@@ -4,7 +4,7 @@ const BALLS = ['poke', 'great', 'ultra'] as const;
 
 /** A short human-readable view of `summary`, printed after its JSON line. */
 export function formatSummary(summary: SimSummary): string[] {
-  const { catching, shop, salesByLap, hostility, promises } = summary;
+  const { catching, shop, salesByLap, hostility, promises, deals } = summary;
   const row = (label: string, value: string) => `  ${label.padEnd(22)}${value}`;
   const lines = [
     `Sim: ${summary.games} games, ${summary.seats} seats, seed set ${summary.seedSet}`,
@@ -49,6 +49,10 @@ export function formatSummary(summary: SimSummary): string[] {
       `${promises.keptWithOpportunity} kept with opportunity, ${promises.keptWithoutOpportunity} kept without opportunity`,
     ),
     row('Promise opportunities', `${promises.breachOpportunity} with breach opportunity`),
+    row(
+      'Deals',
+      `${deals.proposed} proposed, ${deals.accepted} accepted, ${deals.rejected} rejected, ${deals.countered} countered, ${deals.cancelled} cancelled, ${deals.committed} committed`,
+    ),
   ];
   for (const entry of hostility.byPersonalityLap) {
     lines.push(

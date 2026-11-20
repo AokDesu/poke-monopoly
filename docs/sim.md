@@ -32,7 +32,8 @@ Standard output carries one JSON line, then a short readable table. Scripts read
 | `features`             | Trigger evidence (§8, Appendix A): Ability activations by effect `primitives`, core `classPassives` that changed a number (a catch or sale class bonus, Rival's combat bonus, Nurse Joy's heal or loss protection), and `battles` (`pvp`, of which `forced`, and `gym`). |
 | `hostility`           | Hostile-item `hostileUsed`, `legalHostileOpportunity`, `usedPerOpportunity`, and `byPersonalityLap` rows with the same counts and rate. See definitions below (§8 Scoring). |
 | `promises`            | `offered`, `accepted`, `rejected`, `broken`, `kept`, `keptWithOpportunity`, `keptWithoutOpportunity`, `closedByGameEnd`, `breachOpportunity`, and `pending`. Always present, including zero counts without `--social`. |
-| `social`              | With `--social`, the existing `promiseOffers`, `promisesAccepted`, and `promisesRejected` fields mirror the corresponding `promises` counts. |
+| `deals`               | `proposed`, `accepted`, `rejected`, `countered`, `cancelled` and `committed` Deal Cards (§4.8), counted from the engine's own deal events. Always present, including zero counts without `--social`. |
+| `social`              | With `--social`, the existing `promiseOffers`, `promisesAccepted`, and `promisesRejected` fields mirror the corresponding `promises` counts, and `dealsProposed` and `dealsCommitted` mirror `deals`. |
 | `salesByLap`           | Start Sell Phase sales by Lap: Pokémon `sold` (Rescue Starters included, at 0) and `coins` paid. Final Table Round auto-sales are not counted.                                               |
 
 **Lap** in `byBallDcLap` and `salesByLap` is the acting player's `creditedLap`: the number of paid Start crossings so far. Lap 0 is before the first crossing; the Sell Phase after the n-th crossing is Lap n.

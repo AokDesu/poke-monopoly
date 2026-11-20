@@ -1145,6 +1145,120 @@ describe('the deals-atomic invariant (§8)', () => {
     ).toMatch(/counter depth/);
   });
 
+  describe('before the commit nothing moves, and the terms only change as the step says', () => {
+    /** The real step, then `edit` applied to its state and events, as a broken engine might produce. */
+    function tampered(
+      before: GameState,
+      kind: string,
+      payload: object,
+      edit: (state: GameState, events: EngineEvent[]) => void,
+    ) {
+      const action = command(before, kind, payload);
+      const real = applyAction(before, action);
+      if (!('accepted' in real)) throw new Error(`${kind} refused`);
+      const state = structuredClone(real.state);
+      const events = structuredClone(real.events);
+      edit(state, events);
+      const result = { ...real, state, events } satisfies ApplyActionResult;
+      return {
+        real,
+        found: checkInvariants(before, action, result)
+          .filter((violation) => violation.invariant === 'deals-atomic')
+          .map((violation) => violation.message)
+          .join(),
+        clean: checkInvariants(before, action, real).filter(
+          (violation) => violation.invariant === 'deals-atomic',
+        ),
+      };
+    }
+    const proposed = () => propose(social({ seats: 3 }), sellPokemon('caught:0:a', 6)).state;
+    const dealPending = (state: GameState) => {
+      const pending = state.pendingResponse;
+      if (pending?.kind !== 'deal') throw new Error('no Deal Card pending');
+      return pending;
+    };
+
+    test('the real steps pass', () => {
+      const start = social({ seats: 3 });
+      const steps = [
+        tampered(start, 'propose_deal', sellPokemon('caught:0:a', 6), () => undefined),
+        tampered(proposed(), 'respond_deal', { answer: 'accept' }, () => undefined),
+        tampered(proposed(), 'respond_deal', { answer: 'reject' }, () => undefined),
+        tampered(proposed(), 'counter_deal', { coins: 4 }, () => undefined),
+      ];
+      for (const step of steps) expect(step.clean).toEqual([]);
+      expect(tampered(agreedDeal(), 'cancel_deal', {}, () => undefined).clean).toEqual([]);
+    });
+
+    function agreedDeal() {
+      return reply(proposed(), 'accept').state;
+    }
+
+    test('a proposal that sets the Lap quota is reported', () => {
+      const { found } = tampered(
+        social({ seats: 3 }),
+        'propose_deal',
+        sellPokemon('caught:0:a', 6),
+        (state) => {
+          state.players[0]!.dealUsedLap = state.players[0]!.creditedLap;
+        },
+      );
+      expect(found).toMatch(/propose_deal changed the coins, deal quota or holdings/);
+    });
+
+    test('a proposal that moves one coin with a non-deal transfer event is reported', () => {
+      const start = social({ seats: 3 });
+      const { found } = tampered(
+        start,
+        'propose_deal',
+        sellPokemon('caught:0:a', 6),
+        (state, events) => {
+          state.players[0]!.coins -= 1;
+          state.players[1]!.coins += 1;
+          events.push({
+            kind: 'coin_transfer',
+            source: { kind: 'player', actorId: state.players[0]!.actorId },
+            destination: { kind: 'player', actorId: state.players[1]!.actorId },
+            amount: 1,
+            reason: 'tip',
+          });
+        },
+      );
+      expect(found).toMatch(/propose_deal changed the coins, deal quota or holdings/);
+      expect(found).toMatch(/propose_deal logged a coin transfer/);
+    });
+
+    test('an accept that alters the terms is reported', () => {
+      const { found } = tampered(proposed(), 'respond_deal', { answer: 'accept' }, (state) => {
+        dealPending(state).terms.get.coins += 1;
+      });
+      expect(found).toMatch(/an accepted deal changed its terms/);
+    });
+
+    test('a counter that changes more than the coin amount is reported', () => {
+      const swappedAsset = tampered(proposed(), 'counter_deal', { coins: 4 }, (state) => {
+        dealPending(state).terms.give.pokemonInstanceIds = ['caught:0:b'];
+      });
+      expect(swappedAsset.found).toMatch(/a counter changed more than the coin amount/);
+      const movedCoins = tampered(proposed(), 'counter_deal', { coins: 4 }, (state) => {
+        state.players[1]!.coins -= 4;
+      });
+      expect(movedCoins.found).toMatch(/counter_deal changed the coins, deal quota or holdings/);
+      const otherSide = tampered(proposed(), 'counter_deal', { coins: 4 }, (state) => {
+        dealPending(state).terms.give.coins = 2;
+      });
+      expect(otherSide.found).toMatch(/a counter changed more than the coin amount/);
+    });
+
+    test('a commit that leaves a balance off is reported', () => {
+      const wrongBalance = tampered(agreedDeal(), 'confirm_deal', {}, (state) => {
+        // Receiver pays one coin too few, as a rounding slip would.
+        state.players[1]!.coins += 1;
+      });
+      expect(wrongBalance.found).toMatch(/wrong coin balance/);
+    });
+  });
+
   test('a refused deal step that changed the state is reported', () => {
     const before = social();
     const changed = structuredClone(before);
