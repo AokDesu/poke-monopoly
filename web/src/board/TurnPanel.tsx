@@ -218,6 +218,7 @@ export function TurnPanel({
           key={game.stateRevision}
           observation={view.observation}
           legalActions={view.legalActions}
+          pendingDie={view.pendingDie}
           onChoose={onChoose}
         />
       )}

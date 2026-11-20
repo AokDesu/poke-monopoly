@@ -36,7 +36,7 @@ function withTrack(): Content {
   return bound;
 }
 
-/** Seat 0 Fisherman (Magikarp) is in Strategy; the log starts at revision 0 (§6.8). */
+/** Seat 0 Fisherman (Magikarp) is in Strategy, with another human at seat 1 (§6.8). */
 function game(seed: number, engineContent = content): GameState {
   const state = createGame(
     createGameConfig({
@@ -44,7 +44,7 @@ function game(seed: number, engineContent = content): GameState {
         actorId: `p${seatIndex}`,
         seatIndex,
         classId,
-        controller: 'ai' as const,
+        controller: seatIndex < 2 ? ('human' as const) : ('ai' as const),
       })),
       seed,
       lapTarget: 2,

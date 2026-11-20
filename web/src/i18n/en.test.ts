@@ -316,6 +316,12 @@ test('content screens: species facts, evolution hints, item facts and status lab
     'item.effect.planned',
     'item.status.partial',
     'item.status.planned',
+    'reroll.move',
+    'reroll.moveSlowed',
+    'reroll.catchHit',
+    'reroll.catchMiss',
+    'team.memberNumbered',
+    'team.memberUnknown',
   ];
   for (const key of keys) expect(t(key).trim(), key).not.toBe('');
   // Every tag a species can carry has its label, so no form shows the generic "Other".

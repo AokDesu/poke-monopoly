@@ -93,9 +93,12 @@ export function turnMessages(
       }),
     });
   }
+  // An encounter is announced once its outcome is final: the record that leaves the Encounter. A
+  // catch die held open for Porygon's reroll (Appendix C.6) leaves it later, by a reroll or a keep.
   if (
     before.phase.kind === 'encounter' &&
-    ['release', 'dice_result'].includes(record.action.kind)
+    ['release', 'dice_result', 'skip'].includes(record.action.kind) &&
+    record.events.some((event) => event.kind === 'phase_changed' && event.from === 'encounter')
   ) {
     const outcome =
       record.action.kind === 'release'

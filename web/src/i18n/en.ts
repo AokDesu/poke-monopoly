@@ -579,6 +579,15 @@ export const en = {
   'choice.declineBattle': 'Decline the battle',
   'choice.noAbility': 'Use no Ability',
   'choice.keepDie': 'Keep the die',
+  'reroll.move': 'Your die shows {die}. Keeping it lands you on square {square}.',
+  'reroll.moveSlowed':
+    'Your die shows {die}, slowed to {steps}. Keeping it lands you on square {square}.',
+  'reroll.catchHit':
+    'Your die shows {die}: a total of {total} against a Catch DC of {dc}. Keeping it catches the Pokémon.',
+  'reroll.catchMiss':
+    'Your die shows {die}: a total of {total} against a Catch DC of {dc}. Keeping it does not catch the Pokémon.',
+  'team.memberNumbered': '{pokemon} #{number}',
+  'team.memberUnknown': 'A Pokémon',
   'choice.skip': 'Continue',
   'choice.rewardCoins': 'Take the coins',
   'choice.rewardEvolve': 'Evolve {pokemon} into {form}',
@@ -744,9 +753,8 @@ export const en = {
   'item.priceOne': 'Price: {price} coin',
   'item.ball.effect': 'Required to catch a Pokémon. Catch roll bonus: +{bonus}.',
   'item.effect.planned': 'Planned effect: {effect}',
-  'item.status.partial':
-    'Only part of this effect works in this build: it clears Tired. Combat debuffs are not tracked yet.',
-  'item.status.planned': 'Not active yet: this build does not apply this effect.',
+  'item.status.partial': 'This item clears Tired. It does not clear combat debuffs.',
+  'item.status.planned': 'Not active yet: this item has no effect so far.',
 
   'strategy.targets': 'Choose an opponent',
   'strategy.preview': 'Effect preview',
@@ -758,26 +766,26 @@ export const en = {
   'strategy.confirm': 'Confirm {item}',
   'strategy.skip': 'Skip item use',
   'strategy.potion.targets': 'Choose a Pokémon to heal',
-  'strategy.potion.member': '{pokemon} · {instanceId}',
-  'strategy.potion.target': 'Heal: {pokemon} · {instanceId}',
+  'strategy.potion.member': '{pokemon}',
+  'strategy.potion.target': 'Heal: {pokemon}',
   'strategy.potion.effect': 'Clears Tired from this Pokémon.',
   'strategy.potion.chooseTarget': 'Choose a Pokémon to preview its healing. Nothing is spent yet.',
   'strategy.potion.staleSelection':
     'The available actions changed. Choose your Potion and Pokémon again before confirming.',
 
   'ability.heading': 'Abilities',
-  'ability.source': '{pokemon} · {instanceId}',
-  'ability.planned': 'Not active yet: this build does not run this Ability.',
+  'ability.source': '{pokemon}',
+  'ability.planned': 'Not active yet: this Ability has no effect so far.',
   'ability.targets': 'Choose an opponent',
   'ability.members': 'Choose a Pokémon to heal',
   'ability.scopes': 'Choose what to boost',
   'ability.scope.catch': 'Catch rolls',
   'ability.scope.combat': 'Battle rolls',
-  'ability.member': '{pokemon} · {instanceId}',
+  'ability.member': '{pokemon}',
   'ability.choosePrompt': 'Choose an Ability to preview it. Nothing is spent yet.',
   'ability.chooseOption': 'Choose an option to preview this Ability. Nothing is spent yet.',
   'ability.preview': 'Ability preview',
-  'ability.previewSource': 'Source: {ability} · {pokemon} ({instanceId})',
+  'ability.previewSource': 'Source: {ability} · {pokemon}',
   'ability.previewEffect': 'Effect: {effect}',
   'ability.previewTarget': 'Target: {target}',
   'ability.previewMember': 'Target: {member}',
@@ -984,6 +992,9 @@ export const en = {
   'demo.scene.reward.title': 'Win a battle, pick a reward',
   'demo.scene.reward.description':
     'You have just beaten a rival. Take the coins, or evolve your Eevee into a new form.',
+  'demo.scene.promise.title': 'A promise the rival broke',
+  'demo.scene.promise.description':
+    'The rival promised not to attack you, then challenged you anyway. See what the game remembers.',
   'demo.failed.heading': 'This scenario could not be opened',
   'demo.failed.step':
     'Step {step} of {total} is no longer allowed by the rules, so the scenario stopped there.',

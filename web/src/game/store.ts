@@ -20,6 +20,7 @@ import {
   observeSpectator,
   oddsForAllBalls,
   pendingDecision,
+  pendingDie,
   saleFacts,
   saleQuote,
   winner,
@@ -27,6 +28,7 @@ import {
   type BallType,
   type BattlePreview,
   type CatchOdds,
+  type PendingDie,
   type EngineDecisionPoint,
   type Action,
   type AiSpeechEvent,
@@ -105,6 +107,8 @@ export interface SeatView {
   readonly observation: Observation;
   readonly legalActions: LegalActions;
   readonly catchOdds: readonly ({ ballType: BallType } & CatchOdds)[];
+  /** The die this seat may reroll or keep (Porygon's Calculate), with what it leads to; else null. */
+  readonly pendingDie: PendingDie | null;
   /**
    * The engine's decision owner and kind, which differ from the active seat during a PvP response,
    * window, reroll or reward (§6.4). Null while the engine owes a die or the game is over.
@@ -435,6 +439,7 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
         !state.phase.catchRoll
           ? oddsForAllBalls(state, seatIndex)
           : [],
+      pendingDie: pendingDie(state, seatIndex) ?? null,
       decision: pending && { seatIndex: pending.seatIndex, point: decisionPoint(state)! },
       battle:
         state.phase.kind === 'pvp' || state.phase.kind === 'gym'

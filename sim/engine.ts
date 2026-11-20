@@ -14,7 +14,7 @@ import {
 } from '../engine/index.ts';
 import { loadContent } from './content.ts';
 import type { PolicyFacts, SeatFacts } from './policy.ts';
-import type { SimEngine } from './runner.ts';
+import { scriptedHumanCount, type SimEngine } from './runner.ts';
 
 const parsed = loadContent();
 const content = toEngineContent(parsed);
@@ -28,7 +28,9 @@ const classIds = parsed.classes.filter((entry) => !entry.stretch).map((entry) =>
  */
 export const realEngine: SimEngine = {
   classIds,
-  createGame({ seed, seats, lapTarget, social }) {
+  createGame(setup) {
+    const { seed, seats, lapTarget } = setup;
+    const humanSeats = scriptedHumanCount(setup, seats.length);
     const config = createGameConfig({
       seats: seats.map(({ seatIndex, actorId, classId }) => {
         const starters = parsed.classes.find((entry) => entry.id === classId)!.starterSpeciesIds;
@@ -37,13 +39,12 @@ export const realEngine: SimEngine = {
           actorId,
           classId,
           starterSpeciesId: starters[Math.floor(seed / classIds.length) % starters.length],
-          // `--social`: seat 0 is the human and the Social window is open (§4.2, §4.8).
-          controller: social && seatIndex === 0 ? ('human' as const) : ('ai' as const),
+          controller: seatIndex < humanSeats ? ('human' as const) : ('ai' as const),
         };
       }),
       seed,
       lapTarget,
-      ...(social && { socialWindow: true }),
+      ...(humanSeats > 0 && { socialWindow: true }),
     });
     return createGame(config, content);
   },
