@@ -428,3 +428,95 @@ test('an empty draw pile reshuffles the discard pile before a peek (§3.1, §4.6
   expect([...after.eventDeck.drawPile].sort()).toEqual(['e2', 'e5']);
   expect(after.eventDeck.discardPile).toEqual([]);
 });
+
+test('Confusion then Calculate: the first die is replaced by the mandatory Confusion die, Calculate then replaces that revealed die, and only the last one moves (C.3 move order)', () => {
+  const state = game(seedFor((value) => value % 2 === 0));
+  state.players[0]!.team[0]!.speciesId = 'psyduck';
+  const confused = advanceAutomatically(
+    step(state, 'activate_ability', { instanceId: 'starter:0', targetSeatIndex: 1 }).state,
+  ).state;
+  expect(confused.players[1]!.confused).toBe(true);
+  confused.activeSeatIndex = 1;
+  confused.globalTurnNo++;
+  confused.turnBudgets = { tacticalAction: 1, catchAttempt: 1, pokemonAbility: 1 };
+  confused.phase = { kind: 'move' };
+  const startedAt = confused.players[1]!.routeProgress;
+
+  const dice: { purpose: string; value: number }[] = [];
+  let current = step(confused, 'roll').state;
+  const drain = () => {
+    const advanced = advanceAutomatically(current);
+    for (const record of advanced.records) {
+      if (record.action.kind === 'dice_result') {
+        const { purpose, value } = record.action.payload as { purpose: string; value: number };
+        dice.push({ purpose, value });
+      }
+    }
+    current = advanced.state;
+  };
+  drain(); // the first die; Confusion then discards it and asks for a replacement
+  drain(); // the Confusion die, which Calculate may now replace
+  expect(dice.map((die) => die.purpose)).toEqual([
+    expect.stringMatching(/^move:\d+:\d+$/),
+    expect.stringMatching(/:confusion$/),
+  ]);
+  expect(current.phase).toMatchObject({ kind: 'move', rolled: dice.at(-1)!.value });
+  expect(current.players[1]!.confused).toBe(true);
+  expect(current.players[1]!.routeProgress).toBe(startedAt);
+
+  current = step(current, 'activate_ability', { instanceId: 'starter:1' }).state;
+  drain(); // Calculate's replacement die
+  expect(dice.map((die) => die.purpose.split(':').at(-1))).toEqual([
+    dice[0]!.purpose.split(':').at(-1),
+    'confusion',
+    'reroll',
+  ]);
+  expect(current.players[1]!.confused).toBeUndefined();
+  expect(current.players[1]!.routeProgress - startedAt).toBe(dice.at(-1)!.value);
+});
+
+test('checkStatuses reports a combat debuff changed without its UID log, and Confusion cleared without its actual move (§8)', () => {
+  // A real consumption: the confirmed PvP spends the debuff and logs it.
+  const state = poison();
+  const declared = step(state, 'declare_pvp', { targetSeatIndex: 1 }).state;
+  const action = {
+    actorId: pendingDecision(declared)!.actorId,
+    kind: 'respond_pvp',
+    payload: { accept: true },
+    actionSeq: declared.stateRevision + 1,
+    stateRevisionBefore: declared.stateRevision,
+  } as Action;
+  const result = applyAction(declared, action);
+  if ('rejected' in result) throw new Error(result.reason);
+  expect(checkInvariants(declared, action, result)).toEqual([]);
+  const silent = structuredClone(result);
+  silent.events = silent.events.filter((event) => event.kind !== 'status_changed');
+  expect(
+    checkInvariants(declared, action, silent).filter(
+      (violation) => violation.invariant === 'tired-and-nurse-joy-useful',
+    ),
+  ).toEqual([
+    expect.objectContaining({ message: expect.stringMatching(/Combat debuff change lacks/) }),
+  ]);
+
+  // Confusion lives until the target's own movement: ending a turn must not clear it.
+  const confused = game(1);
+  confused.phase = { kind: 'end' };
+  confused.players[2]!.confused = true;
+  const skip = {
+    actorId: 'p0',
+    kind: 'skip',
+    payload: {},
+    actionSeq: confused.stateRevision + 1,
+    stateRevisionBefore: confused.stateRevision,
+  } as Action;
+  const ended = applyAction(confused, skip);
+  if ('rejected' in ended) throw new Error(ended.reason);
+  expect(ended.state.players[2]!.confused).toBe(true);
+  expect(checkInvariants(confused, skip, ended)).toEqual([]);
+  const cleared = structuredClone(ended);
+  delete cleared.state.players[2]!.confused;
+  expect(
+    checkInvariants(confused, skip, cleared).map((violation) => violation.invariant),
+  ).toContain('move-debuff-until-next-move');
+});

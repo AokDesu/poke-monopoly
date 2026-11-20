@@ -1003,6 +1003,14 @@ The bindings below extend the core lines. Pidgey supplies fixed movement for AC-
 
 Thunder Shock, Poison Sting and Confusion spend the Ability allowance and record the hostile attempt at activation. Their logged chance die is visible to its user. An armed Price Shield is consumed and prevents the effect. The same chance step runs in either case to preserve the visibility rule in §4.1. Poison Sting stays on the selected rival UID until that Pokémon is selected for a confirmed battle or its status is healed. Repeat hits on that UID do not stack. The combat snapshot uses the adjusted member stats before it selects the combatant, so a Pokémon left out of the battle retains its status.
 
+**Approved rule (#58, captain, 2026-11-20): C4 operations and timing.** The captain approved these additions to the §4.5 primitives and to the C.3 timing rules (a rule change under §7, recorded here with its tests):
+
+- **New primitive `gainCoin` (§4.5) and operation `gainCoin.chanceCoin`.** Scavenge rolls a logged d6; on an even die the bank pays the owner 1 coin.
+- **New operation `rollBonus.memberDebuff`.** Poison Sting puts a combat −1 debuff on one rival-owned Pokémon UID, on an even d6. It does not stack on the same UID. The UID's next confirmed PvP or Gym appearance consumes it after the snapshot freezes; a Pokémon left out of a battle keeps it. Potion clears it. Every apply, consumption and clear is a logged `status_changed` event. Only the debuffed Pokémon's owner sees the debuff in observations and in battle previews and challenge odds before confirmation (§4.1); the frozen snapshot shows it.
+- **New operation `moveDebuff.forceReroll`.** Confusion, on an even d6, forces its target to replace its next movement value with a logged d6. The reroll happens after fixed movement and before Calculate: it replaces a first value even when that value was fixed, and an eligible Calculate may then replace the revealed die. Actual movement clears it.
+- **Block reaction window.** Block opens a window for the target of a Pickpocket after Price Shield and before the coin transfer. It also arms against the next PvP coin loss; a Gym loss never consumes it. Passing keeps the reaction private, and a successful Block is public while the Pickpocket and its target stay private to bystanders (§4.1).
+- **Shop.** The two utility offers are drawn from all seven Appendix A utility items.
+
 Hostile means the Ability targets an opponent with a harmful effect (`hostileAbility`, §4.5). It counts against a `no_attack` promise (§4.8), and an armed Price Shield blocks it (C.4).
 
 **D2 — Approved.**

@@ -214,3 +214,39 @@ test('a challenge preview from Strategy equals the response-step terms of the de
   expect(challengeOdds(strategy, 0, 1)).toBeNull();
   expect(() => challengeOdds(strategy, 0, 9)).toThrow(RangeError);
 });
+
+test("a Poison Sting on another seat's Pokémon stays out of every preview its rivals read (§4.1)", () => {
+  const stage = (debuffed: boolean): GameState => {
+    const state = game(['main-character', 'rival', 'fisherman'], { 0: 'charmander' });
+    state.players[1]!.coins = 9;
+    if (debuffed) state.players[1]!.team[0]!.combatDebuffed = true;
+    return state;
+  };
+  const clean = stage(false);
+  const stung = stage(true);
+
+  // A third seat and the attacker read the challenge without the debuff on the defender.
+  for (const attacker of [0, 2]) {
+    const seen = challengeOdds(stung, attacker, 1)!;
+    expect(seen.snapshot.defender.member.debuffs).toBe(0);
+    expect(seen.odds).toEqual(challengeOdds(clean, attacker, 1)!.odds);
+  }
+  // The owner reads its own Pokémon with the debuff, so the hidden term is real.
+  expect(challengeOdds(stung, 1, 0)!.snapshot.attacker.member.debuffs).toBe(1);
+  expect(challengeOdds(stung, 1, 0)!.odds).not.toEqual(challengeOdds(clean, 1, 0)!.odds);
+
+  const pending = (state: GameState) =>
+    act(act(state, 'declare_pvp', { targetSeatIndex: 1 }), 'respond_pvp', { accept: true });
+  const cleanBattle = pending(clean);
+  const stungBattle = pending(stung);
+  for (const viewer of [0, 2]) {
+    const preview = battlePreview(stungBattle, viewer)!;
+    if (preview.kind !== 'pvp') throw new Error('Expected PvP');
+    expect(preview.snapshot.defender.member.debuffs).toBe(0);
+    expect(preview.odds).toEqual(battlePreview(cleanBattle, viewer)!.odds);
+  }
+  const owner = battlePreview(stungBattle, 1)!;
+  if (owner.kind !== 'pvp') throw new Error('Expected PvP');
+  expect(owner.snapshot.defender.member.debuffs).toBe(1);
+  expect(owner.odds).not.toEqual(battlePreview(cleanBattle, 1)!.odds);
+});

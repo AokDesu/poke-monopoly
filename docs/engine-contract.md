@@ -582,7 +582,7 @@ visible only to the user and target, and another seat's copy of the `activate_ab
 `targetSeatIndex`. A blocked String Shot or Intimidate therefore looks the same to a third seat as an
 unblocked one; Vine Pull's public `player_displaced` still shows that it was not blocked, since
 positions are public. The `move-debuff-until-next-move` checker is active: a
-pending slow may disappear only on its owner's actual move, and that move clears all of them.
+pending slow, or Confusion, may disappear only on its owner's actual move, and that move clears all of them.
 `forced-movement-no-start-income` counts a fixed-move `roll` as the owner's own move.
 
 ## gainBall, peek and the Event deck (issue #55 S13)
@@ -705,7 +705,7 @@ Spec: §6.1/6.8/6.9, §7 CI, §8.
 Every §8 checker owned by this epic is active, each with a counterexample test:
 `pvp-turn-ownership` and `attack-attempt-logged` (S06; hostile items and Abilities S07–S14),
 `battle-reward-coins-or-evolution`, `evolution-one-stage-same-uid`, `evolution-keeps-cooldowns`
-(S04; a status change logged with the evolution is allowed), `tired-and-nurse-joy-useful` (S03),
+(S04; a status change logged with the evolution is allowed), `tired-and-nurse-joy-useful` (S03; it also requires a UID log for every combat-debuff change),
 `ability-once-per-instance-per-lap` and `ability-once-per-player-turn` (S10),
 `move-debuff-until-next-move` (S12), and from S16 `resume-creates-nothing` (the RNG cursor advances
 exactly by the action's logged, consecutively numbered draws, and a saved copy re-asks the same
