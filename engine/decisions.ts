@@ -70,16 +70,4 @@ export function decisionPoint(state: GameState): EngineDecisionPoint | null {
   }
 }
 
-/**
- * The §4.2 social window: only a human seat, in its own Social phase, may open one conversation
- * with one opponent; AI seats never start conversations, so there is no AI↔AI talk. It spends no
- * tactical action. Conversation content and deals belong to the chat/deal work (§4.8).
- */
-export function socialTargets(state: GameState): number[] {
-  if (state.phase.kind !== 'social') return [];
-  const active = state.config.seats.find((seat) => seat.seatIndex === state.activeSeatIndex);
-  if (active?.controller !== 'human') return [];
-  return state.players
-    .map((player) => player.seatIndex)
-    .filter((seatIndex) => seatIndex !== state.activeSeatIndex);
-}
+export { socialTargets } from './social.ts';

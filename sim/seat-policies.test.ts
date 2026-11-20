@@ -59,6 +59,20 @@ describe('per-seat policy selection (§8 Simulation)', () => {
     expect(pick(seat(0), game)).toBeInstanceOf(RandomPolicy);
   });
 
+  test('--human-seats applies the human policy to each scripted seat', () => {
+    const pick = seatPolicies(
+      {
+        policy: 'fallback',
+        seats: 4,
+        humanSeats: 2,
+        humanPolicy: 'b',
+        seatPolicies: ['a', 'a', 'c', 'a'],
+      },
+      named(),
+    );
+    expect([0, 1, 2, 3].map((i) => built(pick(seat(i), game)))).toEqual(['b', 'b', 'c', 'a']);
+  });
+
   test('an unknown name or a wrong count is an error before any game', () => {
     expect(() => seatPolicies({ policy: 'nope', seats: 2 }, named())).toThrow(
       'Unknown policy: nope',
@@ -99,6 +113,9 @@ describe('the new flags in the CLI', () => {
     expect(() => parseSimArgs(['--social', '--human-policy', 'nope'])).toThrow(
       '--human-policy must be one of',
     );
+    expect(() => parseSimArgs(['--human-seats', '0'])).toThrow('--human-seats');
+    expect(() => parseSimArgs(['--human-seats', '1.5'])).toThrow('--human-seats');
+    expect(() => parseSimArgs(['--seats', '3', '--human-seats', '4'])).toThrow('--human-seats');
     expect(() => parseSimArgs(['--seats', '2', '--seat-policies', 'random'])).toThrow(
       '--seat-policies needs 2 names; got 1',
     );
@@ -121,6 +138,23 @@ describe('the new flags in the CLI', () => {
     expect(parseSimArgs(command.replace(/^npm run sim -- /, '').split(' '))).toMatchObject({
       seatPolicies: ['sell-all', 'fallback'],
       humanPolicy: 'never-negotiate',
+      seed: 5,
+    });
+  });
+
+  test('a reproduce command carries the human count and policy without --social', () => {
+    const options = parseSimArgs([
+      '--seats',
+      '4',
+      '--human-seats',
+      '2',
+      '--human-policy',
+      'always-pvp',
+    ]);
+    const command = reproduceCommand(options, 5);
+    expect(parseSimArgs(command.replace(/^npm run sim -- /, '').split(' '))).toMatchObject({
+      humanSeats: 2,
+      humanPolicy: 'always-pvp',
       seed: 5,
     });
   });
