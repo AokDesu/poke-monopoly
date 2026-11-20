@@ -18,7 +18,10 @@ engine's private RNG. This interim C2 path uses the installed Greedy personality
 only the usual action-ID telemetry response, with `fallbackReason: 'auto'` (no Jev question was asked;
 never `stub`). The decision is journalled like any other: `app.ts` proposes it on `decide` and the
 browser's `/api/ai/outcome` (decision point `shop`) completes it, so the decision log holds one
-non-Jev row, `questionId: "shop"`, `fallbackReason: "auto"`, for every Shop decision. `shop.test.ts`
+non-Jev row, `questionId: "shop"`, `fallbackReason: "auto"`, for every Shop decision. When the
+browser's deadline passes first, the applied row is `timeout` or `network` instead, so a fallback-rate
+report built from the decision log must skip rows whose `decisionPoint` is `shop`: Shop has no Jev
+question, so it is never a Jev fallback (the §5.6 rates from `DecisionStats` already exclude it). `shop.test.ts`
 covers legal choices, the log row,
 determinism and invalid role-scoped requests. Orchestrator work (#45) and AI turn presentation
 (#50) extend or supersede this interim web handoff.
