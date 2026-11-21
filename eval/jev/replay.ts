@@ -18,6 +18,7 @@ import {
 import {
   buildDealQuestion,
   buildEncounterQuestion,
+  buildPromiseResponseQuestion,
   buildSellQuestions,
   buildStrategyQuestion,
 } from '../../ai/questions/index.ts';
@@ -32,7 +33,7 @@ import {
 import { decideRequest, type EvalScenario } from './scenarios.ts';
 
 export interface ScenarioRun {
-  decisionPoint: 'strategy' | 'encounter' | 'sell' | 'deal_response';
+  decisionPoint: 'strategy' | 'encounter' | 'sell' | 'deal_response' | 'promise_response';
   decision: OrchestratorDecision;
   /** Every request the orchestrator sent, and what the client answered. */
   requests: JevRequest[];
@@ -64,12 +65,14 @@ export async function runScenario(
   usage?: UsageRecorder,
 ): Promise<ScenarioRun> {
   const { state, request } = decideRequest(scenario);
+  // A responder point (a pending question) is named by the wire, not by the asker's phase.
   const decisionPoint = request.decisionPoint ?? request.observation.public.phase.kind;
   if (
     decisionPoint !== 'strategy' &&
     decisionPoint !== 'encounter' &&
     decisionPoint !== 'sell' &&
-    decisionPoint !== 'deal_response'
+    decisionPoint !== 'deal_response' &&
+    decisionPoint !== 'promise_response'
   ) {
     throw new RangeError(`${scenario.id}: no Jev decision point in phase "${decisionPoint}"`);
   }
@@ -113,7 +116,7 @@ function acceptableLabels(
   }: ReturnType<typeof decideRequest>['request'],
 ): Record<string, string[]> {
   const { acceptable } = scenario;
-  const phase = observation.public.phase.kind;
+  const phase = decisionPoint ?? observation.public.phase.kind;
   if (decisionPoint === 'deal_response') {
     const decision = buildDealQuestion(observation, legalActions.enabled, facts.deal!, personality);
     // Over budget code rejects and no question is asked, so there are no labels to accept (§5.3).
@@ -143,7 +146,9 @@ function acceptableLabels(
   const decision =
     phase === 'strategy'
       ? buildStrategyQuestion(observation, legalActions.enabled, personality)
-      : buildEncounterQuestion(observation, legalActions.enabled, facts.encounter!, personality);
+      : phase === 'promise_response'
+        ? buildPromiseResponseQuestion(observation, legalActions.enabled, personality)
+        : buildEncounterQuestion(observation, legalActions.enabled, facts.encounter!, personality);
   if (decision.kind !== 'ask') throw new RangeError(`${scenario.id}: asks no question`);
   const labels = Object.entries(decision.options).flatMap(([label, id]) =>
     acceptable.includes(id) ? [label] : [],
@@ -175,15 +180,65 @@ const unanswered: JevClient = {
   ask: async () => ({ ok: false, fallbackReason: 'network', requestSent: false }),
 };
 
-/** The request the orchestrator would send for a scenario now, built without calling Jev. */
+/**
+ * The scenario's decision when no Jev request goes out: the last Sell Phase sells everything
+ * (spec §5.6), so the orchestrator never asks. `undefined` when Jev is asked as usual.
+ */
+export async function unaskedRun(scenario: EvalScenario): Promise<ScenarioRun | undefined> {
+  const run = await runScenario(scenario, unanswered);
+  return run.requests.length === 0 ? run : undefined;
+}
+
+/**
+ * The request the orchestrator would send for a scenario now, built without calling Jev. For a
+ * scenario the orchestrator no longer asks about (the last Sell Phase, spec §5.6), this is the
+ * request it would send if it did, so a recording stays comparable with the question builders.
+ */
 export async function scenarioRequest(scenario: EvalScenario): Promise<JevRequest> {
   const run = await runScenario(scenario, unanswered);
+  if (run.requests.length === 0) {
+    const { request } = decideRequest(scenario);
+    const [first] = request.facts.sell
+      ? buildSellQuestions(request.observation, request.facts.sell, request.personality).requests
+      : [];
+    if (!first) throw new RangeError(`${scenario.id}: asks no Jev request`);
+    return { state: first.state, questions: first.questions };
+  }
   if (run.requests.length !== 1) {
     throw new RangeError(
       `${scenario.id}: must ask exactly 1 Jev request, asked ${run.requests.length}`,
     );
   }
   return run.requests[0]!;
+}
+
+/**
+ * Each Pokémon question's answer as the applied sale makes it: `true` when the decision sells that
+ * Pokémon. Labels are `sell_team_<position>` (spec §5.3), so a scenario with no Jev answer to read
+ * still scores per question against its acceptable sets.
+ */
+export function appliedSellAnswers(
+  scenario: EvalScenario,
+  run: ScenarioRun,
+): Record<string, 'true' | 'false'> {
+  const { request } = decideRequest(scenario);
+  const { choice } = run.decision;
+  const sold = new Set(
+    typeof choice === 'string'
+      ? request.legalActions.enabled.flatMap((action) =>
+          action.id === choice && action.kind === 'sell' ? action.payload.pokemonInstanceIds : [],
+        )
+      : choice.sellUids,
+  );
+  const you = request.observation.public.players.find(
+    (player) => player.seatIndex === request.observation.own.seatIndex,
+  )!;
+  return Object.fromEntries(
+    Object.keys(run.acceptable).map((label) => {
+      const pokemon = you.team[Number(label.slice('sell_team_'.length))];
+      return [label, pokemon && sold.has(pokemon.instanceId) ? 'true' : 'false'];
+    }),
+  );
 }
 
 /** A fixture for a scenario and its answer; `synthetic` unless a person recorded it live. */

@@ -152,12 +152,21 @@ export function useTableTalk(
       const { signal } = controller;
       const { listener } = plan;
       const generated = live.current.off === null;
-      const body = speakBody({ gameId, plan, game, momentKey });
+      // The speaker's own public game, so its revision is the speaker's and not the viewer's (§4.8).
+      const speakerGame = store.publicFor(plan.speakerSeat) ?? game;
+      const body = speakBody({ gameId, plan, game: speakerGame, momentKey });
       if (listener && generated && live.current.answerOn) {
         const exchange = { ...plan, listener };
         const answer = await requestExchange(
           body,
-          (quote) => replyBody({ gameId, plan: exchange, game, momentKey, quote }),
+          (quote) =>
+            replyBody({
+              gameId,
+              plan: exchange,
+              game: store.publicFor(exchange.listener.seat) ?? game,
+              momentKey,
+              quote,
+            }),
           signal,
         );
         if (!stillWanted()) return;

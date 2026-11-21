@@ -1,6 +1,6 @@
 # Jev decision-scenario eval
 
-Spec: v1.0 §5.5, §5.4, §8, §12. Issues #59 (eval set) and #233 (personality scenarios, stream B).
+Spec: v1.0 §5.5, §5.4, §8, §12. Issues #59 (eval set), #233 (personality scenarios, stream B) and #56 (S09/S11, the promise response).
 
 Spec §8 asks for at least 60 decision scenarios, 15 per personality, each with an acceptable-answer set. Every scenario is one engine state where seat 0 (the AI) decides a Strategy, an Encounter or a Sell Phase. The request goes through the real question builders and the orchestrator, so every number is an engine fact turned into a named bucket, and nothing hidden reaches Jev (the leak, number and size guards run on every scenario).
 
@@ -8,18 +8,18 @@ Spec §8 asks for at least 60 decision scenarios, 15 per personality, each with 
 npm run eval:jev -- --offline   # replays every fixture: no key, no network
 ```
 
-The report counts the scenarios per personality, and splits recorded fixtures from synthetic ones (see below). All 85 are recorded (65 decision-point scenarios and 20 Deal Card scenarios); see the results.
+The report counts the scenarios per personality, and splits recorded fixtures from synthetic ones (see below). All 104 scenarios are recorded and none is synthetic: the 20 Deal Card scenarios (below), the 68 Strategy, Encounter and Sell scenarios (including the three last-Sell Gym twins) and the 16 promise response scenarios (below); see the results.
 
 ## The scenarios
 
 | Personality | Scenarios | Source                                                                                            |
 | ----------- | --------: | ------------------------------------------------------------------------------------------------- |
 | Greedy      |        20 | `scenarios.ts`: live recordings, 8 Strategy, 6 Encounter, 6 Sell. Already above 15, so none added |
-| Aggressive  |        15 | `personality-scenarios.ts`: 6 Strategy, 4 Encounter, 5 Sell                                       |
-| Cautious    |        15 | the same 15 table states                                                                          |
-| Opportunist |        15 | the same 15 table states                                                                          |
+| Aggressive  |        16 | `personality-scenarios.ts`: 6 Strategy, 4 Encounter, 6 Sell                                       |
+| Cautious    |        16 | the same 16 table states                                                                          |
+| Opportunist |        16 | the same 16 table states                                                                          |
 
-The 15 states are shared. Twelve of them are the exact table state of a Greedy scenario (its `greedyTwin`), and three are new (the two Battle Ticket states and the Weedle Ball choice). A scenario ID is `<personality>-<state>`, for example `aggressive-strategy-repel-leader-near-start`. Within one state the requests differ only in `you.personality`, which is spec §8's "paired scenarios swap personality while holding everything else constant"; a test checks that.
+The 16 states are shared. Twelve of them are the exact table state of a Greedy scenario (its `greedyTwin`), and four are new (the two Battle Ticket states, the Weedle Ball choice and the last Sell Phase with a Gym ahead, #59). A scenario ID is `<personality>-<state>`, for example `aggressive-strategy-repel-leader-near-start`. Within one state the requests differ only in `you.personality`, which is spec §8's "paired scenarios swap personality while holding everything else constant"; a test checks that.
 
 ### Acceptable sets and reasons
 
@@ -27,41 +27,61 @@ Each scenario has an acceptable set and a written `reason` (also stored in its f
 
 ### The four contrasts
 
-| Contrast             | States                                                                                                                                                                       | Where the personalities differ                                                                                                                                    |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Hostile item vs skip | `strategy-pickpocket-rich-rival`, `strategy-pickpocket-richer-target`, `strategy-repel-leader-near-start`, `strategy-mixed-items-two-rivals`                                 | Repel on the leader: Aggressive uses it, Cautious skips. With three items, Aggressive picks Repel, Opportunist Pickpocket, Cautious skips or the Lucky Egg        |
-| PvP vs not           | `strategy-battle-ticket-leader`, `strategy-battle-ticket-ahead` (a Battle Ticket forces the target to accept PvP)                                                            | Against the leader Aggressive forces the fight, Cautious skips; when far ahead Aggressive may, Cautious and Opportunist skip                                      |
-| Sell vs keep         | `sell-snorlax-high-sale-low-keep`, `sell-gyarados-early-lap`, `sell-tired-eevee`, `sell-magikarp-low-sale-high-keep`, `sell-last-phase-final-round` (all personalities sell) | A high sale now: Opportunist sells, Aggressive keeps, Cautious may do either                                                                                      |
-| Ball choice          | `encounter-magikarp-only-ultra`, `encounter-weedle-poke-or-great`, `encounter-rare-snorlax-ultra`, `encounter-pidgey-poke-or-great`                                          | One Ultra Ball for a common Magikarp: Aggressive throws, Greedy releases. Weedle: Aggressive and Cautious take the Great Ball, Opportunist may keep the Poké Ball |
+| Contrast             | States                                                                                                                                                                                                                                                                                             | Where the personalities differ                                                                                                                                    |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Hostile item vs skip | `strategy-pickpocket-rich-rival`, `strategy-pickpocket-richer-target`, `strategy-repel-leader-near-start`, `strategy-mixed-items-two-rivals`                                                                                                                                                       | Repel on the leader: Aggressive uses it, Cautious skips. With three items, Aggressive picks Repel, Opportunist Pickpocket, Cautious skips or the Lucky Egg        |
+| PvP vs not           | `strategy-battle-ticket-leader`, `strategy-battle-ticket-ahead` (a Battle Ticket forces the target to accept PvP)                                                                                                                                                                                  | Against the leader Aggressive forces the fight, Cautious skips; when far ahead Aggressive may, Cautious and Opportunist skip                                      |
+| Sell vs keep         | `sell-snorlax-high-sale-low-keep`, `sell-gyarados-early-lap`, `sell-tired-eevee`, `sell-magikarp-low-sale-high-keep`, `sell-last-phase-final-round` (all personalities sell; Jev is not asked, spec §5.6), `sell-last-phase-gym-ahead` (a Gym follows, so selling and keeping are both acceptable) | A high sale now: Opportunist sells, Aggressive keeps, Cautious may do either                                                                                      |
+| Ball choice          | `encounter-magikarp-only-ultra`, `encounter-weedle-poke-or-great`, `encounter-rare-snorlax-ultra`, `encounter-pidgey-poke-or-great`                                                                                                                                                                | One Ultra Ball for a common Magikarp: Aggressive throws, Greedy releases. Weedle: Aggressive and Cautious take the Great Ball, Opportunist may keep the Poké Ball |
 
 Some states are agreement controls (every personality gives the same answer), so a model that only echoes the personality text is not rewarded.
 
+**Sell scenarios and the live question.** Since #189 the Sell scenarios take `keepValue` from the engine's `saleFacts` (`eval/jev/scenarios.ts`) (the same facts the live question gets), not from made-up values. The scenario descriptions' keep wording (for example "worth a medium amount to keep") is prose and is not checked against that engine number.
+
+**Known limit.** The sim sends no Sell facts, so every sim Sell decision falls back as `missing_facts`. Those decisions are counted in the fallback rate (about 9 of 60 decisions in a short run). See `docs/sim.md`.
+
 **PvP.** Spec §5.3 (the temporary #55 exception) keeps `declare_pvp` out of Strategy questions until Stream B adds PvP questions, and there is no PvP response question yet. The PvP contrast is therefore expressed through the Battle Ticket item, which is a real Strategy option that forces PvP. When the PvP questions arrive, add scenarios for them here.
+
+## Promise response scenarios (S09, S11 promise half)
+
+`promise-scenarios.ts`: 16 scenarios of the `promise_response` decision point, four tables by four personalities. Seat 0, the AI, owes the answer to a `no_attack` promise question the human at seat 1 opened in its Social window with the engine's own `offer_promise` action (`promiseTable` in `scenario-kit.ts`). The request is the real `buildPromiseResponseQuestion`: the AI's trust in the human as a named bucket (`low` or `high`), the memory as event evidence (`P2 broke no_attack on turn 3`), the human's earlier message as quoted data, and nothing else; no number reaches Jev. A scenario ID is `<personality>-promise-<role>-<trust>-trust`.
+
+| Table                          | The AI is                     | Trust | History            |
+| ------------------------------ | ----------------------------- | ----- | ------------------ |
+| `promise-recipient-high-trust` | the recipient: it is promised | high  | two promises kept  |
+| `promise-recipient-low-trust`  | the recipient: it is promised | low   | one promise broken |
+| `promise-promiser-high-trust`  | the promiser: it is asked     | high  | two promises kept  |
+| `promise-promiser-low-trust`   | the promiser: it is asked     | low   | one promise broken |
+
+Within a table the four personalities share the exact table state, so a pair differs only in the personality text. The acceptable sets (`respond:accept`, `respond:reject`) are judgements from `content/personalities/<id>.json` with a `reason` that cites the weights (a test checks the cited values). Greedy accepts at high trust and rejects at low trust in both roles; Cautious, the most loyal, accepts or rejects at low trust; Aggressive and Opportunist may accept or reject when asked to promise at high trust. The fallback policy's own answer is a cross-check: a test requires it to be an acceptable answer for every scenario. These are small counts and judgements, not a claim about Jev.
 
 ## Results of the recording
 
-The captain recorded all 45 personality scenarios live on 2026-11-18 (`jev-1.13.0`, one request each, through the orchestrator). With the 20 Greedy recordings the set is **65 fixtures, 65 recorded, 0 synthetic**. These figures come from `npm run eval:jev -- --offline` on that set; counts are Jev answers (Choice and Noul rows) scored against the acceptable sets, with n as shown:
+The captain recorded all 45 personality scenarios live on 2026-11-18 (`jev-1.13.0`, one request each, through the orchestrator), the three `sell-last-phase-gym-ahead` twins on 2026-11-20 and the 16 promise response scenarios on 2026-11-20. With the 20 Greedy recordings the set is **84 fixtures, 84 recorded, 0 synthetic**. These figures come from `npm run eval:jev -- --offline` on that set; counts are Jev answers (Choice and Noul rows) scored against the acceptable sets, with n as shown:
 
-| Measure                              | Result                                                      |
-| ------------------------------------ | ----------------------------------------------------------- |
-| Accuracy, recorded fixtures          | 77/91 (84.6%); 78/91 before the Sell scoring fix, see below |
-| `illegalAppliedActionCount`          | 0                                                           |
-| Fallbacks (`low_confidence`)         | 16 of 65 decisions                                          |
-| Mean confidence, correct / incorrect | 0.688 (n=37) / 0.480 (n=7); Noul rows have none             |
+| Measure                              | Result                                                                                                                                             |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Accuracy, recorded fixtures          | 108/116 (93.1%); 92/100 before the 16 promise rows, 83/91 with the three Gym twins still synthetic, 77/91 at the Sell scoring fix, 78/91 before it |
+| `illegalAppliedActionCount`          | 0                                                                                                                                                  |
+| Fallbacks (`low_confidence`)         | 18 of 84 decisions                                                                                                                                 |
+| Mean confidence, correct / incorrect | 0.721 (n=53) / 0.480 (n=7); Noul rows have none                                                                                                    |
 
-| Personality | Fixtures | Rows correct / total | Strategy | Encounter |  Sell |
-| ----------- | -------: | -------------------: | -------: | --------: | ----: |
-| Greedy      |       20 |                27/28 |      8/8 |       6/6 | 13/14 |
-| Aggressive  |       15 |                16/21 |      5/6 |       3/4 |  8/11 |
-| Cautious    |       15 |                15/21 |      5/6 |       1/4 |  9/11 |
-| Opportunist |       15 |                19/21 |      5/6 |       4/4 | 10/11 |
+| Personality | Fixtures | Rows correct / total | Strategy | Encounter |  Sell | Promise |
+| ----------- | -------: | -------------------: | -------: | --------: | ----: | ------: |
+| Greedy      |       24 |                31/32 |      8/8 |       6/6 | 13/14 |     4/4 |
+| Aggressive  |       20 |                26/28 |      5/6 |       3/4 | 14/14 |     4/4 |
+| Cautious    |       20 |                24/28 |      5/6 |       1/4 | 14/14 |     4/4 |
+| Opportunist |       20 |                27/28 |      5/6 |       4/4 | 14/14 |     4/4 |
+
+Twelve of the 100 rows (`sell-last-phase-final-round`, four fixtures) are not Jev answers any more: Jev is not asked in the last Sell Phase (spec §5.6, below), so each is scored from the sale the orchestrator applies. Recorded answers for those four fixtures are kept and still checked against the request Jev would be sent, but they do not move the score. The three personalities' set of 15 gained one scenario, `sell-last-phase-gym-ahead`, recorded on 2026-11-20; its nine rows all score right and bring the total from 83/91 to 92/100.
 
 These are small counts, not a general claim about Jev or the personalities, and the acceptable sets are themselves judgements. The misses below are inputs for #59: tuning the personality instructions, or correcting an acceptable set, whichever the evidence favours. They are not failures of this change.
 
 - **Cautious Encounter, 3 of 4 missed.** Jev answered `release` on `pidgey-poke-or-great`, `weedle-poke-or-great` and `rare-snorlax-ultra` at low confidence (0.35, 0.28 and 0.19). Each fell below the floor, so the fallback policy chose a catch (Poké Ball, Poké Ball, Ultra Ball), which is acceptable. The set expects a catch for all three.
 - **Sell is scored at the personality's own threshold (#59).** The first scoring counted a Sell Noul as `true` at 0.5, but the game sells only at or above `personality.sellThreshold` (`decideSales` in `ai/questions/sell.ts`; derived from `liquidity`, read from `content/personalities/*.json` at run time: Aggressive 0.92, Cautious 0.8, Opportunist 0.68, Greedy 0.56). The eval now scores each Sell Noul at that threshold, from the same recordings, with no re-recording and no change to any acceptable set. The total moves from **78/91 to 77/91**; counts per personality are Greedy 27/28 (unchanged), Aggressive 16/21 (unchanged), Cautious 15/21 (unchanged), Opportunist 20/21 to 19/21. Rows that flipped:
   - Wrong to correct (5): Aggressive `sell-magikarp-low-sale-high-keep` (Noul 0.59), `sell-snorlax-high-sale-low-keep` (0.66) and `sell-tired-eevee` (0.63); Cautious `sell-magikarp-low-sale-high-keep` (0.59) and `sell-tired-eevee` (0.64). Each is below the threshold, so nothing is sold in play, which is what the set expects. They were never real misses.
-  - Correct to wrong (6), all `sell-last-phase-final-round`, whose set expects a full sale: Aggressive `sell_team_0` (0.50), `sell_team_1` (0.77), `sell_team_2` (0.86) against 0.92; Cautious `sell_team_0` (0.50) and `sell_team_1` (0.73) against 0.8; Opportunist `sell_team_0` (0.54) against 0.68. Jev answers sell, but below the threshold, so the game would keep these Pokémon and the end of the game sells them for less. These are real misses, left as they are: the set is not widened to hide them. They are the floor or Sell wording question for #59.
+  - Correct to wrong (6), all `sell-last-phase-final-round`, whose set expects a full sale: Aggressive `sell_team_0` (0.50), `sell_team_1` (0.77), `sell_team_2` (0.86) against 0.92; Cautious `sell_team_0` (0.50) and `sell_team_1` (0.73) against 0.8; Opportunist `sell_team_0` (0.54) against 0.68. Jev answers sell, but below the threshold, so the game would keep these Pokémon and the end of the game sells them for less. These were real misses, left as they were by the Sell scoring fix. They are now closed by the rule below, not by Jev: the game sells everything in the last Sell Phase unless a Gym follows (spec §5.6), so Jev is not asked there and these six rows score right (**77/91 to 83/91**), as do the three Greedy rows that were already right. The acceptable sets are unchanged.
+- **Last Sell Phase (#59, spec §5.6).** In the Final Table Round's Sell Phase every personality sells every sellable Pokémon, on the Jev path and the fallback alike, unless the space after selling is a Gym, where Jev still decides. The engine facts are `finalTableRound` and the Sell phase's `destinationPosition` read against the engine's `board` (`ai/last-sell.ts`). Known limit: later seats can still battle a seat that sold, and a kept team could have helped there; this is accepted. `--record` and `--placeholders` skip these scenarios, which ask no request. The twin `sell-last-phase-gym-ahead` (Gym destination, both answers acceptable) is recorded: its Jev request is the same as `sell-last-phase-final-round`'s, since Jev is not told where the seat lands, so recording it only adds a second sample of that request.
 - **Aggressive, `strategy-mixed-items-two-rivals`.** Jev picked Pickpocket on the rich rival (confidence 0.75, applied); the set expects Repel on that rival.
 - **Aggressive, `encounter-weedle-poke-or-great`.** Jev picked the Poké Ball (0.67, applied); the set expects the Great Ball.
 - **Opportunist, `strategy-battle-ticket-ahead`.** Jev used the Battle Ticket while far ahead (0.80, applied); the set expects skip.
@@ -105,7 +125,7 @@ Spec §4.8, §5.3, §5.5. Seat 1 is the AI answering a Deal Card; seat 0 is the 
 | Opportunist |        5 |                                            3/5 |
 | All         |       20 |                                    16/20 (80%) |
 
-The whole offline set is now 93/111 rows (83.8%), up from 77/91 (84.6%) before the deal scenarios: the 20 deal rows added 16 correct. These are small counts and the acceptable sets are judgements.
+The whole offline set is now 124/136 rows (91.2%), from 108/116 (93.1%) before the deal scenarios: the 20 deal rows added 16 correct. 104 fixtures, all recorded. These are small counts and the acceptable sets are judgements.
 
 Four Jev answers are outside their set. All were below the confidence floor, so the fallback policy chose the applied action, and each applied action is in its set (illegalAppliedActionCount 0). They are findings, not changes to a set:
 
@@ -130,7 +150,7 @@ A new scenario starts as a **synthetic placeholder** so the offline run, the cou
 npm run eval:jev -- --placeholders   # writes placeholders for scenarios with no fixture; offline, no key
 ```
 
-No fixture is synthetic now. Never run `--placeholders` expecting it to change a recording: it does not replace one.
+No fixture is synthetic now (below). Never run `--placeholders` expecting it to change a recording: it does not replace one.
 
 ## Recording (needs the key; a person does it)
 
@@ -142,7 +162,32 @@ npm run eval:jev -- --record
 
 It makes one request per scenario that is missing, synthetic or stale, through the orchestrator, and writes each fixture with `synthetic: false`. Requests are logged to the usage ledger and stop at the spend cap or daily budget (spec §9). A scenario whose request changed (for example after a wording change) is stale and recorded again; a current recording is kept. Afterwards run `npm run eval:jev -- --offline` and commit the changed fixtures.
 
-Fixtures still to record: none. Any synthetic fixture added later must be listed here by ID, one per line, until it is recorded.
+Fixtures still to record: none. The 16 promise response fixtures were recorded by the captain on 2026-11-20 (`jev-1.13.0`, one request each, through the orchestrator):
+
+- `greedy-promise-recipient-high-trust`
+- `aggressive-promise-recipient-high-trust`
+- `cautious-promise-recipient-high-trust`
+- `opportunist-promise-recipient-high-trust`
+- `greedy-promise-recipient-low-trust`
+- `aggressive-promise-recipient-low-trust`
+- `cautious-promise-recipient-low-trust`
+- `opportunist-promise-recipient-low-trust`
+- `greedy-promise-promiser-high-trust`
+- `aggressive-promise-promiser-high-trust`
+- `cautious-promise-promiser-high-trust`
+- `opportunist-promise-promiser-high-trust`
+- `greedy-promise-promiser-low-trust`
+- `aggressive-promise-promiser-low-trust`
+- `cautious-promise-promiser-low-trust`
+- `opportunist-promise-promiser-low-trust`
+
+Any synthetic fixture added later must be listed under "Fixtures still to record" by ID, one per line, until it is recorded.
+
+Recorded on 2026-11-20 (the captain, `jev-1.13.0`, replacing the synthetic placeholders):
+
+- aggressive-sell-last-phase-gym-ahead
+- cautious-sell-last-phase-gym-ahead
+- opportunist-sell-last-phase-gym-ahead
 
 ## Adding a scenario
 

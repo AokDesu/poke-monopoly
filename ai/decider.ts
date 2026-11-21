@@ -1,5 +1,6 @@
 import type {
   JevStatus,
+  DecisionDetail,
   DecisionFallbackReason,
   DecisionRequest,
 } from '../engine/contract/decision.ts';
@@ -10,7 +11,7 @@ import { FallbackPolicy, PERSONALITIES } from './fallback/index.ts';
 import { createSdkJevClient, jevEnabled, type JevClient } from './jev/client.ts';
 import type { DecisionEvent } from './jev/decision-log.ts';
 import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
-import { pendingDeal, trustBucket, type SellFacts } from './questions/index.ts';
+import { pendingDeal, type SellFacts } from './questions/index.ts';
 import {
   GameQuota,
   Orchestrator,
@@ -25,6 +26,8 @@ export type DeciderAnswer = DeciderPick & {
   lineId?: string;
   /** The §6.8 events of this answer, for the app to journal; they never leave the server. */
   events?: readonly DecisionEvent[];
+  /** Jev's numbers; the app sends them only in demo mode (spec §3). */
+  detail?: DecisionDetail;
 } & ({ source: 'jev' } | { source: 'fallback'; fallbackReason: DecisionFallbackReason });
 
 export interface DeciderContext {
@@ -116,14 +119,20 @@ const sellFactsOf = (
   | undefined => {
   const rows = request.facts.sell;
   if (!rows || request.decisionPoint !== 'sell') return undefined;
-  const sellable = new Set(
-    request.enabledActions.flatMap((action) =>
-      action.kind === 'sell' ? action.payload.pokemonInstanceIds : [],
-    ),
+  // The seat's own team, not the action list: rows are good only when they price exactly this team.
+  const { observation } = request;
+  const you = observation.public.players.find(
+    (player) => player.seatIndex === observation.own.seatIndex,
   );
+  if (!you) return undefined;
+  const sellable = new Set(you.team.map((pokemon) => pokemon.instanceId));
   const given = new Set(rows.map((row) => row.instanceId));
   if (given.size !== rows.length || given.size !== sellable.size) return undefined;
   if (![...given].every((instanceId) => sellable.has(instanceId))) return undefined;
+  // The policy sells on `saleValue`; it must be the price Jev is shown plus the bonus it keeps.
+  if (rows.some((row) => row.saleValue !== row.salePrice + row.classBonusTogether)) {
+    return undefined;
+  }
   return {
     facts: {
       pokemon: rows.map(
@@ -182,7 +191,7 @@ export const personalityFor = (id: string) =>
 
 /**
  * Spec §5.7: the line a seat says with its answer to a Deal Card, from `deal_accept` or `deal_reject`. It is a
- * seeded pick by the proposer's trust bucket (the engine's number, `trustBucket`), not a choice Jev makes, so it
+ * seeded pick by the proposer's trust bucket (the engine's `proposerTrust`), not a choice Jev makes, so it
  * costs no request. A bucket with no authored lines for this personality (today only `neutral` is authored) uses
  * `neutral`. Picked by a seeded draw on a presentation RNG apart from the game's, so a retried decision says the
  * same line. A counter has no line, by decision: the Deal Card shows its new terms as an engine record, not as speech.
@@ -198,11 +207,9 @@ const lineFor = (request: DecisionRequest, choice: string): { lineId?: string } 
         : 'deal_reject';
   if (!situation) return {};
   const personalityId = personalityFor(request.personalityId).id;
-  const pending = pendingDeal(request.observation);
-  const bucket = trustBucket(
-    request.observation.own.trust?.find((entry) => entry.seatIndex === pending?.initiatorSeatIndex)
-      ?.value ?? 0,
-  );
+  // The engine's own bucket for the proposer's trust (§5.4), from the observation first.
+  const bucket =
+    (pendingDeal(request.observation)?.facts ?? request.facts?.deal)?.proposerTrust ?? 'neutral';
   const authored = LINES[situation].some(
     (line) => line.personality === personalityId && line.trust === bucket,
   );
@@ -347,6 +354,10 @@ export const createOrchestratorDecider = ({
       decisionPoint: request.decisionPoint,
       rng: rngFor(request),
     });
-    return { ...fromDecision(request, decision), events: decision.events };
+    return {
+      ...fromDecision(request, decision),
+      events: decision.events,
+      ...(decision.detail && { detail: decision.detail }),
+    };
   };
 };

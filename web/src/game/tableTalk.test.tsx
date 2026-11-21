@@ -168,6 +168,7 @@ const OFF: AiStatus = {
   backupOnly: false,
   reason: null,
   speech: { enabled: false, reason: 'disabled' },
+  demo: false,
 };
 
 /** The table talk hook as the board mounts it, on whichever view the store has. */
@@ -381,14 +382,32 @@ describe('a public moment (§5.7)', () => {
     expect(
       detectMoment(entry('choose_reward', [payment('pvp_reward')], 0), publicGame(), null),
     ).toMatchObject({ kind: 'coins', subjectSeat: 0, counterSeat: 1 });
-    // A deal payment does not hide a public payment that happens in the same record.
+    // The whole step is silent: a deal carries no commentary of any kind (punkharb's #262 review).
     expect(
       detectMoment(
         entry('choose_reward', [payment('deal'), payment('pvp_reward')], 0),
         publicGame(),
         null,
       ),
-    ).toMatchObject({ kind: 'coins' });
+    ).toBeNull();
+  });
+
+  test('a deal that changes the leader triggers no lead taunt either (§4.8)', () => {
+    const payment: EngineEvent = {
+      kind: 'coin_transfer',
+      source: { kind: 'player', actorId: 'player-1' },
+      destination: { kind: 'player', actorId: 'player-0' },
+      amount: 5,
+      reason: 'deal',
+    };
+    // Balances 10/12/3 become 15/7/3: seat 0 takes the lead from seat 1 because of the payment.
+    const after = publicGame([15, 7, 3, 3]);
+    expect(detectMoment(entry('confirm_deal', [payment], 0), after, 1)).toBeNull();
+    // The same change at the top without a deal payment is still the lead moment, so only the deal removes it.
+    expect(detectMoment(entry('choose_reward', [], 0), after, 1)).toMatchObject({
+      kind: 'lead',
+      addressedSeat: 0,
+    });
   });
 
   test('any catch is a moment, found in the engine die result, with the species caught', () => {
@@ -1904,6 +1923,7 @@ describe('the Table talk panel (§3, §4.8)', () => {
       backupOnly: false,
       reason: null,
       speech,
+      demo: false,
     });
     expect(voiceOff(status({ enabled: false, reason: 'missing_key' }))).toBe('missing_key');
     expect(voiceOff(status({ enabled: false, reason: 'budget_exceeded' }))).toBe('budget_exceeded');

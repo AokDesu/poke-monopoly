@@ -3,8 +3,10 @@ import type { LegalAction, LegalActions, Observation } from '../../engine/index.
 import { bucketKeepValue } from '../../engine/index.ts';
 import type { Policy, PolicyChoice, PolicyFacts, PolicyRng } from '../../sim/policy.ts';
 import { chatScoreShift } from '../chat.ts';
+import { pendingPromise } from '../promises.ts';
 import type { FallbackReason } from '../jev/client.ts';
-import { counterAction, pendingDeal, trustBucket } from '../questions/deal.ts';
+import { pendingDeal } from '../questions/deal.ts';
+import { lastSellChoice } from '../last-sell.ts';
 
 /**
  * Personality heuristics, not gameplay rules: every game number the policy compares (odds, sale
@@ -38,6 +40,12 @@ export const FALLBACK_TUNING = Object.freeze({
    */
   dealTrustStep: 0.5,
   dealLiquidityStep: 0.25,
+  /** Promise response: willingness (loyalty plus trust) at or above this accepts. */
+  promiseBar: 0.5,
+  /** Promise response: willingness gained (lost) per point of trust above (below) neutral. */
+  promiseTrustStep: 0.2,
+  /** Promise response: willingness lost per promise the asker broke to this seat. */
+  promiseGrudge: 0.1,
 });
 
 const VALUE_RANK = { low: 0, medium: 1, high: 2 } as const;
@@ -60,8 +68,33 @@ export function scoreOptions(
 ): Map<string, number> {
   if (pendingDeal(observation)) return dealScores(observation, options, personality);
   const context = { observation, personality, facts };
-  const score = SCORERS[observation.public.phase.kind] ?? (() => 0);
-  return new Map(options.map((option) => [option.id, score(option, context)]));
+  const phaseScore = SCORERS[observation.public.phase.kind] ?? (() => 0);
+  // A responder answers a pending question; the phase on the table is the asker's, not its own.
+  const score = (option: LegalAction) =>
+    option.kind === 'respond' ? respondScore(option, context) : phaseScore(option, context);
+  return new Map(options.map((option) => [option.id, score(option)]));
+}
+
+/**
+ * Spec §4.8, §5.3 Promise response: the seat's willingness is its loyalty, moved up or down by its
+ * trust in the asker (the engine's `own.trust`, `promiseTrustStep` a point) and down again for each
+ * promise the asker broke to it (the memory evidence). Accept scores the willingness over the bar,
+ * and at the bar itself (a tie goes to accepting); reject scores 0. Promises never change
+ * legality, so both options are always scored. Other responder questions score 0 here.
+ */
+function respondScore(option: LegalAction, { observation, personality }: Context): number {
+  if (option.kind !== 'respond') return 0;
+  const question = pendingPromise(observation);
+  if (!question || option.payload.answer === 'reject') return 0;
+  const { promiseBar, promiseTrustStep, promiseGrudge } = FALLBACK_TUNING;
+  const grudges = question.memory.filter(
+    (entry) =>
+      entry.outcome === 'broken' && entry.promiserSeatIndex === question.initiatorSeatIndex,
+  ).length;
+  const willingness =
+    personality.weights.loyalty + promiseTrustStep * question.trust - promiseGrudge * grudges;
+  // Rounded so that float noise never decides a tie at the bar.
+  return Math.round((willingness - promiseBar) * 1e6) / 1e6 + 1e-9;
 }
 
 const SCORERS: Partial<
@@ -86,11 +119,8 @@ function dealScores(
   const acceptListed = options.some(
     (option) => option.kind === 'respond_deal' && option.payload.answer === 'accept',
   );
-  const counter = counterAction(options, pending);
-  const trust = trustBucket(
-    observation.own.trust?.find((entry) => entry.seatIndex === pending.initiatorSeatIndex)?.value ??
-      0,
-  );
+  // The engine's own trust bucket and its named favourable counter (§5.4); the policy compares no price.
+  const trust = facts?.proposerTrust ?? 'neutral';
   const edge = facts ? VALUE_RANK[facts.valueReceived] - VALUE_RANK[facts.valueGiven] : -2;
   const coinsIn = pending.terms.give.coins > 0;
   const trustShift =
@@ -109,7 +139,10 @@ function dealScores(
       if (option.kind === 'respond_deal') {
         return [option.id, option.payload.answer === 'reject' ? tuning.dealRejectBar : accept];
       }
-      return [option.id, acceptListed && counter?.id === option.id ? counterScore : -1];
+      return [
+        option.id,
+        acceptListed && facts?.favourableCounter === option.id ? counterScore : -1,
+      ];
     }),
   );
 }
@@ -261,6 +294,9 @@ export class FallbackPolicy implements Policy {
     if (enabled.length === 0) throw new RangeError('No enabled legal action to choose from');
     if (enabled.length === 1) return enabled[0]!.id;
     if (observation.public.phase.kind === 'sell') {
+      // Spec §5.6: the last Sell Phase sells everything unless a Gym follows, whatever the threshold.
+      const everything = lastSellChoice(observation, enabled);
+      if (everything !== undefined) return everything;
       // A batch of two or more has no listed ID; the engine sells it in one atomic step (§4.7).
       const batch = sellBatch(enabled, { observation, personality: this.personality, facts });
       if (batch.length > 1) return { sellUids: batch };

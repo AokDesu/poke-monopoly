@@ -1,6 +1,8 @@
 import { expect, test, vi } from 'vitest';
 import {
+  createGame,
   createGameConfig,
+  createGameLog,
   fixtureSchema,
   replay,
   stateHash,
@@ -98,4 +100,80 @@ test('choose rejects an ID that is not one of the human seat enabled choices', (
   const before = store.getSession();
   expect(store.choose('skip')).toMatchObject({ rejected: true, reason: 'illegal_action' });
   expect(store.getSession()).toBe(before);
+});
+
+test('a seat outside a Deal Card sees the same decision owner as with no question pending (§4.8)', () => {
+  // Two humans (seats 0 and 2) and an AI (seat 1), as in a two-human save: human 2 proposes to AI 1 in Social.
+  const three = structuredClone(content);
+  three.classes.push({
+    id: 'team-rocket',
+    name: 'Team Rocket',
+    starterSpeciesIds: ['eevee'],
+    classItemId: 'pickpocket',
+  });
+  const classIds = three.classes.map((entry) => entry.id);
+  const threeSeat = createGameConfig({
+    seats: [0, 1, 2].map((seatIndex) => ({
+      actorId: `player-${seatIndex}`,
+      seatIndex,
+      classId: classIds[seatIndex % classIds.length]!,
+      controller: seatIndex === 1 ? ('ai' as const) : ('human' as const),
+    })),
+    seed: 7,
+    lapTarget: 3,
+    socialWindow: true,
+  });
+  const deal = (initiatorSeatIndex: number) => {
+    const state = createGame(threeSeat, three);
+    const log = createGameLog(state);
+    state.phase = { kind: 'social' };
+    state.activeSeatIndex = initiatorSeatIndex;
+    const quiet = structuredClone(state);
+    state.pendingResponse = {
+      kind: 'deal',
+      stage: 'proposed',
+      initiatorSeatIndex,
+      responderSeatIndex: 1,
+      targetSeatIndex: 1,
+      terms: {
+        give: { coins: 0, pokemonInstanceIds: ['x'], itemInstanceIds: [] },
+        get: { coins: 3, pokemonInstanceIds: [], itemInstanceIds: [] },
+      },
+      counterDepth: 0,
+    };
+    return { state, quiet, log };
+  };
+  const decisionOf = (
+    state: ReturnType<typeof createGame>,
+    log: ReturnType<typeof createGameLog>,
+  ) => {
+    const store = createGameStore();
+    store.restore({ state, log });
+    return store.getView()!.decision;
+  };
+
+  // Seat 0 is outside the deal between seat 2 and AI seat 1: its decision is what it is with nothing pending,
+  // the active seat's, not the AI's.
+  const outside = deal(2);
+  expect(decisionOf(outside.state, outside.log)).toEqual(decisionOf(outside.quiet, outside.log));
+  expect(decisionOf(outside.state, outside.log)?.seatIndex).toBe(2);
+  // Seat 0 is the proposer to AI seat 1: it sees that the AI owes the answer.
+  const party = deal(0);
+  expect(decisionOf(party.state, party.log)?.seatIndex).toBe(1);
+  expect(decisionOf(party.quiet, party.log)?.seatIndex).toBe(0);
+});
+
+test("a speaker's request carries that seat's own public revision, not the viewer's (§4.8)", () => {
+  const store = createGameStore();
+  store.start(config, content);
+  const session = store.getSession()!;
+  const state = structuredClone(session.state);
+  // The viewer (seat 0) was a party to two Deal Card records that seat 1 never saw.
+  state.stateRevision = 5;
+  state.players[1]!.unseenRecords = 2;
+  store.restore({ state, log: session.log });
+  const viewer = store.getView()!.observation.public.stateRevision;
+  expect(store.publicFor(1)!.stateRevision).toBe(3);
+  expect(store.publicFor(0)!.stateRevision).toBe(viewer);
+  expect(store.publicFor(1)!.stateRevision).not.toBe(viewer);
 });

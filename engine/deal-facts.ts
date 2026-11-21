@@ -1,7 +1,6 @@
-import type { Content, DealFacts, DealTerms, GameState, Player } from './contract/schema.ts';
-import { bucketCount } from './observation-buckets.ts';
+import type { Content, DealTerms, GameState, Player } from './contract/schema.ts';
 import { itemEffectStatus } from './items.ts';
-import { bucketSaleValue, saleBasePrice } from './selling.ts';
+import { saleBasePrice } from './selling.ts';
 
 /**
  * The numbers behind a Deal Card (§4.8, §5.4), computed here and nowhere else. The AI seat's side of a deal has a
@@ -113,26 +112,4 @@ export function dealBudgetState(state: GameState, ai: Player): DealBudgetState |
 export function concessionWithinBudget(state: GameState, ai: Player, concession: number): boolean {
   const budget = dealBudgetState(state, ai);
   return !budget || concession <= budget.room;
-}
-
-/**
- * The named buckets the AI seat answering a Deal Card sees (§5.4): the value it gives and receives in the Sell
- * scheme (low, medium, high), and the concession and budget left as counts (none, one, few, many). Only the AI seat
- * that owes the answer gets them; `null` for any other seat or stage, so the proposer, a third seat and a
- * spectator never learn the AI's valuation or budget.
- */
-export function dealFacts(state: GameState, seatIndex: number): DealFacts | null {
-  const pending = state.pendingResponse;
-  if (pending?.kind !== 'deal' || pending.stage !== 'proposed') return null;
-  if (pending.responderSeatIndex !== seatIndex || pending.targetSeatIndex !== seatIndex)
-    return null;
-  const ai = state.players.find((entry) => entry.seatIndex === seatIndex)!;
-  const valuation = dealValuation(state, pending.initiatorSeatIndex, seatIndex, pending.terms);
-  const budget = dealBudgetState(state, ai);
-  return {
-    valueGiven: bucketSaleValue(valuation.valueGiven),
-    valueReceived: bucketSaleValue(valuation.valueReceived),
-    concession: bucketCount(valuation.concession),
-    ...(budget && { budgetLeft: bucketCount(budget.remaining) }),
-  };
 }

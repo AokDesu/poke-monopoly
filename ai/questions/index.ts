@@ -1,11 +1,9 @@
 export { actionIdFor, type AskDecision, type Decision } from './decision.ts';
 export {
   buildDealQuestion,
-  counterAction,
   DEAL_CRITERIA,
   DEAL_INSTRUCTIONS,
   pendingDeal,
-  trustBucket,
   type DealState,
 } from './deal.ts';
 export {
@@ -18,6 +16,11 @@ export {
   type EncounterFacts,
   type EncounterState,
 } from './encounter.ts';
+export {
+  buildPromiseResponseQuestion,
+  PROMISE_INSTRUCTIONS,
+  type PromiseState,
+} from './promise.ts';
 export {
   actionKind,
   affinity,

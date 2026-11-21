@@ -1,4 +1,5 @@
 import type {
+  DealFacts,
   DealTerms,
   EngineEvent,
   GameState,
@@ -9,7 +10,10 @@ import type {
   Player,
   ProposeDealPayload,
 } from './contract/schema.ts';
-import { concessionWithinBudget, dealValuation } from './deal-facts.ts';
+import { concessionWithinBudget, dealBudgetState, dealValuation } from './deal-facts.ts';
+import { bucketCount } from './observation-buckets.ts';
+import { trustOf } from './promises.ts';
+import { bucketSaleValue } from './selling.ts';
 import { hideFromBystanders, socialOpen } from './social.ts';
 
 /**
@@ -241,6 +245,80 @@ function currentCoins(terms: DealTerms): number {
   return terms.give.coins > 0 ? terms.give.coins : terms.get.coins;
 }
 
+type DealPendingRecord = Extract<PendingResponse, { kind: 'deal' }>;
+
+/** The coin amounts the target may counter with, lowest first: each one legal and within its budget (§4.8). */
+function counterCoins(state: GameState, pending: DealPendingRecord): number[] {
+  if (pending.counterDepth >= 1) return [];
+  const payer = player(
+    state,
+    pending.terms.give.coins > 0 ? pending.initiatorSeatIndex : pending.targetSeatIndex,
+  )!;
+  const amounts: number[] = [];
+  for (let coins = 1; coins <= payer.coins; coins++) {
+    if (coins === currentCoins(pending.terms)) continue;
+    const countered = withCoins(pending.terms, coins);
+    if (
+      dealProblem(state, pending.initiatorSeatIndex, pending.targetSeatIndex, countered, {
+        targetQuota: true,
+      }) === null
+    ) {
+      amounts.push(coins);
+    }
+  }
+  return amounts;
+}
+
+/**
+ * The listed counter nearest the current price on the target's side of it: a higher amount when the proposer pays
+ * coins, a lower one when the target does. Compared here, never in `ai/`; the amount itself is not told.
+ */
+function favourableCounterCoins(state: GameState, pending: DealPendingRecord): number | undefined {
+  const current = currentCoins(pending.terms);
+  const higher = pending.terms.give.coins > 0;
+  const better = counterCoins(state, pending).filter((coins) =>
+    higher ? coins > current : coins < current,
+  );
+  if (better.length === 0) return undefined;
+  return better.reduce((best, next) =>
+    Math.abs(next - current) < Math.abs(best - current) ? next : best,
+  );
+}
+
+/** Trust as a named bucket by its sign (§4.8, §5.4): below 0 low, 0 neutral, above 0 high. */
+function bucketTrust(value: number): DealFacts['proposerTrust'] {
+  return value < 0 ? 'low' : value > 0 ? 'high' : 'neutral';
+}
+
+/**
+ * The named buckets the AI seat answering a Deal Card sees (§5.4): the value it gives and receives in the Sell
+ * scheme (low, medium, high), the concession and budget left as counts (none, one, few, many), its trust in the
+ * proposer (low, neutral, high) and the `id` of the listed counter that favours it. Only the AI seat that owes the
+ * answer gets them; `null` for any other seat or stage, so the proposer, a third seat and a spectator never learn
+ * the AI's valuation, budget, trust or counter.
+ */
+export function dealFacts(state: GameState, seatIndex: number): DealFacts | null {
+  const pending = state.pendingResponse;
+  if (pending?.kind !== 'deal' || pending.stage !== 'proposed') return null;
+  if (pending.responderSeatIndex !== seatIndex || pending.targetSeatIndex !== seatIndex)
+    return null;
+  const ai = player(state, seatIndex)!;
+  const valuation = dealValuation(state, pending.initiatorSeatIndex, seatIndex, pending.terms);
+  const budget = dealBudgetState(state, ai);
+  const trust = trustOf(state, seatIndex).find(
+    (entry) => entry.seatIndex === pending.initiatorSeatIndex,
+  );
+  const counter = favourableCounterCoins(state, pending);
+  return {
+    valueGiven: bucketSaleValue(valuation.valueGiven),
+    valueReceived: bucketSaleValue(valuation.valueReceived),
+    concession: bucketCount(valuation.concession),
+    ...(budget && { budgetLeft: bucketCount(budget.remaining) }),
+    proposerTrust: bucketTrust(trust?.value ?? 0),
+    ...(counter !== undefined && { favourableCounter: `counter-deal:coins-${counter}` }),
+  };
+}
+
 /**
  * The pending question's choices for its responder (§4.8): the target answers accept, reject or counter once;
  * the proposer then confirms or cancels. Over a spent quota or any change that made the terms illegal, the
@@ -269,26 +347,12 @@ export function dealResponseChoices(
       kind: 'respond_deal',
       payload: { answer: 'reject' },
     });
-    if (pending.counterDepth < 1) {
-      const payer = player(
-        state,
-        pending.terms.give.coins > 0 ? pending.initiatorSeatIndex : pending.targetSeatIndex,
-      )!;
-      for (let coins = 1; coins <= payer.coins; coins++) {
-        if (coins === currentCoins(pending.terms)) continue;
-        const countered = withCoins(pending.terms, coins);
-        if (
-          dealProblem(state, pending.initiatorSeatIndex, pending.targetSeatIndex, countered, {
-            targetQuota: true,
-          }) === null
-        ) {
-          result.enabled.push({
-            id: `counter-deal:coins-${coins}`,
-            kind: 'counter_deal',
-            payload: { coins },
-          });
-        }
-      }
+    for (const coins of counterCoins(state, pending)) {
+      result.enabled.push({
+        id: `counter-deal:coins-${coins}`,
+        kind: 'counter_deal',
+        payload: { coins },
+      });
     }
     return;
   }

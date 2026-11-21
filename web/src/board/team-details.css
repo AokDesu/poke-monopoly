@@ -23,7 +23,6 @@
 .team-details-body {
   padding: 0.2rem 0.4rem 0.7rem;
 }
-.team-instance,
 .team-read-only {
   color: var(--color-ink-soft);
   font-size: 0.75rem;

@@ -1,8 +1,11 @@
 import type { Personality } from '../../content/personality-schema.ts';
 import { toEngineContent } from '../../content/schema.ts';
 import {
+  applyAction,
   createGame,
   createGameConfig,
+  observe,
+  type ChatMessage,
   type GameState,
   type PokemonInstance,
 } from '../../engine/index.ts';
@@ -147,3 +150,120 @@ export const withFinalTableRound = (state: GameState): GameState => {
   state.finalTableRound = { triggerSeatIndex: 1, targetOwnTurnNo: state.players[0]!.ownTurnNo };
   return state;
 };
+
+/** The settled promises the asker (seat 1) made to the AI (seat 0) before this table's question. */
+export type PromiseHistory = readonly ('kept' | 'broken')[];
+
+export interface PromiseTable {
+  seed: number;
+  /** `offer`: the human promises the AI. `ask`: the human asks the AI to promise. */
+  direction: 'offer' | 'ask';
+  /** The AI's trust in the human (the engine's `own.trust`, -3..3). */
+  trust: number;
+  /** Earlier promises, oldest first; each broken one has its attack on record. */
+  history?: PromiseHistory;
+  /** Topic messages the human sent the AI on earlier turns, oldest first. */
+  chats?: readonly Pick<ChatMessage, 'topic'>[];
+  /** Adds a third seat, an AI that holds no part in the question (spec §4.8 Privacy). */
+  bystander?: boolean;
+}
+
+/**
+ * A live Social window (spec §4.8): the human at seat 1 is active and has just offered, or asked
+ * for, a `no_attack` promise, so seat 0, the AI, owes the answer. The question is opened by the
+ * engine's own `offer_promise` action; the AI's trust, the earlier promises that settled and the
+ * messages already sent are recorded first, as an earlier part of the game would have left them.
+ * Seat 1 attacked the AI inside each broken promise's window.
+ */
+export function promiseTable({
+  seed,
+  direction,
+  trust,
+  history = [],
+  chats = [],
+  bystander = false,
+}: PromiseTable): GameState {
+  const classIds = ['main-character', 'rival', 'nurse-joy'].slice(0, bystander ? 3 : 2);
+  const state = createGame(
+    createGameConfig({
+      seats: classIds.map((classId, seatIndex) => ({
+        classId,
+        ...(classId === 'main-character' && { starterSpeciesId: 'charmander' }),
+        actorId: `P${seatIndex + 1}`,
+        seatIndex,
+        controller: seatIndex === 1 ? ('human' as const) : ('ai' as const),
+      })),
+      seed,
+      lapTarget: 3,
+      socialWindow: true,
+    }),
+    content,
+  );
+  state.globalTurnNo = 12;
+  state.activeSeatIndex = 1;
+  state.phase = { kind: 'social' };
+  state.players.forEach((player) => (player.ownTurnNo = player.seatIndex === 1 ? 6 : 5));
+  state.turnBudgets = {
+    tacticalAction: 1,
+    catchAttempt: 1,
+    pokemonAbility: 1,
+    socialInteraction: 1,
+  };
+  history.forEach((outcome, index) => {
+    const created = 2 + 3 * index;
+    state.promises = [
+      ...(state.promises ?? []),
+      {
+        promiserSeatIndex: 1,
+        recipientSeatIndex: 0,
+        createdGlobalTurnNo: created,
+        closesOwnTurnNo: index + 2,
+        acceptedActionSeq: 1,
+        settled: {
+          outcome: outcome === 'broken' ? 'broken' : 'kept_without_chance',
+          globalTurnNo: created + 2,
+        },
+      },
+    ];
+    if (outcome === 'broken') {
+      state.attackHistory = [
+        ...(state.attackHistory ?? []),
+        {
+          kind: 'attack_attempt',
+          attackId: `attack:${index}`,
+          actorId: 'P2',
+          targetId: 'P1',
+          source: 'pvp_declaration',
+          actionSeq: 1,
+          globalTurnNo: created + 1,
+        },
+      ];
+    }
+  });
+  if (trust !== 0) {
+    state.trust = [{ fromSeatIndex: 0, toSeatIndex: 1, value: trust, keptGain: 0 }];
+  }
+  if (chats.length > 0) {
+    state.chats = [
+      {
+        seats: [0, 1],
+        messages: chats.map((chat, index) => ({
+          fromSeatIndex: 1,
+          toSeatIndex: 0,
+          topic: chat.topic,
+          globalTurnNo: 8 + index,
+        })),
+      },
+    ];
+  }
+  const revision = observe(state, 1).public.stateRevision;
+  const result = applyAction(state, {
+    actorId: 'P2',
+    actionSeq: revision + 1,
+    stateRevisionBefore: revision,
+    kind: 'offer_promise',
+    payload: { targetSeatIndex: 0, direction },
+  });
+  if ('rejected' in result) throw new Error(`promiseTable: ${result.reason}`);
+  return result.state;
+}

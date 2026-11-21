@@ -203,6 +203,21 @@ test('the browser adapter accepts and refuses exactly what the contract schema d
   expect(readJevDetail(fake)).toEqual({ ...good, questionId: 'strategy' });
 });
 
+test('the browser adapter reads a Sell Phase detail whose confidence is null', () => {
+  const sellDetail = {
+    questionId: 'sell',
+    confidence: null,
+    options: [
+      { id: 'pokemon-1', probability: 0.9 },
+      { id: 'pokemon-2', probability: 0.2 },
+    ],
+  };
+  expect(decisionDetailSchema.parse(sellDetail)).toEqual(sellDetail);
+  expect(readJevDetail({ detail: sellDetail })).toEqual(sellDetail);
+  expect(readJevDetail({ detail: { ...sellDetail, confidence: undefined } })).toBeUndefined();
+  expect(readJevDetail({ detail: { ...sellDetail, confidence: '0.5' } })).toBeUndefined();
+});
+
 test('an Ability option is named with its Pokémon and scope, never left as an ID', () => {
   const context = encounterContext();
   const abilities: LegalAction[] = (['catch', 'combat', undefined] as const).map((scope) => ({

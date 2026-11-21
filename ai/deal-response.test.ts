@@ -30,7 +30,7 @@ import { createFakeJevClient } from './jev/fake.ts';
 import { SpendLedger } from './jev/spend.ts';
 import { LINES } from './lines.ts';
 import { Orchestrator, type DecideRequest } from './orchestrator.ts';
-import { buildDealQuestion, counterAction, pendingDeal, trustBucket } from './questions/index.ts';
+import { buildDealQuestion, pendingDeal } from './questions/index.ts';
 import { assertNoComparableNumbers } from './state/index.ts';
 
 // Spec §4.8, §5.3, §5.4, §3 (fallback table); issue #164 D3. Offline only: fakes, no key, no network.
@@ -221,15 +221,41 @@ describe('within budget: Jev answers accept, reject or counter (spec §5.3)', ()
     expect(JSON.stringify([terms, decision.questions])).not.toMatch(/\d/);
   });
 
-  test('a counter for coins the AI receives goes up by one listed step', () => {
+  test("a counter for coins the AI receives is the engine's named favourable counter, one listed step up", () => {
     const state = proposeDeal(
       dealTable({ seed: 46, coins: [20, 10], aiTeam: [owned(1, 1, 'eevee')] }),
       { buys: { pokemon: 'caught:1:1' }, coins: 11 },
     );
-    const pending = pendingDeal(observe(state, AI))!;
-    expect(counterAction(legalActions(state, AI).enabled, pending)?.id).toBe(
-      'counter-deal:coins-12',
+    const request = decideRequest(state);
+    const { facts } = pendingDeal(request.observation)!;
+    expect(facts?.favourableCounter).toBe('counter-deal:coins-12');
+    const decision = buildDealQuestion(
+      request.observation,
+      request.legalActions.enabled,
+      facts!,
+      PERSONALITIES.greedy,
     );
+    if (decision.kind !== 'ask') throw new Error('expected a question');
+    expect(decision.options.counter).toBe('counter-deal:coins-12');
+  });
+
+  test('ai/ compares no price: a counter the engine does not name, or does not list, is not offered', () => {
+    const request = decideRequest(fair());
+    const facts = pendingDeal(request.observation)!.facts!;
+    const options = (favourableCounter: string | undefined) => {
+      const rest = { ...facts, favourableCounter: undefined };
+      const decision = buildDealQuestion(
+        request.observation,
+        request.legalActions.enabled,
+        { ...rest, ...(favourableCounter !== undefined && { favourableCounter }) } as typeof facts,
+        PERSONALITIES.greedy,
+      );
+      if (decision.kind !== 'ask') throw new Error('expected a question');
+      return Object.keys(decision.options);
+    };
+    expect(options(facts.favourableCounter)).toEqual(['accept', 'reject', 'counter']);
+    expect(options(undefined)).toEqual(['accept', 'reject']);
+    expect(options('counter-deal:coins-99')).toEqual(['accept', 'reject']);
   });
 
   test.each([
@@ -585,14 +611,30 @@ describe('no hidden information in the request (spec §5.4, §1)', () => {
       buildDealQuestion(
         observe(idle, AI),
         [],
-        { valueGiven: 'low', valueReceived: 'low', concession: 'none' },
+        { valueGiven: 'low', valueReceived: 'low', concession: 'none', proposerTrust: 'neutral' },
         PERSONALITIES.greedy,
       ),
     ).toThrow(RangeError);
   });
 
-  test('trust is a name by the sign of the engine number', () => {
-    expect([-3, -1, 0, 1, 3].map(trustBucket)).toEqual(['low', 'low', 'neutral', 'high', 'high']);
+  test.each([
+    [-3, 'low'],
+    [-1, 'low'],
+    [0, 'neutral'],
+    [1, 'high'],
+    [3, 'high'],
+  ])("the proposer's trust %i reaches Jev as the engine's bucket %s", (trust, bucket) => {
+    const state = proposeDeal(dealTable({ ...EEVEE, trust }), sellEevee(7));
+    const request = decideRequest(state);
+    expect(pendingDeal(request.observation)!.facts!.proposerTrust).toBe(bucket);
+    const decision = buildDealQuestion(
+      request.observation,
+      request.legalActions.enabled,
+      request.facts.deal!,
+      PERSONALITIES.greedy,
+    );
+    if (decision.kind !== 'ask') throw new Error('expected a question');
+    expect(decision.state.deal.proposer_trust).toBe(bucket);
   });
 });
 
