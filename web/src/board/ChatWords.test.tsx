@@ -45,7 +45,8 @@ const settle = (ms = 10) =>
   act(async () => {
     await vi.advanceTimersByTimeAsync(ms);
   });
-const panel = () => screen.getByRole('group', { name: t('social.panel') });
+/** The Social card in the decision slot: its window and its Skip or Continue footer. */
+const panel = () => document.querySelector<HTMLElement>('[data-card="social"]')!;
 const phaseOf = (store: GameStore) => store.getView()!.observation.public.phase.kind;
 const refusedReply = (request: ChatRequestBody) =>
   new Response(

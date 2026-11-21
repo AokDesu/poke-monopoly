@@ -3,7 +3,10 @@ import { currentForm } from '../game/content.ts';
 import { t } from '../i18n/en.ts';
 import { memberName, speciesName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
+import { DieFace } from '../ui/DieFace.tsx';
 import { AbilityPanel } from './AbilityPanel.tsx';
+import { DecisionCard } from './DecisionCard.tsx';
+import { phaseLabel } from './labels.ts';
 
 /**
  * Plain words for an engine-listed choice that has no dedicated panel yet: Gym entry, battle
@@ -83,6 +86,11 @@ export function dieSummary(pendingDie: PendingDie): string {
   });
 }
 
+/**
+ * A window with the engine's own choices and no card of its own (spec §3, C.3): a move or catch
+ * reroll window shows the die it asks about, Abilities come with their previews, and the plain
+ * choices sit in the footer, always in view.
+ */
 export function ChoicePanel({
   observation,
   legalActions,
@@ -100,24 +108,36 @@ export function ChoicePanel({
     (action) => action.kind === 'activate_ability',
   );
   return (
-    <div className="decision-panel choice-panel">
+    <DecisionCard
+      kind="choice"
+      heading={phaseLabel(observation.public.phase.kind)}
+      lead={t(pendingDie ? 'turn.rerollBody' : 'turn.choiceBody')}
+      actions={
+        <ul className="choice-list">
+          {choices.map((action, index) => (
+            <li key={action.id}>
+              <ActionButton
+                enabled
+                variant={index === 0 ? 'primary' : 'secondary'}
+                data-primary={index === 0 ? '' : undefined}
+                onClick={() => onChoose(action.id)}
+              >
+                {choiceLabel(action, observation)}
+              </ActionButton>
+            </li>
+          ))}
+        </ul>
+      }
+    >
       {pendingDie && (
-        <p className="reroll-die" role="status" data-die-kind={pendingDie.kind}>
-          {dieSummary(pendingDie)}
-        </p>
+        <div className="reroll-die" data-die-kind={pendingDie.kind}>
+          <DieFace value={pendingDie.die} />
+          <p role="status">{dieSummary(pendingDie)}</p>
+        </div>
       )}
       {abilities && (
         <AbilityPanel observation={observation} legalActions={legalActions} onChoose={onChoose} />
       )}
-      <ul className="choice-list">
-        {choices.map((action) => (
-          <li key={action.id}>
-            <ActionButton enabled onClick={() => onChoose(action.id)}>
-              {choiceLabel(action, observation)}
-            </ActionButton>
-          </li>
-        ))}
-      </ul>
-    </div>
+    </DecisionCard>
   );
 }

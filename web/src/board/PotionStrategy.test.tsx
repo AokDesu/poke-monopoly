@@ -10,6 +10,7 @@ import {
 import { engineContent } from '../game/content.ts';
 import { configForSetup, createGameStore } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
+import { openFolds } from '../test/folds.ts';
 import { BoardScreen } from './BoardScreen.tsx';
 import { StrategyPanel } from './StrategyPanel.tsx';
 
@@ -110,6 +111,8 @@ test.each(['no-target', 'budget-used'] as const)(
     else state.turnBudgets.tacticalAction = 0;
     const store = start(state);
     const before = store.getSession();
+    // A Potion that cannot be used now is folded into one line; open it to read why.
+    openFolds();
     const potion = screen.getAllByRole('button', { name: 'Potion' })[0]!;
     expect(potion.hasAttribute('disabled')).toBe(true);
     const reason = store

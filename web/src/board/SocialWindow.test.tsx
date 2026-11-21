@@ -34,7 +34,8 @@ const settle = (ms = 10) =>
   act(async () => {
     await vi.advanceTimersByTimeAsync(ms);
   });
-const panel = () => screen.getByRole('group', { name: t('social.panel') });
+/** The Social card in the decision slot: its window and its Skip or Continue footer. */
+const panel = () => document.querySelector<HTMLElement>('[data-card="social"]')!;
 const press = (name: string) => fireEvent.click(within(panel()).getByRole('button', { name }));
 const phaseOf = (store: GameStore) => store.getView()!.observation.public.phase.kind;
 const chatsIn = (store: GameStore) =>
@@ -315,7 +316,10 @@ test('asking for an item looks the same whatever a rival holds, and lists conten
     );
     fireEvent.click(within(container).getByRole('button', { name: t(`social.topic.${topic}`) }));
     // useId numbers differ between renders; nothing else may.
-    const markup = container.innerHTML.replace(/ (id|aria-describedby)="[^"]*"/g, '');
+    const markup = container.innerHTML.replace(
+      / (id|aria-describedby|aria-labelledby|aria-controls)="[^"]*"/g,
+      '',
+    );
     unmount();
     return markup;
   };

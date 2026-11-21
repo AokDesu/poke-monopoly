@@ -201,6 +201,32 @@ const SHOWN = [
       'save.continue',
     ],
   },
+  {
+    id: 'play-screen',
+    specRow: 'board',
+    keys: [
+      'hand.balls',
+      'hand.items',
+      'hand.team',
+      'encounter.ballsLeft',
+      'encounter.notHeldOne',
+      'sell.start.heading',
+      'sell.start.coins',
+      'sell.start.lap',
+      'sell.start.abilities',
+      'sell.start.lastLap',
+      'sell.chooseFirst',
+      'fold.offersMany',
+      'fold.abilitiesMany',
+      'strategy.skip',
+      'battle.allTerms',
+      'choice.challengeGym',
+      'choice.skipGym',
+      'turn.rerollBody',
+      'choice.keepDie',
+      'pace.skipToMyTurn',
+    ],
+  },
 ] as const satisfies readonly { id: string; specRow: string; keys: readonly MessageKey[] }[];
 
 /** Rows with nothing for a player to see in this build (no free-text chat or deals screen, engine-only). */
@@ -255,7 +281,9 @@ test('every §3.1 row that has a screen shows each of its catalog keys, labelled
                   ? t('gallery.specHowToPlay')
                   : row.specRow === 'demo'
                     ? t('gallery.specDemo')
-                    : t('gallery.specRow', { row: row.specRow });
+                    : row.specRow === 'board'
+                      ? t('gallery.specBoard')
+                      : t('gallery.specRow', { row: row.specRow });
     expect(within(el).getByText(label), row.id).toBeTruthy();
   }
 });
@@ -310,11 +338,18 @@ test('the examples are inert: choosing in one changes nothing on the page', () =
   expect(within(shop).getByText(t('shop.balance', { coins: 20 }))).toBeTruthy();
 });
 
-test('the two dialogs open in the page flow, not as modals, so every example is visible', () => {
+test('the decision cards sit in the page flow and only How to play is a dialog, open in place', () => {
   render(<GalleryPage fixtures={fixtures} />);
+  // Encounter and Sell are cards in the decision slot now, never modals (issue #256).
+  expect(document.querySelectorAll('[data-card="encounter"]').length).toBeGreaterThan(0);
+  expect(document.querySelectorAll('[data-card="sell"]').length).toBeGreaterThan(0);
   const dialogs = [...document.querySelectorAll('dialog')];
-  expect(dialogs).toHaveLength(2);
-  for (const dialog of dialogs) expect(dialog.open).toBe(true);
+  for (const dialog of dialogs) {
+    expect(dialog.open).toBe(true);
+    expect(dialog.closest('[data-gallery-row]')!.getAttribute('data-gallery-row')).toBe(
+      'how-to-play',
+    );
+  }
 });
 
 test('an invalid answer, revision mismatch or low confidence shows a per-turn note, never the badge or banner (§3)', () => {

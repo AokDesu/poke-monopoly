@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react';
 import type { AiSpeechEvent } from '../../../engine/index.ts';
 import type { PublicGame, VoiceReason } from '../game/tableTalk.ts';
-import { EncounterDialog } from '../board/EncounterDialog.tsx';
+import { EncounterCard } from '../board/EncounterCard.tsx';
 import { EventCard } from '../board/EventCard.tsx';
+import { HandStrip } from '../board/HandStrip.tsx';
 import { PromisePanel } from '../board/PromisePanel.tsx';
 import { SellPanel } from '../board/SellPanel.tsx';
 import { TableTalkPanel } from '../board/TableTalk.tsx';
-import { backupSeats } from '../board/AiTurn.tsx';
+import { AllBackupBanner, backupSeats } from '../board/AiTurn.tsx';
 import { SeatRows } from '../board/SeatRows.tsx';
 import { TurnPanel } from '../board/TurnPanel.tsx';
 import { WatchPanel } from '../board/WatchPanel.tsx';
@@ -82,6 +83,21 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
   const choseItem = once(scenes.rivalChoseItem);
   const choseSale = once(scenes.rivalChoseSale);
   const choseBackup = once(scenes.rivalBackupAtEncounter);
+  const withBalls = once(scenes.encounterWithBalls);
+  const passedStart = once(() => scenes.startPassed(false));
+  const passedLastLap = once(() => scenes.startPassed(true));
+  const defender = once(scenes.defenderResponse);
+  const gym = once(scenes.gymEntry);
+  const moveReroll = once(scenes.moveRerollWindow);
+  /** The Sell card as the live screen shows it: with what passing Start gave, from the feed. */
+  const sellCard = (scene: Scene) => (
+    <SellPanel
+      observation={scene.view.observation}
+      feed={scene.view.feed}
+      quoteSale={scene.store.quoteSale}
+      onSell={noop}
+    />
+  );
   const rivalFallback = (reason: string, rivals: 1 | 2) =>
     once(() => scenes.rivalLeftShop({ source: 'fallback', fallbackReason: reason }, rivals));
   const timeoutOfOne = rivalFallback('timeout', 1);
@@ -195,25 +211,31 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
       playback={STATIC_PLAYBACK}
       actionError={false}
       onChoose={noop}
+      inline
       {...extra}
     />
   );
-  /** A rival's turn as the player sees it: the turn panel and the seat rows with their badges. */
-  const aiTable = (scene: Pick<Scene, 'view'>, status: TurnPlayback['status'] = null) => (
-    <>
-      <TurnPanel
-        view={scene.view}
-        playback={{ ...STATIC_PLAYBACK, status }}
-        actionError={false}
-        onChoose={noop}
-      />
-      <SeatRows
-        observation={scene.view.observation}
-        viewerSeat={scene.view.seatIndex}
-        backup={backupSeats(scene.view, status)}
-      />
-    </>
-  );
+  /** A rival's turn as the player sees it: the banner, the seat rows with their badges, the card. */
+  const aiTable = (scene: Pick<Scene, 'view'>, status: TurnPlayback['status'] = null) => {
+    const playback = { ...STATIC_PLAYBACK, status };
+    return (
+      <>
+        <AllBackupBanner view={scene.view} playback={playback} />
+        <SeatRows
+          observation={scene.view.observation}
+          viewerSeat={scene.view.seatIndex}
+          backup={backupSeats(scene.view, status)}
+        />
+        <TurnPanel
+          view={scene.view}
+          playback={playback}
+          actionError={false}
+          onChoose={noop}
+          inline
+        />
+      </>
+    );
+  };
 
   const promisePanel = (scene: Pick<Scene, 'view'>) => (
     <PromisePanel observation={scene.view.observation} feed={scene.view.feed} />
@@ -231,16 +253,17 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
       onLeave={noop}
     />
   );
-  /** A watched turn: the watcher's panel and every AI's seat row with its badge. */
+  /** A watched turn: the single banner, every AI's seat row with its badge, then the card. */
   const watchTable = (scene: Pick<WatchScene, 'view'>, status: TurnPlayback['status']) => (
     <>
-      {watchPanel(scene, { status })}
+      <AllBackupBanner view={scene.view} playback={{ ...STATIC_PLAYBACK, status }} />
       <SeatRows
         observation={scene.view.observation}
         viewerSeat={undefined}
         opponents={scene.view.opponents}
         backup={backupSeats(scene.view, status)}
       />
+      {watchPanel(scene, { status })}
     </>
   );
 
@@ -288,8 +311,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
           id: 'encounter',
           caption: 'gallery.example.noBall',
           render: () => (
-            <EncounterDialog
-              inline
+            <EncounterCard
               observation={noBall().view.observation}
               legalActions={noBall().view.legalActions}
               catchOdds={noBall().view.catchOdds}
@@ -441,8 +463,8 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
           caption: 'gallery.example.sellWholeTeam',
           render: () => (
             <SellPanel
-              inline
               observation={sellPhase().view.observation}
+              feed={sellPhase().view.feed}
               quoteSale={sellPhase().store.quoteSale}
               initialSelection={sellPhase().teamIds}
               onSell={noop}
@@ -1008,6 +1030,93 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
               />
             </>
           ),
+        },
+      ],
+    },
+    {
+      id: 'play-screen',
+      specRow: null,
+      spec: { id: 'board', label: 'gallery.specBoard' },
+      label: 'gallery.row.playScreen',
+      keys: [
+        'hand.balls',
+        'hand.items',
+        'hand.team',
+        'encounter.ballsLeft',
+        'encounter.notHeldOne',
+        'sell.start.heading',
+        'sell.start.coins',
+        'sell.start.lap',
+        'sell.start.abilities',
+        'sell.start.lastLap',
+        'sell.chooseFirst',
+        'fold.offersMany',
+        'fold.abilitiesMany',
+        'strategy.skip',
+        'battle.allTerms',
+        'choice.challengeGym',
+        'choice.skipGym',
+        'turn.rerollBody',
+        'choice.keepDie',
+        'pace.skipToMyTurn',
+      ],
+      examples: [
+        {
+          id: 'hand',
+          caption: 'gallery.example.hand',
+          render: () => <HandStrip observation={abilityStrategy().view.observation} />,
+        },
+        {
+          id: 'encounter',
+          caption: 'gallery.example.encounterCard',
+          render: () => (
+            <EncounterCard
+              observation={withBalls().view.observation}
+              legalActions={withBalls().view.legalActions}
+              catchOdds={withBalls().view.catchOdds}
+              onChoose={noop}
+            />
+          ),
+        },
+        {
+          id: 'sell-start',
+          caption: 'gallery.example.sellStart',
+          render: () => sellCard(passedStart()),
+        },
+        {
+          id: 'sell-last-lap',
+          caption: 'gallery.example.sellLastLap',
+          render: () => sellCard(passedLastLap()),
+        },
+        {
+          id: 'shop-folded',
+          caption: 'gallery.example.shopFolded',
+          render: () => turnPanel(noCoins()),
+        },
+        {
+          id: 'strategy-folded',
+          caption: 'gallery.example.strategyFolded',
+          render: () => turnPanel(abilityStrategy()),
+        },
+        {
+          id: 'battle-terms',
+          caption: 'gallery.example.battleTerms',
+          render: () => turnPanel(defender()),
+        },
+        {
+          id: 'gym-entry',
+          caption: 'gallery.example.gymCard',
+          render: () => turnPanel(gym()),
+        },
+        {
+          id: 'move-reroll',
+          caption: 'gallery.example.moveReroll',
+          render: () => turnPanel(moveReroll()),
+        },
+        {
+          id: 'rival-turn',
+          caption: 'gallery.example.rivalTurn',
+          render: () => turnPanel(decisionOpen()),
         },
       ],
     },

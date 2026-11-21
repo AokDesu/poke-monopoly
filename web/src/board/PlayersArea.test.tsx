@@ -248,17 +248,17 @@ test('the turn badge follows the active seat when the view changes', () => {
   expect(badgeSeat()).toBe(String(other.seatIndex));
 });
 
-test('a watcher’s seats lead the column; a player’s turn controls come first (§3)', () => {
+test('for a watcher and a player alike, the seat rows lead the side column and the one card follows (§3)', () => {
   fakeServer();
-  const { unmount } = render(<BoardScreen store={watchStore(3)} />);
-  expect(document.querySelector('.trainer-panels')!.firstElementChild!.className).toBe(
-    'players-area',
-  );
-  unmount();
-  render(<BoardScreen store={playerStore(2)} />);
-  const column = document.querySelector('.trainer-panels')!;
-  expect(column.firstElementChild!.className).not.toBe('players-area');
-  expect(column.lastElementChild!.className).toBe('players-area');
+  for (const store of [watchStore(3), playerStore(2)]) {
+    const { unmount } = render(<BoardScreen store={store} />);
+    const column = screen.getByRole('complementary', { name: t('play.side') });
+    const [rows, slot] = [...column.children];
+    expect(rows!.querySelector('.players-area')).toBeTruthy();
+    expect(slot!.getAttribute('aria-label')).toBe(t('turn.actions'));
+    expect(slot!.querySelectorAll('.decision-card')).toHaveLength(1);
+    unmount();
+  }
 });
 
 /** A table where seat 1 is playing, so its row is open as a list of beats. */

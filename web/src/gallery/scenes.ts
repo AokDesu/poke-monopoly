@@ -349,6 +349,14 @@ export function createScenes(fixtures: GalleryFixtures) {
     noBallEncounter: (): Scene =>
       sceneOf(createFixtureStore(fixtures['encounter-no-ball'], engineContent)),
 
+    /** §4.3: the same encounter with Balls in the pouch: each Ball's chance and how many are left. */
+    encounterWithBalls: (): Scene =>
+      sceneOf(
+        createFixtureStore(fixtures['encounter-no-ball'], engineContent, (state) => {
+          state.players[0]!.balls = { poke: 4, great: 1, ultra: 0 };
+        }),
+      ),
+
     /** The same encounter once the engine applied the sole Release itself (`auto: true`). */
     noBallAutoReleased: (): Scene => {
       const store = createFixtureStore(fixtures['encounter-no-ball'], engineContent);
@@ -535,6 +543,44 @@ export function createScenes(fixtures: GalleryFixtures) {
       const view = store.getView()!;
       const you = view.observation.public.players.find((p) => p.seatIndex === view.seatIndex)!;
       return { store, view, teamIds: you.team.map((member) => member.instanceId) };
+    },
+
+    /**
+     * §4.7: seat 0 passes Start on its own move, by the engine's own die: Start income, a Lap
+     * credited and its used Ability made ready, then the Sell Phase. `lastLap` makes it the Lap
+     * that reaches the game's target.
+     */
+    startPassed: (lastLap: boolean): Scene => {
+      const store = createFixtureStore(fixtures['shop-low-coins'], engineContent, (state) => {
+        const you = state.players[0]!;
+        state.phase = { kind: 'move', awaitingResult: true };
+        state.globalTurnNo = 9;
+        state.turnBudgets = { tacticalAction: 1, catchAttempt: 1, pokemonAbility: 1 };
+        you.ownTurnNo = 5;
+        // The fixture store plays a 3-Lap game.
+        you.creditedLap = lastLap ? 2 : 0;
+        you.routeProgress = 24 * you.creditedLap + 23;
+        you.team = [caught('caterpie', false), caught('rattata')];
+      });
+      if (!store.advance({ human: true })) throw new Error('Gallery: the move did not apply');
+      if (store.getView()!.observation.public.phase.kind !== 'sell') {
+        throw new Error('Gallery: Start was not passed');
+      }
+      return sceneOf(store);
+    },
+
+    /** C.6: seat 0's move die is out and Porygon's Calculate may roll it again, or keep it. */
+    moveRerollWindow: (): Scene => {
+      const store = createFixtureStore(fixtures['shop-low-coins'], engineContent, (state) => {
+        state.phase = { kind: 'move', awaitingResult: true };
+        state.globalTurnNo = 7;
+        state.turnBudgets = { tacticalAction: 1, catchAttempt: 1, pokemonAbility: 1 };
+        state.players[0]!.ownTurnNo = 3;
+        state.players[0]!.team = [caught('porygon')];
+      });
+      if (!store.advance({ human: true })) throw new Error('Gallery: the die did not roll');
+      if (store.getView()!.pendingDie === null) throw new Error('Gallery: no reroll window');
+      return sceneOf(store);
     },
 
     /** The same Sell Phase after the whole team was sold in one batch. */

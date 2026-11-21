@@ -615,16 +615,18 @@ export function App({
       screen = <MissingStep onHome={() => go(HOME)} />;
   }
 
+  const playing = route.screen === 'play';
   return (
-    <HowToPlayProvider gameWaits={route.screen === 'play'}>
-      <div className={`flex min-h-dvh flex-col ${route.screen === 'play' ? 'app-playing' : ''}`}>
-        {route.screen !== 'home' && (
+    <HowToPlayProvider gameWaits={playing}>
+      <div className={`flex min-h-dvh flex-col ${playing ? 'app-playing' : ''}`}>
+        {/* The play screen carries its own top bar (title, pace, Game record, How to play). */}
+        {route.screen !== 'home' && !playing && (
           <header className="mx-auto flex w-full max-w-6xl items-center gap-3 px-5 pt-5 sm:px-8">
             <BallIcon className="size-9 drop-shadow-[0_3px_0_rgb(16_38_84/0.35)]" />
             <p className="title-3d text-2xl">{t('app.title')}</p>
-            {route.screen === 'play' && <HowToPlayButton className="ms-auto" />}
           </header>
         )}
+        {/* Demo mode's banner sits above everything, the play screen's top bar included. */}
         {announced && <DemoBanner />}
         <main
           className={`mx-auto flex w-full max-w-6xl flex-1 flex-col px-5 py-8 sm:px-8 sm:py-12 ${
@@ -632,12 +634,13 @@ export function App({
           }`}
         >
           {savingOff && (
-            <p role="status" className="panel mb-6 px-5 py-3 text-sm font-bold">
+            <p role="status" className="save-off panel mb-6 px-5 py-3 text-sm font-bold">
               {t('save.off')}
             </p>
           )}
           <FocusHeadingContext value={navigated}>
             <div
+              className={playing ? 'play-host' : undefined}
               key={
                 route.screen === 'setup'
                   ? route.step

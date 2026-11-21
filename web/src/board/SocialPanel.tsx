@@ -17,6 +17,7 @@ import { voiceReasonText } from '../game/tableTalk.ts';
 import { backupReasonText } from './AiTurn.tsx';
 import { possessive, seatLabel } from './labels.ts';
 import type { ChatReplyControls } from './useChatReply.ts';
+import { DecisionCard } from './DecisionCard.tsx';
 import './social-panel.css';
 
 export interface SocialPanelProps {
@@ -27,6 +28,9 @@ export interface SocialPanelProps {
   reply: ChatReplyControls;
   /** The rival's answer to this turn's promise offer, from the engine's own events. */
   answer?: PromiseAnswer | null;
+  /** The card's heading and its one line; the window's own words when absent. */
+  heading?: string;
+  lead?: string;
   onChoose: (id: string) => void;
 }
 
@@ -46,6 +50,8 @@ export function SocialPanel({
   sent,
   reply,
   answer = null,
+  heading = t('social.panel'),
+  lead,
   onChoose,
 }: SocialPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -77,70 +83,71 @@ export function SocialPanel({
   useEffect(() => {
     const active = document.activeElement;
     if (!keepPlace || (active && active !== document.body)) return;
-    panelRef.current?.querySelector<HTMLElement>('[data-social-continue]')?.focus();
+    panelRef.current
+      ?.closest('.decision-card')
+      ?.querySelector<HTMLElement>('[data-social-continue]')
+      ?.focus();
   }, [keepPlace]);
-  if (pending) {
-    return (
-      <PendingPromise pending={pending} rivalName={rivalName}>
-        {notices()}
-      </PendingPromise>
-    );
-  }
-  const continueButton = skip && (
+  // Skip (or Continue once the window is used) sits in the card's footer, always in view, and
+  // Enter presses it; while a rival owes a promise answer there is none (§4.8).
+  const continueButton = skip && !pending && (
     <ActionButton
       enabled
       variant={sent || answer ? 'primary' : 'secondary'}
       data-social-continue=""
+      data-primary=""
       onClick={() => onChoose(skip.id)}
     >
       {t(done ? 'social.continue' : 'social.skip')}
     </ActionButton>
   );
-
-  if (done) {
-    return (
-      <div
-        ref={panelRef}
-        className="decision-panel social-panel"
-        aria-label={t('social.panel')}
-        role="group"
-      >
-        {answer ? (
-          <PromiseResult answer={answer} ownSeat={ownSeat} rivalName={rivalName} />
-        ) : sent ? (
-          <>
-            <p className="social-sent">
-              {t('social.sent', {
-                rival: rivalName(sent.toSeatIndex),
-                summary: summaryOf(sent),
-              })}
-            </p>
-            <Reply
-              observation={observation}
-              toSeat={sent.toSeatIndex}
-              reply={reply}
-              rivalName={rivalName}
-            />
-            <p className="panel-note">{t('social.spent')}</p>
-          </>
-        ) : (
-          <p className="social-sent">{t('social.spentOther')}</p>
-        )}
-        {notices(sent?.topic)}
-        {continueButton}
-      </div>
-    );
-  }
   return (
-    <OpenWindow
-      observation={observation}
-      chats={chats}
-      offers={offers}
-      rivalName={rivalName}
-      notices={notices}
-      onSend={onChoose}
-      skip={continueButton}
-    />
+    <DecisionCard kind="social" heading={heading} lead={lead} actions={continueButton}>
+      {pending ? (
+        <PendingPromise pending={pending} rivalName={rivalName}>
+          {notices()}
+        </PendingPromise>
+      ) : done ? (
+        <div
+          ref={panelRef}
+          className="decision-panel social-panel"
+          aria-label={t('social.panel')}
+          role="group"
+        >
+          {answer ? (
+            <PromiseResult answer={answer} ownSeat={ownSeat} rivalName={rivalName} />
+          ) : sent ? (
+            <>
+              <p className="social-sent">
+                {t('social.sent', {
+                  rival: rivalName(sent.toSeatIndex),
+                  summary: summaryOf(sent),
+                })}
+              </p>
+              <Reply
+                observation={observation}
+                toSeat={sent.toSeatIndex}
+                reply={reply}
+                rivalName={rivalName}
+              />
+              <p className="panel-note">{t('social.spent')}</p>
+            </>
+          ) : (
+            <p className="social-sent">{t('social.spentOther')}</p>
+          )}
+          {notices(sent?.topic)}
+        </div>
+      ) : (
+        <OpenWindow
+          observation={observation}
+          chats={chats}
+          offers={offers}
+          rivalName={rivalName}
+          notices={notices}
+          onSend={onChoose}
+        />
+      )}
+    </DecisionCard>
   );
 }
 
@@ -220,7 +227,6 @@ function OpenWindow({
   rivalName,
   notices,
   onSend,
-  skip,
 }: {
   observation: Observation;
   chats: ChatChoice[];
@@ -228,7 +234,6 @@ function OpenWindow({
   rivalName: (seatIndex: number) => string;
   notices: (topic?: ChatTopic) => ReactNode;
   onSend: (id: string) => void;
-  skip: ReactNode;
 }) {
   const ownSeat = observation.own.seatIndex;
   const rivals = unique(chats.map((chat) => chat.payload.targetSeatIndex)).toSorted(
@@ -405,7 +410,7 @@ function OpenWindow({
         </p>
       )}
       {chosen ? (
-        <ActionButton enabled onClick={() => onSend(chosen.id)}>
+        <ActionButton enabled data-primary="" onClick={() => onSend(chosen.id)}>
           {t('social.send', { rival: rivalName(chosen.payload.targetSeatIndex) })}
         </ActionButton>
       ) : (
@@ -419,7 +424,6 @@ function OpenWindow({
         rivalName={rivalName}
         onSend={onSend}
       />
-      {skip}
     </div>
   );
 }
@@ -498,7 +502,7 @@ function PromiseOffers({
         </p>
       )}
       {chosen ? (
-        <ActionButton enabled onClick={() => onSend(chosen.id)}>
+        <ActionButton enabled data-primary="" onClick={() => onSend(chosen.id)}>
           {t('promise.send', { rival: rivalName(chosen.payload.targetSeatIndex) })}
         </ActionButton>
       ) : (

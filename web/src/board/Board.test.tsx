@@ -78,9 +78,12 @@ test.each(fixtures)('$name shows the engine projection, not recomputed game valu
   expect(screen.getByTestId('active-seat').getAttribute('data-seat')).toBe(
     String(observation.public.activeSeatIndex),
   );
-  // A read-only board offers no game action. The only buttons are each seat's local details toggle.
+  // A read-only board offers no game action. The only buttons are each seat's local details
+  // toggle and the Game record, which only opens what has already happened.
   for (const button of screen.queryAllByRole('button')) {
-    expect(button.classList.contains('player-toggle')).toBe(true);
+    expect(
+      button.classList.contains('player-toggle') || button.textContent === t('record.open'),
+    ).toBe(true);
   }
 });
 

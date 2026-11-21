@@ -141,9 +141,9 @@ test('the active seat is announced politely and the spotlight follows it (§3)',
     await tick(STEP);
     const seat = Number(active.getAttribute('data-seat'));
     seen.add(String(seat));
-    expect(active.textContent).toContain(
-      t('board.turn', { name: t('board.rivalLabel', { seat }) }),
-    );
+    // The top bar names the playing AI by its class, as its seat row does.
+    const classId = store.getSpectatorView()!.observation.public.players[seat]!.classId;
+    expect(active.textContent).toContain(t('board.turn', { name: className(classId) }));
     const pawn = screen.getByTestId(`token-${seat}`);
     if (phase(store) !== 'finished') expect(pawn.getAttribute('data-focus')).toBe('ai');
   }

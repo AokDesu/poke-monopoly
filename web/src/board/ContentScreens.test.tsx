@@ -19,12 +19,13 @@ import lowCoins from '../../../engine/fixtures/shop-low-coins.json';
 import { ballItemId, classOptions, content, engineContent, speciesType } from '../game/content.ts';
 import { MEADOW_STARTERS } from '../game/models.ts';
 import { t } from '../i18n/en.ts';
+import { openFolds } from '../test/folds.ts';
 import { itemName, speciesName } from '../i18n/names.ts';
 import { ClassScreen } from '../setup/ClassScreen.tsx';
 import { StarterFacts } from '../setup/StarterFacts.tsx';
 import { TypeOrb } from '../ui/TypeOrb.tsx';
 import { Board } from './Board.tsx';
-import { EncounterDialog } from './EncounterDialog.tsx';
+import { EncounterCard } from './EncounterCard.tsx';
 import { tagLabel } from './labels.ts';
 import { SellPanel } from './SellPanel.tsx';
 import { ShopPanel } from './ShopPanel.tsx';
@@ -116,15 +117,16 @@ test.each(SPECIES_IDS)(
     state.phase.pokemon.speciesId = id;
     const form = effectiveForm(engineContent, id);
     render(
-      <EncounterDialog
-        inline
+      <EncounterCard
         observation={observe(state, 0)}
         legalActions={legalActions(state, 0)}
         catchOdds={oddsForAllBalls(state, 0)}
         onChoose={() => {}}
       />,
     );
-    const dialog = screen.getByRole('dialog');
+    const dialog = screen.getByRole('region', {
+      name: t('encounter.heading', { pokemon: form.name }),
+    });
     expect(within(dialog).getByRole('heading', { level: 2 }).textContent).toBe(
       t('encounter.heading', { pokemon: form.name }),
     );
@@ -155,7 +157,6 @@ test('team cards, details and Sell cards render every species and form from the 
   const board = render(<Board observation={observation} />);
   const sell = render(
     <SellPanel
-      inline
       observation={observation}
       quoteSale={(ids) => saleQuote(state, 0, ids)}
       onSell={() => {}}
@@ -323,6 +324,8 @@ test('Strategy and the inventory list every held utility item with kind, price a
       }}
     />,
   );
+  // Items that cannot be used now are folded into one line; open it to read them all.
+  openFolds(strategy.container);
   for (const item of utilities) {
     const button = strategy.getByRole('button', { name: item.name });
     // The greyed-out reason says "not active", so the card itself does not repeat it.
