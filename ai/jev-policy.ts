@@ -92,11 +92,17 @@ export function simJevClient(seed: number): {
 const orchestrators = new WeakMap<PolicyGame, Orchestrator>();
 
 /** `--policy jev`: every seat plays Greedy on Normal, sharing one orchestrator per game. */
-export function createJevPolicy(game: PolicyGame): JevPolicy {
+export function createJevPolicy(game: PolicyGame, difficulty: Difficulty = 'normal'): JevPolicy {
   let orchestrator = orchestrators.get(game);
   if (!orchestrator) {
     orchestrator = new Orchestrator(simJevClient(game.seed));
     orchestrators.set(game, orchestrator);
   }
-  return new JevPolicy(orchestrator, PERSONALITIES.greedy);
+  return new JevPolicy(orchestrator, PERSONALITIES.greedy, difficulty);
 }
+
+/**
+ * `--policy jev-hard`: the same on Hard (spec §5.6), so every Strategy and Encounter question
+ * carries the engine's rollout buckets. The sim draws every sample (no clock), so a run repeats.
+ */
+export const createHardJevPolicy = (game: PolicyGame): JevPolicy => createJevPolicy(game, 'hard');

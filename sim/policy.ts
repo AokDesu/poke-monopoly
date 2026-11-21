@@ -1,5 +1,5 @@
 import { FallbackPolicy, PERSONALITIES } from '../ai/fallback/index.ts';
-import { createJevPolicy } from '../ai/jev-policy.ts';
+import { createHardJevPolicy, createJevPolicy } from '../ai/jev-policy.ts';
 import { ECONOMY_POLICIES } from './exploits/economy.ts';
 import {
   AlwaysPvpPolicy,
@@ -127,4 +127,5 @@ export const EXPLOIT_POLICY_IDS = [
 export const POLICIES: Readonly<Record<string, PolicyFactory>> = {
   ...EXPERIMENT_POLICIES,
   jev: createJevPolicy,
+  'jev-hard': createHardJevPolicy,
 };
