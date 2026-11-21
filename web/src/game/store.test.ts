@@ -177,3 +177,39 @@ test("a speaker's request carries that seat's own public revision, not the viewe
   expect(store.publicFor(0)!.stateRevision).toBe(viewer);
   expect(store.publicFor(1)!.stateRevision).not.toBe(viewer);
 });
+
+test("a speech request carries only the fields every seat shares: no private attack, only the speaker's revision (§4.1, §4.8)", () => {
+  const store = createGameStore();
+  store.start(config, content);
+  const session = store.getSession()!;
+  const state = structuredClone(session.state);
+  // AI seat 1 Pickpocketed seat 0 (a hostile item use is private to the pair); seat 0 also declared a PvP attack.
+  state.attackHistory = [
+    {
+      kind: 'attack_attempt',
+      attackId: 'attack:1',
+      actorId: 'player-1',
+      targetId: 'player-0',
+      source: 'hostile_item',
+      actionSeq: 1,
+      globalTurnNo: 1,
+    },
+    {
+      kind: 'attack_attempt',
+      attackId: 'attack:2',
+      actorId: 'player-0',
+      targetId: 'player-1',
+      source: 'pvp_declaration',
+      actionSeq: 2,
+      globalTurnNo: 1,
+    },
+  ];
+  state.stateRevision = 5;
+  state.players[1]!.unseenRecords = 2;
+  store.restore({ state, log: session.log });
+  for (const seat of [0, 1]) {
+    const shared = store.publicFor(seat)!;
+    expect(shared.attackHistory?.map((attempt) => attempt.source)).toEqual(['pvp_declaration']);
+  }
+  expect(store.publicFor(1)!.stateRevision).toBe(3);
+});

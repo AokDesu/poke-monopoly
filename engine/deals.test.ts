@@ -1410,6 +1410,33 @@ describe('the deals-atomic invariant (§8)', () => {
       expect(miscounted.found).toMatch(/changed the asset caught:0:a as it moved/);
     });
 
+    test('a commit that changes what a trader keeps is reported', () => {
+      // The punkharb case: a retained secret Repel turned public on the same confirm.
+      const retainedItem = tampered(agreedDeal(), 'confirm_deal', {}, (state) => {
+        state.players[1]!.items.find((entry) => entry.instanceId === 'item:1:repel')!.visibility =
+          'public';
+      });
+      expect(retainedItem.found).toMatch(/changed what player-1 keeps/);
+      const giversItem = tampered(agreedDeal(), 'confirm_deal', {}, (state) => {
+        state.players[0]!.items.find((entry) => entry.instanceId === 'item:0:potion')!.visibility =
+          'public';
+      });
+      expect(giversItem.found).toMatch(/changed what player-0 keeps/);
+      const retainedPokemon = tampered(agreedDeal(), 'confirm_deal', {}, (state) => {
+        Object.assign(
+          state.players[1]!.team.find((m) => m.instanceId === 'caught:1:a')!,
+          {
+            tired: true,
+          },
+        );
+      });
+      expect(retainedPokemon.found).toMatch(/changed what player-1 keeps/);
+      const dropped = tampered(agreedDeal(), 'confirm_deal', {}, (state) => {
+        state.players[1]!.items = [];
+      });
+      expect(dropped.found).toMatch(/changed what player-1 keeps/);
+    });
+
     test('a commit that leaves a balance off is reported', () => {
       const wrongBalance = tampered(agreedDeal(), 'confirm_deal', {}, (state) => {
         // Receiver pays one coin too few, as a rounding slip would.

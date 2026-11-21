@@ -155,9 +155,9 @@ export interface GameStore {
   /** The watcher's view, or null without a game or when a seat is human. Stable between changes. */
   getSpectatorView(): SpectatorView | null;
   /**
-   * The public game as `seatIndex` itself sees it, with that seat's own revision, or null without a game.
-   * A request made in an AI seat's name carries this, never the viewer's, whose revision counts records
-   * (a Deal Card, a promise) the seat never saw (§4.8).
+   * The public game for a request made in `seatIndex`'s name, or null without a game: the fields every seat
+   * shares (the spectator's, never a seat-relative projection that names a private attack) with that seat's own
+   * revision, never the viewer's, which counts records (a Deal Card, a promise) the seat never saw (§4.8).
    */
   publicFor(seatIndex: number): Observation['public'] | null;
   /** Creates the game and its log together (engine contract: `createGameLog(createGame(...))`). */
@@ -566,7 +566,13 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
       return () => listeners.delete(listener);
     },
     publicFor(seatIndex: number): Observation['public'] | null {
-      return session ? observe(session.state, seatIndex).public : null;
+      if (!session) return null;
+      // The fields every seat shares (what a spectator sees: no attack made with a private item, no seat-relative
+      // history) with only the revision the speaker itself observes.
+      return {
+        ...observeSpectator(session.state).public,
+        stateRevision: observe(session.state, seatIndex).public.stateRevision,
+      };
     },
     getSession(): GameSession | null {
       return session;
