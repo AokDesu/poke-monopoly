@@ -21,6 +21,7 @@ import {
   bankAnswer,
   banterDue,
   detectMoment,
+  sharedFeed,
   exchangeEvents,
   greeting,
   leaderOf,
@@ -390,6 +391,29 @@ describe('a public moment (§5.7)', () => {
         null,
       ),
     ).toBeNull();
+  });
+
+  test('the shared feed drops what is private to a pair, so a deal starts no talk and changes no key (§4.8)', () => {
+    const step = (kind: string) => entry(kind);
+    const bystander = [step('skip'), step('skip')];
+    // The party also holds a proposal and a cancel from a deal that was walked away from.
+    const party = [step('skip'), step('propose_deal'), step('cancel_deal'), step('skip')];
+    expect(sharedFeed(party)).toHaveLength(2);
+    // The same later public skip gets the same key whoever watched: the length of the shared feed.
+    expect(sharedFeed(party).length).toBe(sharedFeed(bystander).length);
+    for (const kind of [
+      'chat',
+      'offer_promise',
+      'respond',
+      'propose_deal',
+      'respond_deal',
+      'counter_deal',
+      'confirm_deal',
+      'cancel_deal',
+    ]) {
+      expect(sharedFeed([step(kind)]), kind).toEqual([]);
+    }
+    expect(sharedFeed([step('roll'), step('sell')])).toHaveLength(2);
   });
 
   test('a deal that changes the leader triggers no lead taunt either (§4.8)', () => {

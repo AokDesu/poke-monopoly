@@ -94,6 +94,26 @@ export interface Moment {
   readonly coins?: number;
 }
 
+/** The steps no seat outside the pair may know happened (§4.8): a chat, a promise and a Deal Card. */
+const PRIVATE_STEPS: ReadonlySet<string> = new Set([
+  'chat',
+  'offer_promise',
+  'respond',
+  'propose_deal',
+  'respond_deal',
+  'counter_deal',
+  'confirm_deal',
+  'cancel_deal',
+]);
+
+/**
+ * The feed as a bystander would hold it: without the steps that are private to a pair. Table talk is a shared
+ * moment, so what triggers it and the key that names it come from these entries only; otherwise a seat outside
+ * the pair would be asked to speak because of a proposal it never saw, or a key would differ with who watched.
+ */
+export const sharedFeed = (feed: readonly SeatFeedEntry[]): readonly SeatFeedEntry[] =>
+  feed.filter((entry) => !PRIVATE_STEPS.has(entry.record.action.kind));
+
 /** The one seat with strictly the most coins, or null on a tie. Public information only. */
 export function leaderOf(players: PublicGame['players']): number | null {
   const best = Math.max(...players.map((player) => player.coins));

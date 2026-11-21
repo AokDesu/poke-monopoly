@@ -14,6 +14,7 @@ import {
   requestSpeech,
   retortAnswer,
   retortEvent,
+  sharedFeed,
   speakBody,
   speechEvent,
   speedAllowsTalk,
@@ -209,7 +210,7 @@ export function useTableTalk(
       track?.pending?.abort();
       const fresh: Tracking = {
         gameId,
-        handled: view.feed.length,
+        handled: sharedFeed(view.feed).length,
         leader: leaderOf(game.players),
         game,
         pending: null,
@@ -224,11 +225,14 @@ export function useTableTalk(
     const previous = track.game;
     track.leader = leaderOf(game.players);
     track.game = game;
-    const isFresh = view.feed.length > track.handled;
-    track.handled = view.feed.length;
-    const entry = view.feed.at(-1);
+    // Only the steps a bystander would see trigger and name a moment (§4.8): a private proposal or chat starts
+    // no talk and leaves every later key as it would be had it not happened.
+    const shared = sharedFeed(view.feed);
+    const isFresh = shared.length > track.handled;
+    track.handled = shared.length;
+    const entry = shared.at(-1);
     if (!isFresh || !entry) return;
-    const momentKey = view.feed.length;
+    const momentKey = shared.length;
     const moment = detectMoment(entry, game, previousLeader, previous);
     if (moment && ask(track, moment, momentKey)) return;
     // Nothing to say about this step, or nobody to say it: a round still gets its line.

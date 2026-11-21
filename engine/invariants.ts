@@ -759,6 +759,22 @@ function checkDealsAtomic({ before, parsed, result }: Step): string[] {
         errors.push(`a confirmed deal changed the asset ${id} as it moved`);
       }
     }
+    // What each trader keeps is untouched too: every Pokémon and item that did not move, and every other
+    // field of the two players, is as it was (a retained secret item turned public would show to a spectator).
+    for (const trader of [giver, receiver]) {
+      const next = result.state.players.find((p) => p.actorId === trader.actorId);
+      const kept = (player: Player) => ({
+        ...player,
+        coins: 0,
+        dealUsedLap: undefined,
+        unseenRecords: 0,
+        team: player.team.filter((entry) => !ids.includes(entry.instanceId)),
+        items: player.items.filter((entry) => !ids.includes(entry.instanceId)),
+      });
+      if (!next || canonicalJson(kept(trader)) !== canonicalJson(kept(next))) {
+        errors.push(`a confirmed deal changed what ${trader.actorId} keeps`);
+      }
+    }
     const transfer = transfers[0];
     if (
       transfers.length !== 1 ||
