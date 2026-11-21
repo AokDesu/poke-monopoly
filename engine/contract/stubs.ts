@@ -28,7 +28,7 @@ import {
 } from '../turns.ts';
 import { confirmCatch, recordCatchRoll } from '../catching.ts';
 import { confirmShop } from '../shop.ts';
-import { itemChoices, useItem } from '../items.ts';
+import { itemChoices, resolvePickpocketReaction, useItem } from '../items.ts';
 import { ENGINE_VERSION } from '../versions.ts';
 import { recordSale, validSale } from '../selling.ts';
 import { chatChoices, chatsOf, recordChat, validChat } from '../social.ts';
@@ -74,6 +74,14 @@ function observedPending(state: GameState, seatIndex: number) {
 export function observe(state: GameState, seatIndex: number): Observation {
   const ownPlayer = state.players.find((player) => player.seatIndex === seatIndex);
   if (!ownPlayer) throw new RangeError('Unknown seat index');
+  const debuffed = ownPlayer.team.filter((pokemon) => pokemon.combatDebuffed);
+  let phase = state.phase;
+  if (phase.kind === 'chance_roll' && 'targetSeatIndex' in phase.effect) {
+    const effect = { ...phase.effect };
+    delete effect.targetSeatIndex;
+    if ('targetPokemonInstanceId' in effect) delete effect.targetPokemonInstanceId;
+    phase = { ...phase, effect };
+  }
   return structuredClone({
     public: {
       board: state.content.board,
@@ -85,7 +93,12 @@ export function observe(state: GameState, seatIndex: number): Observation {
         position: positionOf(player.routeProgress),
         creditedLap: player.creditedLap,
         ownTurnNo: player.ownTurnNo,
-        team: player.team,
+        team: player.team.map((pokemon) => {
+          if (!pokemon.combatDebuffed) return pokemon;
+          const copy = { ...pokemon };
+          delete copy.combatDebuffed;
+          return copy;
+        }),
         itemCount: player.items.length,
         knownItems: player.items
           .filter((item) => item.visibility === 'public')
@@ -105,7 +118,7 @@ export function observe(state: GameState, seatIndex: number): Observation {
               .map(seatAttackAttempt),
           }
         : {}),
-      phase: state.phase,
+      phase,
       lapTarget: state.config.lapTarget,
       finalTableRound: state.finalTableRound,
       ...(state.lastEvent ? { lastEvent: state.lastEvent } : {}),
@@ -116,6 +129,10 @@ export function observe(state: GameState, seatIndex: number): Observation {
       ...(ownPlayer.armedShield ? { armedShield: ownPlayer.armedShield } : {}),
       balls: ownPlayer.balls,
       privateResults: ownPlayer.privateResults,
+      ...(debuffed.length > 0 && {
+        combatDebuffedPokemonIds: debuffed.map((pokemon) => pokemon.instanceId),
+      }),
+      ...(state.pendingPickpocket?.targetSeatIndex === seatIndex && { pickpocketReaction: true }),
       ...(state.lastEvent?.seatIndex === seatIndex && state.lastEventReward
         ? { lastEventReward: state.lastEventReward }
         : {}),
@@ -166,6 +183,10 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   if (state.config.engineVersion === ENGINE_VERSION) {
     result.enabled.push(...abilityChoices(state, seatIndex));
     result.disabled.push(...abilityDisabled(state, seatIndex));
+  }
+  if (state.pendingPickpocket) {
+    result.enabled.push({ id: 'pass-window', kind: 'skip', payload: {} });
+    return result;
   }
   if (state.config.engineVersion === ENGINE_VERSION && state.phase.kind === 'pvp') {
     pendingPvpChoices(state, result);
@@ -282,6 +303,7 @@ function recordActivation(next: GameState, action: Action) {
     (next.phase.kind === 'pvp' && next.phase.battle.step.endsWith('_window')) ||
     (next.phase.kind === 'gym' && next.phase.battle.step === 'window');
   const events = activateAbility(next, action);
+  if (next.pendingPickpocket) return [...events, ...resolvePickpocketReaction(next, false)];
   return inWindow ? [...events, ...closePvpWindow(next), ...closeGymWindow(next)] : events;
 }
 
@@ -299,6 +321,9 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
   }
   // A finished game accepts nothing more, including engine-generated records.
   if (state.phase.kind === 'finished') return { rejected: true, reason: 'illegal_action', state };
+  if (action.actorId === 'engine' && state.pendingPickpocket) {
+    return { rejected: true, reason: 'illegal_action', state };
+  }
   if (action.actorId === 'engine' && action.kind === 'dice_result') {
     if (
       state.phase.kind === 'first_player_roll' &&
@@ -447,17 +472,19 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
                         ? recordTurnCommand(next, action.kind)
                         : action.kind === 'activate_ability'
                           ? recordActivation(next, action)
-                          : next.phase.kind === 'gym'
-                            ? recordGymCommand(next, action)
-                            : action.kind === 'declare_pvp' || next.phase.kind === 'pvp'
-                              ? recordPvpCommand(next, action)
-                              : next.phase.kind === 'encounter'
-                                ? confirmCatch(next, action)
-                                : next.phase.kind === 'shop'
-                                  ? confirmShop(next, action)
-                                  : action.kind === 'use_item'
-                                    ? useItem(next, action)
-                                    : recordTurnCommand(next, action.kind);
+                          : next.pendingPickpocket && action.kind === 'skip'
+                            ? resolvePickpocketReaction(next, true)
+                            : next.phase.kind === 'gym'
+                              ? recordGymCommand(next, action)
+                              : action.kind === 'declare_pvp' || next.phase.kind === 'pvp'
+                                ? recordPvpCommand(next, action)
+                                : next.phase.kind === 'encounter'
+                                  ? confirmCatch(next, action)
+                                  : next.phase.kind === 'shop'
+                                    ? confirmShop(next, action)
+                                    : action.kind === 'use_item'
+                                      ? useItem(next, action)
+                                      : recordTurnCommand(next, action.kind);
   return {
     accepted: true,
     state: next,

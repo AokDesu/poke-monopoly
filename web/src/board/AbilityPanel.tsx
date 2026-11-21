@@ -75,13 +75,26 @@ export function AbilityPanel({
     : [];
   const choice = selected?.enabled.find((action) => action.id === current?.choiceId);
   const optionLabel = ({ payload }: Enabled | Disabled) => {
+    if (payload.targetPokemonInstanceId !== undefined) {
+      const member = memberLabel(payload.targetPokemonInstanceId, payload.targetSeatIndex);
+      if (payload.targetSeatIndex !== undefined) {
+        return t('ability.targetMember', {
+          member,
+          target: seatLabel(payload.targetSeatIndex, ownSeat),
+        });
+      }
+      return payload.status === 'combat_debuff' ? t('ability.healDebuff', { member }) : member;
+    }
     if (payload.targetSeatIndex !== undefined) return seatLabel(payload.targetSeatIndex, ownSeat);
-    if (payload.targetPokemonInstanceId !== undefined)
-      return memberLabel(payload.targetPokemonInstanceId);
     return t(payload.scope === 'catch' ? 'ability.scope.catch' : 'ability.scope.combat');
   };
-  const memberLabel = (instanceId: string) =>
-    t('ability.member', { pokemon: memberName(team, instanceId) });
+  const memberLabel = (instanceId: string, seatIndex = ownSeat) =>
+    t('ability.member', {
+      pokemon: memberName(
+        observation.public.players.find((entry) => entry.seatIndex === seatIndex)?.team ?? [],
+        instanceId,
+      ),
+    });
   const optionHeading = options.some(({ action }) => action.payload.targetSeatIndex !== undefined)
     ? t('ability.targets')
     : options.some(({ action }) => action.payload.targetPokemonInstanceId !== undefined)
@@ -172,7 +185,10 @@ export function AbilityPanel({
           {choice.payload.targetPokemonInstanceId !== undefined && (
             <p>
               {t('ability.previewMember', {
-                member: memberLabel(choice.payload.targetPokemonInstanceId),
+                member: memberLabel(
+                  choice.payload.targetPokemonInstanceId,
+                  choice.payload.targetSeatIndex,
+                ),
               })}
             </p>
           )}

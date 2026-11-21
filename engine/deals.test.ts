@@ -1067,7 +1067,7 @@ describe('replay, save and resume reproduce a game with deals (§6.8, §6.9)', (
 
   test('an old save is refused rather than migrated', () => {
     const { state, log } = played();
-    const text = serialize({ state, log }).replaceAll(`"${ENGINE_VERSION}"`, '"0.20.0"');
+    const text = serialize({ state, log }).replaceAll(`"${ENGINE_VERSION}"`, '"0.22.0"');
     expect(() => deserialize(text)).toThrow(/engine version/);
   });
 });
@@ -1350,6 +1350,64 @@ describe('the deals-atomic invariant (§8)', () => {
         const cancel = tampered(agreedDeal(), 'cancel_deal', {}, edit);
         expect(cancel.found, `cancel: ${what}`).toMatch(expected);
       }
+    });
+
+    test('a commit that changes the asset it moves is reported, a Tired expiry re-count is not', () => {
+      const secretPotion = () =>
+        reply(propose(social({ seats: 3 }), sellItem('item:0:potion', 3)).state, 'accept').state;
+      // The punkharb case: the transferred secret Potion arrives public, so the spectator could see it.
+      const exposed = tampered(secretPotion(), 'confirm_deal', {}, (state) => {
+        state.players[1]!.items.find((entry) => entry.instanceId === 'item:0:potion')!.visibility =
+          'public';
+      });
+      expect(exposed.found).toMatch(/changed the asset item:0:potion as it moved/);
+      const renamed = tampered(secretPotion(), 'confirm_deal', {}, (state) => {
+        state.players[1]!.items.find((entry) => entry.instanceId === 'item:0:potion')!.itemId =
+          'repel';
+      });
+      expect(renamed.found).toMatch(/changed the asset item:0:potion as it moved/);
+      // A Pokémon's form or status changing as it moves.
+      const evolved = tampered(agreedDeal(), 'confirm_deal', {}, (state) => {
+        Object.assign(
+          state.players[1]!.team.find((m) => m.instanceId === 'caught:0:a')!,
+          {
+            evolutionStage: 1,
+          },
+        );
+      });
+      expect(evolved.found).toMatch(/changed the asset caught:0:a as it moved/);
+      const rested = tampered(agreedDeal(), 'confirm_deal', {}, (state) => {
+        Object.assign(
+          state.players[1]!.team.find((m) => m.instanceId === 'caught:0:a')!,
+          {
+            tired: true,
+          },
+        );
+      });
+      expect(rested.found).toMatch(/changed the asset caught:0:a as it moved/);
+      // The real commit of a Tired Pokémon re-counts its expiry in the new owner's turns and passes.
+      const tired = social({ seats: 3 });
+      tired.players[0]!.ownTurnNo = 4;
+      tired.players[1]!.ownTurnNo = 9;
+      Object.assign(
+        tired.players[0]!.team.find((m) => m.instanceId === 'caught:0:a')!,
+        {
+          tired: true,
+          tiredExpiresOwnTurnNo: 5,
+        },
+      );
+      const before = reply(propose(tired, sellPokemon('caught:0:a', 3)).state, 'accept').state;
+      expect(tampered(before, 'confirm_deal', {}, () => undefined).clean).toEqual([]);
+      // A wrong re-count is reported.
+      const miscounted = tampered(before, 'confirm_deal', {}, (state) => {
+        Object.assign(
+          state.players[1]!.team.find((m) => m.instanceId === 'caught:0:a')!,
+          {
+            tiredExpiresOwnTurnNo: 11,
+          },
+        );
+      });
+      expect(miscounted.found).toMatch(/changed the asset caught:0:a as it moved/);
     });
 
     test('a commit that leaves a balance off is reported', () => {

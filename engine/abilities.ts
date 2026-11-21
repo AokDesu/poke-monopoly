@@ -1,7 +1,7 @@
 import { effectiveForm } from './forms.ts';
 import { armShield } from './protection.ts';
 import { declareHostileAction } from './protection.ts';
-import { applyStatus, healStatus } from './status.ts';
+import { applyStatus, healStatus, pokemonStatuses } from './status.ts';
 import { addSlow, hasSlowKind } from './slows.ts';
 import { ensureEventDeck } from './events.ts';
 import { forceChallenge, pvpDisabledReason } from './pvp.ts';
@@ -24,7 +24,15 @@ type Timing =
 /** One Ability effect: a primitive operation with fixed parameters (Appendix C.1 D1). */
 export interface AbilityEffect {
   readonly primitive:
-    'fixedMove' | 'moveDebuff' | 'rollBonus' | 'forcePvP' | 'shield' | 'heal' | 'gainBall' | 'peek';
+    | 'fixedMove'
+    | 'moveDebuff'
+    | 'rollBonus'
+    | 'forcePvP'
+    | 'shield'
+    | 'heal'
+    | 'gainBall'
+    | 'gainCoin'
+    | 'peek';
   readonly operation: string;
   readonly timing: Timing;
   /** Targets an opponent with a harmful effect (`hostileAbility`, §4.5). */
@@ -34,8 +42,6 @@ export interface AbilityEffect {
 /**
  * Engine-owned Ability effects (Appendix C.1/C.2). Content names an effect ID; every primitive,
  * operation, number and timing lives here, so no rule is read from Ability prose (§4.5).
- * `challenge` and `track` are engine adapters for the forcePvP and peek primitives that no core
- * Ability binds; C4 content decides which species carry them.
  */
 export const ABILITY_EFFECTS: Readonly<Record<AbilityEffectId, AbilityEffect>> = {
   vine_pull: {
@@ -45,7 +51,14 @@ export const ABILITY_EFFECTS: Readonly<Record<AbilityEffectId, AbilityEffect>> =
     hostile: true,
   },
   blaze: { primitive: 'rollBonus', operation: 'add', timing: 'BEFORE_OWN_ROLL', hostile: false },
+  quick_slash: {
+    primitive: 'rollBonus',
+    operation: 'add',
+    timing: 'BEFORE_OWN_ROLL',
+    hostile: false,
+  },
   shell_guard: { primitive: 'shield', operation: 'arm', timing: 'REACTION', hostile: false },
+  block: { primitive: 'shield', operation: 'arm', timing: 'REACTION', hostile: false },
   adaptability: {
     primitive: 'rollBonus',
     operation: 'add',
@@ -55,6 +68,12 @@ export const ABILITY_EFFECTS: Readonly<Record<AbilityEffectId, AbilityEffect>> =
   lucky_splash: {
     primitive: 'gainBall',
     operation: 'chanceBall',
+    timing: 'OWN_STRATEGY',
+    hostile: false,
+  },
+  scavenge: {
+    primitive: 'gainCoin',
+    operation: 'chanceCoin',
     timing: 'OWN_STRATEGY',
     hostile: false,
   },
@@ -96,10 +115,29 @@ export const ABILITY_EFFECTS: Readonly<Record<AbilityEffectId, AbilityEffect>> =
     hostile: true,
   },
   track: { primitive: 'peek', operation: 'topEvent', timing: 'OWN_STRATEGY', hostile: false },
+  thunder_shock: {
+    primitive: 'moveDebuff',
+    operation: 'cap',
+    timing: 'OWN_STRATEGY',
+    hostile: true,
+  },
+  confusion: {
+    primitive: 'moveDebuff',
+    operation: 'forceReroll',
+    timing: 'OWN_STRATEGY',
+    hostile: true,
+  },
+  poison_sting: {
+    primitive: 'rollBonus',
+    operation: 'memberDebuff',
+    timing: 'OWN_STRATEGY',
+    hostile: true,
+  },
 };
 
 /** The decision window a seat is in, if any (Appendix C.3 D3). */
-export type AbilityWindow = 'strategy' | 'encounter' | 'attacker' | 'defender' | 'gym' | 'reroll';
+export type AbilityWindow =
+  'strategy' | 'encounter' | 'attacker' | 'defender' | 'gym' | 'reroll' | 'pickpocket';
 
 const WINDOW_TIMINGS: Readonly<Record<AbilityWindow, readonly Timing[]>> = {
   strategy: ['OWN_STRATEGY', 'CHALLENGE_DECLARE'],
@@ -108,17 +146,20 @@ const WINDOW_TIMINGS: Readonly<Record<AbilityWindow, readonly Timing[]>> = {
   // A PvP defender may use either a B or an R Ability in its window (C.3).
   defender: ['BEFORE_OWN_ROLL', 'REACTION'],
   gym: ['BEFORE_OWN_ROLL'],
+  pickpocket: ['REACTION'],
   reroll: ['AFTER_OWN_ROLL'],
 };
 
 /** Ability numbers (Appendix A, C.2): the engine is their only home. */
 const BLAZE_BONUS = 1;
+const QUICK_SLASH_BONUS = 1;
 const ADAPTABILITY_BONUS = 1;
 const DRAGON_RUSH_BONUS = 2;
 const INTIMIDATE_DEBUFF = 1;
 const QUICK_FLIGHT_STEPS = 3;
 const VINE_PULL_STEPS = -2;
 const LUCKY_SPLASH = { faces: [5, 6], ballType: 'great' } as const;
+const SCAVENGE_COINS = 1;
 
 /** The effect the instance's current form carries; evolved fallback forms inherit it (§4.5). */
 export function abilityEffectOf(
@@ -131,7 +172,13 @@ export function abilityEffectOf(
 type Reason = { reasonCode: ReasonCode; reasonText: string };
 
 /** Effects that name an opponent as their target. */
-const TARGETED_EFFECTS: readonly AbilityEffectId[] = ['vine_pull', 'string_shot', 'challenge'];
+const TARGETED_EFFECTS: readonly AbilityEffectId[] = [
+  'vine_pull',
+  'string_shot',
+  'thunder_shock',
+  'confusion',
+  'challenge',
+];
 
 const TIMING_TEXT: Readonly<Record<Timing, string>> = {
   OWN_STRATEGY: 'Usable in your Strategy phase',
@@ -183,7 +230,9 @@ function targetBlock(
   effect: AbilityEffectId,
   target: Player,
 ): Reason | undefined {
-  if (effect === 'string_shot' && hasSlowKind(target, 'minus')) {
+  const slowKind =
+    effect === 'string_shot' ? 'minus' : effect === 'thunder_shock' ? 'cap' : undefined;
+  if (slowKind && hasSlowKind(target, slowKind)) {
     return { reasonCode: 'NO_VALID_TARGET', reasonText: 'Target is already slowed' };
   }
   if (effect === 'challenge') return pvpDisabledReason(state, player, target) ?? undefined;
@@ -198,7 +247,13 @@ function effectBlock(
 ): Reason {
   const battle = window === 'attacker' || window === 'defender' || window === 'gym';
   const noTarget = (reasonText: string): Reason => ({ reasonCode: 'NO_VALID_TARGET', reasonText });
-  if (!battle && (effect === 'blaze' || effect === 'dragon_rush' || effect === 'intimidate')) {
+  if (
+    !battle &&
+    (effect === 'blaze' ||
+      effect === 'quick_slash' ||
+      effect === 'dragon_rush' ||
+      effect === 'intimidate')
+  ) {
     return { reasonCode: 'ABILITY_WRONG_TIMING', reasonText: 'Works only in a battle' };
   }
   switch (effect) {
@@ -207,6 +262,7 @@ function effectBlock(
     case 'heal_pulse':
       return noTarget('No Pokémon with a status to heal');
     case 'shell_guard':
+    case 'block':
       return noTarget('A shield is already armed');
     case 'track':
       return noTarget('No Event card to look at');
@@ -225,6 +281,9 @@ export function canActivate(state: GameState, player: Player, pokemon: PokemonIn
 
 /** The window open for `seatIndex` in the current phase. */
 export function currentWindow(state: GameState, seatIndex: number): AbilityWindow | undefined {
+  if (state.pendingPickpocket) {
+    return seatIndex === state.pendingPickpocket.targetSeatIndex ? 'pickpocket' : undefined;
+  }
   const phase = state.phase;
   const active = seatIndex === state.activeSeatIndex;
   if (phase.kind === 'strategy' && active) return 'strategy';
@@ -284,6 +343,7 @@ function effectPayloads(
   const battle = window === 'attacker' || window === 'defender' || window === 'gym';
   switch (effect) {
     case 'blaze':
+    case 'quick_slash':
     case 'dragon_rush':
       return battle ? [{ instanceId }] : [];
     case 'adaptability':
@@ -303,18 +363,8 @@ function effectPayloads(
       return window === 'reroll' ? [{ instanceId }] : [];
     case 'quick_flight':
     case 'lucky_splash':
+    case 'scavenge':
       return window === 'strategy' ? [{ instanceId }] : [];
-    case 'challenge':
-      // forceChallenge: the forced PvP's own legality (tactical action, both teams ready).
-      return window !== 'strategy'
-        ? []
-        : state.players
-            .filter(
-              (target) =>
-                target.seatIndex !== player.seatIndex &&
-                !targetBlock(state, player, effect, target),
-            )
-            .map((target) => ({ instanceId, targetSeatIndex: target.seatIndex }));
     case 'track':
       // peek needs a deck to look at: a fresh deck, or a discard pile to reshuffle (§4.6).
       return window === 'strategy' &&
@@ -323,9 +373,22 @@ function effectPayloads(
           state.content.events?.length)
         ? [{ instanceId }]
         : [];
+    case 'poison_sting':
+      return state.players
+        .filter((target) => target.seatIndex !== player.seatIndex)
+        .flatMap((target) =>
+          target.team.map((member) => ({
+            instanceId,
+            targetSeatIndex: target.seatIndex,
+            targetPokemonInstanceId: member.instanceId,
+          })),
+        );
     case 'vine_pull':
     case 'string_shot':
-      // D10: any opponent at any distance; a slow never targets a pending slow of its kind.
+    case 'thunder_shock':
+    case 'confusion':
+    case 'challenge':
+      // D10: any opponent at any distance, subject to each effect's targeting rules.
       return window !== 'strategy'
         ? []
         : state.players
@@ -337,11 +400,18 @@ function effectPayloads(
             .map((target) => ({ instanceId, targetSeatIndex: target.seatIndex }));
     case 'heal_pulse':
       // D10: Heal Pulse needs an own Pokémon with a status.
-      return player.team
-        .filter((member) => member.tired)
-        .map((member) => ({ instanceId, targetPokemonInstanceId: member.instanceId }));
+      if (window === 'pickpocket') return [];
+      return player.team.flatMap((member) =>
+        pokemonStatuses(member).map((status) => ({
+          instanceId,
+          targetPokemonInstanceId: member.instanceId,
+          ...(status === 'tired' ? {} : { status }),
+        })),
+      );
     case 'shell_guard':
       // D7: at most one armed shield from any source.
+      return window === 'pickpocket' || player.armedShield ? [] : [{ instanceId }];
+    case 'block':
       return player.armedShield ? [] : [{ instanceId }];
     default:
       return [];
@@ -390,7 +460,7 @@ export function abilityDisabled(
   const player = state.players.find((entry) => entry.seatIndex === seatIndex)!;
   return player.team.flatMap((pokemon) => {
     const effect = abilityEffectOf(state, pokemon);
-    if (!effect) return [];
+    if (!effect || (window === 'pickpocket' && effect !== 'block')) return [];
     const { instanceId } = pokemon;
     const disabled = (payload: Payload, reason: Reason) => ({
       id: abilityActionId(payload),
@@ -441,12 +511,28 @@ export function activateAbility(next: GameState, action: Action): EngineEvent[] 
     case 'heal_pulse':
       return [
         activated,
-        ...healStatus(player, action.payload.targetPokemonInstanceId!, 'tired', 'heal_pulse'),
+        ...healStatus(
+          player,
+          action.payload.targetPokemonInstanceId!,
+          action.payload.status ?? 'tired',
+          'heal_pulse',
+        ),
       ];
     case 'shell_guard':
       return [activated, ...armShield(player, { scope: 'battle_coin_loss', visibility: 'public' })];
+    case 'block':
+      return [
+        activated,
+        ...armShield(player, {
+          scope: 'pvp_pickpocket',
+          visibility: next.pendingPickpocket ? 'secret' : 'public',
+        }),
+      ];
     case 'blaze':
       addBattleTerms(next, player.seatIndex, { abilityBonus: BLAZE_BONUS });
+      return [activated];
+    case 'quick_slash':
+      addBattleTerms(next, player.seatIndex, { abilityBonus: QUICK_SLASH_BONUS });
       return [activated];
     case 'dragon_rush':
       addBattleTerms(next, player.seatIndex, { abilityBonus: DRAGON_RUSH_BONUS });
@@ -472,13 +558,8 @@ export function activateAbility(next: GameState, action: Action): EngineEvent[] 
       startReroll(next);
       return [activated];
     case 'lucky_splash':
-      // chanceBall: the engine owes one logged d6 before Strategy continues (C.1).
-      next.phase = {
-        kind: 'chance_roll',
-        rollId: `ability:${publicRevision(next)}`,
-        seatIndex: player.seatIndex,
-      };
-      return [activated, { kind: 'phase_changed', from: 'strategy', to: 'chance_roll' }];
+    case 'scavenge':
+      return [activated, beginChanceRoll(next, player, { kind: effect })];
     case 'track':
       return [activated, ...peekTopEvent(next, player)];
     case 'challenge': {
@@ -494,12 +575,26 @@ export function activateAbility(next: GameState, action: Action): EngineEvent[] 
       next.turnEffects = { ...next.turnEffects, fixedMove: QUICK_FLIGHT_STEPS };
       return [activated];
     case 'vine_pull':
-    case 'string_shot': {
+    case 'string_shot':
+    case 'thunder_shock':
+    case 'confusion':
+    case 'poison_sting': {
       const target = next.players.find(
         (entry) => entry.seatIndex === action.payload.targetSeatIndex,
       )!;
       activated.targetId = target.actorId;
       const declared = declareHostileAction(next, player, target, 'hostile_ability');
+      if (effect === 'thunder_shock' || effect === 'confusion' || effect === 'poison_sting') {
+        // Always record the chance die so the pending roll does not disclose a Price Shield.
+        const rolling = beginChanceRoll(next, player, {
+          kind: effect,
+          ...(declared.blocked ? {} : { targetSeatIndex: target.seatIndex }),
+          ...(effect === 'poison_sting' && !declared.blocked
+            ? { targetPokemonInstanceId: action.payload.targetPokemonInstanceId! }
+            : {}),
+        });
+        return [activated, ...declared.events, rolling];
+      }
       if (declared.blocked) return [activated, ...declared.events];
       if (effect === 'string_shot') {
         addSlow(target, 'string_shot');
@@ -566,16 +661,54 @@ export function pendingChanceRollPurpose(state: GameState): string | undefined {
   return state.phase.kind === 'chance_roll' ? `${state.phase.rollId}:chance` : undefined;
 }
 
-/** Lucky Splash's die: a listed face adds one Ball to the owner's pouch; a miss changes nothing. */
+function beginChanceRoll(
+  next: GameState,
+  player: Player,
+  effect: Extract<GameState['phase'], { kind: 'chance_roll' }>['effect'],
+): EngineEvent {
+  next.phase = {
+    kind: 'chance_roll',
+    rollId: `ability:${publicRevision(next)}`,
+    seatIndex: player.seatIndex,
+    effect,
+  };
+  return { kind: 'phase_changed', from: 'strategy', to: 'chance_roll' };
+}
+
+/** Resolve an Ability's logged chance die before returning to Strategy. */
 export function recordChanceRoll(next: GameState, value: number): EngineEvent[] {
   if (next.phase.kind !== 'chance_roll') return [];
-  const { seatIndex } = next.phase;
+  const { seatIndex, effect } = next.phase;
   const owner = next.players.find((entry) => entry.seatIndex === seatIndex);
   next.phase = { kind: 'strategy' };
   const events: EngineEvent[] = [];
-  if (owner && (LUCKY_SPLASH.faces as readonly number[]).includes(value)) {
+  if (
+    effect.kind === 'lucky_splash' &&
+    owner &&
+    (LUCKY_SPLASH.faces as readonly number[]).includes(value)
+  ) {
     owner.balls[LUCKY_SPLASH.ballType]++;
     events.push({ kind: 'ball_gained', ownerId: owner.actorId, ballType: LUCKY_SPLASH.ballType });
+  } else if (value % 2 === 0) {
+    if (effect.kind === 'scavenge' && owner) {
+      owner.coins += SCAVENGE_COINS;
+      events.push({
+        kind: 'coin_transfer',
+        source: { kind: 'bank' },
+        destination: { kind: 'player', actorId: owner.actorId },
+        amount: SCAVENGE_COINS,
+        reason: 'scavenge',
+      });
+    } else if ('targetSeatIndex' in effect) {
+      const target = next.players.find((entry) => entry.seatIndex === effect.targetSeatIndex);
+      if (target && effect.kind === 'thunder_shock') addSlow(target, 'thunder_shock');
+      if (target && effect.kind === 'confusion') target.confused = true;
+      if (target && effect.kind === 'poison_sting' && effect.targetPokemonInstanceId) {
+        events.push(
+          ...applyStatus(target, effect.targetPokemonInstanceId, 'combat_debuff', 'poison_sting'),
+        );
+      }
+    }
   }
   return [...events, { kind: 'phase_changed', from: 'chance_roll', to: 'strategy' }];
 }

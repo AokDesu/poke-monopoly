@@ -621,7 +621,7 @@ export function createScenes(fixtures: GalleryFixtures) {
 
     /**
      * §4.5, Appendix C: Strategy with one Pokémon per Ability state: ready (Quick Flight), wrong
-     * timing (Blaze), used this Lap (Vine Pull) and not run by the engine yet (Scavenge).
+     * timing (Blaze), used this Lap (Vine Pull) and another ready Ability (Scavenge).
      */
     abilityStrategy: (): Scene =>
       sceneOf(

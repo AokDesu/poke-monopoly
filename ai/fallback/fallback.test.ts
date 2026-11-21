@@ -20,6 +20,7 @@ import strategyFixture from '../../engine/fixtures/strategy-with-items.json';
 import { parseSimArgs } from '../../sim/args.ts';
 import { realEngine } from '../../sim/engine.ts';
 import { createPolicyRng, POLICIES, type PolicyFacts } from '../../sim/policy.ts';
+import { sellsEverythingNow } from '../last-sell.ts';
 import { DEFAULT_OPTIONS, runSim, type SimEngine } from '../../sim/runner.ts';
 import {
   decideWithFallback,
@@ -355,7 +356,7 @@ describe('sim registration (§1: games finish with Jev off)', () => {
     },
   );
 
-  test('each Sell Phase across seeded two-seat Greedy games sells exactly the qualifying batch', async () => {
+  test('each Sell Phase across seeded two-seat Greedy games sells exactly the qualifying batch, or every non-Rescue Pokémon in the last one unless a Gym follows (§5.6)', async () => {
     const sales: { sold: string[]; qualifying: string[] }[] = [];
     const engine: SimEngine = {
       ...realEngine,
@@ -369,8 +370,12 @@ describe('sim registration (§1: games finish with Jev off)', () => {
           sales.push({
             sold: [...command.payload.pokemonInstanceIds],
             qualifying: team.team
-              .map((pokemon) => pokemon.instanceId)
-              .filter((id) => saleDesire(observation, id, facts) >= greedy.sellThreshold),
+              .filter((pokemon) =>
+                sellsEverythingNow(observation)
+                  ? pokemon.origin !== 'rescue_starter'
+                  : saleDesire(observation, pokemon.instanceId, facts) >= greedy.sellThreshold,
+              )
+              .map((pokemon) => pokemon.instanceId),
           });
         }
         return realEngine.applyAction(state, action);

@@ -54,9 +54,13 @@ function quote(observation: Observation, message: ChatMessage): string {
   }
 }
 
-/** The last 3 messages addressed to this seat: quoted canned English with the speaker's name. */
-export function recentChat(observation: Observation) {
+/**
+ * The last 3 messages addressed to this seat: quoted canned English with the speaker's name. With
+ * `fromSeatIndex`, only that speaker's messages, for a question about one counterpart (§5.4).
+ */
+export function recentChat(observation: Observation, fromSeatIndex?: number) {
   return addressed(observation)
+    .filter((message) => fromSeatIndex === undefined || message.fromSeatIndex === fromSeatIndex)
     .sort((a, b) => a.globalTurnNo - b.globalTurnNo)
     .slice(-CHAT_TUNING.recentLimit)
     .map((message) => ({

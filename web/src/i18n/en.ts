@@ -401,7 +401,6 @@ export const en = {
     'No game is waiting for its first roll. Go back to Home to start a new one.',
 
   'team.details': 'Inspect {name}',
-  'team.instance': 'Team ID: {id}',
   'team.ability': 'Ability',
   'team.noAbility': 'No Ability description.',
   'team.nextForms': 'Next forms',
@@ -694,6 +693,11 @@ export const en = {
   'board.event.evolvedYours': 'Your {from} evolved into {to}.',
   'board.event.protection.price': 'The Price Shield',
   'board.event.protection.battle_coin_loss': 'The Shell Guard shield',
+  'board.event.protection.pvp_pickpocket': 'Snorlax’s Block',
+  'board.event.blockTriggered': 'Snorlax blocked a coin loss.',
+  'board.event.debuffed': '{pokemon} has a combat debuff.',
+  'board.event.debuffCleared': '{pokemon}’s combat debuff cleared.',
+  'board.event.reason.scavenge': 'Scavenge',
   'board.event.protection.nurse_joy': 'Nurse Joy’s passive',
   'board.event.protectionCoins': '{protection} covered the coin loss for {name}. No coins moved.',
   'board.event.protectionHostile': '{protection} blocked a hostile action: {actor} against {name}.',
@@ -765,6 +769,8 @@ export const en = {
   'strategy.potion.member': '{pokemon}',
   'strategy.potion.target': 'Heal: {pokemon}',
   'strategy.potion.effect': 'Clears Tired from this Pokémon.',
+  'strategy.potion.debuffEffect': 'Clears the combat debuff from this Pokémon.',
+  'strategy.potion.debuffMember': '{pokemon} · Combat debuff',
   'strategy.potion.chooseTarget': 'Choose a Pokémon to preview its healing. Nothing is spent yet.',
   'strategy.potion.staleSelection':
     'The available actions changed. Choose your Potion and Pokémon again before confirming.',
@@ -774,6 +780,9 @@ export const en = {
   'ability.planned': 'Not active yet: this Ability has no effect so far.',
   'ability.targets': 'Choose an opponent',
   'ability.members': 'Choose a Pokémon to heal',
+  'ability.targetMember': '{member} · {target}',
+  'ability.healDebuff': '{member} · Combat debuff',
+  'turn.pickpocketReaction': 'An opponent used Pickpocket on you. Choose whether to use Block.',
   'ability.scopes': 'Choose what to boost',
   'ability.scope.catch': 'Catch rolls',
   'ability.scope.combat': 'Battle rolls',
@@ -883,7 +892,7 @@ export const en = {
   'demo.modelNote':
     'These numbers are Jev’s own output, rounded to two decimals. They are not a measured rate.',
   'demo.sellNote':
-    'At the Sell Phase Jev answers once per Pokémon, so these chances do not add up to 1.',
+    'At the Sell Phase Jev answers once per Pokémon, so these chances do not add up to 1 and there is no single confidence.',
   'demo.byJev': 'Jev decided.',
   'demo.byBackup': 'The backup bot decided, so there are no probabilities to show.',
   'demo.result': 'What the game recorded',

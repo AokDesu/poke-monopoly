@@ -1,8 +1,8 @@
 {
   "id": "c5-policy-plan",
   "version": 1,
-  "status": "planned",
-  "note": "Pre-registered design. No game in the evaluation ranges below has been run. Frozen when the seed ledger opens its first evaluation range; until then changes need a PR that says why. Prose and interpretation rules: docs/experiments/c5-policy-plan.md.",
+  "status": "evaluated",
+  "note": "Frozen design with the evaluation opening recorded in the seed ledger. The run used the manifest at openedCommit. See docs/experiments/c5-policy-results.md.",
   "spec": ["§8 Simulation", "§9 Sim limits", "§10 C5"],
   "epic": "AokDesu/poke-monopoly#61",
   "ticket": "A61-4",
@@ -931,9 +931,28 @@
       "first": 1100004,
       "last": 1100507,
       "partition": "eval",
-      "status": "unopened",
-      "opened": null,
-      "openedBy": null
+      "status": "consumed",
+      "opened": "2026-11-18",
+      "openedBy": "punkharb (Stream A), by accident (see accidentalRun)",
+      "openedCommit": "124a3beb080798b880d880e3abb71ecc84b4c935 plus uncommitted A61-5 changes, committed afterwards as ce661039cc2d6b830d643a42997d9cbe49c80515",
+      "accidentalRun": {
+        "what": "A CLI guard test in the A61-5 runner work ran `--held-out --policy sell-all` against the real manifest, expecting a refusal. It did not refuse and played the sell-all cells.",
+        "cells": ["sell-all/2", "sell-all/3", "sell-all/4"],
+        "seeds": "1100148-1100219",
+        "games": "144 by the manifest (3 cells x 24 blocks x 2 arms); the run exited 0; the rows were deleted, so the count could not be checked against rows",
+        "when": "inside one vitest run that started 2026-11-18T08:02:48Z and had returned by 2026-11-18T08:05:14Z; the start of the games within it was not recorded",
+        "outputsRead": false,
+        "outputs": "written to a file in a temporary directory that the test removes when it ends; the failing assertion showed only the exit code and an empty error list",
+        "changedBecauseOfIt": "nothing: no policy, manifest cell, seed, analysis rule or run setting. The only change after it was to the test, which no longer passes --held-out with the real manifest.",
+        "notClaimed": "that these games equal the evaluation run's games for the same seeds: main moved from 124a3be to 1456099 in between (engine version string unchanged at 0.20.0) and the earlier rows no longer exist",
+        "disclosure": "PR #237 description; its reviewer Mrmo0p wrote on 2026-11-18T09:09:17Z that he would treat those cells as not consumed and asked for it to be recorded in this ledger. It was not recorded until this entry."
+      },
+      "evaluationRun": {
+        "opened": "2026-11-20T10:22:03Z",
+        "openedBy": "punkharb (Stream A)",
+        "commit": "5b9661923006809e746053191d1dad1705d1bfd4",
+        "games": "all 1,008 planned games, once each, including the sell-all seeds above"
+      }
     },
     {
       "id": "c5-contingency",
@@ -966,26 +985,26 @@
     "primaryMetric": "focal seat win credit: 1/k for k co-winners, 0 for a loss",
     "primaryEstimate": "mean over complete pairs of (treatment win credit - control win credit), per policy and seat count",
     "uncertainty": {
-      "method": "paired block bootstrap",
-      "resample": "pairs within one cell",
+      "method": "stratified paired block bootstrap",
+      "resample": "whole pairs within each focal seat at the given seat count",
       "resamples": 10000,
       "level": 0.95,
       "interval": "percentile",
       "analysisRngSeed": 610004,
-      "owner": "sim/analysis/paired.ts (A61-3) implements exactly these rules; any other documented paired method must be named before opening c5-held-out",
-      "boundsUnderTwoBlocks": "null: a cell or stratum with fewer than 2 complete blocks reports counts only, never a zero-width interval"
+      "owner": "sim/analysis/paired.ts (A61-3)",
+      "boundsUnderTwoBlocks": "null if any resampling group has fewer than two complete blocks"
     },
     "secondary": [
       "tie rate per arm",
-      "focal final coins difference",
+      "focal final coins difference; paired Cohen's d for win credit and coins",
       "win/tie/loss counts per arm",
       "focal-class, focal-seat and background-personality strata, per seat count, descriptive only"
     ],
     "strata": {
       "dimensions": ["focalClass", "focalSeat", "backgroundPersonality"],
-      "personality": "the BACKGROUND personality of the block, never the focal seat, which plays the arm's policy",
+      "personality": "the observed combination of non-focal seat personalities, including unassigned when a non-focal human controller plays random",
       "reportedPer": "seat count; a pooled figure, if shown, is labelled pooled and is never the primary result",
-      "bounds": "null below 2 complete blocks in the stratum; descriptive, no inference"
+      "bounds": "null if any resampling group has fewer than two complete blocks; descriptive"
     },
     "missing": "An abort, max-step stop or any game with invariantFailures above 0 makes its pair incomplete: it is not scored, is counted as missing and is reported. Report planned, complete and missing pairs per cell and every failing seed; never replace, retry or drop a seed. pairsPlanned per cell comes from this manifest (24), not from sim/analysis/paired.ts; A61-5 integrates it.",
     "order": "Results do not depend on input order: pairs are sorted by blockId before resampling.",
@@ -1006,6 +1025,7 @@
       "seed",
       "seatClasses",
       "seatPolicies",
+      "seatPersonalities",
       "focalSeat",
       "focalClass",
       "backgroundPersonality",
@@ -1021,6 +1041,8 @@
       "finalCoins",
       "illegalAppliedActionCount",
       "invariantFailures",
+      "replayPass",
+      "failureReasons",
       "focalOpportunities",
       "focalUses",
       "hostility",
@@ -1063,6 +1085,6 @@
       "vacuous",
       "failingSeeds"
     ],
-    "note": "Planned fields. A61-5 owns the game row and A61-3 the pair and result types; reconcile this list with them before the ledger opens."
+    "note": "The game fields follow sim/experiments/run.ts. Pair rows and the report join the planned cells with sim/analysis/paired.ts results."
   }
 }

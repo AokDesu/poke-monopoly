@@ -22,6 +22,7 @@ const memberOf = (observation: ViewedObservation, instanceId: string) =>
 const PROTECTION = {
   price: 'board.event.protection.price',
   battle_coin_loss: 'board.event.protection.battle_coin_loss',
+  pvp_pickpocket: 'board.event.protection.pvp_pickpocket',
   nurse_joy: 'board.event.protection.nurse_joy',
 } as const satisfies Record<string, MessageKey>;
 
@@ -141,6 +142,12 @@ export function battleEventMessages(
     case 'abilities_reset':
       return message('board.event.abilitiesReset', { name: actor(event.ownerId) });
     case 'status_changed':
+      if (event.status === 'combat_debuff') {
+        return message(
+          event.operation === 'cleared' ? 'board.event.debuffCleared' : 'board.event.debuffed',
+          { pokemon: pokemonName(event.instanceId) },
+        );
+      }
       return message(
         event.operation === 'cleared' ? 'board.event.recovered' : 'board.event.tired',
         { pokemon: pokemonName(event.instanceId) },

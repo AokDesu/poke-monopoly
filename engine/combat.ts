@@ -1,6 +1,6 @@
 import { classBonus } from './classes.ts';
 import { effectiveForm } from './forms.ts';
-import { battleReadyMembers } from './status.ts';
+import { battleReadyMembers, healStatus } from './status.ts';
 import {
   battleMemberSnapshotSchema,
   combatantSnapshotSchema,
@@ -12,7 +12,9 @@ import {
   type GymSnapshot,
   type PvpSnapshot,
 } from './contract/combat.ts';
-import type { Content, GameState, Player } from './contract/schema.ts';
+import type { Content, EngineEvent, GameState, Player } from './contract/schema.ts';
+
+const POISON_STING_DEBUFF = 1;
 
 /** Slots for later engine effect hooks, supplied only before confirmation. No Ability mapping. */
 export interface CombatModifiers {
@@ -53,7 +55,9 @@ export function highestBattleMember(
   let best: BattleMemberSnapshot | undefined;
   for (const pokemon of battleReadyMembers(player)) {
     const printedBattle = effectiveForm(content, pokemon.speciesId).battle;
-    const { battleBonus = 0, debuffs = 0 } = adjustments.get(pokemon.instanceId) ?? {};
+    const adjustment = adjustments.get(pokemon.instanceId);
+    const battleBonus = adjustment?.battleBonus ?? 0;
+    const debuffs = (adjustment?.debuffs ?? 0) + (pokemon.combatDebuffed ? POISON_STING_DEBUFF : 0);
     const candidate = battleMemberSnapshotSchema.parse({
       instanceId: pokemon.instanceId,
       speciesId: pokemon.speciesId,
@@ -71,6 +75,13 @@ export function highestBattleMember(
     }
   }
   return best;
+}
+
+/** A confirmed combatant spends its pending Poison Sting after the terms have been frozen. */
+export function consumeCombatDebuff(state: GameState, side: CombatantSnapshot): EngineEvent[] {
+  if (side.member.debuffs === 0) return [];
+  const owner = state.players.find((player) => player.seatIndex === side.seatIndex)!;
+  return healStatus(owner, side.member.instanceId, 'combat_debuff', 'battle_confirmed');
 }
 
 /** Both roles use this same snapshot; Lucky Egg belongs only to the active turn's owner. */
