@@ -511,6 +511,7 @@ Every level uses the same observation.
 | Hard *(gate G2)* | The engine runs Monte Carlo rollouts from the belief state and sends expected-outcome buckets per option before the argmax. Unknowns are sampled from known information; it never reads the real deck or seed |
 
 - **Sell fallback:** the existing sale desire (relative sale coins, reduced for a ready Ability and an Original Starter) is multiplied by 1 for low keep value, 0.75 for medium and 0.5 for high before applying the personality's sell threshold. A caller without keep facts retains the existing low-keep behavior; it never invents a combat projection. This is a policy preference over separate buckets, not a conversion of Battle points into coins.
+- **Last Sell Phase (#59):** when the engine's Final Table Round is announced (§4.7.3) and the space the Sell Phase leads to is not a Gym (§4.4), every personality sells every sellable Pokémon, on the Jev path and the fallback alike, and Jev is not asked, because a Pokémon kept to the game's end is auto-sold at half price with no class bonus and no Gym follows to use it; a Rescue Starter is not sold (§4.7), a Gym destination leaves the decision to Jev as in any Sell Phase, and the risk that a later seat battles a seat that sold is accepted as a known limit.
 - **Confidence floor:** set per question type and option count, then tuned on the C4 eval set for `jev-1.13.0`.
   - Below the floor (Normal/Hard), the fallback policy chooses between Jev's top two by personality weight.
   - 0.6 is only the starting value for questions with few options.

@@ -1,8 +1,9 @@
 import type { DecisionDetail, DecisionPoint } from '../engine/contract/decision.ts';
 import type { Personality } from '../content/personality-schema.ts';
-import type { LegalAction, LegalActions, Observation } from '../engine/index.ts';
+import type { LegalActions, Observation } from '../engine/index.ts';
 import type { PolicyChoice, PolicyFacts, PolicyRng } from '../sim/policy.ts';
 import { decideWithFallback, FallbackPolicy, saleDesire } from './fallback/index.ts';
+import { lastSellChoice, sellChoice } from './last-sell.ts';
 import {
   DECISION_DEADLINE_MS,
   jevEnabled,
@@ -363,6 +364,10 @@ export class Orchestrator {
     const { observation, legalActions, personality, facts } = request;
     const sales = legalActions.enabled.filter((action) => action.kind === 'sell');
     if (sales.length === 0) return policyDecision(request, 'auto', null);
+    // Spec §5.6: the last Sell Phase sells everything unless a Gym follows; Jev is not asked.
+    if (lastSellChoice(observation, legalActions.enabled) !== undefined) {
+      return policyDecision(request, 'auto', null);
+    }
     if (!facts.sell) {
       return policyDecision(request, 'fallback', this.#blocked(request.turnKey) ?? 'missing_facts');
     }
@@ -538,29 +543,6 @@ function sample(
     target -= probabilities[id]!;
   }
   return ids.findLast((id) => probabilities[id]! > 0);
-}
-
-/**
- * The listed action for this sale: the finish for none (an empty sale in the current engine,
- * `finish_sell` in older saves), the one-Pokémon sale, or a batch.
- */
-function sellChoice(enabled: readonly LegalAction[], sellUids: string[]): PolicyChoice | undefined {
-  if (sellUids.length === 0) {
-    return enabled.find(
-      (action) =>
-        action.kind === 'finish_sell' ||
-        (action.kind === 'sell' && action.payload.pokemonInstanceIds.length === 0),
-    )?.id;
-  }
-  const sales = enabled.filter((action) => action.kind === 'sell');
-  const single = (id: string) =>
-    sales.find(
-      (action) =>
-        action.payload.pokemonInstanceIds.length === 1 &&
-        action.payload.pokemonInstanceIds[0] === id,
-    );
-  if (!sellUids.every((id) => single(id))) return undefined;
-  return sellUids.length === 1 ? single(sellUids[0]!)!.id : { sellUids };
 }
 
 function jevDecision(
