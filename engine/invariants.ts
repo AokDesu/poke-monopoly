@@ -767,6 +767,8 @@ function checkDealsAtomic({ before, parsed, result }: Step): string[] {
         ...player,
         coins: 0,
         dealUsedLap: undefined,
+        // The AI seat's concession is charged here and checked exactly just below (§4.8).
+        dealConcessionSpent: undefined,
         unseenRecords: 0,
         team: player.team.filter((entry) => !ids.includes(entry.instanceId)),
         items: player.items.filter((entry) => !ids.includes(entry.instanceId)),
