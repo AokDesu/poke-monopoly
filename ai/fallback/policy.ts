@@ -5,6 +5,7 @@ import type { Policy, PolicyChoice, PolicyFacts, PolicyRng } from '../../sim/pol
 import { chatScoreShift } from '../chat.ts';
 import { pendingPromise } from '../promises.ts';
 import type { FallbackReason } from '../jev/client.ts';
+import { lastSellChoice } from '../last-sell.ts';
 
 /**
  * Personality heuristics, not gameplay rules: every game number the policy compares (odds, sale
@@ -227,6 +228,9 @@ export class FallbackPolicy implements Policy {
     if (enabled.length === 0) throw new RangeError('No enabled legal action to choose from');
     if (enabled.length === 1) return enabled[0]!.id;
     if (observation.public.phase.kind === 'sell') {
+      // Spec §5.6: the last Sell Phase sells everything unless a Gym follows, whatever the threshold.
+      const everything = lastSellChoice(observation, enabled);
+      if (everything !== undefined) return everything;
       // A batch of two or more has no listed ID; the engine sells it in one atomic step (§4.7).
       const batch = sellBatch(enabled, { observation, personality: this.personality, facts });
       if (batch.length > 1) return { sellUids: batch };

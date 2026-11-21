@@ -14,7 +14,7 @@ import {
   runOffline,
   writePlaceholders,
 } from './jev/index.ts';
-import { placeholderResult, runScenario, scenarioRequest } from './jev/replay.ts';
+import { placeholderResult, runScenario, scenarioRequest, unaskedRun } from './jev/replay.ts';
 import { decideRequest, SCENARIOS } from './jev/scenarios.ts';
 
 const directories: string[] = [];
@@ -110,6 +110,13 @@ test('illegalAppliedActionCount stays 0 when every recorded choice is corrupted 
   const byId = new Map((await fixtures()).map((f) => [f.id, f]));
   let illegalAppliedActionCount = 0;
   for (const scenario of SCENARIOS) {
+    // The last Sell Phase sells everything without asking Jev (§5.6): nothing to corrupt.
+    const unasked = await unaskedRun(scenario);
+    if (unasked) {
+      expect(unasked.decision.source).toBe('auto');
+      expect(unasked.illegalApplied).toBe(0);
+      continue;
+    }
     const recorded = byId.get(scenario.id)!.recorded;
     const run = await runScenario(
       scenario,

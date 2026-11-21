@@ -1,9 +1,10 @@
-import type { DecisionPoint } from '../engine/contract/decision.ts';
+import type { DecisionDetail, DecisionPoint } from '../engine/contract/decision.ts';
 import type { Personality } from '../content/personality-schema.ts';
-import type { LegalAction, LegalActions, Observation } from '../engine/index.ts';
+import type { LegalActions, Observation } from '../engine/index.ts';
 import type { PolicyChoice, PolicyFacts, PolicyRng } from '../sim/policy.ts';
 import { decideWithFallback, FallbackPolicy, saleDesire } from './fallback/index.ts';
 import { pendingPromise } from './promises.ts';
+import { lastSellChoice, sellChoice } from './last-sell.ts';
 import {
   DECISION_DEADLINE_MS,
   jevEnabled,
@@ -153,6 +154,8 @@ export interface OrchestratorDecision {
   requests: number;
   /** For the caller to append to the game log; replay reads them and never calls Jev. */
   events: JevDecisionEvent[];
+  /** Jev's numbers for the demo panel, copied from its answer; only a Jev decision has them. */
+  detail?: DecisionDetail;
 }
 
 export interface OrchestratorOptions {
@@ -328,11 +331,16 @@ export class Orchestrator {
       fallbackReason: null,
       ...extra,
     });
+    const detailOf = (): DecisionDetail => ({
+      questionId: question,
+      confidence: answer.confidence,
+      options: ids.map((id) => ({ id, probability: probabilities[id]! })),
+    });
     if (request.difficulty === 'easy') {
       const draw = request.rng.int(SAMPLE_RANGE);
       const choice = sample(ids, probabilities, draw);
       if (choice === undefined) return this.#fellBack(request, 'invalid_choice', asked);
-      return jevDecision(choice, asked.requests, [event(choice, { sampled: draw })]);
+      return jevDecision(choice, asked.requests, [event(choice, { sampled: draw })], detailOf());
     }
     // Normal: the highest-probability option; ties keep the engine's order.
     const top = ids.reduce((best, id) => (probabilities[id]! > probabilities[best]! ? id : best));
@@ -347,7 +355,7 @@ export class Orchestrator {
     });
     const choice = fallback.choice as string;
     if (fallback.fallbackReason === null) {
-      return jevDecision(choice, asked.requests, [event(choice, {})]);
+      return jevDecision(choice, asked.requests, [event(choice, {})], detailOf());
     }
     return {
       choice,
@@ -362,6 +370,10 @@ export class Orchestrator {
     const { observation, legalActions, personality, facts } = request;
     const sales = legalActions.enabled.filter((action) => action.kind === 'sell');
     if (sales.length === 0) return policyDecision(request, 'auto', null);
+    // Spec §5.6: the last Sell Phase sells everything unless a Gym follows; Jev is not asked.
+    if (lastSellChoice(observation, legalActions.enabled) !== undefined) {
+      return policyDecision(request, 'auto', null);
+    }
     if (!facts.sell) {
       return policyDecision(request, 'fallback', this.#blocked(request.turnKey) ?? 'missing_facts');
     }
@@ -379,12 +391,14 @@ export class Orchestrator {
     if (!('results' in asked)) return this.#fellBack(request, asked.fallbackReason, asked);
     const answers: Record<string, JevAnswer> = {};
     const events: JevDecisionEvent[] = [];
+    const sellOptions: DecisionDetail['options'] = [];
     for (const [index, sellRequest] of requests.entries()) {
       const result = asked.results[index]!;
       for (const label of Object.keys(sellRequest.questions)) {
         const answer = result.answers[label];
         if (answer?.type !== 'noul') return this.#fellBack(request, 'schema_mismatch', asked);
         const sell = decideSales({ [label]: answer }, personality).length > 0;
+        sellOptions.push({ id: sellRequest.options[label]!, probability: answer.noul });
         events.push({
           requestId: result.requestId ?? null,
           model: result.model,
@@ -405,7 +419,12 @@ export class Orchestrator {
     const sellUids = [...decideSales(answers, personality), ...overBudget];
     const choice = sellChoice(legalActions.enabled, sellUids);
     if (choice === undefined) return this.#fellBack(request, 'invalid_choice', asked);
-    return jevDecision(choice, asked.requests, events);
+    // A Noul answer has no confidence of its own, so the sale detail carries none (never computed).
+    return jevDecision(choice, asked.requests, events, {
+      questionId: 'sell',
+      confidence: null,
+      options: sellOptions,
+    });
   }
 
   /**
@@ -532,35 +551,20 @@ function sample(
   return ids.findLast((id) => probabilities[id]! > 0);
 }
 
-/**
- * The listed action for this sale: the finish for none (an empty sale in the current engine,
- * `finish_sell` in older saves), the one-Pokémon sale, or a batch.
- */
-function sellChoice(enabled: readonly LegalAction[], sellUids: string[]): PolicyChoice | undefined {
-  if (sellUids.length === 0) {
-    return enabled.find(
-      (action) =>
-        action.kind === 'finish_sell' ||
-        (action.kind === 'sell' && action.payload.pokemonInstanceIds.length === 0),
-    )?.id;
-  }
-  const sales = enabled.filter((action) => action.kind === 'sell');
-  const single = (id: string) =>
-    sales.find(
-      (action) =>
-        action.payload.pokemonInstanceIds.length === 1 &&
-        action.payload.pokemonInstanceIds[0] === id,
-    );
-  if (!sellUids.every((id) => single(id))) return undefined;
-  return sellUids.length === 1 ? single(sellUids[0]!)!.id : { sellUids };
-}
-
 function jevDecision(
   choice: PolicyChoice,
   requests: number,
   events: JevDecisionEvent[],
+  detail?: DecisionDetail,
 ): OrchestratorDecision {
-  return { choice, source: 'jev', fallbackReason: null, requests, events };
+  return {
+    choice,
+    source: 'jev',
+    fallbackReason: null,
+    requests,
+    events,
+    ...(detail && { detail }),
+  };
 }
 
 /** The fallback policy's choice, logged as one event for the decision point. */

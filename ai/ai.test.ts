@@ -3,7 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ESLint } from 'eslint';
 import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { decisionResponseSchema, type DecisionRequest } from '../engine/contract/decision.ts';
+import {
+  aiStatusSchema,
+  decisionResponseSchema,
+  type DecisionRequest,
+} from '../engine/contract/decision.ts';
 import {
   applyAction,
   createGame,
@@ -196,6 +200,7 @@ describe('GET /api/ai/status', () => {
   beforeEach(() => {
     vi.stubEnv('HAIKU_ENABLED', undefined);
     vi.stubEnv('ANTHROPIC_API_KEY', undefined);
+    vi.stubEnv('DEMO_MODE', undefined);
   });
 
   test('reports Jev on when enabled with a key', async () => {
@@ -204,6 +209,7 @@ describe('GET /api/ai/status', () => {
       backupOnly: false,
       reason: null,
       speech: speechOff,
+      demo: false,
     });
   });
 
@@ -215,6 +221,7 @@ describe('GET /api/ai/status', () => {
       backupOnly: true,
       reason: 'disabled',
       speech: speechOff,
+      demo: false,
     });
   });
 
@@ -224,6 +231,7 @@ describe('GET /api/ai/status', () => {
       backupOnly: true,
       reason: 'budget_exceeded',
       speech: speechOff,
+      demo: false,
     });
   });
 
@@ -234,7 +242,32 @@ describe('GET /api/ai/status', () => {
       backupOnly: true,
       reason: 'missing_key',
       speech: speechOff,
+      demo: false,
     });
+  });
+
+  test.each([
+    ['1', true],
+    ['true', true],
+    [undefined, false],
+    ['0', false],
+    ['false', false],
+    ['', false],
+    ['TRUE', false],
+    [' 1', false],
+    ['yes', false],
+  ])('DEMO_MODE=%j reports demo %s, and the body still matches the schema', async (value, demo) => {
+    vi.stubEnv('DEMO_MODE', value);
+    const body = await (await status()).json();
+    expect(body.demo).toBe(demo);
+    expect(aiStatusSchema.parse(body)).toEqual(body);
+    expect(Object.keys(body).sort()).toEqual([
+      'backupOnly',
+      'demo',
+      'jevEnabled',
+      'reason',
+      'speech',
+    ]);
   });
 
   test('reports speech on with HAIKU_ENABLED=true and its own key, independent of Jev', async () => {
@@ -246,6 +279,7 @@ describe('GET /api/ai/status', () => {
       backupOnly: true,
       reason: 'disabled',
       speech: { enabled: true, reason: null },
+      demo: false,
     });
   });
 
@@ -1283,5 +1317,112 @@ describe('responder decisions (spec §4.8, §5.3, §6 item 2; S06)', () => {
     expect(promise).toMatchObject({ source: 'fallback', fallbackReason: 'network', requests: 1 });
     expect(promise.events[0]!.questionId).toBe('promise_response');
     expect(ask).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('POST /api/ai/decide: the demo detail (spec §3, §1, §11 step 3)', () => {
+  const pickSkip = (request: JevRequest) => confident(request, 'skip');
+  const withDemo = (value: string | undefined) => vi.stubEnv('DEMO_MODE', value);
+
+  test('with DEMO_MODE on, a Jev Choice carries the numbers copied from the answer', async () => {
+    for (const value of ['1', 'true']) {
+      withDemo(value);
+      const fake = createFakeJevClient(pickSkip);
+      const body = await (await decide(strategy, testApp({ jevClient: () => fake }))).json();
+      expect(decisionResponseSchema.parse(body)).toEqual(body);
+      expect(body.source).toBe('jev');
+      expect(body.detail.confidence).toBe(1);
+      expect(body.detail.options.find((o: { id: string }) => o.id === 'skip')).toEqual({
+        id: 'skip',
+        probability: 1,
+      });
+      expect(body.detail.options.map((o: { id: string }) => o.id).sort()).toEqual(
+        strategy.enabledActions.map((a) => a.id).sort(),
+      );
+    }
+  });
+
+  test('with DEMO_MODE on, a Jev Sell Phase lists each Pokémon instance ID with its sale probability', async () => {
+    withDemo('1');
+    const fake = createFakeJevClient(pickSkip);
+    const body = await (await decide(sell, testApp({ jevClient: () => fake }))).json();
+    expect(decisionResponseSchema.parse(body)).toEqual(body);
+    expect(body.detail.questionId).toBe('sell');
+    expect(body.detail.confidence).toBeNull();
+    expect(body.detail.options).toHaveLength(3);
+    for (const option of body.detail.options) expect(option.probability).toBe(0.9);
+  });
+
+  test.each([undefined, '0', 'false', '', 'TRUE', 'yes', ' 1'])(
+    'DEMO_MODE=%j: no detail field at all',
+    async (value) => {
+      withDemo(value);
+      const fake = createFakeJevClient(pickSkip);
+      const app = testApp({ jevClient: () => fake });
+      for (const request of [strategy, encounter, sell]) {
+        const body = await (await decide(request, app)).json();
+        expect(body.source).toBe('jev');
+        expect(body).not.toHaveProperty('detail');
+        expect(decisionResponseSchema.parse(body)).toEqual(body);
+      }
+    },
+  );
+
+  test('with DEMO_MODE off, a query string, a header or a body field cannot turn the detail on', async () => {
+    withDemo(undefined);
+    const app = testApp({ jevClient: () => createFakeJevClient(pickSkip) });
+    const post = (url: string, headers: Record<string, string>, payload: object) =>
+      app.request(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...headers },
+        body: JSON.stringify(payload),
+      });
+    for (const url of ['/api/ai/decide?demo=1', '/api/ai/decide?demo=true&DEMO_MODE=1']) {
+      const body = await (
+        await post(url, { 'x-demo': '1', 'x-demo-mode': 'true', demo: '1' }, strategy)
+      ).json();
+      expect(body.source).toBe('jev');
+      expect(body).not.toHaveProperty('detail');
+    }
+    const forged = await post('/api/ai/decide', {}, { ...strategy, demo: true });
+    expect(forged.status).toBe(400);
+    const status = await (
+      await app.request('/api/ai/status?demo=1', { headers: { 'x-demo': '1' } })
+    ).json();
+    expect(status.demo).toBe(false);
+  });
+
+  test('with DEMO_MODE on, a fallback, an auto decision and the fallback route carry no detail', async () => {
+    withDemo('1');
+    vi.stubEnv('JEV_ENABLED', 'false');
+    const app = testApp({ jevClient: () => createFakeJevClient(pickSkip) });
+    for (const request of [strategy, encounter, sell]) {
+      const body = await (await decide(request, app)).json();
+      expect(body.source).toBe('fallback');
+      expect(body).not.toHaveProperty('detail');
+    }
+    const routed = await (
+      await app.request('/api/ai/fallback', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(strategy),
+      })
+    ).json();
+    expect(routed).not.toHaveProperty('detail');
+    vi.stubEnv('JEV_ENABLED', undefined);
+    const down = await (await decide(strategy, testApp())).json();
+    expect(down.source).toBe('fallback');
+    expect(down).not.toHaveProperty('detail');
+  });
+
+  test('the demo status and detail never carry the key or budget figures', async () => {
+    withDemo('1');
+    const fake = createFakeJevClient(pickSkip);
+    const app = testApp({ jevClient: () => fake });
+    for (const response of [await status(app), await decide(strategy, app)]) {
+      const text = await response.text();
+      expect(text).not.toContain(PLACEHOLDER_KEY);
+      expect(text).not.toMatch(/budget(?!_exceeded)|spend|token|cost/i);
+    }
   });
 });

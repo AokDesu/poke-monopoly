@@ -47,6 +47,13 @@ interface Group {
   verdicts: Record<PersonalityId, Verdict>;
 }
 
+/** Both answers for every Pokémon in the Sell Phase. */
+const keepOrSellAll = (state: GameState): Acceptable => ({
+  [starter(state)]: ['true', 'false'],
+  'caught:0:1': ['true', 'false'],
+  'caught:0:2': ['true', 'false'],
+});
+
 const hostile = (seat: number, item = 0) => `use-item:bought:0:${item}:seat-${seat}`;
 const SKIP = 'skip';
 const catchWith = (ball: 'poke' | 'great' | 'ultra') => `catch:${ball}`;
@@ -347,6 +354,37 @@ const GROUPS: readonly Group[] = [
         }),
         reason:
           'this is the last Sell Phase, so liquidity 0.7 takes the full price now instead of the lower automatic sale, and it sells all.',
+      },
+    },
+  },
+  {
+    // Spec §5.6: the last Sell Phase sells everything unless a Gym follows. Here one does, so Jev
+    // is still asked and a kept Pokémon can still battle there (§4.4).
+    group: 'sell-last-phase-gym-ahead',
+    kind: 'sell-keep',
+    description:
+      'Final Table Round: the last Sell Phase, but the space after selling is a Gym; a caught Pidgey and Psyduck.',
+    build: () => {
+      const state = withFinalTableRound(sell([caught(1, 'pidgey'), caught(2, 'psyduck')]));
+      const gym = state.content.board.find((space) => space.kind === 'gym')!;
+      state.phase = { kind: 'sell', destinationPosition: gym.position };
+      return state;
+    },
+    verdicts: {
+      aggressive: {
+        acceptable: (state) => keepOrSellAll(state),
+        reason:
+          'a Gym follows this last Sell Phase, so a kept Pokémon can still win it; risk 0.8 and aggression 0.9 like the battle, while liquidity 0.3 does not press for coins now, so selling and keeping are both defensible.',
+      },
+      cautious: {
+        acceptable: (state) => keepOrSellAll(state),
+        reason:
+          'a Gym follows this last Sell Phase; risk 0.2 and loyalty 0.8 favour keeping a steady team for the battle, while liquidity 0.5 allows taking the coins now, so selling and keeping are both defensible.',
+      },
+      opportunist: {
+        acceptable: (state) => keepOrSellAll(state),
+        reason:
+          'a Gym follows this last Sell Phase; liquidity 0.7 takes the coins now while risk 0.6 can still back a Gym win with the team, so selling and keeping are both defensible.',
       },
     },
   },
