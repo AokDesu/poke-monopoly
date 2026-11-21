@@ -109,7 +109,8 @@ export function dealProblem(
   }
   if (payer.coins < coinSide.coins) return 'not_enough_coins';
   if (quotaSpent(initiator) || (targetQuota && quotaSpent(target))) return 'quota';
-  // The target's concession must fit its budget (§4.8): over budget, only a reject is legal.
+  // The target's concession must fit its budget (§4.8): over budget, accept is not legal; a reject and any counter
+  // whose own concession fits the room left still are.
   if (targetQuota) {
     const { concession } = dealValuation(state, initiatorSeatIndex, targetSeatIndex, terms);
     if (!concessionWithinBudget(state, target, concession)) return 'budget';
@@ -322,7 +323,8 @@ export function dealFacts(state: GameState, seatIndex: number): DealFacts | null
 /**
  * The pending question's choices for its responder (§4.8): the target answers accept, reject or counter once;
  * the proposer then confirms or cancels. Over a spent quota or any change that made the terms illegal, the
- * target's only answer is reject, which looks like any other refusal to the proposer.
+ * target's only answer is reject, which looks like any other refusal to the proposer. Over the concession budget
+ * accept is not listed, but reject and each counter that fits the room left are.
  */
 export function dealResponseChoices(
   state: GameState,

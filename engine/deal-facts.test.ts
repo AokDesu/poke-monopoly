@@ -272,6 +272,56 @@ describe('the engine values both sides of a deal (§4.8, §4.7)', () => {
   });
 });
 
+describe('a Potion nothing can use is worth 0 (§4.8, spec owner)', () => {
+  /** The final turn of the human, the active seat in Social, buying the AI's public Potion for 1 coin. */
+  function finalTurnPotion(options: { humanTired?: boolean; turnLeft?: boolean } = {}) {
+    const state = scenario();
+    state.players[1]!.items.push(item('item:1:potion', 'potion', 'public'));
+    state.finalTableRound = { triggerSeatIndex: 0, targetOwnTurnNo: 3 };
+    state.players[0]!.ownTurnNo = options.turnLeft ? 2 : 3;
+    state.players[1]!.ownTurnNo = 3;
+    if (options.humanTired) state.players[0]!.team[0]!.tired = true;
+    return state;
+  }
+  const buyPotion = (coins: number) => buyItem('item:1:potion', coins);
+
+  test('a healthy holder on its last turn cannot use it: value 0, so a sale for 1 concedes nothing', () => {
+    const state = finalTurnPotion();
+    expect(valuation(state, buyPotion(1))).toEqual({
+      valueGiven: 0,
+      valueReceived: 1,
+      concession: 0,
+    });
+    const proposed = propose(state, buyPotion(1));
+    expect(dealFacts(proposed, 1)).toMatchObject({ valueGiven: 'low', concession: 'none' });
+    const confirmed = accepted(
+      accepted(proposed, 'respond_deal', { answer: 'accept' }),
+      'confirm_deal',
+    );
+    expect(confirmed.players[1]!.dealConcessionSpent ?? 0).toBe(0);
+  });
+
+  test('it keeps its price when anything can still use it', () => {
+    // A tired Pokémon, or a combat debuff, gives the Potion a target.
+    expect(valuation(finalTurnPotion({ humanTired: true }), buyPotion(1)).valueGiven).toBe(2);
+    const debuffed = finalTurnPotion();
+    debuffed.players[0]!.team[0]!.combatDebuffed = true;
+    expect(valuation(debuffed, buyPotion(1)).valueGiven).toBe(2);
+    // A later turn of the holder could still leave a Pokémon tired.
+    expect(valuation(finalTurnPotion({ turnLeft: true }), buyPotion(1)).valueGiven).toBe(2);
+    // Before any Final Table Round is announced nothing is guaranteed.
+    const open = finalTurnPotion();
+    open.finalTableRound = null;
+    expect(valuation(open, buyPotion(1)).valueGiven).toBe(2);
+  });
+
+  test("it reads the holder's public team only, and other items are unaffected", () => {
+    const state = finalTurnPotion();
+    // The Pickpocket-class item has a Strategy use on the last turn whatever the team's health.
+    expect(valuation(state, buyItem('item:1:class', 1)).valueGiven).toBe(3);
+  });
+});
+
 describe('the budget comes from content, and only a commit spends it (§4.8)', () => {
   const FULL = { perDeal: 2, perGame: 3 };
 
@@ -287,7 +337,7 @@ describe('the budget comes from content, and only a commit spends it (§4.8)', (
     expect(dealBudgetState(scenario({ budget: null }), scenario().players[1]!)).toBeUndefined();
   });
 
-  test('at most 2 per deal: a concession of 2 may be accepted and 3 may not, only reject is left', () => {
+  test('at most 2 per deal: a concession of 2 may be accepted and 3 may not, only reject and affordable counters are left', () => {
     const within = propose(scenario({ mine: 6 }), sellPokemon('caught:0:a', 8));
     expect(answers(within)).toContain('respond-deal:accept');
     const over = propose(scenario({ mine: 6 }), sellPokemon('caught:0:a', 9));
@@ -322,7 +372,7 @@ describe('the budget comes from content, and only a commit spends it (§4.8)', (
     }
   });
 
-  test('a spent budget leaves reject as the only answer to any concession, and tells the AI so', () => {
+  test('a spent budget leaves only reject and zero-concession counters for any concession, and tells the AI so', () => {
     const state = scenario({ mine: 6 });
     state.players[1]!.dealConcessionSpent = 3;
     const proposed = propose(state, sellPokemon('caught:0:a', 7));
@@ -330,6 +380,10 @@ describe('the budget comes from content, and only a commit spends it (§4.8)', (
     expect(answers(proposed).filter((id) => !id.startsWith('counter-deal:'))).toEqual([
       'respond-deal:reject',
     ]);
+    // The counters left concede nothing: the Pidgey is worth 6, so 6 coins or fewer.
+    const counters = answers(proposed).filter((id) => id.startsWith('counter-deal:coins-'));
+    expect(counters.length).toBeGreaterThan(0);
+    for (const id of counters) expect(Number(id.split('-').pop())).toBeLessThanOrEqual(6);
     // A forged accept is refused with the state unchanged.
     const forged = applyAction(proposed, command(proposed, 'respond_deal', { answer: 'accept' }));
     expect(forged).toMatchObject({ rejected: true });
