@@ -637,7 +637,8 @@ function termsWithoutCoinAmount(terms: DealTerms): string {
 /**
  * Deals are atomic (§4.8, §8): an asset changes owner only in an accepted `confirm_deal`, and then exactly the
  * pending terms move, once: the asset from its giver to its receiver and the coins from the receiver to the giver
- * through one sourced `coin_transfer` (reason `deal`), with every other holding, coin balance and player untouched,
+ * through one sourced `coin_transfer` (reason `deal`), the asset itself unchanged (a Tired Pokémon's expiry
+ * is re-counted in its new owner's turns), with every other holding, coin balance and player untouched,
  * and both parties' one-deal-per-Lap marker set. Every other deal step (propose, respond, counter, cancel) leaves
  * every player's coins, Lap marker, Pokémon and items exactly as they were, an accept leaves the terms untouched and
  * a counter changes only the coin amount and stays within depth 1, a reject or cancel closes the question; a refused deal step leaves the state hash
@@ -722,6 +723,29 @@ function checkDealsAtomic({ before, parsed, result }: Step): string[] {
       was.size !== now.size
     ) {
       errors.push('a confirmed deal did not move exactly its asset from giver to receiver');
+    }
+    // The asset itself arrives unchanged: same visibility, form, status and every other field. The one thing that
+    // changes is a Tired Pokémon's expiry, which is counted in its new owner's turns (§4.4).
+    const receiverAfter = result.state.players.find((p) => p.actorId === receiver.actorId);
+    for (const id of ids) {
+      const held = (owner: Player | undefined) =>
+        [...(owner?.team ?? []), ...(owner?.items ?? [])].find((entry) => entry.instanceId === id);
+      const had = held(giver) as
+        (Record<string, unknown> & { tiredExpiresOwnTurnNo?: number }) | undefined;
+      const has = held(receiverAfter) as typeof had;
+      if (!had || !has) continue;
+      const { tiredExpiresOwnTurnNo: expiryBefore, ...unchangedBefore } = had;
+      const { tiredExpiresOwnTurnNo: expiryAfter, ...unchangedAfter } = has;
+      const expiry =
+        expiryBefore === undefined
+          ? undefined
+          : receiver.ownTurnNo + Math.max(1, expiryBefore - giver.ownTurnNo);
+      if (
+        canonicalJson(unchangedBefore) !== canonicalJson(unchangedAfter) ||
+        expiryAfter !== expiry
+      ) {
+        errors.push(`a confirmed deal changed the asset ${id} as it moved`);
+      }
     }
     const transfer = transfers[0];
     if (

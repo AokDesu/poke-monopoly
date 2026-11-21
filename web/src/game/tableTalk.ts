@@ -134,6 +134,10 @@ export function detectMoment(
     ...more,
   });
 
+  // A Deal Card is its two parties' alone (§4.8): a step that carries its payment makes no table news at all, not
+  // the payment, not a change at the top its coins caused, not a die, so no seat is asked to speak about it.
+  if (events.some((event) => event.kind === 'coin_transfer' && event.reason === 'deal'))
+    return null;
   for (const event of events) {
     if (event.kind !== 'battle_reward_resolved' || event.source.kind !== 'gym') continue;
     const winner = seatOf(event.winnerId);
@@ -153,9 +157,6 @@ export function detectMoment(
   }
   for (const event of events) {
     if (event.kind !== 'coin_transfer' || event.amount <= 0) continue;
-    // A Deal Card's payment is its two parties' alone (§4.8): it is never table news, so no seat is asked to
-    // speak about it, however it reached this feed.
-    if (event.reason === 'deal') continue;
     if (event.source.kind !== 'player' || event.destination.kind !== 'player') continue;
     const payer = seatOf(event.source.actorId);
     const paid = seatOf(event.destination.actorId);
