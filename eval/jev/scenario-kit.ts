@@ -32,8 +32,10 @@ export interface EvalScenario {
   id: string;
   description: string;
   personality: Personality;
-  /** Engine state with seat 0 active. */
+  /** Engine state with seat 0 active; for a Deal Card scenario, with the question pending for `seat`. */
   build(): { state: GameState };
+  /** The AI seat that decides; 0 unless the scenario says so (a Deal Card's responder is not the active seat). */
+  seat?: number;
   /**
    * Acceptable answers chosen by a teammate: engine action IDs for Strategy and Encounter, and for
    * Sell each Pokémon instance ID's acceptable Noul answers (`true` sells it).

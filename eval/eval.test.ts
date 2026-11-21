@@ -4,8 +4,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 import { FixtureJevClient, requestHash } from './jev/fixture.ts';
-import { formatReport, parseFixture, recordFixture, runOffline } from './jev/index.ts';
-import { SCENARIOS } from './jev/scenarios.ts';
+import {
+  ALL_SCENARIOS,
+  formatReport,
+  parseFixture,
+  recordFixture,
+  runOffline,
+} from './jev/index.ts';
 import { createFakeJevClient } from '../ai/jev/fake.ts';
 import { SpendLedger, type UsageLine } from '../ai/jev/spend.ts';
 
@@ -52,7 +57,7 @@ test(
       }),
     );
     const rows = await runOffline();
-    expect(new Set(rows.map((row) => row.fixture)).size).toBe(SCENARIOS.length);
+    expect(new Set(rows.map((row) => row.fixture)).size).toBe(ALL_SCENARIOS.length);
     expect(rows.every((row) => row.applied !== undefined)).toBe(true);
     const report = formatReport(rows);
     const recordedRows = rows.filter((row) => !row.synthetic).length;
