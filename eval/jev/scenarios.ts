@@ -10,6 +10,7 @@ import { PERSONALITIES } from '../../ai/fallback/index.ts';
 import type { DecideRequest } from '../../ai/orchestrator.ts';
 import { createPolicyRng } from '../../sim/policy.ts';
 import { personalityScenarios } from './personality-scenarios.ts';
+import { PROMISE_SCENARIOS } from './promise-scenarios.ts';
 import {
   caught,
   encounter,
@@ -238,6 +239,7 @@ export const GREEDY_SCENARIOS: readonly EvalScenario[] = [
 export const SCENARIOS: readonly EvalScenario[] = [
   ...GREEDY_SCENARIOS,
   ...personalityScenarios(GREEDY_SCENARIOS),
+  ...PROMISE_SCENARIOS,
 ];
 
 /**
@@ -260,6 +262,8 @@ export function decideRequest(scenario: EvalScenario): {
     personality: scenario.personality,
     rng: createPolicyRng(scenario.id),
   };
+  // A pending promise question is answered by seat 0, the AI, while the human's Social window waits.
+  if (state.pendingResponse?.kind === 'promise_offer') request.decisionPoint = 'promise_response';
   if (state.phase.kind === 'encounter') {
     const odds = oddsForAllBalls(state, 0);
     request.facts = {

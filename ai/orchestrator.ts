@@ -3,6 +3,7 @@ import type { Personality } from '../content/personality-schema.ts';
 import type { LegalActions, Observation } from '../engine/index.ts';
 import type { PolicyChoice, PolicyFacts, PolicyRng } from '../sim/policy.ts';
 import { decideWithFallback, FallbackPolicy, saleDesire } from './fallback/index.ts';
+import { pendingPromise } from './promises.ts';
 import { lastSellChoice, sellChoice } from './last-sell.ts';
 import {
   DECISION_DEADLINE_MS,
@@ -19,6 +20,7 @@ import type { UsageRecorder } from './jev/spend.ts';
 import { billedUsage, UsageMeter } from './jev/usage.ts';
 import {
   buildEncounterQuestion,
+  buildPromiseResponseQuestion,
   buildSellQuestions,
   buildStrategyQuestion,
   decideSales,
@@ -29,7 +31,7 @@ import {
 } from './questions/index.ts';
 
 /** The Choice decision points; a confidence floor applies only to these (spec §5.6). */
-export type ChoiceQuestion = 'strategy' | 'encounter';
+export type ChoiceQuestion = 'strategy' | 'encounter' | 'promise_response';
 
 /**
  * A Choice's confidence floor by option count: `few` up to `fewMax` options, falling in a straight
@@ -49,6 +51,8 @@ export const ORCHESTRATOR_CONFIG = Object.freeze({
   confidenceFloor: Object.freeze({
     strategy: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
     encounter: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
+    // Two options (accept or reject), so always the `few` end of the curve.
+    promise_response: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
   }) satisfies Readonly<Record<ChoiceQuestion, FloorCurve>>,
 });
 
@@ -250,13 +254,11 @@ export class Orchestrator {
     const log = { turnKey: request.turnKey, decision: this.#quota.nextDecision(), finished };
     try {
       const { phase } = request.observation.public;
-      // Responder decisions use the `auto` policy until S09 and S10 add their question builders.
-      if (
-        request.decisionPoint === 'promise_response' ||
-        request.decisionPoint === 'deal_response'
-      ) {
-        return policyDecision(request, 'auto', null);
+      if (request.decisionPoint === 'promise_response') {
+        return await this.#decideChoice(request, 'promise_response', log);
       }
+      // The deal response uses the `auto` policy until S10 adds its question builder.
+      if (request.decisionPoint === 'deal_response') return policyDecision(request, 'auto', null);
       if (phase.kind === 'strategy' || phase.kind === 'encounter') {
         return await this.#decideChoice(request, phase.kind, log);
       }
@@ -277,6 +279,10 @@ export class Orchestrator {
     let decision;
     if (question === 'strategy') {
       decision = buildStrategyQuestion(observation, enabled, personality);
+    } else if (question === 'promise_response') {
+      // Only the pending responder is asked, and only about a promise (§4.8, #143).
+      if (!pendingPromise(observation)) return policyDecision(request, 'auto', null);
+      decision = buildPromiseResponseQuestion(observation, enabled, personality);
     } else {
       if (!facts.encounter && enabled.length > 1) {
         return policyDecision(

@@ -3,6 +3,7 @@ import type { LegalAction, LegalActions, Observation } from '../../engine/index.
 import { bucketKeepValue } from '../../engine/index.ts';
 import type { Policy, PolicyChoice, PolicyFacts, PolicyRng } from '../../sim/policy.ts';
 import { chatScoreShift } from '../chat.ts';
+import { pendingPromise } from '../promises.ts';
 import type { FallbackReason } from '../jev/client.ts';
 import { lastSellChoice } from '../last-sell.ts';
 
@@ -23,6 +24,12 @@ export const FALLBACK_TUNING = Object.freeze({
   unknownChance: 0.5,
   /** Sell Phase: share of sale desire held back by a ready Ability or an Original Starter. */
   keepFeature: 0.25,
+  /** Promise response: willingness (loyalty plus trust) at or above this accepts. */
+  promiseBar: 0.5,
+  /** Promise response: willingness gained (lost) per point of trust above (below) neutral. */
+  promiseTrustStep: 0.2,
+  /** Promise response: willingness lost per promise the asker broke to this seat. */
+  promiseGrudge: 0.1,
 });
 
 const BALL_TIERS = ['poke', 'great', 'ultra'] as const;
@@ -41,8 +48,33 @@ export function scoreOptions(
   facts: PolicyFacts = {},
 ): Map<string, number> {
   const context = { observation, personality, facts };
-  const score = SCORERS[observation.public.phase.kind] ?? (() => 0);
-  return new Map(options.map((option) => [option.id, score(option, context)]));
+  const phaseScore = SCORERS[observation.public.phase.kind] ?? (() => 0);
+  // A responder answers a pending question; the phase on the table is the asker's, not its own.
+  const score = (option: LegalAction) =>
+    option.kind === 'respond' ? respondScore(option, context) : phaseScore(option, context);
+  return new Map(options.map((option) => [option.id, score(option)]));
+}
+
+/**
+ * Spec §4.8, §5.3 Promise response: the seat's willingness is its loyalty, moved up or down by its
+ * trust in the asker (the engine's `own.trust`, `promiseTrustStep` a point) and down again for each
+ * promise the asker broke to it (the memory evidence). Accept scores the willingness over the bar,
+ * and at the bar itself (a tie goes to accepting); reject scores 0. Promises never change
+ * legality, so both options are always scored. Other responder questions score 0 here.
+ */
+function respondScore(option: LegalAction, { observation, personality }: Context): number {
+  if (option.kind !== 'respond') return 0;
+  const question = pendingPromise(observation);
+  if (!question || option.payload.answer === 'reject') return 0;
+  const { promiseBar, promiseTrustStep, promiseGrudge } = FALLBACK_TUNING;
+  const grudges = question.memory.filter(
+    (entry) =>
+      entry.outcome === 'broken' && entry.promiserSeatIndex === question.initiatorSeatIndex,
+  ).length;
+  const willingness =
+    personality.weights.loyalty + promiseTrustStep * question.trust - promiseGrudge * grudges;
+  // Rounded so that float noise never decides a tie at the bar.
+  return Math.round((willingness - promiseBar) * 1e6) / 1e6 + 1e-9;
 }
 
 const SCORERS: Partial<

@@ -1,6 +1,6 @@
 # Jev decision-scenario eval
 
-Spec: v1.0 §5.5, §5.4, §8, §12. Issues #59 (eval set) and #233 (personality scenarios, stream B).
+Spec: v1.0 §5.5, §5.4, §8, §12. Issues #59 (eval set), #233 (personality scenarios, stream B) and #56 (S09/S11, the promise response).
 
 Spec §8 asks for at least 60 decision scenarios, 15 per personality, each with an acceptable-answer set. Every scenario is one engine state where seat 0 (the AI) decides a Strategy, an Encounter or a Sell Phase. The request goes through the real question builders and the orchestrator, so every number is an engine fact turned into a named bucket, and nothing hidden reaches Jev (the leak, number and size guards run on every scenario).
 
@@ -8,7 +8,7 @@ Spec §8 asks for at least 60 decision scenarios, 15 per personality, each with 
 npm run eval:jev -- --offline   # replays every fixture: no key, no network
 ```
 
-The report counts the scenarios per personality, and splits recorded fixtures from synthetic ones (see below). All 68 are recorded and none is synthetic; see the results.
+The report counts the scenarios per personality, and splits recorded fixtures from synthetic ones (see below). All 84 scenarios are recorded and none is synthetic: the 68 Strategy, Encounter and Sell scenarios (including the three last-Sell Gym twins) and the 16 promise response scenarios (below); see the results.
 
 ## The scenarios
 
@@ -42,23 +42,36 @@ Some states are agreement controls (every personality gives the same answer), so
 
 **PvP.** Spec §5.3 (the temporary #55 exception) keeps `declare_pvp` out of Strategy questions until Stream B adds PvP questions, and there is no PvP response question yet. The PvP contrast is therefore expressed through the Battle Ticket item, which is a real Strategy option that forces PvP. When the PvP questions arrive, add scenarios for them here.
 
+## Promise response scenarios (S09, S11 promise half)
+
+`promise-scenarios.ts`: 16 scenarios of the `promise_response` decision point, four tables by four personalities. Seat 0, the AI, owes the answer to a `no_attack` promise question the human at seat 1 opened in its Social window with the engine's own `offer_promise` action (`promiseTable` in `scenario-kit.ts`). The request is the real `buildPromiseResponseQuestion`: the AI's trust in the human as a named bucket (`low` or `high`), the memory as event evidence (`P2 broke no_attack on turn 3`), the human's earlier message as quoted data, and nothing else; no number reaches Jev. A scenario ID is `<personality>-promise-<role>-<trust>-trust`.
+
+| Table                          | The AI is                     | Trust | History            |
+| ------------------------------ | ----------------------------- | ----- | ------------------ |
+| `promise-recipient-high-trust` | the recipient: it is promised | high  | two promises kept  |
+| `promise-recipient-low-trust`  | the recipient: it is promised | low   | one promise broken |
+| `promise-promiser-high-trust`  | the promiser: it is asked     | high  | two promises kept  |
+| `promise-promiser-low-trust`   | the promiser: it is asked     | low   | one promise broken |
+
+Within a table the four personalities share the exact table state, so a pair differs only in the personality text. The acceptable sets (`respond:accept`, `respond:reject`) are judgements from `content/personalities/<id>.json` with a `reason` that cites the weights (a test checks the cited values). Greedy accepts at high trust and rejects at low trust in both roles; Cautious, the most loyal, accepts or rejects at low trust; Aggressive and Opportunist may accept or reject when asked to promise at high trust. The fallback policy's own answer is a cross-check: a test requires it to be an acceptable answer for every scenario. These are small counts and judgements, not a claim about Jev.
+
 ## Results of the recording
 
-The captain recorded all 45 personality scenarios live on 2026-11-18 (`jev-1.13.0`, one request each, through the orchestrator), and the three `sell-last-phase-gym-ahead` twins on 2026-11-20. With the 20 Greedy recordings the set is **68 fixtures, 68 recorded, 0 synthetic**. These figures come from `npm run eval:jev -- --offline` on that set; counts are Jev answers (Choice and Noul rows) scored against the acceptable sets, with n as shown:
+The captain recorded all 45 personality scenarios live on 2026-11-18 (`jev-1.13.0`, one request each, through the orchestrator), the three `sell-last-phase-gym-ahead` twins on 2026-11-20 and the 16 promise response scenarios on 2026-11-20. With the 20 Greedy recordings the set is **84 fixtures, 84 recorded, 0 synthetic**. These figures come from `npm run eval:jev -- --offline` on that set; counts are Jev answers (Choice and Noul rows) scored against the acceptable sets, with n as shown:
 
-| Measure                              | Result                                                                                                         |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| Accuracy, recorded fixtures          | 92/100 (92.0%); 83/91 with the three Gym twins still synthetic, 77/91 at the Sell scoring fix, 78/91 before it |
-| `illegalAppliedActionCount`          | 0                                                                                                              |
-| Fallbacks (`low_confidence`)         | 16 of 68 decisions                                                                                             |
-| Mean confidence, correct / incorrect | 0.688 (n=37) / 0.480 (n=7); Noul rows have none                                                                |
+| Measure                              | Result                                                                                                                                             |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Accuracy, recorded fixtures          | 108/116 (93.1%); 92/100 before the 16 promise rows, 83/91 with the three Gym twins still synthetic, 77/91 at the Sell scoring fix, 78/91 before it |
+| `illegalAppliedActionCount`          | 0                                                                                                                                                  |
+| Fallbacks (`low_confidence`)         | 18 of 84 decisions                                                                                                                                 |
+| Mean confidence, correct / incorrect | 0.721 (n=53) / 0.480 (n=7); Noul rows have none                                                                                                    |
 
-| Personality | Fixtures | Rows correct / total | Strategy | Encounter |  Sell |
-| ----------- | -------: | -------------------: | -------: | --------: | ----: |
-| Greedy      |       20 |                27/28 |      8/8 |       6/6 | 13/14 |
-| Aggressive  |       16 |                22/24 |      5/6 |       3/4 | 14/14 |
-| Cautious    |       16 |                20/24 |      5/6 |       1/4 | 14/14 |
-| Opportunist |       16 |                23/24 |      5/6 |       4/4 | 14/14 |
+| Personality | Fixtures | Rows correct / total | Strategy | Encounter |  Sell | Promise |
+| ----------- | -------: | -------------------: | -------: | --------: | ----: | ------: |
+| Greedy      |       24 |                31/32 |      8/8 |       6/6 | 13/14 |     4/4 |
+| Aggressive  |       20 |                26/28 |      5/6 |       3/4 | 14/14 |     4/4 |
+| Cautious    |       20 |                24/28 |      5/6 |       1/4 | 14/14 |     4/4 |
+| Opportunist |       20 |                27/28 |      5/6 |       4/4 | 14/14 |     4/4 |
 
 Twelve of the 100 rows (`sell-last-phase-final-round`, four fixtures) are not Jev answers any more: Jev is not asked in the last Sell Phase (spec §5.6, below), so each is scored from the sale the orchestrator applies. Recorded answers for those four fixtures are kept and still checked against the request Jev would be sent, but they do not move the score. The three personalities' set of 15 gained one scenario, `sell-last-phase-gym-ahead`, recorded on 2026-11-20; its nine rows all score right and bring the total from 83/91 to 92/100.
 
@@ -101,7 +114,26 @@ npm run eval:jev -- --record
 
 It makes one request per scenario that is missing, synthetic or stale, through the orchestrator, and writes each fixture with `synthetic: false`. Requests are logged to the usage ledger and stop at the spend cap or daily budget (spec §9). A scenario whose request changed (for example after a wording change) is stale and recorded again; a current recording is kept. Afterwards run `npm run eval:jev -- --offline` and commit the changed fixtures.
 
-Fixtures still to record: none. Any synthetic fixture added later must be listed here by ID, one per line, until it is recorded.
+Fixtures still to record: none. The 16 promise response fixtures were recorded by the captain on 2026-11-20 (`jev-1.13.0`, one request each, through the orchestrator):
+
+- `greedy-promise-recipient-high-trust`
+- `aggressive-promise-recipient-high-trust`
+- `cautious-promise-recipient-high-trust`
+- `opportunist-promise-recipient-high-trust`
+- `greedy-promise-recipient-low-trust`
+- `aggressive-promise-recipient-low-trust`
+- `cautious-promise-recipient-low-trust`
+- `opportunist-promise-recipient-low-trust`
+- `greedy-promise-promiser-high-trust`
+- `aggressive-promise-promiser-high-trust`
+- `cautious-promise-promiser-high-trust`
+- `opportunist-promise-promiser-high-trust`
+- `greedy-promise-promiser-low-trust`
+- `aggressive-promise-promiser-low-trust`
+- `cautious-promise-promiser-low-trust`
+- `opportunist-promise-promiser-low-trust`
+
+Any synthetic fixture added later must be listed under "Fixtures still to record" by ID, one per line, until it is recorded.
 
 Recorded on 2026-11-20 (the captain, `jev-1.13.0`, replacing the synthetic placeholders):
 
