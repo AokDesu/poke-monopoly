@@ -594,13 +594,15 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
     for (const row of sell.facts.sell!) expect(wire).not.toContain(`"keepValue":${row.keepValue}`);
   });
 
-  test('without sale facts, or with partial or foreign rows, a Sell Phase falls back as missing_facts', async () => {
+  test('without sale facts, or with partial, foreign or inconsistent rows, a Sell Phase falls back as missing_facts', async () => {
     const rows = sell.facts.sell!;
     for (const facts of [
       {},
       { sell: rows.slice(1) },
       { sell: [...rows, { ...rows[0]!, instanceId: 'not-mine' }] },
       { sell: [rows[0]!, rows[0]!, ...rows.slice(2)] },
+      // `saleValue` must be `salePrice + classBonusTogether`, or the policy and Jev would disagree.
+      { sell: [{ ...rows[0]!, saleValue: rows[0]!.saleValue + 1 }, ...rows.slice(1)] },
     ]) {
       const fake = createFakeJevClient(pickSkip);
       const body = await (

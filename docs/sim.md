@@ -58,3 +58,5 @@ Accounting identities:
 - In a finished game, `offered = accepted + rejected` and `pending = 0`. An abort while an offer awaits its answer can leave `offered` greater than `accepted + rejected`.
 
 These are simulation measurements of the existing window and attack evidence. They do not settle engine promises, update trust or add memory; that gameplay work remains deferred under §4.8. Event/deck and Sell/keep-value integration and the balanced 300-game report are separate work.
+
+The sim sends no Sell facts, so every sim Sell decision falls back as `missing_facts`. Those decisions are counted in the fallback rate (about 9 of 60 decisions in a short run, approximate).
