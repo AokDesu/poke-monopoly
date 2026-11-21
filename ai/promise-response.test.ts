@@ -13,6 +13,7 @@ import {
   type JevResult,
 } from './jev/client.ts';
 import { createFakeJevClient } from './jev/fake.ts';
+import { JevPolicy } from './jev-policy.ts';
 import { Orchestrator, type DecideRequest, type Difficulty } from './orchestrator.ts';
 
 // Spec §4.8, §5.3, §5.6: the promise response through the orchestrator (S09). Fake clients only.
@@ -318,6 +319,23 @@ describe('routing', () => {
         }
       }
     }
+  });
+});
+
+describe('the sim policy asks Jev about a pending offer (spec §4.8, §5.3, §8)', () => {
+  test('a responder seat reaches the promise question, so a sim run measures the Jev path', async () => {
+    const client = createFakeJevClient(() => answerWith(0.9));
+    const policy = new JevPolicy(new Orchestrator({ client }), PERSONALITIES.greedy);
+    const state = table(2);
+    const choice = await policy.decide(
+      observe(state, 0),
+      legalActions(state, 0),
+      createPolicyRng('sim'),
+    );
+    expect(choice).toBe(ACCEPT);
+    expect(client.requests).toHaveLength(1);
+    expect(Object.keys(client.requests[0]!.questions)).toEqual(['promise_response']);
+    expect(policy.decisions[0]).toMatchObject({ source: 'jev', fallbackReason: null });
   });
 });
 

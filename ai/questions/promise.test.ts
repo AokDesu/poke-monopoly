@@ -66,6 +66,27 @@ describe('wording and options', () => {
   });
 });
 
+describe('actor IDs are opaque strings', () => {
+  test('an ID made only of digits is allowed at the promise identifier paths and nowhere else', () => {
+    const state = promiseTable({
+      seed: 8,
+      direction: 'offer',
+      trust: 1,
+      history: ['kept'],
+      chats: [{ topic: 'truce' }],
+    });
+    for (const player of state.players) if (player.actorId === 'P2') player.actorId = '7';
+    for (const seat of state.config.seats) if (seat.actorId === 'P2') seat.actorId = '7';
+    const { state: sent } = ask(state);
+    expect(sent.promise_offer).toMatchObject({ asked_by_id: '7', promiser_id: '7' });
+    expect(sent.recent_chat).toEqual([{ from: '7', said: '"Can we call a truce?"' }]);
+    expect(sent.opponents.map((opponent) => opponent.id)).toEqual(['7']);
+    expect(() => assertNoComparableNumbers({ promise_offer: { trust_in_them: '7' } })).toThrow(
+      TypeError,
+    );
+  });
+});
+
 describe('state: what is promised, trust, memory and chat', () => {
   test('a promise offered to the AI names the promiser, recipient, end and trust bucket', () => {
     const { state } = ask(
@@ -216,7 +237,7 @@ describe('no hidden information (spec §4.8 Privacy, §5.4, #143)', () => {
 
   test('the request carries no trust integer, chance flag or sequence number', () => {
     const text = requestOf(
-      promiseTable({ seed: 14, direction: 'offer', trust: -2, history: ['broken', 'kept'] }),
+      promiseTable({ seed: 14, direction: 'offer', trust: -1, history: ['broken', 'kept'] }),
     );
     expect(text).not.toMatch(/keptGain|acceptedActionSeq|actionSeq|chance|"value"/);
   });

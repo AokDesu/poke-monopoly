@@ -2,7 +2,10 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { GameState, PokemonInstance } from '../engine/index.ts';
 import { caught, sell, withFinalTableRound } from '../eval/jev/scenario-kit.ts';
 import { decideRequest, type EvalScenario } from '../eval/jev/scenarios.ts';
-import { createPolicyRng } from '../sim/policy.ts';
+import { realEngine } from '../sim/engine.ts';
+import { createMetrics } from '../sim/metrics.ts';
+import { createPolicyRng, type Policy } from '../sim/policy.ts';
+import { noInvariantCheck, playGame } from '../sim/runner.ts';
 import { FallbackPolicy, PERSONALITIES } from './fallback/index.ts';
 import type { JevResult } from './jev/client.ts';
 import { createFakeJevClient } from './jev/fake.ts';
@@ -210,4 +213,57 @@ describe('the Gym destination comes from the engine board', () => {
     strategy.observation.public.phase = { kind: 'strategy' };
     expect(sellsEverythingNow(strategy.observation)).toBe(false);
   });
+});
+
+describe('the last-turn premise against the real engine (spec §4.7.3, §5.6)', () => {
+  /**
+   * Plays one seeded game with Fallback seats and records, per seat, the own turn of each Sell
+   * Phase decided while the Final Table Round is announced, and the latest own turn it decided on.
+   */
+  async function lastSells(seats: number, seed: number) {
+    const lastSellTurn = new Map<number, number>();
+    const lastTurn = new Map<number, number>();
+    const spy = (inner: Policy): Policy => ({
+      personality: inner.personality,
+      decide(observation, legal, rng, facts) {
+        const seat = observation.own.seatIndex;
+        const own = observation.public.players.find((player) => player.seatIndex === seat)!;
+        lastTurn.set(seat, own.ownTurnNo);
+        if (observation.public.phase.kind === 'sell' && observation.public.finalTableRound) {
+          lastSellTurn.set(seat, own.ownTurnNo);
+        }
+        return inner.decide(observation, legal, rng, facts);
+      },
+    });
+    const result = await playGame(
+      realEngine,
+      { seats, maxSteps: 20_000, lapTarget: 2 },
+      seed,
+      (seat) =>
+        spy(new FallbackPolicy(PERSONALITY_LIST[seat.seatIndex % PERSONALITY_LIST.length]!)),
+      noInvariantCheck,
+      createMetrics(),
+    );
+    return { result, lastSellTurn, lastTurn };
+  }
+
+  test.each([
+    [3, 11],
+    [4, 12],
+  ])(
+    'in a %i seat game no seat has a turn left after its all-sale (seed %i)',
+    async (seats, seed) => {
+      const { result, lastSellTurn, lastTurn } = await lastSells(seats, seed);
+      expect(result.abortReason).toBeNull();
+      expect(result.outcome.finished).toBe(true);
+      // The seat that reached the Lap target sells with the round announced, so the premise is used.
+      expect(lastSellTurn.size).toBeGreaterThan(0);
+      for (const [seat, turn] of lastSellTurn) {
+        // The seat never decided on a later turn, and the finished game gave it none either.
+        expect(lastTurn.get(seat), `seat ${seat}`).toBe(turn);
+        expect(result.game!.state.players[seat]!.ownTurnNo, `seat ${seat}`).toBe(turn);
+      }
+    },
+    60_000,
+  );
 });
