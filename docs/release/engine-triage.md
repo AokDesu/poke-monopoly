@@ -228,11 +228,11 @@ Steps 1 to 8 were walked on 2026-11-21 in a browser by the demo rehearsal, `docs
 | 2 Prepared scenario, two options   | Pass in the rehearsal ("Two Balls to choose from"). A64-3 built it.                                                                                                                 | ET-04 (saves must be current) |
 | 4 PvP challenge, accept or decline | Pass in the rehearsal, including the Rival class's forced challenge.                                                                                                                | none                          |
 | 5 Win, coins or evolution          | Pass in the rehearsal (Eevee became Vaporeon).                                                                                                                                      | none                          |
-| 6 Memory from a kept or broken promise | Partial in the rehearsal: the broken promise, trust −2 and the memory entries show; the effect on negotiation does not (its finding 1). Settlement is on main. Deals: no Deal screen. | ET-01, ET-02 (resolved)       |
+| 6 Memory from a kept or broken promise | Decided by the owner after #277: accepted as memory-only, with no fifth scene (spec §3 stays at four). The rehearsal showed the broken promise, trust −2 and the memory entries (its finding 1). Settlement is on main. Deals: no Deal screen. | ET-01, ET-02 (resolved)       |
 | 7 Kill switch and backup bot       | Pass in the rehearsal.                                                                                                                                                              | none                          |
-| 8 Policy-only against Jev          | Not shown: the product has no graph page (its finding 2). Stream A and B evidence not yet run live.                                                                                | ET-06, ET-07                  |
+| 8 Policy-only against Jev          | Decided by the owner after #277: the demo is the committed results tables plus the three commands (`sim`, `eval:jev --offline`, `usage`), with no figure page (its finding 2). Live Stream A and B evidence not yet run.                                                                                | ET-06, ET-07                  |
 
-Two points in the rehearsal are decisions for the owner, not rules to apply: whether step 6 needs a fifth scene (spec §3 caps the list at two to four prepared scenarios and four exist), and whether step 8 means a chart or the committed tables (spec §10 puts decorative graphs on the cut list).
+Both points the rehearsal raised were decided by the owner after #277: step 6 is accepted as memory-only (no fifth scene, spec §3 stays at four), and step 8 uses the committed results tables plus the three commands (sim, eval:jev --offline, usage) as the demo, with no figure page.
 
 ## Add to this queue
 
