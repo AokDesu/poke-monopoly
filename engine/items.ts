@@ -1,5 +1,7 @@
-import { healStatus } from './status.ts';
-import { armShield, declareHostileAction } from './protection.ts';
+import { healStatus, pokemonStatuses } from './status.ts';
+import { applyCoinLossProtection, armShield, declareHostileAction } from './protection.ts';
+import { abilityChoices } from './abilities.ts';
+import { hideFromBystanders } from './social.ts';
 import { beginPvp, pvpDisabledReason } from './pvp.ts';
 import { addSlow, hasSlowKind, SLOWS, type SlowId } from './slows.ts';
 
@@ -24,12 +26,11 @@ export function isHostileItem(itemId: string): boolean {
 
 /**
  * How much of an item's authored effect (Appendix A) this engine applies, so screens never claim
- * more than it does. `partial`: Potion clears Tired only; combat debuffs are not tracked yet.
+ * more than it does. `partial` is reserved for items with some implemented effects.
  * `planned`: held and listed, but no Strategy choice or protective/forcing effect exists yet.
  */
 export type ItemEffectStatus = 'active' | 'partial' | 'planned';
 
-const PARTIAL_EFFECTS = ['potion'];
 const ACTIVE_UTILITY_EFFECTS = [
   'lucky-egg',
   'repel',
@@ -37,12 +38,13 @@ const ACTIVE_UTILITY_EFFECTS = [
   'price-shield',
   'sticky-web',
   'battle-ticket',
+  'potion',
 ];
 
 /** Balls always work (§4.3); utility items follow `useItem` and `itemChoices` below. */
 export function itemEffectStatus(item: Content['items'][number]): ItemEffectStatus {
   if (item.kind === 'ball' || ACTIVE_UTILITY_EFFECTS.includes(item.id)) return 'active';
-  return PARTIAL_EFFECTS.includes(item.id) ? 'partial' : 'planned';
+  return 'planned';
 }
 
 /** Strategy choices for each held usable item, one per opponent for hostile items. */
@@ -50,17 +52,19 @@ export function itemChoices(state: GameState, seatIndex: number, result: LegalAc
   const player = state.players.find((entry) => entry.seatIndex === seatIndex)!;
   for (const item of player.items) {
     if (item.itemId === 'potion') {
-      const targets = player.team.filter((pokemon) => pokemon.tired);
+      const targets: LegalAction[] = player.team.flatMap((pokemon) =>
+        pokemonStatuses(pokemon).map((status) => ({
+          id: `use-item:${item.instanceId}:${pokemon.instanceId}:${status}`,
+          kind: 'use_item',
+          payload: {
+            itemInstanceId: item.instanceId,
+            targetPokemonInstanceId: pokemon.instanceId,
+            status,
+          },
+        })),
+      );
       const choices: LegalAction[] = targets.length
-        ? targets.map((pokemon) => ({
-            id: `use-item:${item.instanceId}:${pokemon.instanceId}:tired`,
-            kind: 'use_item',
-            payload: {
-              itemInstanceId: item.instanceId,
-              targetPokemonInstanceId: pokemon.instanceId,
-              status: 'tired',
-            },
-          }))
+        ? targets
         : [
             {
               id: `use-item:${item.instanceId}`,
@@ -152,7 +156,12 @@ export function useItem(next: GameState, action: Action): EngineEvent[] {
   }
   if (itemId === 'potion') {
     return [
-      ...healStatus(player, action.payload.targetPokemonInstanceId!, 'tired', 'potion'),
+      ...healStatus(
+        player,
+        action.payload.targetPokemonInstanceId!,
+        action.payload.status!,
+        'potion',
+      ),
       destroyed,
     ];
   }
@@ -180,19 +189,54 @@ export function useItem(next: GameState, action: Action): EngineEvent[] {
     addSlow(target, slow);
     return [used, ...declared.events, destroyed];
   }
+  if (abilityChoices(next, target.seatIndex, 'pickpocket').length) {
+    next.pendingPickpocket = { targetSeatIndex: target.seatIndex, attackId: declared.attackId };
+    return [used, ...declared.events, destroyed];
+  }
+  return [
+    ...resolvePickpocket(next, player, target, declared.attackId),
+    used,
+    ...declared.events,
+    destroyed,
+  ];
+}
+
+export function resolvePickpocketReaction(next: GameState, passed: boolean): EngineEvent[] {
+  const reaction = next.pendingPickpocket;
+  if (!reaction) return [];
+  delete next.pendingPickpocket;
+  const user = next.players.find((entry) => entry.seatIndex === next.activeSeatIndex)!;
+  const target = next.players.find((entry) => entry.seatIndex === reaction.targetSeatIndex)!;
+  if (passed) {
+    hideFromBystanders(next, user.seatIndex, target.seatIndex);
+    next.pickpocketPassRecords = (next.pickpocketPassRecords ?? 0) + 1;
+  }
+  return resolvePickpocket(next, user, target, reaction.attackId);
+}
+
+function resolvePickpocket(
+  next: GameState,
+  user: Player,
+  target: Player,
+  attackId: string,
+): EngineEvent[] {
   const amount = Math.min(5, target.coins);
+  const protection = applyCoinLossProtection(next, target, {
+    actorId: user.actorId,
+    actionId: attackId,
+    source: 'pickpocket_coin_loss',
+    amount,
+  });
+  if (protection.blocked) return protection.events;
   target.coins -= amount;
-  player.coins += amount;
+  user.coins += amount;
   return [
     {
       kind: 'coin_transfer',
       source: { kind: 'player', actorId: target.actorId },
-      destination: { kind: 'player', actorId: player.actorId },
+      destination: { kind: 'player', actorId: user.actorId },
       amount,
       reason: 'pickpocket',
     },
-    used,
-    ...declared.events,
-    destroyed,
   ];
 }

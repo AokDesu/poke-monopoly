@@ -57,7 +57,7 @@ function currentTerms(state: GameState, viewer: number): { terms: Terms; frozen:
     const attacker = state.players.find((entry) => entry.seatIndex === battle.attackerSeatIndex)!;
     const defender = state.players.find((entry) => entry.seatIndex === battle.defenderSeatIndex)!;
     if (!battleReadyMembers(attacker).length || !battleReadyMembers(defender).length) return null;
-    const open = viewer === state.activeSeatIndex ? state : withoutItemBonus(state);
+    const open = visibleTo(state, viewer);
     return {
       terms: termsOf(
         pvpSnapshot(open, battle.attackerSeatIndex, battle.defenderSeatIndex, {
@@ -75,7 +75,7 @@ function currentTerms(state: GameState, viewer: number): { terms: Terms; frozen:
     }
     const challenger = state.players.find((entry) => entry.seatIndex === state.activeSeatIndex)!;
     if (!battleReadyMembers(challenger).length) return null;
-    const open = viewer === state.activeSeatIndex ? state : withoutItemBonus(state);
+    const open = visibleTo(state, viewer);
     return {
       terms: termsOf(
         gymSnapshot(
@@ -91,9 +91,18 @@ function currentTerms(state: GameState, viewer: number): { terms: Terms; frozen:
   return null;
 }
 
-function withoutItemBonus(state: GameState): GameState {
+/**
+ * A copy of the state holding only what `viewer` may know about the terms: another seat's
+ * pending Poison Sting is its owner's to see (§4.1, as in `observe`), and the item term belongs to
+ * the active turn's owner. Everything else a snapshot reads is public.
+ */
+function visibleTo(state: GameState, viewer: number): GameState {
   const open = structuredClone(state);
-  if (open.turnEffects) delete open.turnEffects.itemBonus;
+  if (viewer !== state.activeSeatIndex && open.turnEffects) delete open.turnEffects.itemBonus;
+  for (const player of open.players) {
+    if (player.seatIndex === viewer) continue;
+    for (const pokemon of player.team) delete pokemon.combatDebuffed;
+  }
   return open;
 }
 
@@ -121,8 +130,7 @@ function choicePreviews(state: GameState, viewer: number): BattleChoicePreview[]
   const player = state.players.find((entry) => entry.seatIndex === viewer)!;
   const previews: BattleChoicePreview[] = [];
   for (const choice of abilityChoices(state, viewer)) {
-    const copy =
-      viewer === state.activeSeatIndex ? structuredClone(state) : withoutItemBonus(state);
+    const copy = visibleTo(state, viewer);
     for (const other of copy.players) if (other.seatIndex !== viewer) delete other.armedShield;
     const revision = actorRevision(copy, player.actorId);
     const result = applyAction(copy, {
@@ -142,7 +150,8 @@ function choicePreviews(state: GameState, viewer: number): BattleChoicePreview[]
 /**
  * The odds of a challenge `attackerSeatIndex` could declare against `defenderSeatIndex` from
  * Strategy, as that attacker reads them before spending the tactical action: the terms if no
- * Ability is used (a later window may change them), or null when a side has no battle-ready
+ * Ability is used (a later window may change them) and without a Poison Sting that sits on the
+ * defender's Pokémon (the attacker cannot see it), or null when a side has no battle-ready
  * Pokémon. Read-only.
  */
 export function challengeOdds(
@@ -154,9 +163,10 @@ export function challengeOdds(
   const defender = state.players.find((entry) => entry.seatIndex === defenderSeatIndex);
   if (!attacker || !defender) throw new RangeError('Unknown seat index');
   if (!battleReadyMembers(attacker).length || !battleReadyMembers(defender).length) return null;
-  const snapshot = pvpSnapshot(state, attackerSeatIndex, defenderSeatIndex, {
-    attacker: sideModifiers(state, attackerSeatIndex, undefined),
-    defender: sideModifiers(state, defenderSeatIndex, undefined),
+  const open = visibleTo(state, attackerSeatIndex);
+  const snapshot = pvpSnapshot(open, attackerSeatIndex, defenderSeatIndex, {
+    attacker: sideModifiers(open, attackerSeatIndex, undefined),
+    defender: sideModifiers(open, defenderSeatIndex, undefined),
   });
   return { kind: 'pvp', snapshot, odds: pvpOdds(snapshot) };
 }

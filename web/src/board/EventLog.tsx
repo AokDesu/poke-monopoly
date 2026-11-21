@@ -25,11 +25,18 @@ export function eventMessage(
     { key, text: t(key, values) },
   ];
   switch (event.kind) {
+    case 'ability_activated':
+      if (
+        event.effect === 'block' &&
+        entryEvents.some((entry) => entry.kind === 'block_triggered')
+      ) {
+        return [];
+      }
+      return battleEventMessages(event, observation, before);
     // Battle, Gym, protection, Ability, status and evolution events are announced in words.
     case 'attack_attempt':
     case 'shield_armed':
     case 'protection_applied':
-    case 'ability_activated':
     case 'abilities_reset':
     case 'gym_confirmed':
     case 'gym_resolved':
@@ -120,6 +127,8 @@ export function eventMessage(
         item: itemName(event.itemId),
         target: seat(event.targetSeatIndex),
       });
+    case 'block_triggered':
+      return message('board.event.blockTriggered');
     case 'final_table_round':
       return message('board.event.finalRound', { name: seat(event.triggerSeatIndex) });
   }

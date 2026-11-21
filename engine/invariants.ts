@@ -255,18 +255,23 @@ function checkStatuses({ before, result }: Step): string[] {
       if (!pokemon.tired && pokemon.tiredExpiresOwnTurnNo !== undefined)
         errors.push('Cleared Tired retained expiry');
       const old = previous.team.find((entry) => entry.instanceId === pokemon.instanceId);
-      if (
-        old &&
-        old.tired !== pokemon.tired &&
-        !result.events.some(
+      const logged = (status: 'tired' | 'combat_debuff', now: boolean | undefined) =>
+        result.events.some(
           (event) =>
             event.kind === 'status_changed' &&
             event.instanceId === pokemon.instanceId &&
-            event.status === 'tired' &&
-            event.operation === (pokemon.tired ? 'applied' : 'cleared'),
-        )
-      )
+            event.status === status &&
+            event.operation === (now ? 'applied' : 'cleared'),
+        );
+      if (old && old.tired !== pokemon.tired && !logged('tired', pokemon.tired))
         errors.push('Status change lacks a UID log');
+      // A Poison Sting appears, is consumed or is healed only with its UID log (Appendix C.2).
+      if (
+        old &&
+        Boolean(old.combatDebuffed) !== Boolean(pokemon.combatDebuffed) &&
+        !logged('combat_debuff', pokemon.combatDebuffed)
+      )
+        errors.push('Combat debuff change lacks a UID log');
     }
   }
   return errors;
@@ -805,6 +810,12 @@ function checkMoveDebuffs({ before, parsed, result }: Step): string[] {
       errors.push(`${player.actorId}'s pending slow cleared without its actual move`);
     if (ownMove && player.seatIndex === before.activeSeatIndex && moved && now.length)
       errors.push(`${player.actorId}'s actual move did not clear its pending slows`);
+    // Confusion is the same kind of pending debuff: only its target's actual move clears it.
+    const ownMoved = ownMove && player.seatIndex === before.activeSeatIndex && moved;
+    if (player.confused && !after?.confused && !ownMoved)
+      errors.push(`${player.actorId}'s Confusion cleared without its actual move`);
+    if (ownMoved && after?.confused)
+      errors.push(`${player.actorId}'s actual move did not clear its Confusion`);
   }
   return errors;
 }

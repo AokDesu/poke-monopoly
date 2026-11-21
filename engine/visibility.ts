@@ -37,6 +37,12 @@ export function seatAttackAttempt(attempt: AttackAttempt): SeatAttackAttempt {
 function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): boolean {
   if (event.kind === 'random_result' && event.purpose.startsWith('shuffle:')) return false;
   const observerId = before.players.find((player) => player.seatIndex === seatIndex)?.actorId;
+  if (event.kind === 'status_changed' && event.status === 'combat_debuff') {
+    return (
+      event.ownerId === observerId ||
+      (before.phase.kind === 'chance_roll' && before.phase.seatIndex === seatIndex)
+    );
+  }
   if (event.kind === 'random_result' && event.purpose === 'event:e4:item') {
     return seatIndex === before.activeSeatIndex;
   }
@@ -71,7 +77,9 @@ function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): bo
   // A blocked hostile item/Ability is seen by its user and target; a blocked coin loss is public.
   if (
     event.kind === 'protection_applied' &&
-    (event.source === 'hostile_item' || event.source === 'hostile_ability')
+    (event.source === 'hostile_item' ||
+      event.source === 'hostile_ability' ||
+      event.source === 'pickpocket_coin_loss')
   ) {
     return event.actorId === observerId || event.targetId === observerId;
   }
@@ -86,12 +94,15 @@ function visibleTo(before: GameState, event: EngineEvent, seatIndex: number): bo
       player.items.some((item) => item.instanceId === event.instanceId),
     );
     const item = owner?.items.find((entry) => entry.instanceId === event.instanceId);
-    return item?.visibility === 'public' || owner?.seatIndex === seatIndex;
+    return (
+      owner?.seatIndex === seatIndex ||
+      (item?.visibility === 'public' && item.itemId !== 'pickpocket')
+    );
   }
   return true;
 }
 
-/** Lucky Splash's die reveals a private Ball gain, so only the rolling seat sees its face (§4.1). */
+/** Chance dice can reveal private Ball gains or a hostile Ability's outcome (§4.1). */
 function isHiddenChanceRoll(before: GameState, purpose: string, seatIndex: number): boolean {
   return (
     before.phase.kind === 'chance_roll' &&
@@ -154,6 +165,11 @@ export { publicRevision } from './revision.ts';
 function hiddenRecord(before: GameState, record: ActionRecord, seatIndex: number): boolean {
   const { action } = record;
   const actor = before.players.find((player) => player.actorId === action.actorId);
+  if (action.kind === 'skip' && before.pendingPickpocket) {
+    return (
+      seatIndex !== before.activeSeatIndex && seatIndex !== before.pendingPickpocket.targetSeatIndex
+    );
+  }
   if (action.kind === 'chat' || action.kind === 'offer_promise') {
     return actor?.seatIndex !== seatIndex && action.payload.targetSeatIndex !== seatIndex;
   }
@@ -188,9 +204,22 @@ export function actionVisibleTo(
   if (action.kind === 'buy' && actor?.seatIndex !== seatIndex) delete action.payload.offerId;
   if (action.kind === 'use_item' && actor?.seatIndex !== seatIndex) {
     const item = actor?.items.find((entry) => entry.instanceId === action.payload.itemInstanceId);
-    if (item?.visibility !== 'public') delete action.payload.itemInstanceId;
+    if (item?.visibility !== 'public' || item.itemId === 'pickpocket')
+      delete action.payload.itemInstanceId;
     // A hostile item use is its user's and target's alone (§4.1, §4.4).
     if (action.payload.targetSeatIndex !== seatIndex) delete action.payload.targetSeatIndex;
+    if (action.payload.status === 'combat_debuff') {
+      delete action.payload.status;
+      delete action.payload.targetPokemonInstanceId;
+    }
+  }
+  if (
+    action.kind === 'activate_ability' &&
+    actor?.seatIndex !== seatIndex &&
+    action.payload.status === 'combat_debuff'
+  ) {
+    delete action.payload.status;
+    delete action.payload.targetPokemonInstanceId;
   }
   if (
     action.kind === 'activate_ability' &&
@@ -200,7 +229,10 @@ export function actionVisibleTo(
   ) {
     const pokemon = actor?.team.find((entry) => entry.instanceId === action.payload.instanceId);
     const effect = pokemon && abilityEffectOf(before, pokemon);
-    if (effect && ABILITY_EFFECTS[effect].hostile) delete action.payload.targetSeatIndex;
+    if (effect && ABILITY_EFFECTS[effect].hostile) {
+      delete action.payload.targetSeatIndex;
+      delete action.payload.targetPokemonInstanceId;
+    }
   }
   // Deck order and the drawn card are nobody's until an effect makes them public (§4.6).
   if (action.kind === 'shuffle') delete action.payload.order;
