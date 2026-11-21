@@ -339,6 +339,21 @@ describe('the budget comes from content, and only a commit spends it (§4.8)', (
     expect(answers(free)).toContain('respond-deal:accept');
   });
 
+  test('over budget the AI may still counter within the room left, but never accept (§4.8)', () => {
+    const state = scenario({ mine: 6 });
+    state.players[1]!.dealConcessionSpent = 2; // room 1
+    const proposed = propose(state, sellPokemon('caught:0:a', 9)); // concession 3
+    const ids = answers(proposed);
+    expect(ids).not.toContain('respond-deal:accept');
+    expect(ids).toContain('respond-deal:reject');
+    // Coins 6 and 7 concede 0 and 1 and fit; 8 concedes 2 and does not.
+    const counters = ids.filter((id) => id.startsWith('counter-deal:'));
+    expect(counters).toContain('counter-deal:coins-7');
+    expect(counters).not.toContain('counter-deal:coins-8');
+    const countered = applyAction(proposed, command(proposed, 'counter_deal', { coins: 7 }));
+    expect(countered).not.toMatchObject({ rejected: true });
+  });
+
   test('the offer never asks the budget, so the proposer cannot learn it', () => {
     const fresh = scenario();
     const spent = scenario();

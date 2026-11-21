@@ -15,6 +15,7 @@ export {
   saleQuote,
   bucketKeepValue,
   bucketSaleValue,
+  SALE_VALUE_BUCKETS,
   type SalePriceFact,
   type SaleQuote,
 } from './selling.ts';
