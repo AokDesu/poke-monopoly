@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
+  bucketSaleValue,
+  SALE_VALUE_BUCKETS,
   saleFacts,
   createGame,
   createGameConfig,
@@ -18,6 +20,7 @@ import {
   buildSellQuestions,
   decideSales,
   REQUESTS_PER_TURN,
+  SELL_VALUE_BUCKETS,
   sellAnswers,
   type SaleFact,
   type SellFacts,
@@ -314,6 +317,11 @@ describe('buckets (spec §5.4, §5.6)', () => {
       ),
     ).toEqual(['low', 'medium', 'medium', 'high', 'high']);
   });
+  test('the sale buckets are the engine’s own, not a copy', () => {
+    expect(SELL_VALUE_BUCKETS).toBe(SALE_VALUE_BUCKETS);
+    expect(bucketSellValue).toBe(bucketSaleValue);
+  });
+
   test('sale coins are low up to 5, medium 6–12 and high from 13', () => {
     expect([0, 5, 6, 12, 13, 26].map(bucketSellValue)).toEqual([
       'low',

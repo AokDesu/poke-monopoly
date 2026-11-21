@@ -124,6 +124,8 @@ const configSchema = z.strictObject({
   startIncome: count,
   lapTargets: z.strictObject({ quick: z.int().positive(), standard: z.int().positive() }),
   rarityWeights: z.strictObject({ common: count, uncommon: count, rare: count }),
+  // The AI's concession budget for Deal Cards (§4.8): at most `perDeal` per deal and `perGame` per game.
+  dealBudget: z.strictObject({ perDeal: count, perGame: count }),
 });
 
 const contentFilesSchema = z
@@ -235,5 +237,6 @@ export function toEngineContent(content: ParsedContent): Content {
     items: content.items.map((row) =>
       engineFields(row.kind === 'ball' ? ballRow : utilityRow, row),
     ),
+    dealBudget: content.config.dealBudget,
   });
 }
