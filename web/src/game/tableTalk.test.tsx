@@ -168,6 +168,7 @@ const OFF: AiStatus = {
   backupOnly: false,
   reason: null,
   speech: { enabled: false, reason: 'disabled' },
+  demo: false,
 };
 
 /** The table talk hook as the board mounts it, on whichever view the store has. */
@@ -1878,6 +1879,7 @@ describe('the Table talk panel (§3, §4.8)', () => {
       backupOnly: false,
       reason: null,
       speech,
+      demo: false,
     });
     expect(voiceOff(status({ enabled: false, reason: 'missing_key' }))).toBe('missing_key');
     expect(voiceOff(status({ enabled: false, reason: 'budget_exceeded' }))).toBe('budget_exceeded');

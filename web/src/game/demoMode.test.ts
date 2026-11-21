@@ -51,9 +51,10 @@ test.each([
   expect(demoSettingOf(status)).toBe(expected);
 });
 
-test('today’s strict status schema accepts the status the browser reads, and the field is not in it yet', () => {
-  expect(aiStatusSchema.safeParse({ ...base, speech }).success).toBe(true);
-  expect('demo' in aiStatusSchema.shape).toBe(false);
+test('the strict status schema carries the demo field and rejects a status without it', () => {
+  expect(aiStatusSchema.safeParse({ ...base, speech, demo: true }).success).toBe(true);
+  expect(aiStatusSchema.safeParse({ ...base, speech }).success).toBe(false);
+  expect('demo' in aiStatusSchema.shape).toBe(true);
 });
 
 function stubStatus(answer: () => Response | Promise<Response>) {

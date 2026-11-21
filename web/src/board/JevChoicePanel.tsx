@@ -95,7 +95,9 @@ export function JevChoicePanel({ view }: { view: SeatView }) {
           </table>
           <p className="jev-summary">
             <span>{t('demo.byJev')}</span>
-            <strong>{t('demo.confidence', { value: modelNumber(choice.confidence!) })}</strong>
+            {choice.confidence !== undefined && (
+              <strong>{t('demo.confidence', { value: modelNumber(choice.confidence) })}</strong>
+            )}
           </p>
           <p className="jev-note">{t('demo.modelNote')}</p>
           {choice.perPokemon && <p className="jev-note">{t('demo.sellNote')}</p>}

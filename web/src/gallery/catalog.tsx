@@ -368,6 +368,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
                   backupOnly: true,
                   reason: 'disabled',
                   speech: { enabled: false, reason: 'disabled' },
+                  demo: false,
                 },
               }}
               actionError={false}
@@ -628,6 +629,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
                 backupOnly: true,
                 reason: 'disabled',
                 speech: { enabled: false, reason: 'disabled' },
+                demo: false,
               },
             }),
         },
