@@ -1,5 +1,6 @@
 import type {
   JevStatus,
+  DecisionDetail,
   DecisionFallbackReason,
   DecisionRequest,
 } from '../engine/contract/decision.ts';
@@ -23,6 +24,8 @@ export type DeciderAnswer = DeciderPick & {
   lineId?: string;
   /** The §6.8 events of this answer, for the app to journal; they never leave the server. */
   events?: readonly DecisionEvent[];
+  /** Jev's numbers; the app sends them only in demo mode (spec §3). */
+  detail?: DecisionDetail;
 } & ({ source: 'jev' } | { source: 'fallback'; fallbackReason: DecisionFallbackReason });
 
 export interface DeciderContext {
@@ -107,14 +110,20 @@ const sellFactsOf = (
   | undefined => {
   const rows = request.facts.sell;
   if (!rows || request.decisionPoint !== 'sell') return undefined;
-  const sellable = new Set(
-    request.enabledActions.flatMap((action) =>
-      action.kind === 'sell' ? action.payload.pokemonInstanceIds : [],
-    ),
+  // The seat's own team, not the action list: rows are good only when they price exactly this team.
+  const { observation } = request;
+  const you = observation.public.players.find(
+    (player) => player.seatIndex === observation.own.seatIndex,
   );
+  if (!you) return undefined;
+  const sellable = new Set(you.team.map((pokemon) => pokemon.instanceId));
   const given = new Set(rows.map((row) => row.instanceId));
   if (given.size !== rows.length || given.size !== sellable.size) return undefined;
   if (![...given].every((instanceId) => sellable.has(instanceId))) return undefined;
+  // The policy sells on `saleValue`; it must be the price Jev is shown plus the bonus it keeps.
+  if (rows.some((row) => row.saleValue !== row.salePrice + row.classBonusTogether)) {
+    return undefined;
+  }
   return {
     facts: {
       pokemon: rows.map(
@@ -292,6 +301,10 @@ export const createOrchestratorDecider = ({
       decisionPoint: request.decisionPoint,
       rng: rngFor(request),
     });
-    return { ...fromDecision(request, decision), events: decision.events };
+    return {
+      ...fromDecision(request, decision),
+      events: decision.events,
+      ...(decision.detail && { detail: decision.detail }),
+    };
   };
 };

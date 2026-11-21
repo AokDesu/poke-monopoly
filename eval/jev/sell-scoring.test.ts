@@ -14,10 +14,16 @@ describe('Sell scoring', () => {
       answer: 'false',
       correct: true,
     });
-    // Aggressive Noul 0.86 is below 0.92, so it would not sell on the last phase: a real miss.
+    // Aggressive Noul 0.86 is below 0.92: asked, it would not sell on the last phase. It is not
+    // asked there any more (spec §5.6), so the row is the applied sale of everything, which is right.
     expect(row('aggressive-sell-last-phase-final-round', 'sell_team_2')).toMatchObject({
+      answer: 'true',
+      correct: true,
+      rule: true,
+    });
+    // A Sell Jev is still asked about keeps the threshold: Aggressive Noul 0.66 stays a keep.
+    expect(row('aggressive-sell-snorlax-high-sale-low-keep', 'sell_team_1')).toMatchObject({
       answer: 'false',
-      correct: false,
     });
   });
 });

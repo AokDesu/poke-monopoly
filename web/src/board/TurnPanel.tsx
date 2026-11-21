@@ -58,6 +58,7 @@ export function TurnPanel({
   // (the defender and the reward winner included), whoever holds the turn (§6.4).
   const battle = battleCopy(view);
   const owner = view.decision?.seatIndex === view.seatIndex;
+  const reactingToPickpocket = owner && view.observation.own.pickpocketReaction === true;
   const gymEntry =
     game.phase.kind === 'gym' &&
     game.phase.battle.step === 'entry' &&
@@ -69,10 +70,10 @@ export function TurnPanel({
     battle === null &&
     view.legalActions.enabled.length > 1 &&
     !socialOpen &&
-    !['shop', 'strategy', 'sell'].includes(game.phase.kind) &&
+    (reactingToPickpocket || !['shop', 'strategy', 'sell'].includes(game.phase.kind)) &&
     !(game.phase.kind === 'encounter' && !game.phase.catchRoll);
   const decisionOpen =
-    (humanTurn && ['shop', 'strategy', 'sell'].includes(game.phase.kind)) ||
+    (humanTurn && owner && ['shop', 'strategy', 'sell'].includes(game.phase.kind)) ||
     socialOpen ||
     choiceOpen ||
     battleOpen;
@@ -127,6 +128,7 @@ export function TurnPanel({
   }
   if (socialOpen) body = t(rivalOwesAnswer(view) ? 'turn.promiseBody' : 'turn.socialBody');
   if (choiceOpen) body = t('turn.choiceBody');
+  if (reactingToPickpocket) body = t('turn.pickpocketReaction');
   if (opponentFailed) body = t('turn.opponentError');
   return (
     <section className="turn-panel panel" aria-label={t('turn.actions')}>
@@ -185,7 +187,7 @@ export function TurnPanel({
           onChoose={onChoose}
         />
       )}
-      {humanTurn && game.phase.kind === 'strategy' && (
+      {humanTurn && owner && game.phase.kind === 'strategy' && (
         <StrategyPanel
           key={game.stateRevision}
           observation={view.observation}

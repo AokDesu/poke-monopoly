@@ -175,12 +175,12 @@ export const decisionFallbackReasonSchema = z.enum([
  * Jev's probability for each option, its confidence and the question it answered. Option IDs are
  * the request's own action IDs; at the Sell Phase, where Jev answers one yes/no question per
  * Pokémon, they are the Pokémon's instance IDs and each probability is that Pokémon's chance of
- * being sold. The numbers are copied from Jev's answer, never computed. PROPOSED: no server emits
- * this yet; stream B owns the field and may change this shape (issue #65).
+ * being sold. The numbers are copied from Jev's answer, never computed.
  */
 export const decisionDetailSchema = z.strictObject({
   questionId: id,
-  confidence: z.number().min(0).max(1),
+  /** Null at the Sell Phase: Jev's yes/no answers carry no confidence, and none is computed. */
+  confidence: z.number().min(0).max(1).nullable(),
   options: z
     .array(z.strictObject({ id, probability: z.number().min(0).max(1) }))
     .min(1)
@@ -255,6 +255,8 @@ export const aiStatusSchema = z.strictObject({
   backupOnly: z.boolean(),
   reason: statusReason.nullable(),
   speech: speechStatusSchema,
+  /** The server's demo switch (spec §3); the browser never sets or derives it. */
+  demo: z.boolean(),
 });
 
 export type DecisionPoint = z.infer<typeof decisionPointSchema>;
@@ -267,5 +269,5 @@ export type DecisionDetail = z.infer<typeof decisionDetailSchema>;
 export type DecisionOutcome = z.infer<typeof decisionOutcomeSchema>;
 export type AiStatus = z.infer<typeof aiStatusSchema>;
 /** The Jev half of the status, which the decider needs; the speech half is the Haiku client's. */
-export type JevStatus = Omit<AiStatus, 'speech'>;
+export type JevStatus = Omit<AiStatus, 'speech' | 'demo'>;
 export type SpeechStatus = z.infer<typeof speechStatusSchema>;

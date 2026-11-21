@@ -47,8 +47,9 @@ const ALL_IDS = [...SPECIES_IDS, ...FORM_IDS];
 
 // Independent checklist (Appendix A), not derived from the engine: which items the engine applies.
 const PLANNED_ITEMS: string[] = [];
-const PARTIAL_ITEMS = ['potion'];
+const PARTIAL_ITEMS: string[] = [];
 const ACTIVE_UTILITY = [
+  'potion',
   'lucky-egg',
   'repel',
   'pickpocket',

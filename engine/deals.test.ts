@@ -1061,7 +1061,7 @@ describe('replay, save and resume reproduce a game with deals (§6.8, §6.9)', (
 
   test('an old save is refused rather than migrated', () => {
     const { state, log } = played();
-    const text = serialize({ state, log }).replaceAll('"0.21.0"', '"0.20.0"');
+    const text = serialize({ state, log }).replaceAll('"0.22.0"', '"0.21.0"');
     expect(() => deserialize(text)).toThrow(/engine version/);
   });
 });

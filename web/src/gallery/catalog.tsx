@@ -368,6 +368,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
                   backupOnly: true,
                   reason: 'disabled',
                   speech: { enabled: false, reason: 'disabled' },
+                  demo: false,
                 },
               }}
               actionError={false}
@@ -628,6 +629,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
                 backupOnly: true,
                 reason: 'disabled',
                 speech: { enabled: false, reason: 'disabled' },
+                demo: false,
               },
             }),
         },
@@ -891,7 +893,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
       specRow: null,
       spec: { id: 'abilities', label: 'gallery.specAbilities' },
       label: 'gallery.row.abilities',
-      keys: ['ability.heading', 'ability.planned', 'ability.choosePrompt', 'battle.heading.window'],
+      keys: ['ability.heading', 'ability.choosePrompt', 'battle.heading.window'],
       examples: [
         {
           id: 'strategy',

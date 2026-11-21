@@ -242,3 +242,40 @@ test('a third seat sees no secret shield, no blocked hostile item and no secret 
   expect(observe(blocked.state, 2).public.attackHistory).toEqual([]);
   expect(observe(blocked.state, 1).public.attackHistory).toHaveLength(1);
 });
+
+test('Block, activated in the defender window, stops the PvP coin loss and is consumed by it (C.4, C.2 Block)', () => {
+  let state = game('researcher', seedWhereAttackerWins());
+  // Gyarados (5) beats Snorlax (4) on any roll the attacker wins, so the loser is the Block owner.
+  state.players[0]!.team[0]!.speciesId = 'gyarados';
+  state.players[1]!.team[0] = {
+    ...state.players[1]!.team[0]!,
+    speciesId: 'snorlax',
+    abilityReady: true,
+  };
+  state = accept(state, 'declare_pvp', { targetSeatIndex: 1 }).state;
+  state = accept(state, 'respond_pvp', { accept: true }).state;
+  expect(state.phase).toMatchObject({ kind: 'pvp', battle: { step: 'defender_window' } });
+  const blocked = accept(state, 'activate_ability', { instanceId: 'starter:1' });
+  expect(blocked.state.players[1]!.armedShield).toMatchObject({ scope: 'pvp_pickpocket' });
+  state = advanceAutomatically(advanceAutomatically(blocked.state).state).state;
+  expect(pendingDecision(state)?.seatIndex).toBe(0);
+
+  const coins = accept(state, 'choose_reward', { kind: 'coins' });
+  expect(coins.state.players.map((player) => player.coins)).toEqual([20, 20, 20]);
+  expect(coins.state.players[1]!.armedShield).toBeUndefined();
+  expect(coins.events).toContainEqual(
+    expect.objectContaining({
+      kind: 'protection_applied',
+      source: 'pvp_coin_loss',
+      protection: 'pvp_pickpocket',
+    }),
+  );
+  expect(coins.events).toContainEqual({ kind: 'block_triggered', ownerId: 'p1' });
+  expect(coins.events).toContainEqual(
+    expect.objectContaining({
+      kind: 'battle_reward_resolved',
+      coinAmount: 0,
+      source: { kind: 'pvp', loserId: 'p1', coinLossBlocked: true },
+    }),
+  );
+});

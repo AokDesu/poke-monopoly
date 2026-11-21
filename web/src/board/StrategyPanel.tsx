@@ -182,9 +182,12 @@ export function StrategyPanel({
                     aria-pressed={choiceId === action.id}
                     onClick={() => setSelection({ ...currentSelection!, choiceId: action.id })}
                   >
-                    {t('strategy.potion.member', {
-                      pokemon: memberName(ownTeam, pokemon.instanceId),
-                    })}
+                    {t(
+                      action.payload.status === 'combat_debuff'
+                        ? 'strategy.potion.debuffMember'
+                        : 'strategy.potion.member',
+                      { pokemon: memberName(ownTeam, pokemon.instanceId) },
+                    )}
                   </ActionButton>
                 );
               })}
@@ -196,7 +199,9 @@ export function StrategyPanel({
               <p>
                 {choice.kind === 'use_item' && choice.payload.status === 'tired'
                   ? t('strategy.potion.effect')
-                  : t('strategy.effect', { effect: definition.effect })}
+                  : choice.kind === 'use_item' && choice.payload.status === 'combat_debuff'
+                    ? t('strategy.potion.debuffEffect')
+                    : t('strategy.effect', { effect: definition.effect })}
               </p>
               <p>
                 {targetPokemon
