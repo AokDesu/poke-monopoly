@@ -412,6 +412,67 @@ describe('the budget comes from content, and only a commit spends it (§4.8)', (
   });
 });
 
+describe("trust and the counter price are the engine's facts, not ai/'s (§4.8, §5.4)", () => {
+  const trustIn = (state: GameState, value: number | undefined) => {
+    if (value !== undefined) {
+      state.trust = [{ fromSeatIndex: 1, toSeatIndex: 0, value, keptGain: 0 }];
+    }
+    return dealFacts(propose(state, sellPokemon('caught:0:a', 6)), 1)!.proposerTrust;
+  };
+
+  test('proposerTrust is low below 0, neutral at 0 and none settled, high above 0', () => {
+    expect([-3, -1].map((value) => trustIn(scenario(), value))).toEqual(['low', 'low']);
+    expect([0, undefined].map((value) => trustIn(scenario(), value))).toEqual([
+      'neutral',
+      'neutral',
+    ]);
+    expect([1, 3].map((value) => trustIn(scenario(), value))).toEqual(['high', 'high']);
+  });
+
+  test('only the AI’s own trust in the proposer counts, not the proposer’s in the AI', () => {
+    const state = scenario();
+    state.trust = [{ fromSeatIndex: 0, toSeatIndex: 1, value: 3, keptGain: 0 }];
+    expect(dealFacts(propose(state, sellPokemon('caught:0:a', 6)), 1)!.proposerTrust).toBe(
+      'neutral',
+    );
+  });
+
+  test('when the AI pays, the favourable counter is the listed one just below the price', () => {
+    const proposed = propose(scenario({ mine: 6 }), sellPokemon('caught:0:a', 8));
+    expect(dealFacts(proposed, 1)!.favourableCounter).toBe('counter-deal:coins-7');
+    expect(answers(proposed)).toContain('counter-deal:coins-7');
+  });
+
+  test('when the proposer pays, it is the listed one just above the price', () => {
+    const proposed = propose(scenario({ theirs: 6 }), buyPokemon('caught:1:a', 5));
+    expect(dealFacts(proposed, 1)!.favourableCounter).toBe('counter-deal:coins-6');
+    expect(answers(proposed)).toContain('counter-deal:coins-6');
+  });
+
+  test('it is only ever a listed counter: none when the room left allows no better price', () => {
+    // The AI pays 1 coin: no lower price exists to counter at.
+    const low = propose(scenario({ mine: 6 }), sellPokemon('caught:0:a', 1));
+    expect(dealFacts(low, 1)).not.toHaveProperty('favourableCounter');
+    // A proposer paying every coin it holds has no higher price to counter at.
+    const state = scenario({ theirs: 6 });
+    state.players[0]!.coins = 5;
+    const all = propose(state, buyPokemon('caught:1:a', 5));
+    expect(dealFacts(all, 1)).not.toHaveProperty('favourableCounter');
+    // Over budget, a counter that is still over budget is not favourable either.
+    const spent = scenario({ mine: 6 });
+    spent.players[1]!.dealConcessionSpent = 3;
+    const over = propose(spent, sellPokemon('caught:0:a', 9));
+    expect(dealFacts(over, 1)!.favourableCounter).toBe('counter-deal:coins-6');
+    expect(answers(over)).toContain(dealFacts(over, 1)!.favourableCounter);
+  });
+
+  test('a countered deal has no second counter, so no favourable one', () => {
+    const proposed = propose(scenario({ mine: 6 }), sellPokemon('caught:0:a', 8));
+    const countered = accepted(proposed, 'counter_deal', { coins: 7 });
+    expect(dealFacts(countered, 1)).toBeNull();
+  });
+});
+
 describe('who gets the facts (§5.4, §4.8 privacy)', () => {
   test('only the AI answering sees them, in its observation and as decision facts', () => {
     const proposed = propose(scenario({ seats: 3, mine: 6 }), sellPokemon('caught:0:a', 8));
@@ -421,6 +482,8 @@ describe('who gets the facts (§5.4, §4.8 privacy)', () => {
       valueReceived: 'medium',
       concession: 'few',
       budgetLeft: 'few',
+      proposerTrust: 'neutral',
+      favourableCounter: 'counter-deal:coins-7',
     });
     expect(observe(proposed, 1).own.pendingResponse).toMatchObject({ kind: 'deal', facts });
     expect(decisionFactsSchema.parse({ deal: facts }).deal).toEqual(facts);
@@ -429,10 +492,14 @@ describe('who gets the facts (§5.4, §4.8 privacy)', () => {
     expect(dealFacts(proposed, 0)).toBeNull();
     expect(dealFacts(proposed, 2)).toBeNull();
     expect(observe(proposed, 2).own.pendingResponse).toBeUndefined();
-    expect(JSON.stringify(observe(proposed, 0))).not.toMatch(/budgetLeft|valueGiven|concession/);
-    expect(JSON.stringify(observe(proposed, 2))).not.toMatch(/budgetLeft|valueGiven|concession/);
+    expect(JSON.stringify(observe(proposed, 0))).not.toMatch(
+      /budgetLeft|valueGiven|concession|proposerTrust|favourableCounter/,
+    );
+    expect(JSON.stringify(observe(proposed, 2))).not.toMatch(
+      /budgetLeft|valueGiven|concession|proposerTrust|favourableCounter/,
+    );
     expect(JSON.stringify(observeSpectator(proposed))).not.toMatch(
-      /budgetLeft|valueGiven|concession|dealConcessionSpent/,
+      /budgetLeft|valueGiven|concession|dealConcessionSpent|proposerTrust|favourableCounter/,
     );
     // Once the question is the proposer's to settle, the AI's facts are gone too.
     const agreed = accepted(proposed, 'respond_deal', { answer: 'accept' });

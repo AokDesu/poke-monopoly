@@ -1,6 +1,6 @@
 import { pendingGymChoices, recordGymCommand, recordGymRoll } from '../gym.ts';
 import { pendingDecision } from '../decisions.ts';
-import { dealFacts } from '../deal-facts.ts';
+import { dealFacts } from '../deals.ts';
 import {
   abilityChoices,
   abilityDisabled,

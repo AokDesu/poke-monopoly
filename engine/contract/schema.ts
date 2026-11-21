@@ -236,13 +236,22 @@ export const dealValueBucketSchema = z.enum(['low', 'medium', 'high']);
 export const dealCountBucketSchema = z.enum(['none', 'one', 'few', 'many']);
 /**
  * What the AI answering a Deal Card is told about it (§4.8, §5.4): the value it gives and receives, the concession
- * it would make and the budget it has left. `budgetLeft` is absent when the content sets no budget.
+ * it would make, the budget it has left, its trust in the proposer and the counter that favours it. `budgetLeft` is
+ * absent when the content sets no budget.
  */
+export const dealTrustBucketSchema = z.enum(['low', 'neutral', 'high']);
 export const dealFactsSchema = z.strictObject({
   valueGiven: dealValueBucketSchema,
   valueReceived: dealValueBucketSchema,
   concession: dealCountBucketSchema,
   budgetLeft: dealCountBucketSchema.optional(),
+  /** The AI's trust in the proposer: low below 0, neutral at 0, high above 0 (§4.8). Never the number. */
+  proposerTrust: dealTrustBucketSchema,
+  /**
+   * The `id` of the listed `counter_deal` whose price is nearest the current one and in this seat's favour (a
+   * higher amount when the proposer pays, a lower one when this seat does); absent when none is listed. No amount.
+   */
+  favourableCounter: z.string().optional(),
 });
 // A Deal Card in progress (§4.8), told only to its two parties. `proposed`: the target owes accept, reject
 // or counter. `accepted` or `countered`: the proposer owes confirm or cancel. `responderSeatIndex` is whoever
