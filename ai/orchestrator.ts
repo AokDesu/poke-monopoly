@@ -318,7 +318,8 @@ export class Orchestrator {
     const blocked = this.#blocked(request.turnKey);
     if (blocked) return policyDecision(request, 'fallback', blocked);
     // Spec §5.6 Hard: the engine's rollouts add expected-outcome buckets to each option before the
-    // argmax. Their time comes off Jev's deadline, so the whole decision stays inside it.
+    // argmax. With a rollout limit set (the server's), their time comes off Jev's deadline, so the
+    // whole decision stays inside it; without one (the sim, which has no clock) Jev keeps all of it.
     let rolloutSpent = 0;
     if (request.difficulty === 'hard' && question !== 'promise_response') {
       const started = performance.now();
@@ -330,7 +331,7 @@ export class Orchestrator {
         seed: request.rng.int(SAMPLE_RANGE),
         ...(this.#rolloutMs !== undefined && { deadlineMs: this.#rolloutMs }),
       });
-      rolloutSpent = performance.now() - started;
+      if (this.#rolloutMs !== undefined) rolloutSpent = performance.now() - started;
       if (outcomes) decision = build(outcomes);
     }
     if (decision.kind !== 'ask') return policyDecision(request, 'auto', null);

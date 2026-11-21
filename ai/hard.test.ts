@@ -76,8 +76,9 @@ function requestFor(
 }
 
 /** Jev answers with equal shares; the fake keeps every request it was sent. */
-function jevFake() {
-  return createFakeJevClient((request: JevRequest): JevResult => {
+function jevFake(delayMs = 0) {
+  return createFakeJevClient(async (request: JevRequest): Promise<JevResult> => {
+    if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
     const answers: Record<string, JevAnswer> = {};
     for (const [name, question] of Object.entries(request.questions)) {
       if (question.type !== 'choice') throw new Error('Only Choice questions here');
@@ -178,6 +179,37 @@ describe('outcomes are words, never numbers (spec §5.4)', () => {
     ['rises a lot', 'high'],
   ] as const)('the sentence for %s / %s has no digit', (expected_coins, lead_chance) => {
     expect(outcomeSentence({ expected_coins, lead_chance })).not.toMatch(/\d/);
+  });
+});
+
+describe('the rollout time and the Jev deadline (spec §5.6)', () => {
+  /** Rollouts that take `ms` of wall-clock time, then give the real buckets. */
+  const slowRollouts =
+    (ms: number): NonNullable<ConstructorParameters<typeof Orchestrator>[0]['outcomes']> =>
+    (request) => {
+      const until = performance.now() + ms;
+      while (performance.now() < until);
+      return hardOutcomes(request);
+    };
+
+  async function decide(options: Partial<ConstructorParameters<typeof Orchestrator>[0]>) {
+    const orchestrator = new Orchestrator({
+      client: jevFake(30),
+      gameId: 'g1',
+      decisionMs: 400,
+      ...options,
+    });
+    return orchestrator.decide(requestFor(strategyState, 'hard'));
+  }
+
+  test('with no rollout limit set, rollout time is not taken off the Jev deadline', async () => {
+    const decision = await decide({ outcomes: slowRollouts(500) });
+    expect(decision.source).toBe('jev');
+  });
+
+  test('with a rollout limit set, rollout time is taken off the Jev deadline', async () => {
+    const decision = await decide({ outcomes: slowRollouts(500), rolloutMs: 100 });
+    expect(decision.source).toBe('fallback');
   });
 });
 
