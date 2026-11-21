@@ -48,6 +48,7 @@ import {
 import { ChatReplyError, type ChatReplyRequest, type SavedChatWords } from './chat.ts';
 import { reportOutcome, requestOpponent, type AiDecision } from './ai.ts';
 import { demoChoiceOf } from './demoChoice.ts';
+import { leaderOf } from './tableTalk.ts';
 import type { DifficultyId, GameSetup, PersonalityId, WatchSettings, WatchSetup } from './setup.ts';
 
 /**
@@ -83,6 +84,8 @@ export interface SeatFeedEntry {
    * member listed publicly, so a row can name a Pokémon as it was even after a sale or evolution.
    */
   readonly before: Pick<Observation['public'], 'phase' | 'activeSeatIndex' | 'globalTurnNo'> & {
+    /** The one seat with the most coins at that moment, or null on a tie (a change at the top is read around a record). */
+    readonly leader: number | null;
     readonly pokemon: readonly { readonly instanceId: string; readonly speciesId: string }[];
   };
   readonly record: SeatActionRecord;
@@ -155,11 +158,11 @@ export interface GameStore {
   /** The watcher's view, or null without a game or when a seat is human. Stable between changes. */
   getSpectatorView(): SpectatorView | null;
   /**
-   * The public game for a request made in `seatIndex`'s name, or null without a game: the fields every seat
-   * shares (the spectator's, never a seat-relative projection that names a private attack) with that seat's own
-   * revision, never the viewer's, which counts records (a Deal Card, a promise) the seat never saw (§4.8).
+   * The public game for a request made in an AI seat's name, or null without a game: what a spectator sees, the
+   * fields and the revision every seat shares. Never a seat's own projection, whose revision counts records (a Deal
+   * Card, a promise) the other seats never saw and which names a private attack (§4.1, §4.8).
    */
-  publicFor(seatIndex: number): Observation['public'] | null;
+  sharedPublic(): Observation['public'] | null;
   /** Creates the game and its log together (engine contract: `createGameLog(createGame(...))`). */
   start(
     config: GameConfig,
@@ -328,6 +331,7 @@ function beforeOf(
     phase,
     activeSeatIndex,
     globalTurnNo,
+    leader: leaderOf(players),
     pokemon: players.flatMap((player) =>
       player.team.map(({ instanceId, speciesId }) => ({ instanceId, speciesId })),
     ),
@@ -565,14 +569,12 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    publicFor(seatIndex: number): Observation['public'] | null {
+    sharedPublic(): Observation['public'] | null {
       if (!session) return null;
-      // The fields every seat shares (what a spectator sees: no attack made with a private item, no seat-relative
-      // history) with only the revision the speaker itself observes.
-      return {
-        ...observeSpectator(session.state).public,
-        stateRevision: observe(session.state, seatIndex).public.stateRevision,
-      };
+      // Exactly what a spectator sees: no attack made with a private item, no seat-relative history and the
+      // revision a bystander holds, which counts no record private to a pair (a seat's own revision would show
+      // how many such records it was part of).
+      return observeSpectator(session.state).public;
     },
     getSession(): GameSession | null {
       return session;

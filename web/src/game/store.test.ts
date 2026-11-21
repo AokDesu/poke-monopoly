@@ -4,6 +4,7 @@ import {
   createGameConfig,
   createGameLog,
   fixtureSchema,
+  observeSpectator,
   replay,
   stateHash,
   type GameConfig,
@@ -163,22 +164,26 @@ test('a seat outside a Deal Card sees the same decision owner as with no questio
   expect(decisionOf(party.quiet, party.log)?.seatIndex).toBe(0);
 });
 
-test("a speaker's request carries that seat's own public revision, not the viewer's (§4.8)", () => {
+test("shared speech carries the revision every seat shares, never one seat's own (§4.8)", () => {
   const store = createGameStore();
   store.start(config, content);
   const session = store.getSession()!;
   const state = structuredClone(session.state);
-  // The viewer (seat 0) was a party to two Deal Card records that seat 1 never saw.
+  // Two Deal Cards that seat 1 never saw; seat 0, the viewer, was a party to both.
   state.stateRevision = 5;
+  state.dealRecords = 2;
+  state.players[0]!.unseenRecords = 0;
   state.players[1]!.unseenRecords = 2;
   store.restore({ state, log: session.log });
   const viewer = store.getView()!.observation.public.stateRevision;
-  expect(store.publicFor(1)!.stateRevision).toBe(3);
-  expect(store.publicFor(0)!.stateRevision).toBe(viewer);
-  expect(store.publicFor(1)!.stateRevision).not.toBe(viewer);
+  expect(viewer).toBe(5);
+  // The party's own revision counts both records, which would show a bystander how many it was part of.
+  expect(store.sharedPublic()!.stateRevision).toBe(3);
+  expect(store.sharedPublic()!.stateRevision).toBe(observeSpectator(state).public.stateRevision);
+  expect(store.sharedPublic()!.stateRevision).not.toBe(viewer);
 });
 
-test("a speech request carries only the fields every seat shares: no private attack, only the speaker's revision (§4.1, §4.8)", () => {
+test('a speech request carries only the fields every seat shares: no private attack, no seat-relative revision (§4.1, §4.8)', () => {
   const store = createGameStore();
   store.start(config, content);
   const session = store.getSession()!;
@@ -207,9 +212,7 @@ test("a speech request carries only the fields every seat shares: no private att
   state.stateRevision = 5;
   state.players[1]!.unseenRecords = 2;
   store.restore({ state, log: session.log });
-  for (const seat of [0, 1]) {
-    const shared = store.publicFor(seat)!;
-    expect(shared.attackHistory?.map((attempt) => attempt.source)).toEqual(['pvp_declaration']);
-  }
-  expect(store.publicFor(1)!.stateRevision).toBe(3);
+  const shared = store.sharedPublic()!;
+  expect(shared.attackHistory?.map((attempt) => attempt.source)).toEqual(['pvp_declaration']);
+  expect(shared.stateRevision).toBe(observeSpectator(state).public.stateRevision);
 });

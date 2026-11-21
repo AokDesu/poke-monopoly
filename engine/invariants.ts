@@ -658,6 +658,27 @@ function checkDealsAtomic({ before, parsed, result }: Step): string[] {
   const transfers = eventsOf(result.events, 'coin_transfer').filter((e) => e.reason === 'deal');
   const pending = before.pendingResponse;
   const after = result.state.pendingResponse;
+  if (isDeal) {
+    // Every accepted deal step is one record only its two parties see (§4.8): the global count of such records
+    // rises by one and so does `unseenRecords` of each seat outside the pair, never a party's. These counters set
+    // every bystander's revision, so a drift is a gap in its feed sequence that only a replay would otherwise show.
+    const parties =
+      parsed.kind === 'propose_deal'
+        ? [before.activeSeatIndex, parsed.payload.targetSeatIndex]
+        : pending?.kind === 'deal'
+          ? [pending.initiatorSeatIndex, pending.targetSeatIndex]
+          : [];
+    if ((result.state.dealRecords ?? 0) !== (before.dealRecords ?? 0) + 1) {
+      errors.push(`${parsed.kind} did not count exactly one deal record`);
+    }
+    for (const player of before.players) {
+      const next = result.state.players.find((entry) => entry.actorId === player.actorId);
+      const expected = (player.unseenRecords ?? 0) + (parties.includes(player.seatIndex) ? 0 : 1);
+      if ((next?.unseenRecords ?? 0) !== expected) {
+        errors.push(`${parsed.kind} left ${player.actorId} with the wrong unseen-record count`);
+      }
+    }
+  }
   if (parsed?.kind !== 'confirm_deal') {
     if (moved.length > 0) errors.push('an asset changed owner outside a confirmed deal');
     if (transfers.length > 0) errors.push('a deal coin transfer was logged outside a confirm');
