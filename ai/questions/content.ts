@@ -6,6 +6,7 @@ import evolutions from '../../content/evolutions.json' with { type: 'json' };
 import items from '../../content/items.json' with { type: 'json' };
 import species from '../../content/species.json' with { type: 'json' };
 import { parseContent } from '../../content/schema.ts';
+import { effectiveForm } from '../../engine/index.ts';
 
 /** English names and effect texts for question wording; content holds the text, not ai/ (spec §5.2). */
 export const CONTENT = parseContent({
@@ -24,6 +25,11 @@ export function itemText(itemId: string, fallbackName: string) {
     name: item?.name ?? fallbackName,
     effect: item?.kind === 'utility' ? item.effect : undefined,
   };
+}
+
+/** The name of a Pokémon's current form, an evolved one included (spec §4.5): the engine resolves it, not ai/. */
+export function formText(formId: string) {
+  return { name: effectiveForm(CONTENT, formId).name };
 }
 
 export function speciesText(speciesId: string) {

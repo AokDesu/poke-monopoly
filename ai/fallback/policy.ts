@@ -5,6 +5,7 @@ import type { Policy, PolicyChoice, PolicyFacts, PolicyRng } from '../../sim/pol
 import { chatScoreShift } from '../chat.ts';
 import { pendingPromise } from '../promises.ts';
 import type { FallbackReason } from '../jev/client.ts';
+import { pendingDeal } from '../questions/deal.ts';
 import { lastSellChoice } from '../last-sell.ts';
 
 /**
@@ -24,6 +25,21 @@ export const FALLBACK_TUNING = Object.freeze({
   unknownChance: 0.5,
   /** Sell Phase: share of sale desire held back by a ready Ability or an Original Starter. */
   keepFeature: 0.25,
+  /** Deal response: score of rejecting, the bar an accept or a counter has to beat. */
+  dealRejectBar: -0.05,
+  /** Deal response: a counter's base score, less `dealCounterLoyalty` × loyalty; a loyal personality haggles less. */
+  dealCounterBase: 0.3,
+  dealCounterLoyalty: 0.6,
+  /** Deal response: each bucket step of value edge is worth 1; the rest are fractions of it. */
+  dealCounterEdge: 0.2,
+  /** Deal response: cost of each concession bucket step, less for a risk-taker (× (1 − risk)). */
+  dealConcessionCost: 0.3,
+  /**
+   * Deal response: trust (low or high) shifts an accept or a counter by this × loyalty; liquidity above the middle of
+   * its range shifts an accept toward coins in and away from coins out, by this × 2 × (liquidity − 0.5).
+   */
+  dealTrustStep: 0.5,
+  dealLiquidityStep: 0.25,
   /** Promise response: willingness (loyalty plus trust) at or above this accepts. */
   promiseBar: 0.5,
   /** Promise response: willingness gained (lost) per point of trust above (below) neutral. */
@@ -31,6 +47,9 @@ export const FALLBACK_TUNING = Object.freeze({
   /** Promise response: willingness lost per promise the asker broke to this seat. */
   promiseGrudge: 0.1,
 });
+
+const VALUE_RANK = { low: 0, medium: 1, high: 2 } as const;
+const COUNT_RANK = { none: 0, one: 1, few: 2, many: 3 } as const;
 
 const BALL_TIERS = ['poke', 'great', 'ultra'] as const;
 
@@ -47,6 +66,7 @@ export function scoreOptions(
   personality: Personality,
   facts: PolicyFacts = {},
 ): Map<string, number> {
+  if (pendingDeal(observation)) return dealScores(observation, options, personality);
   const context = { observation, personality, facts };
   const phaseScore = SCORERS[observation.public.phase.kind] ?? (() => 0);
   // A responder answers a pending question; the phase on the table is the asker's, not its own.
@@ -80,6 +100,52 @@ function respondScore(option: LegalAction, { observation, personality }: Context
 const SCORERS: Partial<
   Record<Observation['public']['phase']['kind'], (option: LegalAction, context: Context) => number>
 > = { strategy: strategyScore, encounter: encounterScore, sell: sellScore };
+
+/**
+ * Spec §5.3, §3 fallback table: the answer to a Deal Card from the engine's own buckets (§5.4), under the same
+ * concession budget as Jev. The engine lists `accept` only when the concession fits the budget, so an answer it
+ * does not list is never chosen; with no `accept` listed everything but `reject` scores below it, a cheaper
+ * counter included (§5.3: over budget, code rejects). Without the buckets nothing is worth accepting.
+ */
+function dealScores(
+  observation: Observation,
+  options: readonly LegalAction[],
+  personality: Personality,
+): Map<string, number> {
+  const pending = pendingDeal(observation)!;
+  const { facts } = pending;
+  const { risk, liquidity, loyalty } = personality.weights;
+  const tuning = FALLBACK_TUNING;
+  const acceptListed = options.some(
+    (option) => option.kind === 'respond_deal' && option.payload.answer === 'accept',
+  );
+  // The engine's own trust bucket and its named favourable counter (§5.4); the policy compares no price.
+  const trust = facts?.proposerTrust ?? 'neutral';
+  const edge = facts ? VALUE_RANK[facts.valueReceived] - VALUE_RANK[facts.valueGiven] : -2;
+  const coinsIn = pending.terms.give.coins > 0;
+  const trustShift =
+    tuning.dealTrustStep * loyalty * (trust === 'high' ? 1 : trust === 'low' ? -1 : 0);
+  const liquidityShift = tuning.dealLiquidityStep * 2 * (liquidity - 0.5) * (coinsIn ? 1 : -1);
+  const cost = facts ? COUNT_RANK[facts.concession] * tuning.dealConcessionCost * (1 - risk) : 0;
+  const accept = facts ? edge + trustShift + liquidityShift - cost : -1;
+  const counterScore = facts
+    ? tuning.dealCounterBase -
+      tuning.dealCounterLoyalty * loyalty +
+      tuning.dealCounterEdge * edge +
+      trustShift
+    : -1;
+  return new Map(
+    options.map((option) => {
+      if (option.kind === 'respond_deal') {
+        return [option.id, option.payload.answer === 'reject' ? tuning.dealRejectBar : accept];
+      }
+      return [
+        option.id,
+        acceptListed && facts?.favourableCounter === option.id ? counterScore : -1,
+      ];
+    }),
+  );
+}
 
 function you(observation: Observation) {
   return observation.public.players.find(

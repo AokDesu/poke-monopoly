@@ -15,6 +15,7 @@ const stringIdentifierPaths = [
   /^you\.items\[\d+\]\.(?:id|item_id)$/,
   /^opponents\[\d+\]\.known_items\[\d+\]\.(?:id|item_id)$/,
   /^you\.private_results\[\d+\]\.event_id$/,
+  /^deal\.from_id$/,
 ];
 
 /** Reject raw numeric data, including numeric strings; rank/Lap labels are prose. */

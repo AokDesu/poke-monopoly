@@ -7,6 +7,7 @@ import { createFakeJevClient } from '../ai/jev/fake.ts';
 import { SpendLedger, type UsageLine } from '../ai/jev/spend.ts';
 import { CONTENT } from '../ai/questions/content.ts';
 import {
+  ALL_SCENARIOS,
   DEFAULT_FIXTURES,
   parseFixture,
   readJson,
@@ -38,15 +39,18 @@ const fixtures = async () =>
 
 test('spec §10 C2: 8 Strategy, 6 Encounter and 6 Sell Greedy scenarios, each one committed fixture', async () => {
   const saved = await fixtures();
-  // The promise response placeholders (S09/S11) are a separate decision point.
+  // The Deal Card (#164 D3) and promise response (S09/S11) scenarios are separate decision points; this is the original 20.
   const greedy = saved.filter(
-    (f) => f.tags.personality === 'Greedy' && f.tags.decisionPoint !== 'promise_response',
+    (f) =>
+      f.tags.personality === 'Greedy' &&
+      f.tags.decisionPoint !== 'deal_response' &&
+      f.tags.decisionPoint !== 'promise_response',
   );
   const count = (point: string) => greedy.filter((f) => f.tags.decisionPoint === point).length;
   expect([count('strategy'), count('encounter'), count('sell')]).toEqual([8, 6, 6]);
-  // The original 20 are live recordings; the personality scenarios start as placeholders (#233).
+  // The original 20 are live recordings; later scenarios (#233, #164 D3) start as placeholders.
   expect(greedy.every((f) => !f.synthetic)).toBe(true);
-  expect(saved.map((f) => f.id).sort()).toEqual(SCENARIOS.map((s) => s.id).sort());
+  expect(saved.map((f) => f.id).sort()).toEqual(ALL_SCENARIOS.map((s) => s.id).sort());
   for (const fixture of saved) {
     expect(fixture.recorded.requestId).toBeTruthy();
     expect(JSON.stringify(fixture)).not.toMatch(/api.?key|bearer|authorization/i);

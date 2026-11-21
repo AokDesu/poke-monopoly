@@ -18,13 +18,15 @@ export const decisionPointSchema = z.enum([
 ]);
 /** The decision points a pending responder answers, rather than the active seat's own phase. */
 export const responderDecisionPointSchema = z.enum(['promise_response', 'deal_response']);
-/**
- * The decision point a pending question (`own.pendingResponse.kind`) is answered at. S05 adds the
- * deal kind here; until then no deal question exists to ask.
- */
+/** The decision point a pending question (`own.pendingResponse.kind`) is answered at. */
 const responderPointOfPending: Readonly<Record<string, DecisionPoint | undefined>> = {
   promise_offer: 'promise_response',
+  deal: 'deal_response',
 };
+/** The action kinds each responder point offers: a promise answers `respond`; a Deal Card (§4.8) answers or counters. */
+const responderActionKinds: Readonly<
+  Record<z.infer<typeof responderDecisionPointSchema>, readonly string[]>
+> = { promise_response: ['respond'], deal_response: ['respond_deal', 'counter_deal'] };
 /**
  * An outcome may also name the Shop, which has no Jev question (spec §5.3) but whose decision the
  * log still records, as a non-Jev decision (§6 item 8). A request names it through the Shop's own
@@ -117,11 +119,21 @@ export const decisionRequestSchema = z
           message: 'Must be the pending responder answering its own question',
         });
       }
-      if (request.enabledActions.some((action) => action.kind !== 'respond')) {
+      const kinds =
+        responderActionKinds[request.decisionPoint as keyof typeof responderActionKinds];
+      if (request.enabledActions.some((action) => !kinds.includes(action.kind))) {
         ctx.addIssue({
           code: 'custom',
           path: ['enabledActions'],
-          message: 'A responder decision offers only respond actions',
+          message: 'A responder decision offers only its own answer actions',
+        });
+      }
+      // The proposer's confirm or cancel (stage accepted or countered) is the human's, never asked of an AI.
+      if (pending?.kind === 'deal' && pending.stage !== 'proposed') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['decisionPoint'],
+          message: 'Only a proposed Deal Card is answered by the AI',
         });
       }
     } else if (observation.public.phase.kind !== request.decisionPoint) {
