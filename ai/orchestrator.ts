@@ -78,7 +78,9 @@ export function confidenceFloor(
  * Why a decision did not apply Jev's own answer (spec §3.1, §5.6, §9), beyond the client's
  * failures: an answer not among the options, a stale revision, low confidence, the per-turn
  * request limit, the per-game token budget, the spend cap or daily budget, or engine facts the
- * question needs but did not get.
+ * question needs but did not get. `over_budget` is only logged, never put on the wire: a Deal Card
+ * the AI cannot afford is refused by code with no Jev request (spec §5.3), and the log says why so
+ * it does not look like a one-option auto.
  */
 export type OrchestratorFallbackReason =
   | JevFailureReason
@@ -88,7 +90,8 @@ export type OrchestratorFallbackReason =
   | 'request_limit'
   | 'token_budget'
   | 'budget_exceeded'
-  | 'missing_facts';
+  | 'missing_facts'
+  | 'over_budget';
 
 /** Engine numbers a decision point's question or the fallback policy reads (§5.2). */
 export interface DecideFacts {
@@ -282,19 +285,25 @@ export class Orchestrator {
     if (question === 'strategy') {
       decision = buildStrategyQuestion(observation, enabled, personality);
     } else if (question === 'deal') {
+      const pending = pendingDeal(observation);
       // Not this seat's proposed Deal Card to answer: nothing to ask.
-      if (!pendingDeal(observation)) return policyDecision(request, 'auto', null);
+      if (!pending) return policyDecision(request, 'auto', null);
+      // The engine's buckets in the seat's own observation come first; those sent in the request
+      // are only used when the observation carries none (§5.4).
+      const dealFacts = pending.facts ?? facts.deal;
       // Without the engine's buckets the question cannot be asked; the policy answers (and rejects).
-      if (!facts.deal && enabled.length > 1) {
+      if (!dealFacts && enabled.length > 1) {
         return policyDecision(
           request,
           'fallback',
           this.#blocked(request.turnKey) ?? 'missing_facts',
         );
       }
-      decision = facts.deal
-        ? buildDealQuestion(observation, enabled, facts.deal, personality)
+      decision = dealFacts
+        ? buildDealQuestion(observation, enabled, dealFacts, personality)
         : { kind: 'skip' as const };
+      // Over budget (no `accept` listed): code refuses and Jev is never asked (§5.3). The log says why.
+      if (decision.kind === 'autoApply') return policyDecision(request, 'auto', 'over_budget');
     } else {
       if (!facts.encounter && enabled.length > 1) {
         return policyDecision(
@@ -335,7 +344,7 @@ export class Orchestrator {
     const event = (choice: string, extra: Partial<JevDecisionEvent>): JevDecisionEvent => ({
       requestId: result!.requestId ?? null,
       model: result!.model,
-      questionId: question,
+      questionId: question === 'deal' ? 'deal_response' : question,
       choice,
       probabilities,
       confidence: answer.confidence,

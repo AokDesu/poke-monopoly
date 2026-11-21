@@ -116,6 +116,8 @@ Four Jev answers are outside their set. All were below the confidence floor, so 
 
 All four are the small-overpay Repel states, where Jev prefers to accept a loss of one or two coins that the personality weights say to counter or refuse.
 
+**For #59 (the confidence floor; not tuned here).** 16 of the 20 recorded deal answers fall under the 0.6 floor (`ORCHESTRATOR_CONFIG.confidenceFloor.deal`, 0.6 up to 4 options), so for those the fallback policy chose, not Jev. All 20 are three-option questions (accept, reject, counter). In all 20 recordings Jev's reported confidence equals `(top − 1/n) / (1 − 1/n)` for `n` options and the top probability, to rounding: confidence measures the top probability above an even split, so the same confidence needs a different peak for a different option count (0.6 is a top probability of 0.80 for two options and 0.73 for three). The recorded tops run from 0.43 to 0.92, mean 0.60. That is an observation from 20 rows, not a documented Jev rule. The floor stays as it is until #59.
+
 ## Synthetic placeholders
 
 A new scenario starts as a **synthetic placeholder** so the offline run, the counts and the guards work before anyone records it. A placeholder is a seeded stand-in, not a Jev answer. It cannot be mistaken for a recording:

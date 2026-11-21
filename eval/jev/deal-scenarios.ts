@@ -223,8 +223,8 @@ const description = (group: Group, id: PersonalityId) =>
   `${PERSONALITIES[id].name}: ${group.description}`;
 
 /**
- * The Deal Card scenarios Jev answers, one request each: 5 table states for each of the four personalities. They
- * start as marked synthetic placeholders until a person records them (README).
+ * The Deal Card scenarios Jev answers, one request each: 5 table states for each of the four personalities. A new
+ * one starts as a marked synthetic placeholder until a person records it; all 20 are recorded now (README).
  */
 export const DEAL_SCENARIOS: readonly EvalScenario[] = PERSONALITY_IDS.flatMap((id) =>
   GROUPS.map((group): EvalScenario => {

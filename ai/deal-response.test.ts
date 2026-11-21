@@ -132,11 +132,34 @@ describe('over budget: code rejects and Jev is not asked (spec §5.3)', () => {
       expect(decision).toMatchObject({
         choice: 'respond-deal:reject',
         source: 'auto',
-        fallbackReason: null,
+        // Logged, so a refusal for budget does not look like a one-option auto.
+        fallbackReason: 'over_budget',
         requests: 0,
+      });
+      expect(decision.events).toHaveLength(1);
+      expect(decision.events[0]).toMatchObject({
+        questionId: 'deal_response',
+        choice: 'respond-deal:reject',
+        fallbackReason: 'over_budget',
       });
     }
     expect(ask).not.toHaveBeenCalled();
+  });
+
+  test('on the wire the over-budget refusal still says `auto`; the reason is only in the log', async () => {
+    const ask = vi.fn(async () => choose('accept'));
+    const app = createApp({
+      usage: () => new SpendLedger(),
+      jevClient: () => ({ ask }) as JevClient,
+    });
+    vi.stubEnv('TYPESAFE_API_KEY', 'placeholder-key-not-real');
+    const response = await app.request('/api/ai/decide', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(wireRequest(overBudget())),
+    });
+    const body = decisionResponseSchema.parse(await response.json());
+    expect(body).toMatchObject({ choice: 'respond-deal:reject', fallbackReason: 'auto' });
   });
 
   test('a spent game budget rejects the same way, with Jev untouched', async () => {
@@ -223,7 +246,7 @@ describe('within budget: Jev answers accept, reject or counter (spec §5.3)', ()
       fallbackReason: null,
       requests: 1,
     });
-    expect(decision.events[0]).toMatchObject({ questionId: 'deal', choice: actionId });
+    expect(decision.events[0]).toMatchObject({ questionId: 'deal_response', choice: actionId });
     // The engine takes it: every answer is legal.
     expect(() => apply(state, actionId)).not.toThrow();
     expect(client.requests).toHaveLength(1);
@@ -258,6 +281,70 @@ describe('within budget: Jev answers accept, reject or counter (spec §5.3)', ()
       decideRequest(fair(), 'greedy', { currentRevision: () => 999 }),
     );
     expect(decision).toMatchObject({ source: 'fallback', fallbackReason: 'revision_mismatch' });
+  });
+});
+
+describe('what Jev is sent for a deal (spec §5.4)', () => {
+  test("the engine's buckets in the seat's own observation win over the facts sent with the request", async () => {
+    const state = fair();
+    const real = pendingDeal(observe(state, AI))!.facts!;
+    const forged = {
+      ...real,
+      valueGiven: 'high',
+      valueReceived: 'low',
+      concession: 'many',
+    } as const;
+    expect(forged).not.toEqual(real);
+    const client = createFakeJevClient(() => choose('accept'));
+    await new Orchestrator({ client }).decide(
+      decideRequest(state, 'greedy', { facts: { deal: forged } }),
+    );
+    const [request] = client.requests as [JevRequest];
+    expect(request.state).toMatchObject({
+      deal: {
+        value_you_give: real.valueGiven,
+        value_you_receive: real.valueReceived,
+        concession: real.concession,
+      },
+    });
+  });
+
+  test('facts sent with the wire request never replace the observation on the route either', async () => {
+    const state = fair();
+    const real = pendingDeal(observe(state, AI))!.facts!;
+    const wire = wireRequest(state);
+    const client = createFakeJevClient(() => choose('accept'));
+    vi.stubEnv('TYPESAFE_API_KEY', 'placeholder-key-not-real');
+    const app = createApp({ usage: () => new SpendLedger(), jevClient: () => client });
+    const response = await app.request('/api/ai/decide', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        ...wire,
+        facts: { deal: { ...real, valueGiven: 'high', valueReceived: 'low', concession: 'many' } },
+      }),
+    });
+    expect(response.status).toBe(200);
+    const [request] = client.requests as [JevRequest];
+    expect(request.state).toMatchObject({ deal: { concession: real.concession } });
+  });
+
+  test('an evolved Pokémon (an inherited form) is named by its current form and reaches Jev', async () => {
+    // Vaporeon is not a species of its own: the engine resolves it from Eevee's line (spec §4.5).
+    const state = proposeDeal(
+      dealTable({ seed: 47, coins: [10, 20], humanTeam: [owned(0, 1, 'vaporeon')] }),
+      { sells: { pokemon: 'caught:0:1' }, coins: 8 },
+    );
+    expect(listed(state)).toContain('respond-deal:accept');
+    const client = createFakeJevClient(() => choose('accept'));
+    const decision = await new Orchestrator({ client }).decide(decideRequest(state));
+    expect(decision).toMatchObject({
+      choice: 'respond-deal:accept',
+      source: 'jev',
+      requests: 1,
+    });
+    const [request] = client.requests as [JevRequest];
+    expect(request.state).toMatchObject({ deal: { you_receive: 'a Pokémon: Vaporeon' } });
   });
 });
 
@@ -591,6 +678,20 @@ describe('the decision route and the wire contract (spec §6 item 2)', () => {
     });
     expect(countered.headers.get('x-ai-line-id')).toBeNull();
   });
+
+  test.each([-2, 0, 2])(
+    'a proposer the AI trusts at %i still gets a line: the real bucket, or neutral while it is the only one authored',
+    async (trust) => {
+      const state = proposeDeal(dealTable({ ...EEVEE, trust }), sellEevee(7));
+      const response = await postDecision(wireRequest(state, 'aggressive'));
+      const lineId = response.headers.get('x-ai-line-id')!;
+      const line = LINES.deal_accept.find((entry) => entry.id === lineId);
+      expect(line?.personality).toBe('aggressive');
+      const events = JSON.parse(response.headers.get('x-ai-dialogue-events')!);
+      // The event names the bucket of the line actually said.
+      expect(events[0]).toMatchObject({ trustBucket: line!.trust });
+    },
+  );
 
   test('every deal line in the bank is for neutral trust and exists for each personality', () => {
     for (const situation of ['deal_accept', 'deal_reject'] as const) {

@@ -1,6 +1,6 @@
 import { choice } from '@typesafe-ai/sdk';
 import type { DealFacts, LegalAction, Observation } from '../../engine/index.ts';
-import { itemText, speciesText } from './content.ts';
+import { formText, itemText } from './content.ts';
 import { actorName, personalState, type Decision } from './decision.ts';
 import type { Personality } from './shortlist.ts';
 
@@ -98,7 +98,7 @@ function describe(observation: Observation, pending: DealPending, side: DealSide
   if (pokemonId !== undefined) {
     const pokemon = owner?.team.find((entry) => entry.instanceId === pokemonId);
     if (!pokemon) throw new RangeError('A deal names a Pokémon its owner does not hold');
-    return `a Pokémon: ${speciesText(pokemon.speciesId).name}${pokemon.tired ? ' (Tired)' : ''}`;
+    return `a Pokémon: ${formText(pokemon.speciesId).name}${pokemon.tired ? ' (Tired)' : ''}`;
   }
   const [itemId] = side.itemInstanceIds;
   if (itemId !== undefined) {
