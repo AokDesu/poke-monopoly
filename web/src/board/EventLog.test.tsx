@@ -98,7 +98,7 @@ test.each(['events', 'feed'] as const)(
       ...(source === 'feed' && {
         feed: [
           {
-            before: { ...observation.public, pokemon: [] },
+            before: { ...observation.public, leader: null, pokemon: [] },
             record: {
               action: {
                 kind: 'skip',

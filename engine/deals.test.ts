@@ -1153,6 +1153,43 @@ describe('the deals-atomic invariant (§8)', () => {
     );
   });
 
+  test("a bystander's unseen-record count or the global deal-record count drifting is reported (§4.8)", () => {
+    // Restoring either counter to its pre-confirm value leaves every other field right but gives the bystander
+    // and a spectator a revision with no feed entry behind it; only a replay would otherwise show it.
+    const bystander = broken((state) => {
+      state.players[2]!.unseenRecords = (state.players[2]!.unseenRecords ?? 0) - 1;
+    });
+    expect(violations(bystander.before, 'confirm_deal', bystander.result).join()).toMatch(
+      /wrong unseen-record count/,
+    );
+    const party = broken((state) => {
+      state.players[0]!.unseenRecords = (state.players[0]!.unseenRecords ?? 0) + 1;
+    });
+    expect(violations(party.before, 'confirm_deal', party.result).join()).toMatch(
+      /wrong unseen-record count/,
+    );
+    const global = broken((state) => {
+      state.dealRecords = (state.dealRecords ?? 0) - 1;
+    });
+    expect(violations(global.before, 'confirm_deal', global.result).join()).toMatch(
+      /did not count exactly one deal record/,
+    );
+    // Every other deal step counts one record too: a proposal that forgets to hide itself is reported.
+    const start = social({ seats: 3 });
+    const action = command(start, 'propose_deal', sellPokemon('caught:0:a', 6));
+    const real = applyAction(start, action);
+    if (!('accepted' in real)) throw new Error('propose_deal refused');
+    const unhidden = structuredClone(real.state);
+    unhidden.players[2]!.unseenRecords = start.players[2]!.unseenRecords ?? 0;
+    unhidden.dealRecords = start.dealRecords ?? 0;
+    const found = checkInvariants(start, action, { ...real, state: unhidden })
+      .filter((violation) => violation.invariant === 'deals-atomic')
+      .map((violation) => violation.message)
+      .join();
+    expect(found).toMatch(/propose_deal left .* with the wrong unseen-record count/);
+    expect(found).toMatch(/propose_deal did not count exactly one deal record/);
+  });
+
   test('a confirm with no Deal Card pending, or a counter past depth 1, is reported', () => {
     const real = broken(() => undefined);
     const bare = social({ seats: 3 });

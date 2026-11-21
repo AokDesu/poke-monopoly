@@ -122,7 +122,7 @@ export function leaderOf(players: PublicGame['players']): number | null {
 }
 
 /**
- * The moment the viewer's latest feed entry makes, if any. `previousLeader` is who led before it,
+ * The moment the viewer's latest feed entry makes, if any. `previousLeader` is who led just before it (the entry's own `before.leader`, so a private step between two renders is not charged to it),
  * `previous` the public game before it. Reads only the viewer's feed and the public game, so a
  * seat's hand can never start a comment. One moment per entry, the most newsworthy first: a Gym
  * win, a battle, coins changing hands, a catch, a sale, a change at the top, then a die.
