@@ -28,7 +28,7 @@ Rights boundary: the assessed build uses original or appropriately licensed name
 |---|---|---|---|
 | Watch mode | One human against 1–3 AIs only | The player may instead set up 2–4 AIs and watch them play each other | Owner request, 15 Nov 2026 |
 | AI speech | Line bank only | Table talk and chat replies are written by Haiku in the seat's voice; the line bank stays as the fallback and Jev still generates no text | Owner request, 15 Nov 2026 |
-| Local multiplayer | One human against 1–3 AIs only; multiplayer out of scope | 2–4 fixed seats on one computer, each human or AI with at least one human; humans chat and offer promises only to AI opponents (#255); online multiplayer stays out of scope | Owner decision, 19 Nov 2026 |
+| Local multiplayer | One human against 1–3 AIs only; multiplayer out of scope | 2–4 fixed seats on one computer, each human or AI with at least one human (watch mode is separate); humans chat and offer promises only to AI opponents (#255); online multiplayer stays out of scope | Owner decision, 19 Nov 2026 |
 
 ## 1. Goal, hypotheses and success criteria (Specify)
 
