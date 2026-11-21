@@ -401,7 +401,6 @@ export const en = {
     'No game is waiting for its first roll. Go back to Home to start a new one.',
 
   'team.details': 'Inspect {name}',
-  'team.instance': 'Team ID: {id}',
   'team.ability': 'Ability',
   'team.noAbility': 'No Ability description.',
   'team.nextForms': 'Next forms',
