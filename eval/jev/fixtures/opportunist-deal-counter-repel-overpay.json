@@ -83,7 +83,7 @@
       "deal": {
         "from_id": "P1",
         "you_give": "coins",
-        "you_receive": "an item: Repel (Target's next move −2 (minimum 1))",
+        "you_receive": "an item: Repel",
         "value_you_give": "low",
         "value_you_receive": "low",
         "concession": "few",
@@ -105,21 +105,21 @@
   },
   "acceptable": { "deal": ["reject", "counter"] },
   "reason": "Opportunist: liquidity 0.7 takes only what pays, and this one costs it more than it gets; with loyalty 0.2 it is willing to haggle or walk away.",
-  "synthetic": false,
-  "requestHash": "6ea133435b78447984e831240a1c7ef8bea6fb2d11a3bd17f7bba32a7914d248",
+  "synthetic": true,
+  "requestHash": "79102a456e34db480556a99a3f9e136c8bdbae07b954fb2f9cad95d2b7c5c71c",
   "recorded": {
     "ok": true,
     "answers": {
       "deal": {
         "type": "choice",
-        "choice": "accept",
-        "confidence": 0.5,
-        "probabilities": { "accept": 0.67, "reject": 0.13, "counter": 0.2 }
+        "choice": "counter",
+        "confidence": 0.24,
+        "probabilities": { "accept": 0.459, "reject": 0.047, "counter": 0.493 }
       }
     },
-    "requestId": "req_01a1f96b5bae7d6eb2aa268aebabe30c",
+    "requestId": "synthetic-opportunist-deal-counter-repel-overpay",
     "model": "jev-1.13.0",
-    "latencyMs": 255,
-    "usage": { "inputTokens": 1766, "outputTokens": 38 }
+    "latencyMs": 0,
+    "usage": { "inputTokens": 0, "outputTokens": 0 }
   }
 }

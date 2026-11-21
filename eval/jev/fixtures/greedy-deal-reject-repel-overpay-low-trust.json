@@ -83,7 +83,7 @@
       "deal": {
         "from_id": "P1",
         "you_give": "coins",
-        "you_receive": "an item: Repel (Target's next move −2 (minimum 1))",
+        "you_receive": "an item: Repel",
         "value_you_give": "low",
         "value_you_receive": "low",
         "concession": "few",
@@ -105,21 +105,21 @@
   },
   "acceptable": { "deal": ["reject"] },
   "reason": "Greedy: liquidity 0.9 refuses to pay over the value, and loyalty 0.5 gives no reason to favour a distrusted player, so it refuses.",
-  "synthetic": false,
-  "requestHash": "1a8ea90686eccc3fe5facf2a162425026ac76419c23234677e30b4499012b69a",
+  "synthetic": true,
+  "requestHash": "35ebbe605c790403cec6b2a71928b3ad32c4dd30ff4d6d6e33044b50c181a7c9",
   "recorded": {
     "ok": true,
     "answers": {
       "deal": {
         "type": "choice",
         "choice": "reject",
-        "confidence": 0.25,
-        "probabilities": { "accept": 0.31, "reject": 0.5, "counter": 0.19 }
+        "confidence": 0.617,
+        "probabilities": { "accept": 0.038, "reject": 0.745, "counter": 0.216 }
       }
     },
-    "requestId": "req_01a1f96b4de27daeae425e1e4f29f21d",
+    "requestId": "synthetic-greedy-deal-reject-repel-overpay-low-trust",
     "model": "jev-1.13.0",
-    "latencyMs": 275,
-    "usage": { "inputTokens": 1762, "outputTokens": 38 }
+    "latencyMs": 0,
+    "usage": { "inputTokens": 0, "outputTokens": 0 }
   }
 }

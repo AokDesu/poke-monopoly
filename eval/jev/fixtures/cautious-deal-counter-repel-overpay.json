@@ -83,7 +83,7 @@
       "deal": {
         "from_id": "P1",
         "you_give": "coins",
-        "you_receive": "an item: Repel (Target's next move −2 (minimum 1))",
+        "you_receive": "an item: Repel",
         "value_you_give": "low",
         "value_you_receive": "low",
         "concession": "few",
@@ -105,21 +105,21 @@
   },
   "acceptable": { "deal": ["reject", "counter"] },
   "reason": "Cautious: risk 0.2 does not take a loss of value for an item it may not use, and loyalty 0.8 prefers a counter to an outright refusal; either fits.",
-  "synthetic": false,
-  "requestHash": "3cb243c695373fb37a91368030354cd6aa6391c743e556c87ea9c44cfc4e9751",
+  "synthetic": true,
+  "requestHash": "3a1c49914eb00b8d50226d121db9d64ec1d0e37ca8e0878c603fe87148ff9c26",
   "recorded": {
     "ok": true,
     "answers": {
       "deal": {
         "type": "choice",
-        "choice": "accept",
-        "confidence": 0.48,
-        "probabilities": { "accept": 0.65, "reject": 0.23, "counter": 0.12 }
+        "choice": "counter",
+        "confidence": 0.322,
+        "probabilities": { "accept": 0.255, "reject": 0.197, "counter": 0.548 }
       }
     },
-    "requestId": "req_01a1f96b567770de8f304cbabb213f6d",
+    "requestId": "synthetic-cautious-deal-counter-repel-overpay",
     "model": "jev-1.13.0",
-    "latencyMs": 251,
-    "usage": { "inputTokens": 1767, "outputTokens": 38 }
+    "latencyMs": 0,
+    "usage": { "inputTokens": 0, "outputTokens": 0 }
   }
 }

@@ -75,8 +75,8 @@ function describe(observation: Observation, pending: DealPending, side: DealSide
       ? observation.own.items.find((entry) => entry.instanceId === itemId)
       : pending.revealedItem;
     if (!item) throw new RangeError('A deal names an item the seat cannot see');
-    const { name, effect } = itemText(item.itemId, item.name);
-    return `an item: ${name}${effect ? ` (${effect})` : ''}`;
+    // The name only: an effect text carries numbers, and §5.4 sends Jev none.
+    return `an item: ${itemText(item.itemId, item.name).name}`;
   }
   return 'coins';
 }

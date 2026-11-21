@@ -599,7 +599,10 @@ describe('no hidden information in the request (spec §5.4, §1)', () => {
       PERSONALITIES.greedy,
     );
     if (decision.kind !== 'ask') throw new Error('expected a question');
-    expect(decision.state.deal.you_receive).toContain('Repel');
+    expect(decision.state.deal.you_receive).toBe('an item: Repel');
+    // An item is sent by its name: its effect text carries numbers, and §5.4 sends Jev none.
+    const terms = { ...decision.state.deal, from_id: undefined };
+    expect(JSON.stringify([terms, decision.questions])).not.toMatch(/\d/);
     expect(JSON.stringify(decision)).not.toMatch(/Pickpocket|item:0:1/);
   });
 

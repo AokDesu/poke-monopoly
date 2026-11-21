@@ -83,7 +83,7 @@
       "deal": {
         "from_id": "P1",
         "you_give": "coins",
-        "you_receive": "an item: Repel (Target's next move −2 (minimum 1))",
+        "you_receive": "an item: Repel",
         "value_you_give": "low",
         "value_you_receive": "low",
         "concession": "few",
@@ -105,21 +105,21 @@
   },
   "acceptable": { "deal": ["reject"] },
   "reason": "Cautious: risk 0.2 avoids a loss of value and loyalty 0.8 does not deal with someone who broke its trust, so it refuses.",
-  "synthetic": false,
-  "requestHash": "597d57c7a5686bb3a3376d2aace7f014dcfe55a035e1477346b288a90fb32ed6",
+  "synthetic": true,
+  "requestHash": "ad0f95e96fb92dce2d174b3c48a00694a6694fee7ba0598bc7b151d07c3ddb37",
   "recorded": {
     "ok": true,
     "answers": {
       "deal": {
         "type": "choice",
-        "choice": "reject",
-        "confidence": 0.34,
-        "probabilities": { "accept": 0.3, "reject": 0.56, "counter": 0.14 }
+        "choice": "accept",
+        "confidence": 0.636,
+        "probabilities": { "accept": 0.757, "reject": 0.135, "counter": 0.108 }
       }
     },
-    "requestId": "req_01a1f96b5880766a8cb06de3f9d2e5d5",
+    "requestId": "synthetic-cautious-deal-reject-repel-overpay-low-trust",
     "model": "jev-1.13.0",
-    "latencyMs": 259,
-    "usage": { "inputTokens": 1767, "outputTokens": 38 }
+    "latencyMs": 0,
+    "usage": { "inputTokens": 0, "outputTokens": 0 }
   }
 }
