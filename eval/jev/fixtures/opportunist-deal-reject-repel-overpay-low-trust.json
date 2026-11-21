@@ -105,21 +105,21 @@
   },
   "acceptable": { "deal": ["reject", "counter"] },
   "reason": "Opportunist: liquidity 0.7 sees a payment above the item's value and loyalty 0.2 neither forgives nor holds a grudge, so it bargains or refuses.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "bddd62b59e93ca287c5378fa989f20b5f9ef174a80a464086110d4450f88c8af",
   "recorded": {
     "ok": true,
     "answers": {
       "deal": {
         "type": "choice",
-        "choice": "reject",
-        "confidence": 0.318,
-        "probabilities": { "accept": 0.187, "reject": 0.545, "counter": 0.269 }
+        "choice": "accept",
+        "confidence": 0.13,
+        "probabilities": { "accept": 0.42, "reject": 0.27, "counter": 0.31 }
       }
     },
-    "requestId": "synthetic-opportunist-deal-reject-repel-overpay-low-trust",
+    "requestId": "req_01a1fe01a270736888e981f5551d94d9",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 348,
+    "usage": { "inputTokens": 1754, "outputTokens": 38 }
   }
 }

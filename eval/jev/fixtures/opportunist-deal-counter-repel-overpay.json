@@ -105,21 +105,21 @@
   },
   "acceptable": { "deal": ["reject", "counter"] },
   "reason": "Opportunist: liquidity 0.7 takes only what pays, and this one costs it more than it gets; with loyalty 0.2 it is willing to haggle or walk away.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "79102a456e34db480556a99a3f9e136c8bdbae07b954fb2f9cad95d2b7c5c71c",
   "recorded": {
     "ok": true,
     "answers": {
       "deal": {
         "type": "choice",
-        "choice": "counter",
-        "confidence": 0.24,
-        "probabilities": { "accept": 0.459, "reject": 0.047, "counter": 0.493 }
+        "choice": "accept",
+        "confidence": 0.48,
+        "probabilities": { "accept": 0.65, "reject": 0.11, "counter": 0.24 }
       }
     },
-    "requestId": "synthetic-opportunist-deal-counter-repel-overpay",
+    "requestId": "req_01a1fe01a1547564b786e1f0ae25dc1a",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 258,
+    "usage": { "inputTokens": 1754, "outputTokens": 38 }
   }
 }

@@ -105,21 +105,21 @@
   },
   "acceptable": { "deal": ["reject", "counter"] },
   "reason": "Cautious: risk 0.2 does not take a loss of value for an item it may not use, and loyalty 0.8 prefers a counter to an outright refusal; either fits.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "3a1c49914eb00b8d50226d121db9d64ec1d0e37ca8e0878c603fe87148ff9c26",
   "recorded": {
     "ok": true,
     "answers": {
       "deal": {
         "type": "choice",
-        "choice": "counter",
-        "confidence": 0.322,
-        "probabilities": { "accept": 0.255, "reject": 0.197, "counter": 0.548 }
+        "choice": "accept",
+        "confidence": 0.43,
+        "probabilities": { "accept": 0.62, "reject": 0.26, "counter": 0.12 }
       }
     },
-    "requestId": "synthetic-cautious-deal-counter-repel-overpay",
+    "requestId": "req_01a1fe019ef97fd891a20fa2a1185e0b",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 291,
+    "usage": { "inputTokens": 1755, "outputTokens": 38 }
   }
 }

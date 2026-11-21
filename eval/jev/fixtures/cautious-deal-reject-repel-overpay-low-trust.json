@@ -105,21 +105,21 @@
   },
   "acceptable": { "deal": ["reject"] },
   "reason": "Cautious: risk 0.2 avoids a loss of value and loyalty 0.8 does not deal with someone who broke its trust, so it refuses.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "ad0f95e96fb92dce2d174b3c48a00694a6694fee7ba0598bc7b151d07c3ddb37",
   "recorded": {
     "ok": true,
     "answers": {
       "deal": {
         "type": "choice",
-        "choice": "accept",
-        "confidence": 0.636,
-        "probabilities": { "accept": 0.757, "reject": 0.135, "counter": 0.108 }
+        "choice": "reject",
+        "confidence": 0.46,
+        "probabilities": { "accept": 0.2, "reject": 0.64, "counter": 0.16 }
       }
     },
-    "requestId": "synthetic-cautious-deal-reject-repel-overpay-low-trust",
+    "requestId": "req_01a1fe01a0257224becce34b3d4e38a3",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 266,
+    "usage": { "inputTokens": 1755, "outputTokens": 38 }
   }
 }

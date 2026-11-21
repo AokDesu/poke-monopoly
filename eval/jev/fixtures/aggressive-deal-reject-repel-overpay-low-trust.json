@@ -105,21 +105,21 @@
   },
   "acceptable": { "deal": ["reject", "counter"] },
   "reason": "Aggressive: risk 0.8 might still bargain, but loyalty 0.4 and a very low trust make a distrusted player a poor partner; counter or refuse.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "bb63ca17933f0f3afc67669afa129ab7f134f2160a8e9f1723fa464b0dfe7598",
   "recorded": {
     "ok": true,
     "answers": {
       "deal": {
         "type": "choice",
-        "choice": "accept",
-        "confidence": 0.365,
-        "probabilities": { "accept": 0.577, "reject": 0.269, "counter": 0.153 }
+        "choice": "reject",
+        "confidence": 0.31,
+        "probabilities": { "accept": 0.18, "reject": 0.54, "counter": 0.28 }
       }
     },
-    "requestId": "synthetic-aggressive-deal-reject-repel-overpay-low-trust",
+    "requestId": "req_01a1fe019dca7032809b966b20b5542e",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 254,
+    "usage": { "inputTokens": 1756, "outputTokens": 38 }
   }
 }
