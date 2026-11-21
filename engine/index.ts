@@ -95,3 +95,19 @@ export {
   type BattleChoicePreview,
   type BattlePreview,
 } from './battle-preview.ts';
+export { BELIEF_CONFIG, matchOwnState, sampleBelief, type OwnHints } from './belief.ts';
+export {
+  bucketExpectedCoins,
+  bucketLeadChance,
+  ROLLOUT_CONFIG,
+  rolloutFacts,
+  rolloutOptions,
+  type ExpectedCoins,
+  type LeadChance,
+  type OptionOutcome,
+  type RolloutChoice,
+  type RolloutFacts,
+  type RolloutPolicy,
+  type RolloutRequest,
+  type RolloutResult,
+} from './rollout.ts';
