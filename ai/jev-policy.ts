@@ -5,6 +5,7 @@ import { PERSONALITIES } from './fallback/index.ts';
 import { createSdkJevClient, disabledJevClient, jevEnabled, type JevClient } from './jev/client.ts';
 import { createChaosJevClient } from './jev/fake.ts';
 import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
+import { pendingPromise } from './promises.ts';
 export { decisionRates, type DecisionRates } from './orchestrator.ts';
 import {
   DecisionStats,
@@ -47,6 +48,9 @@ export class JevPolicy implements Policy {
       observation,
       legalActions,
       facts: decideFacts(facts),
+      // A pending Social offer this seat owes an answer to is the responder point, which the
+      // orchestrator routes ahead of the phase (spec §4.8, §5.3, §8); the engine names the question.
+      ...(pendingPromise(observation) && { decisionPoint: 'promise_response' as const }),
       difficulty: this.difficulty,
       personality: this.personality,
       rng,
