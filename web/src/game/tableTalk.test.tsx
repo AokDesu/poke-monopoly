@@ -4,6 +4,7 @@ import { useState, useSyncExternalStore } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import {
   createGameConfig,
+  observeSpectator,
   stateHash,
   verifyReplay,
   type AiSpeechEvent,
@@ -2020,6 +2021,140 @@ describe('the Table talk panel (§3, §4.8)', () => {
     const rows = group.querySelectorAll('li');
     expect(rows).toHaveLength(2);
     for (const row of rows) expect(row.textContent).toContain(t('talk.bank'));
+  });
+});
+
+describe("a Deal Card between two other seats, in a bystander's table talk (§4.8)", () => {
+  /**
+   * A two-human table: seat 0 is the human bystander, seat 2 the human proposing in Social to AI seat 1. Seat 2
+   * sells a spare Pokémon to seat 1 for six coins, which takes the lead from seat 0 (12 coins) to seat 2 (10 + 6).
+   */
+  function dealTable(): GameStore {
+    const store = createGameStore();
+    store.start(
+      createGameConfig({
+        seats: SEATS.slice(0, 3).map((seat, seatIndex) => ({
+          actorId: `player-${seatIndex}`,
+          seatIndex,
+          ...seat,
+          controller: seatIndex === 1 ? ('ai' as const) : ('human' as const),
+        })),
+        seed: 1,
+        lapTarget: 2,
+        socialWindow: true,
+      }),
+      engineContent,
+      [{ seatIndex: 1, personality: PERSONALITIES[1], difficulty: 'normal' as const }],
+    );
+    const { state, log } = store.getSession()!;
+    const next = structuredClone(state);
+    next.phase = { kind: 'social' };
+    next.activeSeatIndex = 2;
+    next.globalTurnNo = 3;
+    next.turnBudgets = {
+      tacticalAction: 1,
+      catchAttempt: 1,
+      pokemonAbility: 1,
+      socialInteraction: 1,
+    };
+    next.players[0]!.coins = 12;
+    next.players[1]!.coins = 10;
+    next.players[2]!.coins = 10;
+    next.players[2]!.team.push({ ...next.players[2]!.team[0]!, instanceId: 'caught:2:spare' });
+    store.restore({ state: next, log });
+    return store;
+  }
+  const act1 = (store: GameStore, kind: string, payload: object, actorId: string) =>
+    act(async () => {
+      const result = store.submit({ actorId, kind, payload } as Parameters<GameStore['submit']>[0]);
+      if ('rejected' in result) throw new Error(`${kind}: ${result.reason}`);
+    });
+  /** Seat 2 proposes and AI seat 1 accepts, each on its own render; then `finish` plays the confirm and the skip. */
+  async function playDeal(store: GameStore, finish: () => Promise<void>) {
+    await act1(
+      store,
+      'propose_deal',
+      {
+        targetSeatIndex: 1,
+        give: { coins: 0, pokemonInstanceIds: ['caught:2:spare'], itemInstanceIds: [] },
+        get: { coins: 6, pokemonInstanceIds: [], itemInstanceIds: [] },
+      },
+      'player-2',
+    );
+    await act1(store, 'respond_deal', { answer: 'accept' }, 'player-1');
+    await finish();
+    await settle();
+  }
+
+  test("a speech request carries the revision a bystander holds, a reply included, not the speaker's own", async () => {
+    const calls = fakeServer('bank');
+    const store = createGameStore();
+    store.start(
+      createGameConfig({
+        seats: SEATS.slice(0, 3).map((seat, seatIndex) => ({
+          actorId: `player-${seatIndex}`,
+          seatIndex,
+          ...seat,
+          controller: seatIndex === 0 ? ('human' as const) : ('ai' as const),
+        })),
+        seed: 1,
+        lapTarget: 2,
+      }),
+      engineContent,
+      [1, 2].map((seatIndex) => ({
+        seatIndex,
+        personality: PERSONALITIES[seatIndex]!,
+        difficulty: 'normal' as const,
+      })),
+    );
+    const { state, log } = store.getSession()!;
+    // Two Deal Cards between the AI seats that the human never saw: its revision counts neither, theirs both.
+    const next = structuredClone(state);
+    next.stateRevision = 5;
+    next.dealRecords = 2;
+    next.players[0]!.unseenRecords = 2;
+    store.restore({ state: next, log });
+    const shared = observeSpectator(next).public.stateRevision;
+    expect(shared).toBe(3);
+    mountTalk(store);
+    await settle();
+    const asked = calls.filter((call) => call.parsed.kind !== 'reply');
+    expect(asked.length).toBeGreaterThan(0);
+    for (const call of calls) {
+      const observation = call.parsed.observation as { public: { stateRevision: number } };
+      expect(call.parsed.stateRevision).toBe(shared);
+      expect(observation.public.stateRevision).toBe(shared);
+    }
+  });
+
+  test('a private confirm and the public skip in one update leave no lead taunt, as when they are apart (§4.8)', async () => {
+    const run = async (batched: boolean) => {
+      fakeServer('bank');
+      const store = dealTable();
+      mountTalk(store, { status: OFF });
+      await settle();
+      await playDeal(store, async () => {
+        if (batched) {
+          await act(async () => {
+            store.submit({ actorId: 'player-2', kind: 'confirm_deal', payload: {} });
+            store.submit({ actorId: 'player-2', kind: 'skip', payload: {} });
+          });
+          return;
+        }
+        await act1(store, 'confirm_deal', {}, 'player-2');
+        await settle();
+        await act1(store, 'skip', {}, 'player-2');
+      });
+      // The payment really changed the lead; the bystander's feed holds the skip alone.
+      const players = store.getSession()!.state.players;
+      expect(players.map((player) => player.coins)).toEqual([12, 4, 16]);
+      expect(store.getView()!.feed.at(-1)!.record.action.kind).toBe('skip');
+      return spoken(store).map((line) => line.lineId);
+    };
+    const apart = await run(false);
+    const batched = await run(true);
+    expect(batched).toEqual(apart);
+    expect(batched.some((id) => id?.startsWith('taunt-leader'))).toBe(false);
   });
 });
 
