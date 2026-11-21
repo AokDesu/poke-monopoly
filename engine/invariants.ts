@@ -1,5 +1,6 @@
 import { ABILITY_EFFECTS, abilityEffectOf } from './abilities.ts';
 import { pendingDecision } from './decisions.ts';
+import { concessionWithinBudget, dealValuation } from './deal-facts.ts';
 import { applyAction, legalActions } from './contract/stubs.ts';
 import {
   actionSchema,
@@ -611,11 +612,15 @@ function holders(state: GameState): Map<string, string> {
   );
 }
 
-/** Every deal-visible holding of one player: coins, Lap marker, Pokémon and items. Nothing else is compared. */
+/**
+ * Every deal-visible holding of one player: coins, Lap marker, the AI's concession budget spent (§4.8, charged on
+ * a commit only), Pokémon and items. Nothing else is compared.
+ */
 function dealHoldings(player: Player) {
   return canonicalJson({
     coins: player.coins,
     dealUsedLap: player.dealUsedLap ?? null,
+    dealConcessionSpent: player.dealConcessionSpent ?? 0,
     team: player.team,
     items: player.items,
   });
@@ -684,6 +689,13 @@ function checkDealsAtomic({ before, parsed, result }: Step): string[] {
     if (transfers.length > 0) errors.push('a deal coin transfer was logged outside a confirm');
     if (eventsOf(result.events, 'deal_committed').length > 0) {
       errors.push('deal_committed was logged outside a confirm');
+    }
+    // §4.8: the AI's concession is charged on a commit and nowhere else, whatever the step.
+    for (const player of result.state.players) {
+      const previous = before.players.find((p) => p.actorId === player.actorId);
+      if ((player.dealConcessionSpent ?? 0) !== (previous?.dealConcessionSpent ?? 0)) {
+        errors.push('a concession was charged outside a confirmed deal');
+      }
     }
     if (isDeal) {
       // A deal step before the commit moves nothing: no coin, Lap marker, Pokémon or item changes for anyone.
@@ -776,6 +788,8 @@ function checkDealsAtomic({ before, parsed, result }: Step): string[] {
         ...player,
         coins: 0,
         dealUsedLap: undefined,
+        // The AI seat's concession is charged here and checked exactly just below (§4.8).
+        dealConcessionSpent: undefined,
         unseenRecords: 0,
         team: player.team.filter((entry) => !ids.includes(entry.instanceId)),
         items: player.items.filter((entry) => !ids.includes(entry.instanceId)),
@@ -810,6 +824,24 @@ function checkDealsAtomic({ before, parsed, result }: Step): string[] {
     }
     if (eventsOf(result.events, 'deal_committed').length !== 1) {
       errors.push('a confirmed deal must log exactly one deal_committed');
+    }
+    // §4.8: the AI's concession is charged on commit, once, and never past its budget.
+    const { concession } = dealValuation(
+      before,
+      pending.initiatorSeatIndex,
+      pending.targetSeatIndex,
+      terms,
+    );
+    const charged = result.state.players.find((p) => p.seatIndex === pending.targetSeatIndex)!;
+    if ((charged.dealConcessionSpent ?? 0) !== (target.dealConcessionSpent ?? 0) + concession) {
+      errors.push('a confirmed deal did not charge exactly its concession to the AI budget');
+    }
+    if (!concessionWithinBudget(before, target, concession)) {
+      errors.push('a confirmed deal conceded more than the AI budget allows');
+    }
+    const proposer = result.state.players.find((p) => p.seatIndex === pending.initiatorSeatIndex)!;
+    if ((proposer.dealConcessionSpent ?? 0) !== (initiator.dealConcessionSpent ?? 0)) {
+      errors.push('a confirmed deal charged a concession to the proposer, who has no budget');
     }
     for (const seatIndex of [pending.initiatorSeatIndex, pending.targetSeatIndex]) {
       const next = result.state.players.find((p) => p.seatIndex === seatIndex)!;

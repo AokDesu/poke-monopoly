@@ -14,6 +14,8 @@ export {
   saleFacts,
   saleQuote,
   bucketKeepValue,
+  bucketSaleValue,
+  SALE_VALUE_BUCKETS,
   type SalePriceFact,
   type SaleQuote,
 } from './selling.ts';
@@ -89,6 +91,8 @@ export {
   type ExploitFacts,
 } from './exploit-facts.ts';
 export { promiseWindowStatus } from './promises.ts';
+export { itemUseWindow } from './deal-facts.ts';
+export { dealFacts } from './deals.ts';
 export {
   battlePreview,
   challengeOdds,
