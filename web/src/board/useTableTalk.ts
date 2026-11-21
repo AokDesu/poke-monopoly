@@ -7,13 +7,13 @@ import {
   detectMoment,
   exchangeEvents,
   greeting,
-  leaderOf,
   planTableTalk,
   replyBody,
   requestExchange,
   requestSpeech,
   retortAnswer,
   retortEvent,
+  sharedFeed,
   speakBody,
   speechEvent,
   speedAllowsTalk,
@@ -42,7 +42,6 @@ interface Tracking {
   gameId: string;
   /** Feed entries already looked at: a game opened or reloaded never comments on its past. */
   handled: number;
-  leader: number | null;
   /** The public game before the latest entry: a sale names what was sold from it. */
   game: PublicGame;
   pending: AbortController | null;
@@ -152,12 +151,22 @@ export function useTableTalk(
       const { signal } = controller;
       const { listener } = plan;
       const generated = live.current.off === null;
-      const body = speakBody({ gameId, plan, game, momentKey });
+      // Shared speech carries the public game every seat shares, its revision included: a seat's own revision would
+      // show how many Deal Cards or promises it was part of (§4.8).
+      const sharedGame = store.sharedPublic() ?? game;
+      const body = speakBody({ gameId, plan, game: sharedGame, momentKey });
       if (listener && generated && live.current.answerOn) {
         const exchange = { ...plan, listener };
         const answer = await requestExchange(
           body,
-          (quote) => replyBody({ gameId, plan: exchange, game, momentKey, quote }),
+          (quote) =>
+            replyBody({
+              gameId,
+              plan: exchange,
+              game: sharedGame,
+              momentKey,
+              quote,
+            }),
           signal,
         );
         if (!stillWanted()) return;
@@ -200,8 +209,7 @@ export function useTableTalk(
       track?.pending?.abort();
       const fresh: Tracking = {
         gameId,
-        handled: view.feed.length,
-        leader: leaderOf(game.players),
+        handled: sharedFeed(view.feed).length,
         game,
         pending: null,
       };
@@ -211,16 +219,17 @@ export function useTableTalk(
       if (game.globalTurnNo <= 1 && live.current.lines.length === 0) ask(fresh, greeting(game), 0);
       return;
     }
-    const previousLeader = track.leader;
     const previous = track.game;
-    track.leader = leaderOf(game.players);
     track.game = game;
-    const isFresh = view.feed.length > track.handled;
-    track.handled = view.feed.length;
-    const entry = view.feed.at(-1);
+    // Only the steps a bystander would see trigger and name a moment (§4.8): a private proposal or chat starts
+    // no talk and leaves every later key as it would be had it not happened.
+    const shared = sharedFeed(view.feed);
+    const isFresh = shared.length > track.handled;
+    track.handled = shared.length;
+    const entry = shared.at(-1);
     if (!isFresh || !entry) return;
-    const momentKey = view.feed.length;
-    const moment = detectMoment(entry, game, previousLeader, previous);
+    const momentKey = shared.length;
+    const moment = detectMoment(entry, game, entry.before.leader, previous);
     if (moment && ask(track, moment, momentKey)) return;
     // Nothing to say about this step, or nobody to say it: a round still gets its line.
     const banter = banterDue(game, live.current.lines);

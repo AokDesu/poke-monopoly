@@ -63,6 +63,9 @@ function publicEvent(before: GameState, event: EngineEvent): boolean {
       return event.source === 'pvp_declaration';
     case 'ability_activated':
       return true;
+    // A Deal Card's coins are its two parties' alone, like the deal itself (§4.8).
+    case 'coin_transfer':
+      return event.reason !== 'deal';
     case 'shield_armed':
       return event.visibility === 'public';
     case 'protection_applied':
@@ -83,7 +86,6 @@ function publicEvent(before: GameState, event: EngineEvent): boolean {
     case 'pvp_resolved':
     case 'pokemon_evolved':
     case 'battle_reward_resolved':
-    case 'coin_transfer':
     case 'space_resolved':
     case 'phase_changed':
     case 'final_table_round':
@@ -116,7 +118,18 @@ export function actionVisibleToSpectator(
   shownBefore: number,
 ): SeatActionRecord | null {
   const { kind } = record.action;
-  if (kind === 'chat' || kind === 'offer_promise' || kind === 'respond') return null;
+  if (
+    kind === 'chat' ||
+    kind === 'offer_promise' ||
+    kind === 'respond' ||
+    kind === 'propose_deal' ||
+    kind === 'respond_deal' ||
+    kind === 'counter_deal' ||
+    kind === 'confirm_deal' ||
+    kind === 'cancel_deal'
+  ) {
+    return null;
+  }
   if (kind === 'skip' && before.pendingPickpocket) return null;
   const action: SeatAction = structuredClone(record.action);
   action.actionSeq = shownBefore + 1;

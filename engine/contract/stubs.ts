@@ -32,6 +32,16 @@ import { ENGINE_VERSION } from '../versions.ts';
 import { recordSale, validSale } from '../selling.ts';
 import { chatChoices, chatsOf, recordChat, validChat } from '../social.ts';
 import {
+  cancelDeal,
+  confirmDeal,
+  counterDeal,
+  dealProposalChoices,
+  dealResponseChoices,
+  proposeDeal,
+  respondDeal,
+  validDealProposal,
+} from '../deals.ts';
+import {
   answerPromise,
   offerPromise,
   promiseOfferChoices,
@@ -123,7 +133,9 @@ export function observe(state: GameState, seatIndex: number): Observation {
       // A question is its two parties' alone (§4.8): a third seat never learns one was asked.
       ...(state.pendingResponse &&
         (state.pendingResponse.initiatorSeatIndex === seatIndex ||
-          state.pendingResponse.responderSeatIndex === seatIndex) && {
+          state.pendingResponse.responderSeatIndex === seatIndex ||
+          (state.pendingResponse.kind === 'deal' &&
+            state.pendingResponse.targetSeatIndex === seatIndex)) && {
           pendingResponse: state.pendingResponse,
         }),
     },
@@ -147,9 +159,10 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
     return result;
   }
   if (!decision) return result;
-  // A pending promise question: its responder chooses between accepting and rejecting (§4.8).
+  // A pending promise or Deal Card question: its responder answers it and nothing else (§4.8).
   if (state.pendingResponse) {
     responseChoices(state.pendingResponse, result);
+    dealResponseChoices(state, state.pendingResponse, result);
     return result;
   }
   if (state.phase.kind === 'first_player_roll' && !state.phase.awaitingResult) {
@@ -205,6 +218,7 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   if (state.phase.kind === 'social') {
     chatChoices(state, seatIndex, result);
     promiseOfferChoices(state, seatIndex, result);
+    dealProposalChoices(state, seatIndex, result);
   }
   if (state.phase.kind === 'encounter' && !state.phase.catchRoll) {
     for (const ballType of ['poke', 'great', 'ultra'] as const) {
@@ -406,13 +420,15 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
   if (
     !(action.kind === 'chat'
       ? validChat(state, actor.seatIndex, action.payload)
-      : saleIds !== undefined
-        ? validSale(state, saleIds)
-        : legalActions(state, actor.seatIndex).enabled.some(
-            (choice) =>
-              choice.kind === action.kind &&
-              JSON.stringify(choice.payload) === JSON.stringify(action.payload),
-          ))
+      : action.kind === 'propose_deal'
+        ? validDealProposal(state, actor.seatIndex, action.payload)
+        : saleIds !== undefined
+          ? validSale(state, saleIds)
+          : legalActions(state, actor.seatIndex).enabled.some(
+              (choice) =>
+                choice.kind === action.kind &&
+                JSON.stringify(choice.payload) === JSON.stringify(action.payload),
+            ))
   ) {
     return { rejected: true, reason: 'illegal_action', state };
   }
@@ -428,25 +444,35 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
         ? offerPromise(next, action.payload)
         : action.kind === 'respond'
           ? answerPromise(next, action.payload.answer)
-          : saleIds !== undefined
-            ? recordSale(next, saleIds)
-            : next.config.engineVersion !== ENGINE_VERSION
-              ? recordTurnCommand(next, action.kind)
-              : action.kind === 'activate_ability'
-                ? recordActivation(next, action)
-                : next.pendingPickpocket && action.kind === 'skip'
-                  ? resolvePickpocketReaction(next, true)
-                  : next.phase.kind === 'gym'
-                    ? recordGymCommand(next, action)
-                    : action.kind === 'declare_pvp' || next.phase.kind === 'pvp'
-                      ? recordPvpCommand(next, action)
-                      : next.phase.kind === 'encounter'
-                        ? confirmCatch(next, action)
-                        : next.phase.kind === 'shop'
-                          ? confirmShop(next, action)
-                          : action.kind === 'use_item'
-                            ? useItem(next, action)
-                            : recordTurnCommand(next, action.kind);
+          : action.kind === 'propose_deal'
+            ? proposeDeal(next, action.payload)
+            : action.kind === 'respond_deal'
+              ? respondDeal(next, action.payload.answer)
+              : action.kind === 'counter_deal'
+                ? counterDeal(next, action.payload.coins)
+                : action.kind === 'confirm_deal'
+                  ? confirmDeal(next)
+                  : action.kind === 'cancel_deal'
+                    ? cancelDeal(next)
+                    : saleIds !== undefined
+                      ? recordSale(next, saleIds)
+                      : next.config.engineVersion !== ENGINE_VERSION
+                        ? recordTurnCommand(next, action.kind)
+                        : action.kind === 'activate_ability'
+                          ? recordActivation(next, action)
+                          : next.pendingPickpocket && action.kind === 'skip'
+                            ? resolvePickpocketReaction(next, true)
+                            : next.phase.kind === 'gym'
+                              ? recordGymCommand(next, action)
+                              : action.kind === 'declare_pvp' || next.phase.kind === 'pvp'
+                                ? recordPvpCommand(next, action)
+                                : next.phase.kind === 'encounter'
+                                  ? confirmCatch(next, action)
+                                  : next.phase.kind === 'shop'
+                                    ? confirmShop(next, action)
+                                    : action.kind === 'use_item'
+                                      ? useItem(next, action)
+                                      : recordTurnCommand(next, action.kind);
   return {
     accepted: true,
     state: next,

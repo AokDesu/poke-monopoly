@@ -4,7 +4,7 @@ import { checkSeedSet, DEFAULT_OPTIONS, scriptedHumanCount, type SimOptions } fr
 
 /**
  * `--games <n> --seed <n> [--seats 2|3|4] [--max-steps n] [--lap-target n] [--policy name]
- * [--seed-set tune|eval] [--social] [--human-seats n] [--human-policy name]
+ * [--seed-set tune|eval] [--social] [--human-seats n] [--require-deals] [--human-policy name]
  * [--seat-policies a,b,..] [--save file]`.
  */
 export function parseSimArgs(args: string[]): SimOptions {
@@ -21,6 +21,7 @@ export function parseSimArgs(args: string[]): SimOptions {
       policy: { type: 'string', default: DEFAULT_OPTIONS.policy },
       'seed-set': { type: 'string', default: DEFAULT_OPTIONS.seedSet },
       social: { type: 'boolean', default: false },
+      'require-deals': { type: 'boolean', default: false },
       'human-seats': { type: 'string' },
       'human-policy': { type: 'string' },
       'seat-policies': { type: 'string' },
@@ -39,6 +40,9 @@ export function parseSimArgs(args: string[]): SimOptions {
     ...(humanSeats === undefined ? {} : { humanSeats }),
   };
   const humanCount = scriptedHumanCount(scriptedHumans, seats);
+  if (values['require-deals'] && humanCount === 0) {
+    throw new RangeError('--require-deals needs --social or --human-seats');
+  }
   const humanPolicy = values['human-policy'];
   if (humanPolicy !== undefined) {
     if (humanCount === 0) throw new RangeError('--human-policy needs --social or --human-seats');
@@ -64,6 +68,7 @@ export function parseSimArgs(args: string[]): SimOptions {
     policy: values.policy,
     seedSet,
     ...scriptedHumans,
+    ...(values['require-deals'] ? { requireDeals: true } : {}),
     ...(humanPolicy === undefined ? {} : { humanPolicy }),
     ...(seatPolicies ? { seatPolicies } : {}),
     ...(values.save === undefined ? {} : { save: nonEmpty('save', values.save) }),

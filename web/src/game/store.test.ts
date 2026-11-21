@@ -1,7 +1,10 @@
 import { expect, test, vi } from 'vitest';
 import {
+  createGame,
   createGameConfig,
+  createGameLog,
   fixtureSchema,
+  observeSpectator,
   replay,
   stateHash,
   type GameConfig,
@@ -98,4 +101,118 @@ test('choose rejects an ID that is not one of the human seat enabled choices', (
   const before = store.getSession();
   expect(store.choose('skip')).toMatchObject({ rejected: true, reason: 'illegal_action' });
   expect(store.getSession()).toBe(before);
+});
+
+test('a seat outside a Deal Card sees the same decision owner as with no question pending (§4.8)', () => {
+  // Two humans (seats 0 and 2) and an AI (seat 1), as in a two-human save: human 2 proposes to AI 1 in Social.
+  const three = structuredClone(content);
+  three.classes.push({
+    id: 'team-rocket',
+    name: 'Team Rocket',
+    starterSpeciesIds: ['eevee'],
+    classItemId: 'pickpocket',
+  });
+  const classIds = three.classes.map((entry) => entry.id);
+  const threeSeat = createGameConfig({
+    seats: [0, 1, 2].map((seatIndex) => ({
+      actorId: `player-${seatIndex}`,
+      seatIndex,
+      classId: classIds[seatIndex % classIds.length]!,
+      controller: seatIndex === 1 ? ('ai' as const) : ('human' as const),
+    })),
+    seed: 7,
+    lapTarget: 3,
+    socialWindow: true,
+  });
+  const deal = (initiatorSeatIndex: number) => {
+    const state = createGame(threeSeat, three);
+    const log = createGameLog(state);
+    state.phase = { kind: 'social' };
+    state.activeSeatIndex = initiatorSeatIndex;
+    const quiet = structuredClone(state);
+    state.pendingResponse = {
+      kind: 'deal',
+      stage: 'proposed',
+      initiatorSeatIndex,
+      responderSeatIndex: 1,
+      targetSeatIndex: 1,
+      terms: {
+        give: { coins: 0, pokemonInstanceIds: ['x'], itemInstanceIds: [] },
+        get: { coins: 3, pokemonInstanceIds: [], itemInstanceIds: [] },
+      },
+      counterDepth: 0,
+    };
+    return { state, quiet, log };
+  };
+  const decisionOf = (
+    state: ReturnType<typeof createGame>,
+    log: ReturnType<typeof createGameLog>,
+  ) => {
+    const store = createGameStore();
+    store.restore({ state, log });
+    return store.getView()!.decision;
+  };
+
+  // Seat 0 is outside the deal between seat 2 and AI seat 1: its decision is what it is with nothing pending,
+  // the active seat's, not the AI's.
+  const outside = deal(2);
+  expect(decisionOf(outside.state, outside.log)).toEqual(decisionOf(outside.quiet, outside.log));
+  expect(decisionOf(outside.state, outside.log)?.seatIndex).toBe(2);
+  // Seat 0 is the proposer to AI seat 1: it sees that the AI owes the answer.
+  const party = deal(0);
+  expect(decisionOf(party.state, party.log)?.seatIndex).toBe(1);
+  expect(decisionOf(party.quiet, party.log)?.seatIndex).toBe(0);
+});
+
+test("shared speech carries the revision every seat shares, never one seat's own (§4.8)", () => {
+  const store = createGameStore();
+  store.start(config, content);
+  const session = store.getSession()!;
+  const state = structuredClone(session.state);
+  // Two Deal Cards that seat 1 never saw; seat 0, the viewer, was a party to both.
+  state.stateRevision = 5;
+  state.dealRecords = 2;
+  state.players[0]!.unseenRecords = 0;
+  state.players[1]!.unseenRecords = 2;
+  store.restore({ state, log: session.log });
+  const viewer = store.getView()!.observation.public.stateRevision;
+  expect(viewer).toBe(5);
+  // The party's own revision counts both records, which would show a bystander how many it was part of.
+  expect(store.sharedPublic()!.stateRevision).toBe(3);
+  expect(store.sharedPublic()!.stateRevision).toBe(observeSpectator(state).public.stateRevision);
+  expect(store.sharedPublic()!.stateRevision).not.toBe(viewer);
+});
+
+test('a speech request carries only the fields every seat shares: no private attack, no seat-relative revision (§4.1, §4.8)', () => {
+  const store = createGameStore();
+  store.start(config, content);
+  const session = store.getSession()!;
+  const state = structuredClone(session.state);
+  // AI seat 1 Pickpocketed seat 0 (a hostile item use is private to the pair); seat 0 also declared a PvP attack.
+  state.attackHistory = [
+    {
+      kind: 'attack_attempt',
+      attackId: 'attack:1',
+      actorId: 'player-1',
+      targetId: 'player-0',
+      source: 'hostile_item',
+      actionSeq: 1,
+      globalTurnNo: 1,
+    },
+    {
+      kind: 'attack_attempt',
+      attackId: 'attack:2',
+      actorId: 'player-0',
+      targetId: 'player-1',
+      source: 'pvp_declaration',
+      actionSeq: 2,
+      globalTurnNo: 1,
+    },
+  ];
+  state.stateRevision = 5;
+  state.players[1]!.unseenRecords = 2;
+  store.restore({ state, log: session.log });
+  const shared = store.sharedPublic()!;
+  expect(shared.attackHistory?.map((attempt) => attempt.source)).toEqual(['pvp_declaration']);
+  expect(shared.stateRevision).toBe(observeSpectator(state).public.stateRevision);
 });

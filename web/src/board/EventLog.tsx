@@ -64,12 +64,18 @@ export function eventMessage(
         owner: playerLabel(observation, event.ownerId),
         ball: t(`board.ball.${event.ballType}`),
       });
-    // A chat is private to its two seats and shown in the Social window (#137), not in the shared field log.
+    // A chat and a Deal Card are private to their two seats, shown in the Social window (#137, #138), not in the shared field log.
     case 'chat_sent':
     case 'promise_offered':
     case 'promise_accepted':
     case 'promise_rejected':
     case 'promise_closed':
+    case 'deal_proposed':
+    case 'deal_accepted':
+    case 'deal_rejected':
+    case 'deal_countered':
+    case 'deal_cancelled':
+    case 'deal_committed':
       return [];
     case 'event_deck_shuffled':
       return message(reshuffled ? 'event.deckReshuffled' : 'board.event.deckShuffled');
@@ -90,6 +96,17 @@ export function eventMessage(
     case 'coin_transfer': {
       // The Event's own result row already says who gained or paid what.
       if (event.reason.startsWith('event:')) return [];
+      // A Deal Card's payment is its two parties' alone (§4.8): a seat that is not one of the pair, and a watcher,
+      // never see it in the shared log.
+      if (event.reason === 'deal') {
+        const own = ownSeatOf(observation);
+        const parties = [event.source, event.destination].flatMap((value) =>
+          value.kind === 'player'
+            ? observation.public.players.filter((entry) => entry.actorId === value.actorId)
+            : [],
+        );
+        if (own === undefined || !parties.some((entry) => entry.seatIndex === own)) return [];
+      }
       const endpoint = (value: typeof event.source) =>
         value.kind === 'bank' ? t('board.event.bank') : playerLabel(observation, value.actorId);
       return message('board.event.coins', {

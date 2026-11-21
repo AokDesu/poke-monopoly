@@ -146,7 +146,7 @@ describe('registry (spec §8)', () => {
     expect(new Set(INVARIANTS.map((invariant) => invariant.id)).size).toBe(INVARIANTS.length);
   });
 
-  test('activates this cycle’s invariants and keeps the issue’s pending ones named', () => {
+  test('activates this cycle’s invariants, now including deals-atomic', () => {
     const status = Object.fromEntries(INVARIANTS.map(({ id, status }) => [id, status]));
     expect(status).toMatchObject({
       'coins-non-negative': 'active',
@@ -170,7 +170,7 @@ describe('registry (spec §8)', () => {
       'tired-and-nurse-joy-useful': 'active',
       'evolution-keeps-cooldowns': 'active',
       'promise-closes-on-own-turn': 'active',
-      'deals-atomic': 'pending',
+      'deals-atomic': 'active',
       'battle-reward-coins-or-evolution': 'active',
     });
   });
@@ -266,7 +266,7 @@ describe('coin-transfer-sourced', () => {
           source: { kind: 'player', actorId: 'player-0' },
           destination: { kind: 'player', actorId: 'player-1' },
           amount: 2,
-          reason: 'deal',
+          reason: 'player_transfer',
         },
       ],
     );

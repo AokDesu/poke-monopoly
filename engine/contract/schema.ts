@@ -217,6 +217,25 @@ export const trustSchema = z.strictObject({
 });
 export const promiseDirectionSchema = z.enum(['offer', 'ask']);
 /**
+ * One side of a Deal Card (§4.8). The arrays hold at most one asset each; the shape stays open for the
+ * Pokémon ↔ Pokémon format that §10 cuts, for which no path is built.
+ */
+export const dealSideSchema = z.strictObject({
+  coins: count,
+  pokemonInstanceIds: z.array(id).max(1),
+  itemInstanceIds: z.array(id).max(1),
+});
+/** `give` is what the proposer hands over and `get` what it receives; a counter never swaps the roles. */
+export const dealTermsSchema = z.strictObject({ give: dealSideSchema, get: dealSideSchema });
+export const proposeDealPayloadSchema = z.strictObject({
+  targetSeatIndex: count,
+  give: dealSideSchema,
+  get: dealSideSchema,
+});
+/** A counter keeps the asset and its direction and names a new coin amount (§4.8, #164 plan note). */
+export const counterDealPayloadSchema = z.strictObject({ coins: z.int().positive() });
+export const dealStageSchema = z.enum(['proposed', 'accepted', 'countered']);
+/**
  * A question another seat owes an answer to before the game goes on (a pending decision, engine/decisions.ts).
  * `initiatorSeatIndex` is the seat whose turn it is; `responderSeatIndex` owes the next command.
  */
@@ -227,6 +246,19 @@ export const pendingResponseSchema = z.discriminatedUnion('kind', [
     responderSeatIndex: count,
     // `offer`: the initiator promises the responder; `ask`: the initiator asks the responder to promise.
     direction: promiseDirectionSchema,
+  }),
+  // A Deal Card in progress (§4.8), told only to its two parties. `proposed`: the target owes accept, reject
+  // or counter. `accepted` or `countered`: the proposer owes confirm or cancel. `responderSeatIndex` is whoever
+  // owes the next command; the item named in the terms is shown here to the pair and nobody else.
+  z.strictObject({
+    kind: z.literal('deal'),
+    stage: dealStageSchema,
+    initiatorSeatIndex: count,
+    responderSeatIndex: count,
+    targetSeatIndex: count,
+    terms: dealTermsSchema,
+    revealedItem: itemInstanceSchema.optional(),
+    counterDepth: z.int().min(0).max(1),
   }),
 ]);
 export const respondPayloadSchema = z.strictObject({ answer: z.enum(['accept', 'reject']) });
@@ -289,6 +321,8 @@ export const playerSchema = z.strictObject({
     .array(z.strictObject({ scope: z.enum(['catch', 'combat']), n: z.int(), globalTurnNo: count }))
     .optional(),
   privateResults: z.array(privateResultSchema),
+  // `creditedLap` whose one deal (§4.8, counting both sides) is used; absent until a deal commits.
+  dealUsedLap: count.optional(),
   // Accepted records this seat may not see (chats between two other seats, §4.8); absent when none.
   unseenRecords: count.optional(),
 });
@@ -507,6 +541,8 @@ export const gameStateSchema = z.strictObject({
   chatsSent: count.optional(),
   // Accepted promise offers and answers, which no seat outside the pair sees (§4.8); same use.
   promiseRecords: count.optional(),
+  // Accepted Deal Card records, which no seat outside the pair sees (§4.8); same use; absent until a first one.
+  dealRecords: count.optional(),
   // Passing on a private Pickpocket reaction must not shift public IDs or bystander revisions.
   pickpocketPassRecords: count.optional(),
   pendingPickpocket: z.strictObject({ targetSeatIndex: count, attackId: id }).optional(),
@@ -557,11 +593,18 @@ const actionBodySchema = z.discriminatedUnion('kind', [
       'combat',
       'gym',
       'ability',
-      'deal',
       'promise',
     ]),
     payload: z.strictObject({}),
   }),
+  z.object({ kind: z.literal('propose_deal'), payload: proposeDealPayloadSchema }),
+  z.object({
+    kind: z.literal('respond_deal'),
+    payload: z.strictObject({ answer: z.enum(['accept', 'reject']) }),
+  }),
+  z.object({ kind: z.literal('counter_deal'), payload: counterDealPayloadSchema }),
+  z.object({ kind: z.literal('confirm_deal'), payload: z.strictObject({}) }),
+  z.object({ kind: z.literal('cancel_deal'), payload: z.strictObject({}) }),
   z.object({ kind: z.literal('chat'), payload: chatPayloadSchema }),
   z.object({ kind: z.literal('offer_promise'), payload: offerPromisePayloadSchema }),
   z.object({ kind: z.literal('respond'), payload: respondPayloadSchema }),
@@ -806,6 +849,42 @@ export const engineEventSchema = z.discriminatedUnion('kind', [
     promiserSeatIndex: count,
     recipientSeatIndex: count,
   }),
+  // A Deal Card's records are told only to its two parties (§4.8); `revealedItem` is the one item shown to them.
+  z.strictObject({
+    kind: z.literal('deal_proposed'),
+    initiatorSeatIndex: count,
+    targetSeatIndex: count,
+    terms: dealTermsSchema,
+    revealedItem: itemInstanceSchema.optional(),
+  }),
+  z.strictObject({
+    kind: z.literal('deal_accepted'),
+    initiatorSeatIndex: count,
+    targetSeatIndex: count,
+  }),
+  z.strictObject({
+    kind: z.literal('deal_rejected'),
+    initiatorSeatIndex: count,
+    targetSeatIndex: count,
+  }),
+  z.strictObject({
+    kind: z.literal('deal_countered'),
+    initiatorSeatIndex: count,
+    targetSeatIndex: count,
+    terms: dealTermsSchema,
+  }),
+  z.strictObject({
+    kind: z.literal('deal_cancelled'),
+    initiatorSeatIndex: count,
+    targetSeatIndex: count,
+  }),
+  z.strictObject({
+    kind: z.literal('deal_committed'),
+    initiatorSeatIndex: count,
+    targetSeatIndex: count,
+    terms: dealTermsSchema,
+    revealedItem: itemInstanceSchema.optional(),
+  }),
   // The two parties' alone, at End of the promiser's closing turn or at game end: memory evidence (§4.8).
   z.strictObject({
     kind: z.literal('promise_closed'),
@@ -932,6 +1011,8 @@ export type SeatPromise = z.infer<typeof seatPromiseSchema>;
 export type PromiseOutcome = z.infer<typeof promiseOutcomeSchema>;
 export type Trust = z.infer<typeof trustSchema>;
 export type PendingResponse = z.infer<typeof pendingResponseSchema>;
+export type DealTerms = z.infer<typeof dealTermsSchema>;
+export type ProposeDealPayload = z.infer<typeof proposeDealPayloadSchema>;
 export type ItemInstance = z.infer<typeof itemInstanceSchema>;
 export type BallPouch = z.infer<typeof ballPouchSchema>;
 export type Action = z.infer<typeof actionSchema>;
