@@ -220,7 +220,7 @@ function openSocialWindow(state: GameState): void {
 
 /**
  * Demo mode (issue #220): seat 1 (an AI) has just decided and the panel's data is made the way
- * the browser makes it, from a fake answer of the proposed shape over that seat's real options.
+ * the browser makes it, from a fake answer of the server's demo shape over that seat's real options.
  * `pick` names the answer from the seat's engine-listed actions; `then` lets the engine play on.
  */
 function rivalChose(
@@ -511,7 +511,6 @@ export function createScenes(fixtures: GalleryFixtures) {
       );
       return rivalChose(store, 'sell', () => ({
         questionId: 'sell',
-        confidence: 0.55,
         sellUids: ['rival-pokemon-3'],
         options: [
           { id: 'pokemon-1', probability: 0.2 },
@@ -671,7 +670,7 @@ export function createScenes(fixtures: GalleryFixtures) {
 
     /**
      * §4.5, Appendix C: Strategy with one Pokémon per Ability state: ready (Quick Flight), wrong
-     * timing (Blaze), used this Lap (Vine Pull) and not run by the engine yet (Scavenge).
+     * timing (Blaze), used this Lap (Vine Pull) and another ready Ability (Scavenge).
      */
     abilityStrategy: (): Scene =>
       sceneOf(

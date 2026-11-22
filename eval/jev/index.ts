@@ -21,11 +21,14 @@ import {
   type Fixture,
 } from './fixture.ts';
 import {
+  appliedSellAnswers,
   expectedFallback,
   placeholderResult,
   runScenario,
   scenarioFixture,
   scenarioRequest,
+  unaskedRun,
+  type ScenarioRun,
 } from './replay.ts';
 import { SCENARIOS, type EvalScenario } from './scenarios.ts';
 
@@ -57,6 +60,8 @@ export interface EvalRow {
   /** Scenario fixtures only: the action the orchestrator applied and why it fell back. */
   applied?: string;
   fallbackReason?: OrchestratorFallbackReason | null;
+  /** The answer is the applied last-Sell-Phase sale (spec §5.6), not a Jev answer: Jev was not asked. */
+  rule?: true;
 }
 /**
  * A Sell Phase Noul counts as `true` only at the seat's own sell threshold (spec §5.3: sell when
@@ -96,6 +101,45 @@ const rowsFor = (fixture: Fixture, extra: Partial<EvalRow> = {}): EvalRow[] =>
   });
 const sameSets = (a: Record<string, string[]>, b: Record<string, string[]>) =>
   JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort());
+/**
+ * A scenario the orchestrator no longer asks Jev about: the last Sell Phase sells everything
+ * (spec §5.6). Each question is scored from the sale the orchestrator applies, so the row says
+ * what the game does, and the recording is only checked against the request Jev would get. Returns
+ * false when that request no longer matches the recording.
+ */
+async function replayUnasked(
+  fixture: Fixture,
+  scenario: EvalScenario,
+  run: ScenarioRun,
+  rows: EvalRow[],
+) {
+  if (requestHash(await scenarioRequest(scenario)) !== fixture.requestHash) return false;
+  if (!sameSets(fixture.acceptable, run.acceptable))
+    throw new Error(
+      `${fixture.id}: acceptable set differs from eval/jev/scenarios.ts; run ${PLACEHOLDER_COMMAND}`,
+    );
+  if (run.illegalApplied > 0)
+    throw new Error(
+      `${fixture.id}: illegal applied action (${JSON.stringify(run.decision.choice)})`,
+    );
+  const { choice } = run.decision;
+  const applied = typeof choice === 'string' ? choice : `sell:${choice.sellUids.join('+')}`;
+  for (const [question, answer] of Object.entries(appliedSellAnswers(scenario, run))) {
+    rows.push({
+      fixture: fixture.id,
+      personality: fixture.tags.personality,
+      synthetic: fixture.synthetic,
+      question,
+      answer,
+      confidence: undefined,
+      correct: fixture.acceptable[question]!.includes(answer),
+      applied,
+      fallbackReason: run.decision.fallbackReason,
+      rule: true,
+    });
+  }
+  return true;
+}
 /**
  * Spec §10 C2: replays a scenario's recorded answer through the orchestrator. Returns false when
  * the request the orchestrator builds now no longer matches the recording.
@@ -145,7 +189,11 @@ export const runOffline = async (
     seen.add(fixture.id);
     const scenario = scenarios.find((entry) => entry.id === fixture.id);
     if (scenario) {
-      if (!(await replayScenario(fixture, scenario, rows))) stale.push(fixture.id);
+      const unasked = await unaskedRun(scenario);
+      const current = unasked
+        ? await replayUnasked(fixture, scenario, unasked, rows)
+        : await replayScenario(fixture, scenario, rows);
+      if (!current) stale.push(fixture.id);
       continue;
     }
     const client = new FixtureJevClient(fixture);
@@ -221,6 +269,7 @@ export const formatReport = (rows: EvalRow[]): string => {
   return [
     `Accuracy: ${correct}/${recorded.length} (${recorded.length ? ((100 * correct) / recorded.length).toFixed(1) : '0.0'}%) against the acceptable sets, recorded fixtures only`,
     `Mean confidence: correct ${confidence(true)}, incorrect ${confidence(false)}; Noul answers have none. Recorded fixtures only. Not a calibration claim.`,
+    `Scored from the applied last-Sell-Phase sale, Jev not asked (spec §5.6): ${recorded.filter((row) => row.rule).length} of those ${recorded.length} rows`,
     `Fixtures: ${fixtures.size} (${fixtures.size - synthetic} recorded, ${synthetic} synthetic). Synthetic placeholders prove the harness; they are seeded stand-ins, not Jev answers, and are left out of the accuracy and confidence above. A person with the key replaces them (${RECORD_COMMAND}).`,
     personalityCounts(rows),
     `Orchestrator replays: ${orchestrated}, illegalAppliedActionCount 0, fallbacks: ${[...fallbacks].map(([reason, n]) => `${reason} ${n}`).join(', ') || 'none'}`,
@@ -319,6 +368,11 @@ export const recordScenarios = async (
   const failed: string[] = [];
   for (const scenario of scenarios) {
     const saved = await existing(directory, scenario.id);
+    // Jev is not asked about this scenario (spec §5.6), so there is nothing to record.
+    if (await unaskedRun(scenario)) {
+      current.push(scenario.id);
+      continue;
+    }
     if (
       saved &&
       !saved.synthetic &&
@@ -355,6 +409,7 @@ export const writePlaceholders = async (
 ): Promise<string[]> => {
   const written: string[] = [];
   for (const scenario of scenarios) {
+    if (await unaskedRun(scenario)) continue; // Jev is not asked (spec §5.6): no stand-in answer.
     const saved = await existing(directory, scenario.id);
     const request = await scenarioRequest(scenario);
     const current = saved?.requestHash === requestHash(request);

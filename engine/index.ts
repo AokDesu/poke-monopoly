@@ -14,6 +14,8 @@ export {
   saleFacts,
   saleQuote,
   bucketKeepValue,
+  bucketSaleValue,
+  SALE_VALUE_BUCKETS,
   type SalePriceFact,
   type SaleQuote,
 } from './selling.ts';
@@ -89,9 +91,27 @@ export {
   type ExploitFacts,
 } from './exploit-facts.ts';
 export { promiseWindowStatus } from './promises.ts';
+export { itemUseWindow } from './deal-facts.ts';
+export { dealFacts } from './deals.ts';
 export {
   battlePreview,
   challengeOdds,
   type BattleChoicePreview,
   type BattlePreview,
 } from './battle-preview.ts';
+export { BELIEF_CONFIG, matchOwnState, sampleBelief, type OwnHints } from './belief.ts';
+export {
+  bucketExpectedCoins,
+  bucketLeadChance,
+  ROLLOUT_CONFIG,
+  rolloutFacts,
+  rolloutOptions,
+  type ExpectedCoins,
+  type LeadChance,
+  type OptionOutcome,
+  type RolloutChoice,
+  type RolloutFacts,
+  type RolloutPolicy,
+  type RolloutRequest,
+  type RolloutResult,
+} from './rollout.ts';

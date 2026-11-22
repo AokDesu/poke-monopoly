@@ -140,7 +140,7 @@ test('a disabled Ability shows its engine reason as visible text, never a ready-
   const team = [
     member('charmander'), // Blaze: a B Ability, not usable in Strategy
     { ...member('squirtle'), abilityReady: false }, // Shell Guard: used this Lap
-    member('rattata'), // Scavenge: authored, no engine effect yet
+    member('rattata'), // Scavenge: ready in Strategy
   ];
   const state = strategy(team);
   const store = open(state);
@@ -153,7 +153,7 @@ test('a disabled Ability shows its engine reason as visible text, never a ready-
   expect(reasonOf('t:charmander').reasonCode).toBe('ABILITY_WRONG_TIMING');
   expect(disabledReason('Shell Guard')).toBe(reasonOf('t:squirtle').reasonText);
   expect(reasonOf('t:squirtle').reasonCode).toBe('ABILITY_USED_THIS_LAP');
-  expect(disabledReason('Scavenge')).toBe(t('ability.planned'));
+  expect(screen.getByRole('button', { name: 'Scavenge' })).toHaveProperty('disabled', false);
   const before = store.getSession();
   fireEvent.click(screen.getByRole('button', { name: 'Blaze' }));
   expect(screen.queryByLabelText(t('ability.preview'))).toBeNull();
@@ -260,6 +260,30 @@ function defending(team: readonly PokemonInstance[]): GameSession {
   act('respond_pvp', { accept: true });
   return { state, log };
 }
+
+test('a human targeted by Pickpocket can use Snorlax’s Block during the rival’s Strategy', () => {
+  const state = strategy([member('snorlax')]);
+  state.activeSeatIndex = 1;
+  state.players[1]!.items = [
+    { instanceId: 'pickpocket:1', itemId: 'pickpocket', name: 'Pickpocket', visibility: 'secret' },
+  ];
+  const log = createGameLog(state);
+  const result = applyAction(state, {
+    actorId: state.players[1]!.actorId,
+    kind: 'use_item',
+    actionSeq: 1,
+    stateRevisionBefore: 0,
+    payload: { itemInstanceId: 'pickpocket:1', targetSeatIndex: 0 },
+  });
+  if ('rejected' in result) throw new Error(result.reason);
+  log.actions.push(result.record);
+  const store = open(result.state, log);
+  expect(screen.getByText(t('turn.pickpocketReaction'))).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Block' }));
+  fireEvent.click(screen.getByRole('button', { name: t('ability.confirm', { ability: 'Block' }) }));
+  expect(store.getSession()!.state.players[0]!.coins).toBe(state.players[0]!.coins);
+  expect(store.getSession()!.state.pendingPickpocket).toBeUndefined();
+});
 
 test('a human defender reaches the Ability window outside their own turn, sees what is blocked and why, reacts, and the battle goes on without a blank screen (C.3, D4)', () => {
   const { state, log: initial } = defending([

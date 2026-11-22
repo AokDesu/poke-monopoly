@@ -87,13 +87,17 @@ export function exploitMoment(
       return enabled.some(isUltra) ? { kind: 'ultra', used: isUltra(pick) } : undefined;
     }
     case 'never-negotiate': {
-      if (enabled.some((c) => c.kind === 'respond')) {
+      if (enabled.some((c) => c.kind === 'respond' || c.kind === 'respond_deal')) {
         return {
           kind: 'respond',
-          used: pick?.kind === 'respond' && pick.payload.answer === 'reject',
+          used:
+            (pick?.kind === 'respond' || pick?.kind === 'respond_deal') &&
+            pick.payload.answer === 'reject',
         };
       }
-      return enabled.some((c) => c.kind === 'chat' || c.kind === 'offer_promise')
+      return enabled.some(
+        (c) => c.kind === 'chat' || c.kind === 'offer_promise' || c.kind === 'propose_deal',
+      )
         ? { kind: 'offer', used: pick?.kind === 'skip' }
         : undefined;
     }

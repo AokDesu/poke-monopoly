@@ -47,9 +47,14 @@ export function choiceLabel(action: LegalAction, observation: Observation): stri
       if (target) {
         label = t('choice.abilityTarget', {
           label,
-          target: t('strategy.potion.member', {
-            pokemon: memberName(own.team, target.instanceId),
-          }),
+          target: (() => {
+            const member = t('strategy.potion.member', {
+              pokemon: memberName(own.team, target.instanceId),
+            });
+            return action.payload.status === 'combat_debuff'
+              ? t('ability.healDebuff', { member })
+              : member;
+          })(),
         });
       }
       // Adaptability lists one choice per scope; name the scope so the options differ.
@@ -95,12 +100,15 @@ export function ChoicePanel({
   observation,
   legalActions,
   pendingDie = null,
+  pickpocketReaction = false,
   onChoose,
 }: {
   observation: Observation;
   legalActions: LegalActions;
   /** The engine's reading of the die in a move or catch reroll window; null in any other choice. */
   pendingDie?: PendingDie | null;
+  /** A rival used Pickpocket on this seat and the engine asks whether to use Block. */
+  pickpocketReaction?: boolean;
   onChoose: (id: string) => void;
 }) {
   const choices = legalActions.enabled.filter((action) => action.kind !== 'activate_ability');
@@ -111,7 +119,13 @@ export function ChoicePanel({
     <DecisionCard
       kind="choice"
       heading={phaseLabel(observation.public.phase.kind)}
-      lead={t(pendingDie ? 'turn.rerollBody' : 'turn.choiceBody')}
+      lead={t(
+        pickpocketReaction
+          ? 'turn.pickpocketReaction'
+          : pendingDie
+            ? 'turn.rerollBody'
+            : 'turn.choiceBody',
+      )}
       actions={
         <ul className="choice-list">
           {choices.map((action, index) => (

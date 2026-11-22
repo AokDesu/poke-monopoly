@@ -102,6 +102,21 @@ test('two same-species Tired members stay distinct; separate confirmation heals 
   });
 });
 
+test('Potion distinguishes a combat debuff from Tired on the same Pokémon', () => {
+  const state = potionState();
+  state.players[0]!.team[1]!.combatDebuffed = true;
+  const store = start(state);
+  fireEvent.click(screen.getAllByRole('button', { name: 'Potion' })[0]!);
+  const targets = screen.getByRole('group', { name: t('strategy.potion.targets') });
+  fireEvent.click(within(targets).getByRole('button', { name: /Bulbasaur #2.*Combat debuff/ }));
+  expect(screen.getByLabelText(t('strategy.preview')).textContent).toContain(
+    t('strategy.potion.debuffEffect'),
+  );
+  fireEvent.click(confirm());
+  expect(store.getSession()!.state.players[0]!.team[1]!.combatDebuffed).toBeUndefined();
+  expect(store.getSession()!.state.players[0]!.team[1]!.tired).toBe(true);
+});
+
 test.each(['no-target', 'budget-used'] as const)(
   '%s shows the engine reason without an empty target panel',
   (scenario) => {

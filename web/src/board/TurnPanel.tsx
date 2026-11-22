@@ -78,6 +78,8 @@ export function TurnPanel({
   // (the defender and the reward winner included), whoever holds the turn (§6.4).
   const battle = battleCopy(view);
   const owner = view.decision?.seatIndex === view.seatIndex;
+  // A rival's Pickpocket asks this seat to use Block while the rival's Strategy runs (§4.3).
+  const reactingToPickpocket = owner && view.observation.own.pickpocketReaction === true;
   const gymEntry =
     game.phase.kind === 'gym' &&
     game.phase.battle.step === 'entry' &&
@@ -91,7 +93,7 @@ export function TurnPanel({
     battle === null &&
     view.legalActions.enabled.length > 1 &&
     !socialOpen &&
-    !['shop', 'strategy', 'sell'].includes(game.phase.kind) &&
+    (reactingToPickpocket || !['shop', 'strategy', 'sell'].includes(game.phase.kind)) &&
     !(game.phase.kind === 'encounter' && !game.phase.catchRoll);
   const lastSale = view.feed.findLast(
     ({ before }) => before.activeSeatIndex === view.seatIndex && before.phase.kind === 'sell',
@@ -209,7 +211,7 @@ export function TurnPanel({
         onChoose={onChoose}
       />
     );
-  } else if (humanTurn && game.phase.kind === 'strategy') {
+  } else if (humanTurn && owner && game.phase.kind === 'strategy') {
     card = (
       <StrategyPanel
         key={game.stateRevision}
@@ -226,6 +228,7 @@ export function TurnPanel({
         observation={view.observation}
         legalActions={view.legalActions}
         pendingDie={view.pendingDie}
+        pickpocketReaction={reactingToPickpocket}
         onChoose={onChoose}
       />
     );

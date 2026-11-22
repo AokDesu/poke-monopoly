@@ -9,6 +9,12 @@ export {
   type EncounterFacts,
   type EncounterState,
 } from './encounter.ts';
+export { outcomeSentence, type OptionOutcomes } from './outcome.ts';
+export {
+  buildPromiseResponseQuestion,
+  PROMISE_INSTRUCTIONS,
+  type PromiseState,
+} from './promise.ts';
 export {
   actionKind,
   affinity,

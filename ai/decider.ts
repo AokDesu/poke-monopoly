@@ -1,10 +1,12 @@
 import type {
   JevStatus,
+  DecisionDetail,
   DecisionFallbackReason,
   DecisionRequest,
 } from '../engine/contract/decision.ts';
 import { createPolicyRng, type PolicyChoice, type PolicyFacts } from '../sim/policy.ts';
 import { FallbackPolicy, PERSONALITIES } from './fallback/index.ts';
+import { HARD_ROLLOUT_MS } from './hard.ts';
 import { createSdkJevClient, jevEnabled, type JevClient } from './jev/client.ts';
 import type { DecisionEvent } from './jev/decision-log.ts';
 import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
@@ -23,6 +25,8 @@ export type DeciderAnswer = DeciderPick & {
   lineId?: string;
   /** The §6.8 events of this answer, for the app to journal; they never leave the server. */
   events?: readonly DecisionEvent[];
+  /** Jev's numbers; the app sends them only in demo mode (spec §3). */
+  detail?: DecisionDetail;
 } & ({ source: 'jev' } | { source: 'fallback'; fallbackReason: DecisionFallbackReason });
 
 export interface DeciderContext {
@@ -92,6 +96,8 @@ export interface OrchestratorDeciderOptions {
   usage?: () => UsageRecorder | undefined;
   /** The decision deadline; defaults to 1,500 ms (spec §5.6). */
   decisionMs?: number;
+  /** How long Hard's rollouts may run per decision; defaults to `HARD_ROLLOUT_MS`. */
+  rolloutMs?: number;
   maxGames?: number;
 }
 
@@ -107,14 +113,20 @@ const sellFactsOf = (
   | undefined => {
   const rows = request.facts.sell;
   if (!rows || request.decisionPoint !== 'sell') return undefined;
-  const sellable = new Set(
-    request.enabledActions.flatMap((action) =>
-      action.kind === 'sell' ? action.payload.pokemonInstanceIds : [],
-    ),
+  // The seat's own team, not the action list: rows are good only when they price exactly this team.
+  const { observation } = request;
+  const you = observation.public.players.find(
+    (player) => player.seatIndex === observation.own.seatIndex,
   );
+  if (!you) return undefined;
+  const sellable = new Set(you.team.map((pokemon) => pokemon.instanceId));
   const given = new Set(rows.map((row) => row.instanceId));
   if (given.size !== rows.length || given.size !== sellable.size) return undefined;
   if (![...given].every((instanceId) => sellable.has(instanceId))) return undefined;
+  // The policy sells on `saleValue`; it must be the price Jev is shown plus the bonus it keeps.
+  if (rows.some((row) => row.saleValue !== row.salePrice + row.classBonusTogether)) {
+    return undefined;
+  }
   return {
     facts: {
       pokemon: rows.map(
@@ -240,6 +252,7 @@ export const createOrchestratorDecider = ({
   client = createSdkJevClient,
   usage = defaultUsageLedger,
   decisionMs,
+  rolloutMs = HARD_ROLLOUT_MS,
   maxGames = MAX_CACHED_GAMES,
 }: OrchestratorDeciderOptions = {}): Decider => {
   const games = new Map<string, Orchestrator>();
@@ -260,6 +273,7 @@ export const createOrchestratorDecider = ({
           gameId,
           quota,
           ...(decisionMs !== undefined && { decisionMs }),
+          rolloutMs,
           ...(recorder && { usage: recorder }),
         });
       },
@@ -286,12 +300,15 @@ export const createOrchestratorDecider = ({
       observation: request.observation,
       legalActions: { enabled: request.enabledActions, disabled: [] },
       facts: toFacts(request),
-      // Hard waits for gate G2 (spec §5.6): until then it plays as Normal.
-      difficulty: request.difficulty === 'easy' ? 'easy' : 'normal',
+      difficulty: request.difficulty,
       personality: personalityFor(request.personalityId),
       decisionPoint: request.decisionPoint,
       rng: rngFor(request),
     });
-    return { ...fromDecision(request, decision), events: decision.events };
+    return {
+      ...fromDecision(request, decision),
+      events: decision.events,
+      ...(decision.detail && { detail: decision.detail }),
+    };
   };
 };

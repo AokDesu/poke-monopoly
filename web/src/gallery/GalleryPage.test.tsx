@@ -174,7 +174,7 @@ const SHOWN = [
   {
     id: 'abilities',
     specRow: 'abilities',
-    keys: ['ability.heading', 'ability.planned', 'ability.choosePrompt', 'battle.heading.window'],
+    keys: ['ability.heading', 'ability.choosePrompt', 'battle.heading.window'],
   },
   {
     id: 'how-to-play',

@@ -1,7 +1,19 @@
-import type { EngineEvent, Player, PokemonInstance } from './contract/schema.ts';
+import type {
+  EngineEvent,
+  Player,
+  PokemonInstance,
+  pokemonStatusSchema,
+} from './contract/schema.ts';
+import type { z } from 'zod';
 
-/** Status seam for effects and later combat debuffs. No battle implicitly applies Tired. */
-export type PokemonStatus = 'tired';
+export type PokemonStatus = z.infer<typeof pokemonStatusSchema>;
+
+export function pokemonStatuses(pokemon: PokemonInstance): PokemonStatus[] {
+  const statuses: PokemonStatus[] = [];
+  if (pokemon.tired) statuses.push('tired');
+  if (pokemon.combatDebuffed) statuses.push('combat_debuff');
+  return statuses;
+}
 
 export function applyStatus(
   owner: Player,
@@ -11,6 +23,20 @@ export function applyStatus(
 ): EngineEvent[] {
   const pokemon = owner.team.find((entry) => entry.instanceId === instanceId);
   if (!pokemon) return [];
+  if (status === 'combat_debuff') {
+    if (pokemon.combatDebuffed) return [];
+    pokemon.combatDebuffed = true;
+    return [
+      {
+        kind: 'status_changed',
+        ownerId: owner.actorId,
+        instanceId,
+        status,
+        operation: 'applied',
+        reason,
+      },
+    ];
+  }
   const operation = pokemon.tired ? 'reapplied' : 'applied';
   pokemon.tired = true;
   pokemon.tiredExpiresOwnTurnNo = Math.max(pokemon.tiredExpiresOwnTurnNo ?? 0, owner.ownTurnNo + 1);
@@ -35,9 +61,12 @@ export function healStatus(
   reason: string,
 ): EngineEvent[] {
   const pokemon = owner.team.find((entry) => entry.instanceId === instanceId);
-  if (!pokemon?.tired) return [];
-  pokemon.tired = false;
-  delete pokemon.tiredExpiresOwnTurnNo;
+  if (!pokemon || !pokemonStatuses(pokemon).includes(status)) return [];
+  if (status === 'combat_debuff') delete pokemon.combatDebuffed;
+  else {
+    pokemon.tired = false;
+    delete pokemon.tiredExpiresOwnTurnNo;
+  }
   return [
     {
       kind: 'status_changed',

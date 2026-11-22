@@ -57,6 +57,7 @@ import {
   type WatchSettings,
   type WatchSetup,
 } from './setup.ts';
+import { leaderOf } from './tableTalk.ts';
 
 /**
  * Rules adapter (spec §6.1). Storage IO lives in `save.ts`; both call the engine only through
@@ -91,6 +92,8 @@ export interface SeatFeedEntry {
    * member listed publicly, so a row can name a Pokémon as it was even after a sale or evolution.
    */
   readonly before: Pick<Observation['public'], 'phase' | 'activeSeatIndex' | 'globalTurnNo'> & {
+    /** The one seat with the most coins at that moment, or null on a tie (a change at the top is read around a record). */
+    readonly leader: number | null;
     readonly pokemon: readonly { readonly instanceId: string; readonly speciesId: string }[];
   };
   readonly record: SeatActionRecord;
@@ -162,6 +165,12 @@ export interface GameStore {
   getView(): SeatView | null;
   /** The watcher's view, or null without a game or when a seat is human. Stable between changes. */
   getSpectatorView(): SpectatorView | null;
+  /**
+   * The public game for a request made in an AI seat's name, or null without a game: what a spectator sees, the
+   * fields and the revision every seat shares. Never a seat's own projection, whose revision counts records (a Deal
+   * Card, a promise) the other seats never saw and which names a private attack (§4.1, §4.8).
+   */
+  sharedPublic(): Observation['public'] | null;
   /** Creates the game and its log together (engine contract: `createGameLog(createGame(...))`). */
   start(
     config: GameConfig,
@@ -336,6 +345,7 @@ function beforeOf(
     phase,
     activeSeatIndex,
     globalTurnNo,
+    leader: leaderOf(players),
     pokemon: players.flatMap((player) =>
       player.team.map(({ instanceId, speciesId }) => ({ instanceId, speciesId })),
     ),
@@ -428,7 +438,16 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
   const viewOf = (state: GameState, feed: readonly SeatFeedEntry[]): SeatView | null => {
     const seatIndex = humanSeat(state);
     if (seatIndex === undefined) return null;
-    const pending = pendingDecision(state);
+    // A question between two seats (a promise, a Deal Card) is theirs alone (§4.8): the decision owner a seat
+    // outside it sees is the one it would see with no question pending, or the owner would tell it one exists.
+    const question = state.pendingResponse;
+    const outside =
+      question !== undefined &&
+      seatIndex !== question.initiatorSeatIndex &&
+      seatIndex !== question.responderSeatIndex &&
+      !(question.kind === 'deal' && seatIndex === question.targetSeatIndex);
+    const seen = outside ? { ...state, pendingResponse: undefined } : state;
+    const pending = pendingDecision(seen);
     return {
       seatIndex,
       observation: observe(state, seatIndex),
@@ -440,7 +459,13 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
           ? oddsForAllBalls(state, seatIndex)
           : [],
       pendingDie: pendingDie(state, seatIndex) ?? null,
-      decision: pending && { seatIndex: pending.seatIndex, point: decisionPoint(state)! },
+      decision:
+        pending &&
+        (!state.pendingPickpocket ||
+          seatIndex === state.activeSeatIndex ||
+          seatIndex === state.pendingPickpocket.targetSeatIndex)
+          ? { seatIndex: pending.seatIndex, point: decisionPoint(seen)! }
+          : null,
       battle:
         state.phase.kind === 'pvp' || state.phase.kind === 'gym'
           ? battlePreview(state, seatIndex)
@@ -559,6 +584,13 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
+    sharedPublic(): Observation['public'] | null {
+      if (!session) return null;
+      // Exactly what a spectator sees: no attack made with a private item, no seat-relative history and the
+      // revision a bystander holds, which counts no record private to a pair (a seat's own revision would show
+      // how many such records it was part of).
+      return observeSpectator(session.state).public;
+    },
     getSession(): GameSession | null {
       return session;
     },
@@ -667,7 +699,8 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
       const decisionPoint = promiseQuestion ? 'promise_response' : state.phase.kind;
       if (
         !promiseQuestion &&
-        (!['strategy', 'encounter', 'sell', 'shop'].includes(decisionPoint) ||
+        (state.pendingPickpocket ||
+          !['strategy', 'encounter', 'sell', 'shop'].includes(decisionPoint) ||
           (state.phase.kind === 'encounter' && state.phase.catchRoll))
       ) {
         // Temporary #55 boundary: the decision API has no Gym, battle, Ability-window or reroll

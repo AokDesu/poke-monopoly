@@ -1,5 +1,6 @@
 import { pendingGymChoices, recordGymCommand, recordGymRoll } from '../gym.ts';
 import { pendingDecision } from '../decisions.ts';
+import { dealFacts } from '../deals.ts';
 import {
   abilityChoices,
   abilityDisabled,
@@ -27,10 +28,20 @@ import {
 } from '../turns.ts';
 import { confirmCatch, recordCatchRoll } from '../catching.ts';
 import { confirmShop } from '../shop.ts';
-import { itemChoices, useItem } from '../items.ts';
+import { itemChoices, resolvePickpocketReaction, useItem } from '../items.ts';
 import { ENGINE_VERSION } from '../versions.ts';
 import { recordSale, validSale } from '../selling.ts';
 import { chatChoices, chatsOf, recordChat, validChat } from '../social.ts';
+import {
+  cancelDeal,
+  confirmDeal,
+  counterDeal,
+  dealProposalChoices,
+  dealResponseChoices,
+  proposeDeal,
+  respondDeal,
+  validDealProposal,
+} from '../deals.ts';
 import {
   answerPromise,
   offerPromise,
@@ -48,10 +59,29 @@ import type {
   ApplyActionResult,
 } from './schema.ts';
 
+/**
+ * The question as this seat sees it: its two parties' alone, and the AI answering a Deal Card also gets the
+ * engine's buckets for it (§5.4). The proposer never does: the AI's valuation and budget are its own.
+ */
+function observedPending(state: GameState, seatIndex: number) {
+  const pending = state.pendingResponse!;
+  if (pending.kind !== 'deal') return pending;
+  const facts = dealFacts(state, seatIndex);
+  return facts ? { ...pending, facts } : pending;
+}
+
 /** Explicit allowlist: snapshots and logs must never be passed to AI as observations. */
 export function observe(state: GameState, seatIndex: number): Observation {
   const ownPlayer = state.players.find((player) => player.seatIndex === seatIndex);
   if (!ownPlayer) throw new RangeError('Unknown seat index');
+  const debuffed = ownPlayer.team.filter((pokemon) => pokemon.combatDebuffed);
+  let phase = state.phase;
+  if (phase.kind === 'chance_roll' && 'targetSeatIndex' in phase.effect) {
+    const effect = { ...phase.effect };
+    delete effect.targetSeatIndex;
+    if ('targetPokemonInstanceId' in effect) delete effect.targetPokemonInstanceId;
+    phase = { ...phase, effect };
+  }
   return structuredClone({
     public: {
       board: state.content.board,
@@ -63,7 +93,12 @@ export function observe(state: GameState, seatIndex: number): Observation {
         position: positionOf(player.routeProgress),
         creditedLap: player.creditedLap,
         ownTurnNo: player.ownTurnNo,
-        team: player.team,
+        team: player.team.map((pokemon) => {
+          if (!pokemon.combatDebuffed) return pokemon;
+          const copy = { ...pokemon };
+          delete copy.combatDebuffed;
+          return copy;
+        }),
         itemCount: player.items.length,
         knownItems: player.items
           .filter((item) => item.visibility === 'public')
@@ -83,7 +118,7 @@ export function observe(state: GameState, seatIndex: number): Observation {
               .map(seatAttackAttempt),
           }
         : {}),
-      phase: state.phase,
+      phase,
       lapTarget: state.config.lapTarget,
       finalTableRound: state.finalTableRound,
       ...(state.lastEvent ? { lastEvent: state.lastEvent } : {}),
@@ -94,6 +129,10 @@ export function observe(state: GameState, seatIndex: number): Observation {
       ...(ownPlayer.armedShield ? { armedShield: ownPlayer.armedShield } : {}),
       balls: ownPlayer.balls,
       privateResults: ownPlayer.privateResults,
+      ...(debuffed.length > 0 && {
+        combatDebuffedPokemonIds: debuffed.map((pokemon) => pokemon.instanceId),
+      }),
+      ...(state.pendingPickpocket?.targetSeatIndex === seatIndex && { pickpocketReaction: true }),
       ...(state.lastEvent?.seatIndex === seatIndex && state.lastEventReward
         ? { lastEventReward: state.lastEventReward }
         : {}),
@@ -106,8 +145,10 @@ export function observe(state: GameState, seatIndex: number): Observation {
       // A question is its two parties' alone (§4.8): a third seat never learns one was asked.
       ...(state.pendingResponse &&
         (state.pendingResponse.initiatorSeatIndex === seatIndex ||
-          state.pendingResponse.responderSeatIndex === seatIndex) && {
-          pendingResponse: state.pendingResponse,
+          state.pendingResponse.responderSeatIndex === seatIndex ||
+          (state.pendingResponse.kind === 'deal' &&
+            state.pendingResponse.targetSeatIndex === seatIndex)) && {
+          pendingResponse: observedPending(state, seatIndex),
         }),
     },
   });
@@ -130,9 +171,10 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
     return result;
   }
   if (!decision) return result;
-  // A pending promise question: its responder chooses between accepting and rejecting (§4.8).
+  // A pending promise or Deal Card question: its responder answers it and nothing else (§4.8).
   if (state.pendingResponse) {
     responseChoices(state.pendingResponse, result);
+    dealResponseChoices(state, state.pendingResponse, result);
     return result;
   }
   if (state.phase.kind === 'first_player_roll' && !state.phase.awaitingResult) {
@@ -141,6 +183,10 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   if (state.config.engineVersion === ENGINE_VERSION) {
     result.enabled.push(...abilityChoices(state, seatIndex));
     result.disabled.push(...abilityDisabled(state, seatIndex));
+  }
+  if (state.pendingPickpocket) {
+    result.enabled.push({ id: 'pass-window', kind: 'skip', payload: {} });
+    return result;
   }
   if (state.config.engineVersion === ENGINE_VERSION && state.phase.kind === 'pvp') {
     pendingPvpChoices(state, result);
@@ -184,6 +230,7 @@ export function legalActions(state: GameState, seatIndex: number): LegalActions 
   if (state.phase.kind === 'social') {
     chatChoices(state, seatIndex, result);
     promiseOfferChoices(state, seatIndex, result);
+    dealProposalChoices(state, seatIndex, result);
   }
   if (state.phase.kind === 'encounter' && !state.phase.catchRoll) {
     for (const ballType of ['poke', 'great', 'ultra'] as const) {
@@ -256,6 +303,7 @@ function recordActivation(next: GameState, action: Action) {
     (next.phase.kind === 'pvp' && next.phase.battle.step.endsWith('_window')) ||
     (next.phase.kind === 'gym' && next.phase.battle.step === 'window');
   const events = activateAbility(next, action);
+  if (next.pendingPickpocket) return [...events, ...resolvePickpocketReaction(next, false)];
   return inWindow ? [...events, ...closePvpWindow(next), ...closeGymWindow(next)] : events;
 }
 
@@ -273,6 +321,9 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
   }
   // A finished game accepts nothing more, including engine-generated records.
   if (state.phase.kind === 'finished') return { rejected: true, reason: 'illegal_action', state };
+  if (action.actorId === 'engine' && state.pendingPickpocket) {
+    return { rejected: true, reason: 'illegal_action', state };
+  }
   if (action.actorId === 'engine' && action.kind === 'dice_result') {
     if (
       state.phase.kind === 'first_player_roll' &&
@@ -381,13 +432,15 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
   if (
     !(action.kind === 'chat'
       ? validChat(state, actor.seatIndex, action.payload)
-      : saleIds !== undefined
-        ? validSale(state, saleIds)
-        : legalActions(state, actor.seatIndex).enabled.some(
-            (choice) =>
-              choice.kind === action.kind &&
-              JSON.stringify(choice.payload) === JSON.stringify(action.payload),
-          ))
+      : action.kind === 'propose_deal'
+        ? validDealProposal(state, actor.seatIndex, action.payload)
+        : saleIds !== undefined
+          ? validSale(state, saleIds)
+          : legalActions(state, actor.seatIndex).enabled.some(
+              (choice) =>
+                choice.kind === action.kind &&
+                JSON.stringify(choice.payload) === JSON.stringify(action.payload),
+            ))
   ) {
     return { rejected: true, reason: 'illegal_action', state };
   }
@@ -403,23 +456,35 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
         ? offerPromise(next, action.payload)
         : action.kind === 'respond'
           ? answerPromise(next, action.payload.answer)
-          : saleIds !== undefined
-            ? recordSale(next, saleIds)
-            : next.config.engineVersion !== ENGINE_VERSION
-              ? recordTurnCommand(next, action.kind)
-              : action.kind === 'activate_ability'
-                ? recordActivation(next, action)
-                : next.phase.kind === 'gym'
-                  ? recordGymCommand(next, action)
-                  : action.kind === 'declare_pvp' || next.phase.kind === 'pvp'
-                    ? recordPvpCommand(next, action)
-                    : next.phase.kind === 'encounter'
-                      ? confirmCatch(next, action)
-                      : next.phase.kind === 'shop'
-                        ? confirmShop(next, action)
-                        : action.kind === 'use_item'
-                          ? useItem(next, action)
-                          : recordTurnCommand(next, action.kind);
+          : action.kind === 'propose_deal'
+            ? proposeDeal(next, action.payload)
+            : action.kind === 'respond_deal'
+              ? respondDeal(next, action.payload.answer)
+              : action.kind === 'counter_deal'
+                ? counterDeal(next, action.payload.coins)
+                : action.kind === 'confirm_deal'
+                  ? confirmDeal(next)
+                  : action.kind === 'cancel_deal'
+                    ? cancelDeal(next)
+                    : saleIds !== undefined
+                      ? recordSale(next, saleIds)
+                      : next.config.engineVersion !== ENGINE_VERSION
+                        ? recordTurnCommand(next, action.kind)
+                        : action.kind === 'activate_ability'
+                          ? recordActivation(next, action)
+                          : next.pendingPickpocket && action.kind === 'skip'
+                            ? resolvePickpocketReaction(next, true)
+                            : next.phase.kind === 'gym'
+                              ? recordGymCommand(next, action)
+                              : action.kind === 'declare_pvp' || next.phase.kind === 'pvp'
+                                ? recordPvpCommand(next, action)
+                                : next.phase.kind === 'encounter'
+                                  ? confirmCatch(next, action)
+                                  : next.phase.kind === 'shop'
+                                    ? confirmShop(next, action)
+                                    : action.kind === 'use_item'
+                                      ? useItem(next, action)
+                                      : recordTurnCommand(next, action.kind);
   return {
     accepted: true,
     state: next,
