@@ -7,6 +7,7 @@ import {
   createGame,
   createGameConfig,
   createGameLog,
+  dealFacts,
   deserialize,
   eventsVisibleTo,
   eventsVisibleToSpectator,
@@ -25,11 +26,12 @@ import {
   type SeatActionRecord,
 } from './index.ts';
 import { dealProblem, DEAL_COIN_LADDER } from './deals.ts';
+import { ENGINE_VERSION } from './versions.ts';
 import type { ApplyActionResult, EngineEvent } from './index.ts';
 import { publicRevision } from './revision.ts';
 import fixture from './fixtures/start-of-game-2p.json';
 
-const caught = (instanceId: string, speciesId = 'rattata') => ({
+const caught = (instanceId: string, speciesId = 'caterpie') => ({
   instanceId,
   speciesId,
   origin: 'caught' as const,
@@ -87,7 +89,7 @@ function social(options: { seats?: 2 | 3 | 4; seed?: number } = {}) {
   };
   state.players[0]!.team.push(caught('caught:0:a', 'pidgey'));
   state.players[0]!.items.push(item('item:0:potion', 'potion'));
-  state.players[1]!.team.push(caught('caught:1:a', 'rattata'));
+  state.players[1]!.team.push(caught('caught:1:a', 'caterpie'));
   state.players[1]!.items.push(item('item:1:repel', 'repel'));
   for (const player of state.players.slice(2)) {
     player.items.push(item(`item:${player.seatIndex}:x`, 'repel'));
@@ -445,7 +447,7 @@ describe('legality: every illegal case is refused with the state unchanged (§4.
       Object.assign(state.players[0]!.team[0]!, { origin: 'rescue_starter', tradeable: false });
       Object.assign(state.players[1]!.team[0]!, { origin: 'rescue_starter', tradeable: false });
       state.players[0]!.team.push(caught('caught:0:b', 'pidgey'));
-      state.players[1]!.team.push(caught('caught:1:b', 'rattata'));
+      state.players[1]!.team.push(caught('caught:1:b', 'caterpie'));
       // The ordinary one may go: the Rescue Starter stays as a team member.
       expect(problem(state, sellPokemon('caught:0:b', 3))).toBeNull();
       expect(problem(state, buyPokemon('caught:1:b', 3))).toBeNull();
@@ -902,7 +904,11 @@ describe('visibility: a deal is its two parties’ alone (§4.8, §5.4)', () => 
       expect(actionVisibleToSpectator(from, result.record, 0)).toBeNull();
     }
     expect(observe(proposed.state, 0).own.pendingResponse).toEqual(proposed.state.pendingResponse);
-    expect(observe(proposed.state, 1).own.pendingResponse).toEqual(proposed.state.pendingResponse);
+    // The AI answering also gets the engine's buckets for the deal (§5.4); the proposer never does.
+    expect(observe(proposed.state, 1).own.pendingResponse).toEqual({
+      ...proposed.state.pendingResponse,
+      facts: dealFacts(proposed.state, 1),
+    });
     expect(observe(proposed.state, 2).own).not.toHaveProperty('pendingResponse');
     // Nothing a third seat or spectator can observe names the deal, the item or the counterpart.
     const seen = JSON.stringify([
@@ -1061,7 +1067,7 @@ describe('replay, save and resume reproduce a game with deals (§6.8, §6.9)', (
 
   test('an old save is refused rather than migrated', () => {
     const { state, log } = played();
-    const text = serialize({ state, log }).replaceAll('"0.22.0"', '"0.21.0"');
+    const text = serialize({ state, log }).replaceAll(`"${ENGINE_VERSION}"`, '"0.22.0"');
     expect(() => deserialize(text)).toThrow(/engine version/);
   });
 });

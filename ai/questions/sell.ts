@@ -1,5 +1,10 @@
 import { noul, type Questions } from '@typesafe-ai/sdk';
-import { bucketCount, bucketKeepValue } from '../../engine/index.ts';
+import {
+  bucketCount,
+  bucketKeepValue,
+  bucketSaleValue,
+  SALE_VALUE_BUCKETS,
+} from '../../engine/index.ts';
 import type { Observation } from '../../engine/index.ts';
 import type { JevAnswer } from '../jev/client.ts';
 import { speciesText } from './content.ts';
@@ -26,23 +31,19 @@ export interface SellFacts {
   pokemon: readonly SaleFact[];
 }
 
-/** Sale-coin buckets: low up to 5, medium 6–12, high 13 or more. Presentation only. */
-export const SELL_VALUE_BUCKETS = Object.freeze({ lowMax: 5, mediumMax: 12 });
+/**
+ * The sale-coin buckets are the engine's (low up to 5, medium 6–12, high 13 or more), read from
+ * `engine/selling.ts` so this copy cannot drift from the Deal Card facts (§5.4).
+ */
+export const SELL_VALUE_BUCKETS = SALE_VALUE_BUCKETS;
 
 // Spec §5.3: at most 12 Pokémon per request, and at most 3 Jev requests per AI turn.
 export const SELL_REQUEST_LIMIT = 12;
 export const REQUESTS_PER_TURN = 3;
 
-export type SellValue = 'low' | 'medium' | 'high';
+export type SellValue = ReturnType<typeof bucketSaleValue>;
 
-export function bucketSellValue(coins: number): SellValue {
-  if (!Number.isSafeInteger(coins) || coins < 0) {
-    throw new RangeError('Coins must be a nonnegative whole number');
-  }
-  if (coins <= SELL_VALUE_BUCKETS.lowMax) return 'low';
-  if (coins <= SELL_VALUE_BUCKETS.mediumMax) return 'medium';
-  return 'high';
-}
+export const bucketSellValue: (coins: number) => SellValue = bucketSaleValue;
 
 const BONUS_ONLY_ALONE = 'only if you do not also sell a Pokémon that takes it instead';
 
