@@ -3,11 +3,11 @@ import type { DecisionDetail } from '../../../engine/contract/decision.ts';
 /**
  * THE one place that knows how a decision answer carries Jev's detail (issue #220).
  *
- * PROPOSED shape, not on the server yet: an optional `detail` object on the `/api/ai/decide`
- * answer, `{ questionId, confidence, options: [{ id, probability }] }` (`decisionDetailSchema` in
- * `engine/contract/decision.ts`, which the server will parse with). Stream B owns the real field
- * (epic #65). When it lands, change this function and that schema; the panel and the store read
- * only `DecisionDetail`.
+ * The server sends an optional `detail` object on the `/api/ai/decide` answer, and only when it is
+ * in demo mode (`DEMO_MODE`): `{ questionId, confidence, options: [{ id, probability }] }`
+ * (`decisionDetailSchema` in `engine/contract/decision.ts`, which the server parses with).
+ * `confidence` is `null` at the Sell Phase, where Jev answers once per Pokémon. To change the
+ * shape, change this function and that schema; the panel and the store read only `DecisionDetail`.
  *
  * The browser may not run engine code outside its adapters (spec §6.1), so it checks the shape by
  * hand, as strictly as the schema: anything else is dropped as if it had never come, and a
@@ -22,6 +22,8 @@ const hasOnly = (value: Record<string, unknown>, keys: readonly string[]) =>
 const isChance = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
 
+const isConfidence = (value: unknown): value is number | null => value === null || isChance(value);
+
 const isId = (value: unknown): value is string => typeof value === 'string' && value.length > 0;
 
 export function readJevDetail(answer: object): DecisionDetail | undefined {
@@ -30,7 +32,7 @@ export function readJevDetail(answer: object): DecisionDetail | undefined {
   if (!isObject(detail) || !hasOnly(detail, ['questionId', 'confidence', 'options']))
     return undefined;
   const { questionId, confidence, options } = detail;
-  if (!isId(questionId) || !isChance(confidence)) return undefined;
+  if (!isId(questionId) || !isConfidence(confidence)) return undefined;
   if (!Array.isArray(options) || options.length < 1 || options.length > 255) return undefined;
   const read: DecisionDetail['options'] = [];
   for (const option of options as unknown[]) {

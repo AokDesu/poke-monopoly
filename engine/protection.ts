@@ -4,7 +4,7 @@ import { publicRevision } from './revision.ts';
 
 type ArmedShield = NonNullable<Player['armedShield']>;
 type HostileSource = 'hostile_item' | 'hostile_ability';
-export type CoinLossSource = 'pvp_coin_loss' | 'gym_coin_loss';
+export type CoinLossSource = 'pvp_coin_loss' | 'gym_coin_loss' | 'pickpocket_coin_loss';
 
 /** Arm one shield; callers check D7's one-armed-shield legality before calling. */
 export function armShield(owner: Player, shield: ArmedShield): EngineEvent[] {
@@ -43,12 +43,12 @@ export function declareHostileAction(
   actor: Player,
   target: Player,
   source: HostileSource,
-): { blocked: boolean; events: EngineEvent[] } {
+): { blocked: boolean; events: EngineEvent[]; attackId: string } {
   const attackId = `${source === 'hostile_item' ? 'hostile' : 'ability'}:${publicRevision(next)}`;
   const events: EngineEvent[] = [
     recordAttackAttempt(next, actor.actorId, target.actorId, source, attackId),
   ];
-  if (target.armedShield?.scope !== 'price') return { blocked: false, events };
+  if (target.armedShield?.scope !== 'price') return { blocked: false, events, attackId };
   delete target.armedShield;
   events.push({
     kind: 'protection_applied',
@@ -58,7 +58,7 @@ export function declareHostileAction(
     source,
     protection: 'price',
   });
-  return { blocked: true, events };
+  return { blocked: true, events, attackId };
 }
 
 /** Which protection, if any, would prevent this coin loss; Nurse Joy's passive comes first (D7). */
@@ -71,13 +71,14 @@ export function coinLossProtection(
     return 'nurse_joy';
   }
   const scope = loser.armedShield?.scope;
-  if (scope === 'battle_coin_loss') return scope;
+  if (scope === 'battle_coin_loss' && source !== 'pickpocket_coin_loss') return scope;
+  if (scope === 'pvp_pickpocket' && source !== 'gym_coin_loss') return scope;
   if (scope === 'price' && source === 'pvp_coin_loss') return scope;
 }
 
 /**
- * Coin-loss-only protection (C.4 case 3): the battle still happened; the loser pays 0 and the
- * winner receives 0. Only an actual loss of coins consumes a shield, and never Nurse Joy's.
+ * Coin-loss-only protection (C.4). The triggering battle or item remains spent. A shield only
+ * triggers on a positive loss it covers. Nurse Joy's passive always takes priority in PvP.
  */
 export function applyCoinLossProtection(
   next: GameState,
@@ -99,6 +100,9 @@ export function applyCoinLossProtection(
         source: context.source,
         protection,
       },
+      ...(protection === 'pvp_pickpocket'
+        ? [{ kind: 'block_triggered' as const, ownerId: loser.actorId }]
+        : []),
     ],
   };
 }

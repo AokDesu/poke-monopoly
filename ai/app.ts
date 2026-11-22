@@ -68,12 +68,20 @@ export interface AppOptions {
 /** Copies only IDs and telemetry, so nothing else a decider returns can reach the browser. */
 const toResponse = (answer: DeciderAnswer, requestId: string, started: number): DecisionResponse =>
   decisionResponseSchema.parse({
+    // Spec §3, §1: private options leave the server only in demo mode, and only from a Jev answer.
+    ...(answer.source === 'jev' && answer.detail && demoMode() && { detail: answer.detail }),
     ...('choice' in answer ? { choice: answer.choice } : { sellUids: answer.sellUids }),
     source: answer.source,
     ...(answer.source === 'fallback' && { fallbackReason: answer.fallbackReason }),
     requestId,
     latencyMs: Math.round(performance.now() - started),
   });
+
+/** Spec §3 demo mode: a server switch, read per call; only the exact strings "1" and "true" mean on. */
+const demoMode = (): boolean => {
+  const value = process.env.DEMO_MODE;
+  return value === '1' || value === 'true';
+};
 
 export const createApp = ({
   usage = defaultUsageLedger,
@@ -101,7 +109,13 @@ export const createApp = ({
   app.onError((_error, c) => c.json({ error: 'internal_error' }, 500));
 
   app.get('/api/ai/status', (c) =>
-    c.json(aiStatusSchema.parse({ ...jevStatus(usage), speech: speechStatus(usage) })),
+    c.json(
+      aiStatusSchema.parse({
+        ...jevStatus(usage),
+        speech: speechStatus(usage),
+        demo: demoMode(),
+      }),
+    ),
   );
 
   // The browser reports the outcome it applied: the answer here, or its own fallback at the

@@ -344,8 +344,9 @@ function recordBeats(
           break;
         }
         const other = gained ? from : to;
-        // Coins the seat whose turn it is took from the viewing seat.
-        const taken = gained && other === viewer && viewer !== undefined && !own;
+        // Coins the seat whose turn it is took from the viewing seat; a Deal Card's payment was agreed.
+        const taken =
+          gained && other === viewer && viewer !== undefined && !own && event.reason !== 'deal';
         const piece =
           other === undefined
             ? coins

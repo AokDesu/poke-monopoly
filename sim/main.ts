@@ -6,6 +6,7 @@ import { POLICIES } from './policy.ts';
 import { formatSummary } from './report.ts';
 import {
   failed,
+  noDealCommitted,
   runSim,
   type InvariantCheck,
   type PlayedGame,
@@ -54,7 +55,9 @@ export async function runCli(
   for (const line of formatSummary(summary)) io.log(line);
   // Hard gate (spec §1, §8): an applied illegal action, an invariant failure or an aborted game
   // fails the run, and so CI.
-  return failed(summary) || saveErrors > 0 ? 1 : 0;
+  const noDeals = noDealCommitted(options, summary);
+  if (noDeals) io.error('sim: --require-deals: no Deal Card committed in this run');
+  return failed(summary) || saveErrors > 0 || noDeals ? 1 : 0;
 }
 
 /**

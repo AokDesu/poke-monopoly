@@ -167,3 +167,53 @@ describe('hidden information never reaches a beat (spec §4.1)', () => {
     }
   });
 });
+
+describe('a Deal Card payment (spec §4.8)', () => {
+  test('a payment the viewing seat agreed to is told as coins, never as something that touched it', async () => {
+    busyServer();
+    const store = humanGame(3);
+    await play(store, 6);
+    const view = store.getView()!;
+    const human = view.observation.public.players.find((player) => player.seatIndex === 0)!;
+    // The first rival move in the feed, with a deal payment from the human added to its events.
+    const index = view.feed.findIndex(
+      (entry) =>
+        entry.before.globalTurnNo >= 1 &&
+        entry.before.activeSeatIndex !== 0 &&
+        entry.record.action.kind === 'roll',
+    );
+    const entry = view.feed[index]!;
+    const rival = view.observation.public.players.find(
+      (player) => player.seatIndex === entry.before.activeSeatIndex,
+    )!;
+    const payment = (reason: string) => ({
+      kind: 'coin_transfer' as const,
+      source: { kind: 'player' as const, actorId: human.actorId },
+      destination: { kind: 'player' as const, actorId: rival.actorId },
+      amount: 4,
+      reason,
+    });
+    const told = (reason: string) => {
+      const feed = view.feed.map((candidate, at) =>
+        at === index
+          ? {
+              ...candidate,
+              record: {
+                ...candidate.record,
+                events: [...candidate.record.events, payment(reason)],
+              },
+            }
+          : candidate,
+      );
+      return tableBeats(feed, { game: view.observation.public, viewerSeat: 0 }).filter(
+        (beat) => beat.at === index,
+      );
+    };
+    // The coins join the record's own beat and say they came from the viewing seat.
+    const deal = told('deal').at(-1)!;
+    expect(deal.text).toMatch(/from you$/);
+    expect(deal.touchedYou).toBe(false);
+    // The same coins taken by some other reason (a stolen purse) do touch the viewing seat.
+    expect(told('pickpocket').at(-1)!.touchedYou).toBe(true);
+  });
+});

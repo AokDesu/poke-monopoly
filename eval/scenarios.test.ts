@@ -14,7 +14,7 @@ import {
   runOffline,
   writePlaceholders,
 } from './jev/index.ts';
-import { placeholderResult, runScenario, scenarioRequest } from './jev/replay.ts';
+import { placeholderResult, runScenario, scenarioRequest, unaskedRun } from './jev/replay.ts';
 import { decideRequest, SCENARIOS } from './jev/scenarios.ts';
 
 const directories: string[] = [];
@@ -38,7 +38,10 @@ const fixtures = async () =>
 
 test('spec §10 C2: 8 Strategy, 6 Encounter and 6 Sell Greedy scenarios, each one committed fixture', async () => {
   const saved = await fixtures();
-  const greedy = saved.filter((f) => f.tags.personality === 'Greedy');
+  // The promise response placeholders (S09/S11) are a separate decision point.
+  const greedy = saved.filter(
+    (f) => f.tags.personality === 'Greedy' && f.tags.decisionPoint !== 'promise_response',
+  );
   const count = (point: string) => greedy.filter((f) => f.tags.decisionPoint === point).length;
   expect([count('strategy'), count('encounter'), count('sell')]).toEqual([8, 6, 6]);
   // The original 20 are live recordings; the personality scenarios start as placeholders (#233).
@@ -52,8 +55,11 @@ test('spec §10 C2: 8 Strategy, 6 Encounter and 6 Sell Greedy scenarios, each on
 
 test('every scenario has its seat 0 to act and asks exactly one Jev request', async () => {
   for (const scenario of SCENARIOS) {
-    const { state } = decideRequest(scenario);
-    expect(state.activeSeatIndex).toBe(0);
+    const { state, request } = decideRequest(scenario);
+    // A responder scenario has the human asking and seat 0, the AI, owing the answer.
+    const owes = state.pendingResponse?.responderSeatIndex ?? state.activeSeatIndex;
+    expect(owes).toBe(0);
+    expect(request.decisionPoint === 'promise_response').toBe(state.pendingResponse !== undefined);
     await expect(scenarioRequest(scenario)).resolves.toBeDefined();
   }
 });
@@ -104,6 +110,13 @@ test('illegalAppliedActionCount stays 0 when every recorded choice is corrupted 
   const byId = new Map((await fixtures()).map((f) => [f.id, f]));
   let illegalAppliedActionCount = 0;
   for (const scenario of SCENARIOS) {
+    // The last Sell Phase sells everything without asking Jev (§5.6): nothing to corrupt.
+    const unasked = await unaskedRun(scenario);
+    if (unasked) {
+      expect(unasked.decision.source).toBe('auto');
+      expect(unasked.illegalApplied).toBe(0);
+      continue;
+    }
     const recorded = byId.get(scenario.id)!.recorded;
     const run = await runScenario(
       scenario,

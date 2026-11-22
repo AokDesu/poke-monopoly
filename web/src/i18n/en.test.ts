@@ -284,7 +284,6 @@ test('AI playback controls, status reasons and line bank notices go through the 
 test('read-only team inspection covers form paths, instance identity and status explanations', () => {
   const keys: MessageKey[] = [
     'team.details',
-    'team.instance',
     'team.ability',
     'team.noAbility',
     'team.nextForms',

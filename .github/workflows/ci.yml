@@ -50,4 +50,6 @@ jobs:
       - run: npm run sim -- --games 100 --seed 1 --seats 2
       - run: npm run sim -- --games 100 --seed 1 --seats 3
       - run: npm run sim -- --games 100 --seed 1 --seats 4
+      # §4.8 (#164 D1): with the Social window open the human seat deals; the run fails if no deal commits.
+      - run: npm run sim -- --social --require-deals --games 50 --seed 1 --seats 3
       - run: npm run eval:jev -- --offline

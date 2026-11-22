@@ -179,6 +179,19 @@ test('only a battle-scoped shield covers a Gym loss; Price Shield and Nurse Joy 
   expect(joy.state.players[0]!.coins).toBe(17);
 });
 
+test('an armed Block does not stop a Gym coin loss and is not used up by it (C.4, C.2 Block)', () => {
+  const block = atGym(18, 'magikarp');
+  block.players[0]!.armedShield = { scope: 'pvp_pickpocket', visibility: 'public' };
+  const lost = challenge(block, 1);
+  expect(lost.state.players[0]!.coins).toBe(17);
+  expect(lost.state.players[0]!.armedShield).toEqual({
+    scope: 'pvp_pickpocket',
+    visibility: 'public',
+  });
+  expect(kinds(lost.events)).not.toContain('protection_applied');
+  expect(kinds(lost.events)).not.toContain('block_triggered');
+});
+
 test("Rival's +1 never applies at a Gym; the shared odds agree with the real resolver (D14, §3 odds)", () => {
   const rival = atGym(12, 'eevee', 'rival');
   rival.players[0]!.team[0]!.abilityReady = false; // no Adaptability window

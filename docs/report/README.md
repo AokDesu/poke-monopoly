@@ -79,7 +79,7 @@ Spec §1: hard gate, measured over every test, sim and playtest. Writer: A (punk
 |`docs/c1-exit-report.md`, section "Criterion 1"|have|Policy-only sim batches at each seat count on the tuning seeds, each reporting `illegalAppliedActionCount` and `invariantFailures`.|An early engine, a random policy, tuning seeds that are not held out. Quote only as the cycle 1 record.|A|
 |`docs/c4-300-game-report.md`, section "Results by seat count"|have|Policy-only batches at each seat count on evaluation seeds, class and seat balanced, failures per batch.|Its own words: a pre-merge baseline. Random policy, Social window off, no Events, no keep value, and two invariants then pending. Zero here does not claim the pending checks ran.|A|
 |`docs/release/engine-triage.md`, ET-06|have|The same three commands re-run on a later build, with no failing seed.|The file itself calls the evidence stale for Events, Deals and settlement. It is a regression recheck on published seeds, not a new held-out set.|A|
-|`docs/experiments/c5-policy-plan.md` with `sim/experiments/c5-plan.json`; paired analysis in `sim/analysis/paired.ts`|pending|The held-out policy-only run reports `illegalAppliedActionCount` on every game row, aborts included.|A design, written before any game was run. The seed range is unopened and the runner and final report are tickets under [#61](https://github.com/AokDesu/poke-monopoly/issues/61) (A61-5, A61-6). No game has been played from it.|A|
+|[C5 policy-only results](../experiments/c5-policy-results.md#run-record)|have|The held-out run finished 1,008 games with 0 illegal applied actions and 0 active-invariant failures.|Fixed policy-only runner and pinned build. The training run is recorded separately.|A|
 |`.github/workflows/ci.yml`|have|Every pull request runs the engine tests and policy-only sims at each seat count (spec §7), so the gate is checked on every change.|The run logs are on GitHub and not in the repository. Cite a run by its URL if one is used.|A|
 
 **Jev in the loop**
@@ -175,7 +175,7 @@ Spec §1: eval set, reported with n and effect size. Writer: B (Mrmo0p). Policy-
 
 |Evidence|Status|What it can show|Limits|Stream|
 |---|---|---|---|---|
-|`sim/analysis/paired.ts` and `sim/analysis/paired.test.ts`|have|The paired-block method, with effect size and uncertainty, that policy-only comparisons will use.|A method with tests, not a result.|A|
+|`sim/analysis/paired.ts` and `sim/analysis/paired.test.ts`|have|The paired-block method used in the [C5 policy-only results](../experiments/c5-policy-results.md#paired-win-credit-and-ties).|The paired effects describe configured policy choices.|A|
 |`docs/experiments/c5-policy-plan.md`, "Background seats"|have|States that personality backgrounds in the policy experiment are configured behaviour.|Its own words: "not Jev personality evidence". Nothing in the policy-only runs supports a personality claim about Jev.|A|
 
 **Jev in the loop**
@@ -218,7 +218,7 @@ Owner: A (punkharb). Gate: no single exploit policy dominates every context, rep
 
 |Claim|Evidence|Status|Limits|
 |---|---|---|---|
-|No exploit policy dominates every context|`docs/experiments/c5-policy-plan.md`, "Reading the non-domination result"; `sim/analysis/paired.ts`|pending|Design and method only. A dominance candidate is a prompt to look, not a verdict. Never-negotiate cells are vacuous without Deal Cards ([#164](https://github.com/AokDesu/poke-monopoly/issues/164) is open) and the plan says so.|
+|The plan found zero dominance candidates across the tested seat counts|[C5 Critic readout](../experiments/c5-policy-results.md#critic-readout)|have|24 pairs per cell with a seeded random control. Never-negotiate exercised chat and promises. Deal Card coverage is pending [#164](https://github.com/AokDesu/poke-monopoly/issues/164).|
 |An LLM agent hunting for exploits through MCP tools|n/a|not claimed|Spec §8 marks it a stretch layer and it is not built.|
 
 ### B4. Human
@@ -244,11 +244,11 @@ Everything in this part comes from games with both server keys absent. This is t
 |Win credit by class and participation by seat and class|`docs/c4-300-game-report.md`, "Results by class"|Same commands|have|
 |The same run re-checked on a later build|`docs/release/engine-triage.md`, ET-06|The commands under "Re-run" in that file|have|
 |Catching, shop and sale metrics per seat count|`docs/c1-exit-report.md`, the run output under "Criterion 1"; `docs/sim.md` defines every field|`npm run sim`|have (tuning seeds, early engine)|
-|Hostile-item use per opportunity and promise accounting|`docs/sim.md` defines every field; the values come from a run's summary line|`npm run sim`, with `--social` for promise accounting|pending (no committed report of these figures)|
-|Exploit-policy paired differences with intervals, per policy and seat count, with missing pairs and vacuity flags|`docs/experiments/c5-policy-plan.md`, "Run and result tables"|The runner, once it exists (A61-5, A61-6 under [#61](https://github.com/AokDesu/poke-monopoly/issues/61))|pending|
+|Hostile-item use per opportunity and promise accounting|[C5 hostile-item and promise tables](../experiments/c5-policy-results.md#hostile-items-and-promises)|`npm run experiment` on the C5 held-out range|have|
+|Exploit-policy paired differences with intervals, per policy and seat count, with missing pairs and vacuity flags|[C5 paired results](../experiments/c5-policy-results.md#paired-win-credit-and-ties) and [exploit opportunities](../experiments/c5-policy-results.md#exploit-opportunities)|`npm run experiment` and `sim/analysis/paired.ts` on the C5 held-out range|have|
 |A refreshed record for the current build, including Events, keep value, settlement and personalities|`docs/release/engine-triage.md`, ET-06 "What is still missing"|A refresh run, owned by A|pending|
 
-A reminder for every row: results on the evaluation seeds of `docs/c4-300-game-report.md` were published, so the seed ledger in `docs/experiments/c5-policy-plan.md` treats them as no longer unseen. The held-out range of that plan is separate and unopened.
+The C4 report and the C5 held-out run used disjoint evaluation ranges. Both ranges are recorded as consumed in the [C5 seed ledger](../experiments/c5-policy-plan.md#seed-use-ledger).
 
 ## Part D: Jev results
 

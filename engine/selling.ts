@@ -17,6 +17,12 @@ export function saleBasis(content: Content, pokemon: PokemonInstance): number {
   return effectiveForm(content, pokemon.speciesId).base;
 }
 
+/** A Pokémon's sale price before any class bonus: its sale basis, `round(saleBasis×0.8)` when Tired (§4.7 step 2). */
+export function saleBasePrice(content: Content, pokemon: PokemonInstance): number {
+  const basis = saleBasis(content, pokemon);
+  return pokemon.tired ? Math.round(basis * 0.8) : basis;
+}
+
 /** Price parts for one atomic batch; the class bonus follows the tired adjustment (§4.7 step 2). */
 export function salePrices(
   state: GameState,
@@ -27,8 +33,8 @@ export function salePrices(
     pokemon: entry,
     basis: saleBasis(state.content, entry),
   }));
-  return batch.map(({ pokemon: entry, basis }) => ({
-    basePrice: entry.tired ? Math.round(basis * 0.8) : basis,
+  return batch.map(({ pokemon: entry }) => ({
+    basePrice: saleBasePrice(state.content, entry),
     classBonus: classBonus(state.content, player.classId, { kind: 'sale', pokemon: entry, batch }),
   }));
 }
@@ -81,6 +87,17 @@ export interface SalePriceFact {
   saleValue: number;
   /** Drop in the team's highest battle-ready current-form Battle stat if this member is removed. */
   keepValue: number;
+}
+
+/** Sale-coin buckets: low up to 5, medium 6–12, high 13 or more. Presentation only, never a payment (§5.4). */
+export const SALE_VALUE_BUCKETS = Object.freeze({ lowMax: 5, mediumMax: 12 });
+
+export function bucketSaleValue(coins: number): 'low' | 'medium' | 'high' {
+  if (!Number.isSafeInteger(coins) || coins < 0) {
+    throw new RangeError('Coins must be a nonnegative whole number');
+  }
+  if (coins <= SALE_VALUE_BUCKETS.lowMax) return 'low';
+  return coins <= SALE_VALUE_BUCKETS.mediumMax ? 'medium' : 'high';
 }
 
 /** Presentation of lost Battle points, kept separate from sale-coin buckets (§5.4, §5.6). */

@@ -97,8 +97,8 @@ options it sent, copies Jev's numbers from the answer's optional `detail` and pu
 in-memory feed entry (`game/demoChoice.ts`). With demo off, and in a watched game, the detail is
 never read, so no panel, banner or probability text exists and saves, exported logs and the
 requests are unchanged. `game/jevDetailAdapter.ts` is the one place that knows the field's
-name and shape (proposed, `decisionDetailSchema`); until the server sends it only backup-bot
-decisions show. `game/fakeJevAnswer.ts` is a typed fake of that answer for tests and the dev
+name and shape (`decisionDetailSchema`); the server sends it only when its `DEMO_MODE` is on and
+Jev decided, so otherwise only backup-bot decisions show. `game/fakeJevAnswer.ts` is a typed fake of that answer for tests and the dev
 gallery.
 
 Prepared scenarios (`?demo`, issue #222; `?demo=0` and `?demo=false` are off) add a "Prepared scenarios"

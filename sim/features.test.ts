@@ -6,8 +6,7 @@ import { DEFAULT_OPTIONS, runSim } from './runner.ts';
 /**
  * §8 and Appendix A: every bonus must have a real chance to trigger, so a random game set cannot
  * pass by never exercising a class passive or an Ability primitive. `heal` (Heal Pulse needs a
- * Tired member while defending), `peek` and `forcePvP` (unbound until C4 content) are proven by
- * the engine scenarios in engine/abilities.test.ts and engine/starter-abilities.test.ts.
+ * Tired member while defending) is proven by the scenarios in engine/starter-abilities.test.ts.
  */
 test('random 4-seat games trigger all six core class passives and every content-reachable Ability primitive (§8)', async () => {
   const { summary } = await runSim(
@@ -28,7 +27,16 @@ test('random 4-seat games trigger all six core class passives and every content-
   ]) {
     expect([passive, classPassives[passive] ?? 0]).not.toEqual([passive, 0]);
   }
-  for (const primitive of ['fixedMove', 'moveDebuff', 'rollBonus', 'shield', 'gainBall']) {
+  for (const primitive of [
+    'fixedMove',
+    'moveDebuff',
+    'rollBonus',
+    'shield',
+    'gainBall',
+    'gainCoin',
+    'peek',
+    'forcePvP',
+  ]) {
     expect([primitive, primitives[primitive] ?? 0]).not.toEqual([primitive, 0]);
   }
   expect(battles.pvp).toBeGreaterThan(0);

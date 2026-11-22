@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { fc } from '@fast-check/vitest';
+import catalogue from '../content/items.json' with { type: 'json' };
 import {
   advanceAutomatically,
   applyAction,
@@ -57,8 +58,10 @@ test('resolving a Shop square offers all 3 Balls at 1/2/3 coins plus 2 drawn uti
   expect(items).toHaveLength(2);
   expect(new Set(items.map((offer) => offer.itemId)).size).toBe(2);
   for (const offer of items) {
-    expect(['lucky-egg', 'repel', 'pickpocket']).toContain(offer.itemId);
-    expect(offer.price).toBe(3);
+    expect(resolving().content.items.find((item) => item.id === offer.itemId)).toMatchObject({
+      kind: 'utility',
+      price: offer.price,
+    });
   }
   expect(result.events.filter((event) => event.kind === 'random_result')).toHaveLength(2);
   expect(result.events[0]).toEqual({ kind: 'space_resolved', seatIndex: 0, position: 4 });
@@ -233,6 +236,13 @@ test('Shop squares are exactly 4, 10, 15 and 20, and only they open the Shop (Ap
 
 test('every one of 1,000 Shop visits offers all 3 Balls and exactly 2 different pool items (§4.6)', () => {
   const base = resolving();
+  base.content.items = catalogue.map(({ id, name, price, ballType }) =>
+    ballType === 'poke' || ballType === 'great' || ballType === 'ultra'
+      ? { id, name, price, kind: 'ball', ballType }
+      : { id, name, price, kind: 'utility' },
+  );
+  const utilities = base.content.items.filter((item) => item.kind === 'utility');
+  const seen = new Set<string>();
   fc.assert(
     fc.property(
       fc.integer({ min: 0, max: 2 ** 31 - 1 }),
@@ -254,11 +264,16 @@ test('every one of 1,000 Shop visits offers all 3 Balls and exactly 2 different 
           .map((offer) => offer.itemId);
         expect(items).toHaveLength(2);
         expect(items[0]).not.toBe(items[1]);
-        for (const itemId of items) expect(['lucky-egg', 'repel', 'pickpocket']).toContain(itemId);
+        for (const itemId of items) {
+          expect(utilities.some((item) => item.id === itemId)).toBe(true);
+          seen.add(itemId);
+        }
       },
     ),
     { numRuns: 1000, seed: 29 },
   );
+  expect(seen).toEqual(new Set(utilities.map((item) => item.id)));
+  expect(seen.size).toBe(7);
 });
 
 test('a Shop visit and purchase replay exactly from the command log (§6.8, §8)', () => {
@@ -276,6 +291,8 @@ test('setup rejects content with fewer than 2 Shop utility items (§4.6)', () =>
   const scenario = fixtureSchema.parse(fixture).state;
   const config = createGameConfig({ seats: scenario.config.seats, seed: 1, lapTarget: 3 });
   const oneUtility = structuredClone(scenario.content);
-  oneUtility.items = oneUtility.items.filter(({ id }) => id !== 'repel' && id !== 'pickpocket');
+  oneUtility.items = oneUtility.items.filter(
+    ({ kind, id }) => kind === 'ball' || id === 'lucky-egg',
+  );
   expect(() => createGame(config, oneUtility)).toThrow(/Shop needs 2 utility items/);
 });

@@ -7,7 +7,7 @@ import type {
   Player,
 } from './contract/schema.ts';
 import { pvpSnapshotSchema, type PvpSnapshot } from './contract/combat.ts';
-import { pvpSnapshot, resolvePvp, type CombatModifiers } from './combat.ts';
+import { consumeCombatDebuff, pvpSnapshot, resolvePvp, type CombatModifiers } from './combat.ts';
 import { abilityChoices, applyAfterResolution, canReroll } from './abilities.ts';
 import { battleReadyMembers } from './status.ts';
 import { pendingRewardChoices, pvpCoinLoss, resolveReward } from './rewards.ts';
@@ -165,7 +165,11 @@ function confirmPvp(next: GameState): EngineEvent[] {
     defender: sideModifiers(next, battle.defenderSeatIndex, battle.modifiers?.defender),
   });
   next.phase.battle = { ...battle, step: 'attacker_roll', snapshot };
-  return [{ kind: 'pvp_confirmed', battleId: battle.battleId, snapshot }];
+  return [
+    { kind: 'pvp_confirmed', battleId: battle.battleId, snapshot },
+    ...consumeCombatDebuff(next, snapshot.attacker),
+    ...consumeCombatDebuff(next, snapshot.defender),
+  ];
 }
 
 /**

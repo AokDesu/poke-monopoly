@@ -97,7 +97,9 @@ test('final forms and duplicate UIDs keep independent Tired and Rescue markers a
   for (const pokemon of [first, second]) {
     const card = screen.getByTestId(pokemon.instanceId);
     fireEvent.click(card.querySelector('summary')!);
-    expect(within(card).getByText(t('team.instance', { id: pokemon.instanceId }))).toBeTruthy();
+    // §3.1: no player-visible internal id (#253 rule 4).
+    expect(card.textContent).not.toContain(pokemon.instanceId);
+    expect(card.textContent).not.toContain('Team ID');
     expect(within(card).getByText(t('team.finalForm'))).toBeTruthy();
     expect(card.querySelector('details')!.open).toBe(true);
   }
@@ -146,6 +148,8 @@ test('Sell inspection keeps engine quotes for evolved, Tired and Rescue members 
       within(card).getByText(t(row.classBonus === 0 ? 'sell.price' : 'sell.priceBonus', row)),
     ).toBeTruthy();
     fireEvent.click(card.querySelector('summary')!);
+    expect(card.textContent).not.toContain(pokemon.instanceId);
+    expect(card.textContent).not.toContain('Team ID');
     expect(within(card).getByRole('checkbox').matches(':checked')).toBe(false);
     if (pokemon.tired) expect(within(card).getByText(t('team.tiredReason'))).toBeTruthy();
     if (pokemon.origin === 'rescue_starter') {
