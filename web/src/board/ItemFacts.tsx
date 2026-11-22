@@ -2,6 +2,18 @@ import { content, itemStatus } from '../game/content.ts';
 import { t } from '../i18n/en.ts';
 import '../ui/facts.css';
 
+/** What an item does, in the words the content table gives it; a planned effect is labelled as planned. */
+export function itemEffectLine(itemId: string): string | undefined {
+  const item = content.items.find((entry) => entry.id === itemId);
+  const status = itemStatus(itemId);
+  if (!item || !status) return undefined;
+  return item.kind === 'ball'
+    ? t('item.ball.effect', { bonus: item.bonus })
+    : status === 'planned'
+      ? t('item.effect.planned', { effect: item.effect })
+      : item.effect;
+}
+
 /**
  * Kind, price and effect of one item, from the content table, with the engine's own word on how
  * much of the effect it applies (`itemEffectStatus`): an effect the engine does not run yet is
@@ -20,14 +32,9 @@ export function ItemFacts({
 }) {
   const item = content.items.find((entry) => entry.id === itemId);
   const status = itemStatus(itemId);
-  if (!item || !status) return null;
+  const effect = itemEffectLine(itemId);
+  if (!item || !status || effect === undefined) return null;
   const cost = price ?? item.price;
-  const effect =
-    item.kind === 'ball'
-      ? t('item.ball.effect', { bonus: item.bonus })
-      : status === 'planned'
-        ? t('item.effect.planned', { effect: item.effect })
-        : item.effect;
   return (
     <div className="item-facts" data-item={itemId} data-effect-status={status}>
       <p className="item-meta">

@@ -219,6 +219,26 @@ function openSocialWindow(state: GameState): void {
 }
 
 /**
+ * The human's Social window with something to deal: 20 coins, a Pidgey, a secret Repel, and a rival with a
+ * Caterpie and 20 coins (spec §4.8).
+ */
+function openDealWindow(state: GameState): void {
+  openSocialWindow(state);
+  const you = state.players[0]!;
+  you.coins = 20;
+  you.team.push(caught('pidgey'));
+  you.items.push({
+    instanceId: 'gallery:repel',
+    itemId: 'repel',
+    name: 'Repel',
+    visibility: 'secret',
+  });
+  state.players[1]!.team.push(caught('caterpie'));
+}
+
+type DealStep = 'proposed' | 'accepted' | 'countered' | 'declined' | 'committed';
+
+/**
  * Demo mode (issue #220): seat 1 (an AI) has just decided and the panel's data is made the way
  * the browser makes it, from a fake answer of the server's demo shape over that seat's real options.
  * `pick` names the answer from the seat's engine-listed actions; `then` lets the engine play on.
@@ -627,6 +647,35 @@ export function createScenes(fixtures: GalleryFixtures) {
       const store = createFixtureStore(fixtures['shop-low-coins'], engineContent, openSocialWindow);
       const result = store.choose('offer-promise:seat-1:offer');
       if ('rejected' in result) throw new Error(`Gallery: ${result.reason}`);
+      return sceneOf(store);
+    },
+
+    /** §4.8: the Social window of a game where the human may offer a Deal Card; `edit` sets up what is on offer. */
+    dealWindow: (edit?: Edit): Scene =>
+      sceneOf(
+        createFixtureStore(fixtures['shop-low-coins'], engineContent, (state) => {
+          openDealWindow(state);
+          edit?.(state);
+        }),
+      ),
+
+    /** §4.8: the human offered its Pidgey for 2 coins and the Deal Card is at `step`, by the engine's own records. */
+    dealAt: (step: DealStep): Scene => {
+      const store = createFixtureStore(fixtures['shop-low-coins'], engineContent, openDealWindow);
+      const rival = { actorId: 'player-1' };
+      const sent = store.choose('deal:seat-1:give:pokemon:gallery:pidgey:coins-2');
+      if ('rejected' in sent) throw new Error(`Gallery: ${sent.reason}`);
+      if (step === 'countered') {
+        play(store, { ...rival, kind: 'counter_deal', payload: { coins: 5 } });
+      } else if (step === 'declined') {
+        play(store, { ...rival, kind: 'respond_deal', payload: { answer: 'reject' } });
+      } else if (step !== 'proposed') {
+        play(store, { ...rival, kind: 'respond_deal', payload: { answer: 'accept' } });
+        if (step === 'committed') {
+          const done = store.choose('confirm-deal');
+          if ('rejected' in done) throw new Error(`Gallery: ${done.reason}`);
+        }
+      }
       return sceneOf(store);
     },
 

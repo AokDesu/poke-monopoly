@@ -1,7 +1,8 @@
-import type { SaleQuote } from '../../../engine/index.ts';
+import type { DealTerms, SaleQuote } from '../../../engine/index.ts';
 import { inSocialWindow, sentThisTurn } from '../game/chat.ts';
+import { dealCardOpen } from '../game/deals.ts';
 import { answerThisTurn, rivalOwesAnswer } from '../game/promises.ts';
-import type { SeatView } from '../game/store.ts';
+import type { ConfirmDealResult, SeatView } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { className } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
@@ -42,6 +43,8 @@ export interface TurnPanelProps {
   quoteSale?: (ids: string[]) => SaleQuote;
   /** Sells one batch (an empty one keeps the whole team). */
   onSell?: (ids: string[]) => void;
+  /** The final Confirm of a Deal Card; with it, the Social window offers the Deal Card (spec §4.8). */
+  onConfirmDeal?: (shown: { revision: number; terms: DealTerms }) => ConfirmDealResult;
   /** Dev gallery only: the card takes no focus and no key, so many cards can share one page. */
   inline?: boolean;
 }
@@ -62,6 +65,7 @@ export function TurnPanel({
   social = NO_REPLY,
   quoteSale,
   onSell,
+  onConfirmDeal,
   inline = false,
 }: TurnPanelProps) {
   const { public: game } = view.observation;
@@ -192,7 +196,9 @@ export function TurnPanel({
   } else if (socialOpen) {
     card = (
       <SocialPanel
-        key={game.stateRevision}
+        // A Deal Card keeps one card from the offer to its end, so a refused Confirm or a change in its terms
+        // is still shown to the player; every other Social state starts afresh with each revision.
+        key={dealCardOpen(view) ? 'deal' : game.stateRevision}
         observation={view.observation}
         legalActions={view.legalActions}
         sent={sentThisTurn(view)}
@@ -201,6 +207,8 @@ export function TurnPanel({
         heading={phaseLabel('social')}
         lead={t(rivalOwesAnswer(view) ? 'turn.promiseBody' : 'turn.socialBody')}
         onChoose={onChoose}
+        feed={view.feed}
+        onConfirmDeal={onConfirmDeal}
       />
     );
   } else if (humanTurn && game.phase.kind === 'shop') {

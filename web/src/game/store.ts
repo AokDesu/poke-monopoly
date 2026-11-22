@@ -43,11 +43,13 @@ import {
   type Observation,
   type SpectatorObservation,
   type SeatActionRecord,
+  type DealTerms,
   type SeatEvent,
 } from '../../../engine/index.ts';
 import { ChatReplyError, type ChatReplyRequest, type SavedChatWords } from './chat.ts';
 import { reportOutcome, requestOpponent, type AiDecision } from './ai.ts';
 import { demoChoiceOf } from './demoChoice.ts';
+import { sameTerms } from './deals.ts';
 import {
   DEFAULT_PACE,
   type DifficultyId,
@@ -194,6 +196,13 @@ export interface GameStore {
   /** Sends an AI seat's own projection to the server, then validates its answer via applyAction. */
   playOpponent(signal: AbortSignal): Promise<boolean>;
   /**
+   * The human's final Confirm of a Deal Card (spec §4.8): commits only the terms that were on screen. The
+   * engine's own revision check cannot catch a stale screen (a command is stamped with the current revision),
+   * so this refuses unless the seat's revision and the pending terms are still the ones the button was
+   * drawn for, and `confirm_deal` is still listed. A refusal changes nothing and is not an engine rejection.
+   */
+  confirmDeal(shown: { revision: number; terms: DealTerms }): ConfirmDealResult;
+  /**
    * The request that asks the recipient of this turn's topic message for its reply (spec §4.8):
    * the recipient's own observation, which holds the message only because it was addressed to
    * that seat. Null unless the human has sent a message in this Social window.
@@ -243,6 +252,9 @@ export interface GameStore {
   getResults(): GameResults | null;
   clear(): void;
 }
+
+/** A Confirm the store refused because the terms or the revision moved on: nothing was submitted. */
+export type ConfirmDealResult = ApplyActionResult | { stale: true };
 
 /** Quick and Standard (spec §1, §4.1); `enabled` says which ones setup may offer. */
 export const MODES = GAME_PRESETS;
@@ -629,6 +641,24 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
       const actorId = state.players.find((player) => player.seatIndex === seatIndex)!.actorId;
       return submit({ actorId, kind: choice.kind, payload: choice.payload } as Command);
     },
+    confirmDeal(shown: { revision: number; terms: DealTerms }): ConfirmDealResult {
+      const { state } = current();
+      const seatIndex = humanSeat(state);
+      const pending = state.pendingResponse;
+      if (seatIndex === undefined || pending?.kind !== 'deal') return { stale: true };
+      const confirm = legalActions(state, seatIndex).enabled.find(
+        (entry) => entry.kind === 'confirm_deal',
+      );
+      if (
+        !confirm ||
+        observe(state, seatIndex).public.stateRevision !== shown.revision ||
+        !sameTerms(pending.terms, shown.terms)
+      ) {
+        return { stale: true };
+      }
+      const actorId = state.players.find((player) => player.seatIndex === seatIndex)!.actorId;
+      return submit({ actorId, kind: confirm.kind, payload: confirm.payload } as Command);
+    },
     quoteSale(pokemonInstanceIds: string[]): SaleQuote {
       const { state } = current();
       const seatIndex = humanSeat(state);
@@ -693,6 +723,19 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
       }
       const enabledActions = legalActions(state, seatIndex).enabled;
       if (enabledActions.length <= 1) return false;
+      // A Deal Card question (§4.8) is answered by the engine's first listed choice, which is accept only when
+      // the terms are legal and within the rival's budget, else reject: the bounded fallback, with no service
+      // call, so a slow or failed service changes nothing and never commits (only the human's Confirm does).
+      // The answer is applied without `decision`: how a rival answered is never shown to the proposer, so its
+      // source and fallback reason never reach the feed, a notice, table talk or the Backup bot reason.
+      // shortcut: the rival's willingness is not asked yet; connect the deal response route here (#164 D3).
+      if (state.pendingResponse?.kind === 'deal') {
+        const choice = enabledActions[0]!;
+        const actorId = state.players.find((player) => player.seatIndex === seatIndex)!.actorId;
+        const result = submit({ actorId, kind: choice.kind, payload: choice.payload } as Command);
+        if ('rejected' in result) throw new Error('Opponent action was rejected');
+        return true;
+      }
       // A promise question (§4.8) is asked of its responder at its own decision point, whatever
       // phase the human's turn is in; the engine's pending record says so, not the phase.
       const promiseQuestion = state.pendingResponse?.kind === 'promise_offer';

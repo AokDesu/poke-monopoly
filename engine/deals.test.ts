@@ -26,6 +26,7 @@ import {
   type SeatActionRecord,
 } from './index.ts';
 import { dealProblem, DEAL_COIN_LADDER } from './deals.ts';
+import { legalActionsSchema } from './contract/schema.ts';
 import { ENGINE_VERSION } from './versions.ts';
 import type { ApplyActionResult, EngineEvent } from './index.ts';
 import { publicRevision } from './revision.ts';
@@ -261,6 +262,130 @@ describe('which Deal Cards the human may propose (§4.8)', () => {
     expect(attempt(state, 'propose_deal', sellPokemon('caught:0:a', 3, 2))).toHaveProperty(
       'accepted',
     );
+  });
+});
+
+describe('a proposal the engine will not allow is listed disabled with its reason (§4.8, §3.1)', () => {
+  const disabledDeals = (state: GameState) =>
+    legalActions(state, 0).disabled.filter((choice) => choice.kind === 'propose_deal');
+  const reasonFor = (state: GameState, subject: string) =>
+    disabledDeals(state)
+      .filter((choice) => choice.id.startsWith(`deal:seat-1:${subject}:`))
+      .map((choice) => ({ id: choice.id, code: choice.reasonCode, text: choice.reasonText }));
+  const enabledFor = (state: GameState, subject: string) =>
+    choicesOf(state, 0)
+      .filter((choice) => choice.id.startsWith(`deal:seat-1:${subject}:`))
+      .map((choice) => choice.id);
+
+  test('a Rescue Starter, either side: RESCUE_STARTER and no enabled proposal', () => {
+    const state = social();
+    Object.assign(state.players[0]!.team[1]!, { origin: 'rescue_starter', tradeable: false });
+    Object.assign(state.players[1]!.team[1]!, { origin: 'rescue_starter', tradeable: false });
+    for (const subject of ['give:pokemon:caught:0:a', 'get:pokemon:caught:1:a']) {
+      expect(enabledFor(state, subject)).toEqual([]);
+      expect(reasonFor(state, subject)).toEqual([
+        {
+          id: `deal:seat-1:${subject}:coins-1`,
+          code: 'RESCUE_STARTER',
+          text: 'A Rescue Starter cannot be traded',
+        },
+      ]);
+    }
+  });
+
+  test('a last Pokémon, either side: LAST_POKEMON worded for whose it is', () => {
+    const state = social();
+    state.players[0]!.team.pop();
+    state.players[1]!.team.pop();
+    expect(reasonFor(state, 'give:pokemon:starter:0')).toMatchObject([
+      { code: 'LAST_POKEMON', text: 'You cannot trade away your last Pokémon' },
+    ]);
+    expect(reasonFor(state, 'get:pokemon:starter:1')).toMatchObject([
+      { code: 'LAST_POKEMON', text: 'They cannot trade away their last Pokémon' },
+    ]);
+  });
+
+  test('coins: only the rungs the payer cannot afford are disabled, named for who pays', () => {
+    const state = social();
+    state.players[0]!.coins = 3;
+    state.players[1]!.coins = 1;
+    expect(enabledFor(state, 'get:pokemon:caught:1:a')).toHaveLength(2);
+    expect(reasonFor(state, 'get:pokemon:caught:1:a')).toEqual([
+      {
+        id: 'deal:seat-1:get:pokemon:caught:1:a:coins-5',
+        code: 'NOT_ENOUGH_COINS',
+        text: 'You do not have enough coins',
+      },
+    ]);
+    expect(enabledFor(state, 'give:pokemon:caught:0:a')).toHaveLength(1);
+    expect(reasonFor(state, 'give:pokemon:caught:0:a').map((entry) => entry.id)).toEqual([
+      'deal:seat-1:give:pokemon:caught:0:a:coins-2',
+      'deal:seat-1:give:pokemon:caught:0:a:coins-5',
+    ]);
+    expect(reasonFor(state, 'give:pokemon:caught:0:a')[0]).toMatchObject({
+      code: 'NOT_ENOUGH_COINS',
+      text: 'They do not have enough coins',
+    });
+  });
+
+  test('a full item bag, either side: ITEMS_FULL for the one who would receive it', () => {
+    const state = social();
+    while (state.players[0]!.items.length < 4) {
+      state.players[0]!.items.push(item(`item:0:fill${state.players[0]!.items.length}`, 'repel'));
+    }
+    expect(reasonFor(state, 'get:item:class-item:1')).toMatchObject([
+      { code: 'ITEMS_FULL', text: 'Your items are full' },
+    ]);
+    expect(enabledFor(state, 'get:item:class-item:1')).toEqual([]);
+    const rival = social();
+    while (rival.players[1]!.items.length < 4) {
+      rival.players[1]!.items.push(item(`item:1:fill${rival.players[1]!.items.length}`, 'repel'));
+    }
+    expect(reasonFor(rival, 'give:item:item:0:potion')).toMatchObject([
+      { code: 'ITEMS_FULL', text: 'Their items are full' },
+    ]);
+    // Pokémon deals do not touch the item bag.
+    expect(enabledFor(rival, 'give:pokemon:caught:0:a')).toHaveLength(DEAL_COIN_LADDER.length);
+  });
+
+  test('the human’s spent Lap quota: every proposal is disabled with DEAL_USED_THIS_LAP', () => {
+    const state = social();
+    state.players[0]!.dealUsedLap = state.players[0]!.creditedLap;
+    expect(kindsOf(state, 0)).not.toContain('propose_deal');
+    const reasons = disabledDeals(state);
+    expect(reasons.length).toBeGreaterThan(0);
+    expect(new Set(reasons.map((choice) => choice.reasonCode))).toEqual(
+      new Set(['DEAL_USED_THIS_LAP']),
+    );
+  });
+
+  test('every disabled proposal is refused by the executor with the state unchanged', () => {
+    const state = social();
+    state.players[0]!.coins = 1;
+    Object.assign(state.players[0]!.team[1]!, { origin: 'rescue_starter', tradeable: false });
+    const listed = disabledDeals(state);
+    expect(listed.map((choice) => choice.reasonCode)).toEqual(
+      expect.arrayContaining(['RESCUE_STARTER', 'NOT_ENOUGH_COINS']),
+    );
+    for (const choice of listed) expectRefused(state, choice.kind, choice.payload);
+    expect(legalActionsSchema.safeParse(legalActions(state, 0)).success).toBe(true);
+  });
+
+  test('nothing about the AI’s secret items, quota or budget reaches the list (§4.8)', () => {
+    const baseline = legalActions(social(), 0);
+    const probed = social();
+    // The AI's own quota spent and its concession budget gone: the proposer must see the same list.
+    probed.players[1]!.dealUsedLap = probed.players[1]!.creditedLap;
+    probed.players[1]!.dealConcessionSpent = 99;
+    probed.content.dealBudget = { perDeal: 1, perGame: 1 };
+    expect(legalActions(probed, 0)).toEqual(baseline);
+    // Its secret items are never named, and swapping one for another changes nothing the proposer sees.
+    expect(JSON.stringify(baseline)).not.toContain('item:1:repel');
+    const swapped = social();
+    swapped.players[1]!.items = swapped.players[1]!.items.map((entry) =>
+      entry.visibility === 'public' ? entry : item('item:1:other', 'pickpocket'),
+    );
+    expect(legalActions(swapped, 0)).toEqual(baseline);
   });
 });
 
