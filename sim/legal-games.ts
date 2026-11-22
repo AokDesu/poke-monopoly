@@ -27,6 +27,7 @@ export type GamePlan = GameSetup & { choices: number[] };
  */
 export const PROPERTY_RUNS = { seed: 26, numRuns: 200 } as const;
 export const PROPERTY_TIMEOUT_MS = 240_000;
+// Named per-test budget, one per property (ET-05): the slowest runs ~78 s at 2 workers, ~3x that under load.
 
 /**
  * The engine runs any positive Lap target (§1). Most games use 1, the shortest complete game, so

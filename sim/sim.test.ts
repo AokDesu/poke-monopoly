@@ -39,6 +39,12 @@ import {
   type SimOptions,
 } from './runner.ts';
 
+// Named per-test budgets for ET-05; the default 5 s fails under load. Run counts are unchanged.
+const SIM_GAMES_MS = 60_000; // 6 to 30 invariant-checked full games: 10 to 45 s alone
+const SIM_SOCIAL_MS = 180_000; // 30 social games: ~43 s at 2 workers, over 60 s at default load (ET-05)
+const SIM_DEALS_MS = 120_000; // the deals test: ~11 s alone, slower with the social window on
+const SIM_CLI_MS = 30_000; // two games through the CLI, saved and replayed: ~2 s alone
+
 const CLASSES = ['alpha', 'beta', 'gamma', 'delta'];
 const base = fixtureSchema.parse(fixture).state;
 
@@ -564,15 +570,19 @@ describe('save and replay (§6.7, §6.8, §8)', () => {
     }
   });
 
-  test('--save with several games writes one file per game seed', async () => {
-    const file = join(dir, 'run.json');
-    expect((await run(['--games', '2', '--seed', '5', '--save', file])).code).toBe(0);
-    for (const seed of [5, 6]) {
-      expect((await run(['--replay', join(dir, `run-seed-${seed}.json`)])).out).toEqual([
-        expect.stringMatching(/^PASS /),
-      ]);
-    }
-  });
+  test(
+    '--save with several games writes one file per game seed',
+    async () => {
+      const file = join(dir, 'run.json');
+      expect((await run(['--games', '2', '--seed', '5', '--save', file])).code).toBe(0);
+      for (const seed of [5, 6]) {
+        expect((await run(['--replay', join(dir, `run-seed-${seed}.json`)])).out).toEqual([
+          expect.stringMatching(/^PASS /),
+        ]);
+      }
+    },
+    SIM_CLI_MS,
+  );
 
   // The replay path (sim/ and engine/) never reaches Jev (§6.8): lint rejects any import of ai/.
   test.each([
@@ -604,19 +614,23 @@ describe('save and replay (§6.7, §6.8, §8)', () => {
 });
 
 describe('the real engine', () => {
-  test('plays complete games from the real content with no failures (§8)', async () => {
-    const { summary, failures } = await runSim(
-      realEngine,
-      options({ games: 6, seats: 3 }),
-      POLICIES,
-      checkInvariants,
-    );
-    expect(failures).toEqual([]);
-    expect(summary).toMatchObject({ games: 6, seats: 3, aborted: 0 });
-    expect(summary.averageTurns).toBeGreaterThan(0);
-    expect(summary.winners.bySeat.reduce((sum, n) => sum + n, 0)).toBeCloseTo(6);
-    // Six invariant-checked full games take seconds; the default 5 s fails on a loaded machine.
-  }, 60_000);
+  test(
+    'plays complete games from the real content with no failures (§8)',
+    async () => {
+      const { summary, failures } = await runSim(
+        realEngine,
+        options({ games: 6, seats: 3 }),
+        POLICIES,
+        checkInvariants,
+      );
+      expect(failures).toEqual([]);
+      expect(summary).toMatchObject({ games: 6, seats: 3, aborted: 0 });
+      expect(summary.averageTurns).toBeGreaterThan(0);
+      expect(summary.winners.bySeat.reduce((sum, n) => sum + n, 0)).toBeCloseTo(6);
+      // Six invariant-checked full games take seconds; the default 5 s fails on a loaded machine.
+    },
+    SIM_GAMES_MS,
+  );
 
   test('rotates only the core classes; stretch classes wait until after G2 (§1)', async () => {
     const stretch = loadContent()
@@ -853,92 +867,115 @@ describe('--social: seat 0 plays as a human with the random policy (#56 S03, §4
     });
   });
 
-  test('30 games finish with invariants on, and exercise promises both ways', async () => {
-    const { summary, failures } = await runSim(
-      realEngine,
-      options({ games: 30, seed: 1, social: true }),
-      POLICIES,
-      checkInvariants,
-    );
-    expect(failures).toEqual([]);
-    expect(summary).toMatchObject({
-      games: 30,
-      aborted: 0,
-      invariantFailures: 0,
-      illegalAppliedActionCount: 0,
-    });
-    const { promiseOffers, promisesAccepted, promisesRejected } = summary.social!;
-    expect(promiseOffers).toBeGreaterThan(10);
-    expect(promisesAccepted).toBeGreaterThan(0);
-    expect(promisesRejected).toBeGreaterThan(0);
-    expect(promisesAccepted + promisesRejected).toBe(promiseOffers);
-    // Every accepted promise ends in exactly one of the four engine outcomes (read from the engine's records).
-    const p = summary.promises;
-    expect(p.broken + p.kept + p.closedByGameEnd).toBe(promisesAccepted);
-    expect(p.kept).toBe(p.keptWithOpportunity + p.keptWithoutOpportunity);
-    expect(p.pending).toBe(0);
-  }, 60_000);
+  test(
+    '30 games finish with invariants on, and exercise promises both ways',
+    async () => {
+      const { summary, failures } = await runSim(
+        realEngine,
+        options({ games: 30, seed: 1, social: true }),
+        POLICIES,
+        checkInvariants,
+      );
+      expect(failures).toEqual([]);
+      expect(summary).toMatchObject({
+        games: 30,
+        aborted: 0,
+        invariantFailures: 0,
+        illegalAppliedActionCount: 0,
+      });
+      const { promiseOffers, promisesAccepted, promisesRejected } = summary.social!;
+      expect(promiseOffers).toBeGreaterThan(10);
+      expect(promisesAccepted).toBeGreaterThan(0);
+      expect(promisesRejected).toBeGreaterThan(0);
+      expect(promisesAccepted + promisesRejected).toBe(promiseOffers);
+      // Every accepted promise ends in exactly one of the four engine outcomes (read from the engine's records).
+      const p = summary.promises;
+      expect(p.broken + p.kept + p.closedByGameEnd).toBe(promisesAccepted);
+      expect(p.kept).toBe(p.keptWithOpportunity + p.keptWithoutOpportunity);
+      expect(p.pending).toBe(0);
+    },
+    SIM_SOCIAL_MS,
+  );
 
-  test('a run without it has no social summary, no human seat and no Social window', async () => {
-    const { summary } = await runSim(realEngine, options({ games: 3 }), POLICIES, checkInvariants);
-    expect(summary).not.toHaveProperty('social');
-    const state = realEngine.createGame({
-      seed: 1,
-      seats: seatSetup(realEngine.classIds, 2, 1),
-      lapTarget: 2,
-    });
-    expect(state.config.seats.map((seat) => seat.controller)).toEqual(['ai', 'ai']);
-    expect(state.config).not.toHaveProperty('socialWindow');
-    const human = realEngine.createGame({
-      seed: 1,
-      seats: seatSetup(realEngine.classIds, 2, 1),
-      lapTarget: 2,
-      social: true,
-    });
-    expect(human.config.seats.map((seat) => seat.controller)).toEqual(['human', 'ai']);
-    expect(human.config.socialWindow).toBe(true);
-  }, 60_000);
+  test(
+    'a run without it has no social summary, no human seat and no Social window',
+    async () => {
+      const { summary } = await runSim(
+        realEngine,
+        options({ games: 3 }),
+        POLICIES,
+        checkInvariants,
+      );
+      expect(summary).not.toHaveProperty('social');
+      const state = realEngine.createGame({
+        seed: 1,
+        seats: seatSetup(realEngine.classIds, 2, 1),
+        lapTarget: 2,
+      });
+      expect(state.config.seats.map((seat) => seat.controller)).toEqual(['ai', 'ai']);
+      expect(state.config).not.toHaveProperty('socialWindow');
+      const human = realEngine.createGame({
+        seed: 1,
+        seats: seatSetup(realEngine.classIds, 2, 1),
+        lapTarget: 2,
+        social: true,
+      });
+      expect(human.config.seats.map((seat) => seat.controller)).toEqual(['human', 'ai']);
+      expect(human.config.socialWindow).toBe(true);
+    },
+    SIM_GAMES_MS,
+  );
 
-  test('--require-deals needs --social, is kept in the reproduce command and fails a run with no commit', async () => {
-    expect(() => parseSimArgs(['--require-deals'])).toThrow(/needs --social/);
-    expect(parseSimArgs(['--social', '--require-deals']).requireDeals).toBe(true);
-    expect(parseSimArgs(['--social'])).not.toHaveProperty('requireDeals');
-    const asked = options({ social: true, requireDeals: true });
-    expect(reproduceCommand(asked, 1)).toContain('--social --require-deals');
-    const none = (await runSim(realEngine, options({ games: 1 }), POLICIES, checkInvariants))
-      .summary;
-    expect(none.deals).toEqual({
-      proposed: 0,
-      accepted: 0,
-      rejected: 0,
-      countered: 0,
-      cancelled: 0,
-      committed: 0,
-    });
-    expect(noDealCommitted(asked, none)).toBe(true);
-    expect(noDealCommitted(options({ social: true }), none)).toBe(false);
-    expect(noDealCommitted(asked, { ...none, deals: { ...none.deals, committed: 1 } })).toBe(false);
-  }, 60_000);
+  test(
+    '--require-deals needs --social, is kept in the reproduce command and fails a run with no commit',
+    async () => {
+      expect(() => parseSimArgs(['--require-deals'])).toThrow(/needs --social/);
+      expect(parseSimArgs(['--social', '--require-deals']).requireDeals).toBe(true);
+      expect(parseSimArgs(['--social'])).not.toHaveProperty('requireDeals');
+      const asked = options({ social: true, requireDeals: true });
+      expect(reproduceCommand(asked, 1)).toContain('--social --require-deals');
+      const none = (await runSim(realEngine, options({ games: 1 }), POLICIES, checkInvariants))
+        .summary;
+      expect(none.deals).toEqual({
+        proposed: 0,
+        accepted: 0,
+        rejected: 0,
+        countered: 0,
+        cancelled: 0,
+        committed: 0,
+      });
+      expect(noDealCommitted(asked, none)).toBe(true);
+      expect(noDealCommitted(options({ social: true }), none)).toBe(false);
+      expect(noDealCommitted(asked, { ...none, deals: { ...none.deals, committed: 1 } })).toBe(
+        false,
+      );
+    },
+    SIM_GAMES_MS,
+  );
 
-  test('the human seat deals: deals are proposed and committed, and each exchange ends once', async () => {
-    const { summary, failures } = await runSim(
-      realEngine,
-      options({ games: 8, seed: 1, social: true, seats: 3 }),
-      POLICIES,
-      checkInvariants,
-    );
-    expect(failures).toEqual([]);
-    const { deals } = summary;
-    expect(deals.proposed).toBeGreaterThan(0);
-    expect(deals.committed).toBeGreaterThan(0);
-    expect(summary.social).toMatchObject({
-      dealsProposed: deals.proposed,
-      dealsCommitted: deals.committed,
-    });
-    // A counter ends in a commit or a cancel; a proposal otherwise ends in a reject, an accept's commit or a cancel.
-    expect(deals.rejected + deals.cancelled + deals.committed).toBe(deals.proposed);
-    expect(deals.accepted + deals.countered).toBe(deals.committed + deals.cancelled);
-  }, 120_000);
+  test(
+    'the human seat deals: deals are proposed and committed, and each exchange ends once',
+    async () => {
+      const { summary, failures } = await runSim(
+        realEngine,
+        options({ games: 8, seed: 1, social: true, seats: 3 }),
+        POLICIES,
+        checkInvariants,
+      );
+      expect(failures).toEqual([]);
+      const { deals } = summary;
+      expect(deals.proposed).toBeGreaterThan(0);
+      expect(deals.committed).toBeGreaterThan(0);
+      expect(summary.social).toMatchObject({
+        dealsProposed: deals.proposed,
+        dealsCommitted: deals.committed,
+      });
+      // A counter ends in a commit or a cancel; a proposal otherwise ends in a reject, an accept's commit or a cancel.
+      expect(deals.rejected + deals.cancelled + deals.committed).toBe(deals.proposed);
+      expect(deals.accepted + deals.countered).toBe(deals.committed + deals.cancelled);
+    },
+    SIM_DEALS_MS,
+  );
 
   test('a failing game reproduces with the flag', async () => {
     const { failures } = await runSim(
