@@ -12,6 +12,9 @@ import {
 } from '../engine/index.ts';
 import { realEngine } from './engine.ts';
 import { DEFAULT_OPTIONS, runSim } from './runner.ts';
+
+// A short PvP game run: well under 15 s alone; named budget for load (ET-05).
+const PVP_RESPONSE_MS = 15_000;
 function command(state: GameState, kind: Action['kind'], payload: unknown) {
   return {
     actorId: pendingDecision(state)!.actorId,
@@ -85,29 +88,33 @@ test('three seats finish via the public API with defender responses and rewards,
   expect(replay(log)).toEqual(state);
 });
 
-test('sim runner dispatches a defender’s decisions to that defender’s policy', async () => {
-  const seen: { seat: number; active: number; kind: string }[] = [];
-  const { summary, failures } = await runSim(
-    realEngine,
-    { ...DEFAULT_OPTIONS, games: 1, seed: 55, seats: 3, lapTarget: 1, policy: 'pvp' },
-    {
-      pvp: () => ({
-        decide(observation, legal) {
-          const choice =
-            legal.enabled.find((choice) => choice.kind === 'declare_pvp') ?? legal.enabled[0]!;
-          seen.push({
-            seat: observation.own.seatIndex,
-            active: observation.public.activeSeatIndex,
-            kind: choice.kind,
-          });
-          return choice.id;
-        },
-      }),
-    },
-  );
-  expect(failures).toEqual([]);
-  expect(summary.aborted).toBe(0);
-  expect(seen.some((entry) => entry.kind === 'respond_pvp' && entry.seat !== entry.active)).toBe(
-    true,
-  );
-}, 15_000);
+test(
+  'sim runner dispatches a defender’s decisions to that defender’s policy',
+  async () => {
+    const seen: { seat: number; active: number; kind: string }[] = [];
+    const { summary, failures } = await runSim(
+      realEngine,
+      { ...DEFAULT_OPTIONS, games: 1, seed: 55, seats: 3, lapTarget: 1, policy: 'pvp' },
+      {
+        pvp: () => ({
+          decide(observation, legal) {
+            const choice =
+              legal.enabled.find((choice) => choice.kind === 'declare_pvp') ?? legal.enabled[0]!;
+            seen.push({
+              seat: observation.own.seatIndex,
+              active: observation.public.activeSeatIndex,
+              kind: choice.kind,
+            });
+            return choice.id;
+          },
+        }),
+      },
+    );
+    expect(failures).toEqual([]);
+    expect(summary.aborted).toBe(0);
+    expect(seen.some((entry) => entry.kind === 'respond_pvp' && entry.seat !== entry.active)).toBe(
+      true,
+    );
+  },
+  PVP_RESPONSE_MS,
+);

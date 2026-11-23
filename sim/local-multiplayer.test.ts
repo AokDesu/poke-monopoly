@@ -18,6 +18,9 @@ import { parseSimArgs } from './args.ts';
 import { realEngine } from './engine.ts';
 import { runSim, type PlayedGame } from './runner.ts';
 
+// One four-seat game with scripted humans plus a replay: ~4 s alone; the default 5 s is too tight under load (ET-05).
+const LOCAL_MULTIPLAYER_MS = 60_000;
+
 test.each([2, 4])(
   'a four-seat game with %i scripted humans finishes and resumes a human PvP response (#255)',
   async (humanSeats) => {
@@ -113,5 +116,5 @@ test.each([2, 4])(
     expect(continued).toMatchObject({ accepted: true, record: response });
     expect(checkInvariants(loaded.state, response.action, continued)).toEqual([]);
   },
-  60_000,
+  LOCAL_MULTIPLAYER_MS,
 );
