@@ -6,6 +6,7 @@ import type { PolicyChoice, PolicyFacts, PolicyRng } from '../sim/policy.ts';
 import { decideWithFallback, FallbackPolicy, saleDesire } from './fallback/index.ts';
 import { hardOutcomesYielding, type HardRequest } from './hard.ts';
 import { pendingPromise } from './promises.ts';
+import { openAbilityWindow, pendingPvpResponse, pendingReward, type OwnBattle } from './battle.ts';
 import { lastSellChoice, sellChoice } from './last-sell.ts';
 import {
   DECISION_DEADLINE_MS,
@@ -25,6 +26,9 @@ import {
   buildDealQuestion,
   buildEncounterQuestion,
   buildPromiseResponseQuestion,
+  buildPvpResponseQuestion,
+  buildReactionQuestion,
+  buildRewardQuestion,
   buildSellQuestions,
   pendingDeal,
   buildStrategyQuestion,
@@ -37,7 +41,14 @@ import {
 } from './questions/index.ts';
 
 /** The Choice decision points; a confidence floor applies only to these (spec §5.6). */
-export type ChoiceQuestion = 'strategy' | 'encounter' | 'deal' | 'promise_response';
+export type ChoiceQuestion =
+  | 'strategy'
+  | 'encounter'
+  | 'deal'
+  | 'promise_response'
+  | 'pvp_response'
+  | 'ability_window'
+  | 'reward';
 
 /**
  * A Choice's confidence floor by option count: `few` up to `fewMax` options, falling in a straight
@@ -61,6 +72,11 @@ export const ORCHESTRATOR_CONFIG = Object.freeze({
     deal: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
     // Two options (accept or reject), so always the `few` end of the curve.
     promise_response: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
+    // Accept or decline: two options.
+    pvp_response: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
+    // The activations the window lists plus none, and coins plus each evolution: a few options.
+    ability_window: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
+    reward: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
   }) satisfies Readonly<Record<ChoiceQuestion, FloorCurve>>,
 });
 
@@ -111,6 +127,8 @@ export interface DecideFacts {
   sell?: SellFacts;
   /** For the Deal response question: the engine's buckets for the pending Deal Card (`dealFacts`, §5.4). */
   deal?: DealFacts;
+  /** For the PvP response and Ability window questions: the engine's battle chances (§4.4, §5.3). */
+  battle?: OwnBattle;
 }
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
@@ -198,6 +216,14 @@ export interface OrchestratorOptions {
 }
 
 const SAMPLE_RANGE = 2 ** 32;
+
+/** Questions whose Hard play is Normal: the engine's rollouts do not cover them (spec §5.6). */
+const NO_ROLLOUT: ReadonlySet<ChoiceQuestion> = new Set([
+  'promise_response',
+  'pvp_response',
+  'ability_window',
+  'reward',
+]);
 
 /** How many AI turns of one game a quota tracks; a game has far fewer, so this only bounds abuse. */
 export const MAX_TRACKED_TURNS = 2_000;
@@ -290,6 +316,14 @@ export class Orchestrator {
       if (request.decisionPoint === 'promise_response') {
         return await this.#decideChoice(request, 'promise_response', log);
       }
+      // Battle decisions (§4.4, §5.3), asked of the engine's pending seat whatever the phase.
+      if (
+        request.decisionPoint === 'pvp_response' ||
+        request.decisionPoint === 'ability_window' ||
+        request.decisionPoint === 'reward'
+      ) {
+        return await this.#decideChoice(request, request.decisionPoint, log);
+      }
       if (phase.kind === 'strategy' || phase.kind === 'encounter') {
         return await this.#decideChoice(request, phase.kind, log);
       }
@@ -328,6 +362,23 @@ export class Orchestrator {
       // Only the pending responder is asked, and only about a promise (§4.8, #143).
       return policyDecision(request, 'auto', null);
     }
+    if (question === 'pvp_response' && !pendingPvpResponse(observation)) {
+      return policyDecision(request, 'auto', null);
+    }
+    if (question === 'reward' && !pendingReward(observation)) {
+      return policyDecision(request, 'auto', null);
+    }
+    if (question === 'ability_window' && !openAbilityWindow(observation)) {
+      return policyDecision(request, 'auto', null);
+    }
+    // A battle's chances come from the engine; without them the question is not asked. A private
+    // Pickpocket reaction has no battle, so it needs none.
+    const needsBattle =
+      question === 'pvp_response' ||
+      (question === 'ability_window' && !observation.own.pickpocketReaction);
+    if (needsBattle && !facts.battle && enabled.length > 1) {
+      return policyDecision(request, 'fallback', this.#blocked(request.turnKey) ?? 'missing_facts');
+    }
     if (question === 'encounter' && !facts.encounter && enabled.length > 1) {
       return policyDecision(request, 'fallback', this.#blocked(request.turnKey) ?? 'missing_facts');
     }
@@ -343,6 +394,13 @@ export class Orchestrator {
           ? buildDealQuestion(observation, enabled, dealFacts, personality)
           : { kind: 'skip' as const };
       }
+      if (question === 'pvp_response') {
+        return buildPvpResponseQuestion(observation, enabled, personality, facts.battle);
+      }
+      if (question === 'ability_window') {
+        return buildReactionQuestion(observation, enabled, personality, facts.battle);
+      }
+      if (question === 'reward') return buildRewardQuestion(observation, enabled, personality);
       return buildEncounterQuestion(
         observation,
         enabled,
@@ -363,7 +421,8 @@ export class Orchestrator {
     // argmax. With a rollout limit set (the server's), their time comes off Jev's deadline, so the
     // whole decision stays inside it; without one (the sim, which has no clock) Jev keeps all of it.
     let rolloutSpent = 0;
-    if (request.difficulty === 'hard' && question !== 'promise_response' && question !== 'deal') {
+    // The battle decisions are answered on their own question, like the promise: no rollouts.
+    if (request.difficulty === 'hard' && !NO_ROLLOUT.has(question)) {
       const started = performance.now();
       const outcomes = await this.#outcomes({
         observation,

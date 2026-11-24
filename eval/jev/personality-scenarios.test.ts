@@ -7,13 +7,17 @@ import { DEFAULT_FIXTURES, parseFixture, readJson } from './index.ts';
 import { SYNTHETIC_REQUEST_PREFIX, validateFixture, type Fixture } from './fixture.ts';
 import { scenarioRequest } from './replay.ts';
 import { CONTRAST_KINDS, type EvalScenario } from './scenario-kit.ts';
+import { BATTLE_SCENARIOS } from './battle-scenarios.ts';
 import { PROMISE_SCENARIOS } from './promise-scenarios.ts';
 import { GREEDY_SCENARIOS, SCENARIOS as ALL_SCENARIOS } from './scenarios.ts';
 
 // Issue #233, spec §5.5, §8: 15 decision scenarios per personality with reasons from its file.
 
-// The promise response scenarios have their own tests (promise-scenarios.test.ts).
-const SCENARIOS = ALL_SCENARIOS.filter((scenario) => !PROMISE_SCENARIOS.includes(scenario));
+// The promise response and battle decision scenarios have their own tests
+// (promise-scenarios.test.ts, battle-scenarios.test.ts).
+const SCENARIOS = ALL_SCENARIOS.filter(
+  (scenario) => !PROMISE_SCENARIOS.includes(scenario) && !BATTLE_SCENARIOS.includes(scenario),
+);
 const NEW = SCENARIOS.filter((scenario) => scenario.personality.id !== 'greedy');
 const byPersonality = (id: string) =>
   SCENARIOS.filter((scenario) => scenario.personality.id === id);

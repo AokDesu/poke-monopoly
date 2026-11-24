@@ -5,6 +5,7 @@ import opportunist from '../../content/personalities/opportunist.json';
 import { parsePersonality } from '../../content/personality-schema.ts';
 
 export * from './policy.ts';
+export * from './battle-facts.ts';
 
 /** Every `content/personalities/<id>.json`, validated (spec §5.5). */
 export const PERSONALITIES = Object.freeze({

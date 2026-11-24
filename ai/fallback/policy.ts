@@ -46,6 +46,14 @@ export const FALLBACK_TUNING = Object.freeze({
   promiseTrustStep: 0.2,
   /** Promise response: willingness lost per promise the asker broke to this seat. */
   promiseGrudge: 0.1,
+  /**
+   * PvP response: how far the mean of risk and aggression above or below ½ tilts the win-minus-lose
+   * chance at which a challenge is accepted. At 1, a seat whose mean is 0.85 accepts at a −0.35 edge
+   * and one at 0.2 wants a +0.3 edge.
+   */
+  pvpAppetite: 1,
+  /** Ability window: what keeping an Ability for later is worth, scaled by 1 − aggression. */
+  holdAbility: 0.5,
 });
 
 const VALUE_RANK = { low: 0, medium: 1, high: 2 } as const;
@@ -69,9 +77,18 @@ export function scoreOptions(
   if (pendingDeal(observation)) return dealScores(observation, options, personality);
   const context = { observation, personality, facts };
   const phaseScore = SCORERS[observation.public.phase.kind] ?? (() => 0);
+  const windowOpen = inAbilityWindow(observation);
   // A responder answers a pending question; the phase on the table is the asker's, not its own.
-  const score = (option: LegalAction) =>
-    option.kind === 'respond' ? respondScore(option, context) : phaseScore(option, context);
+  // Battle decisions (§4.4, §5.3) are told apart by the option's kind and the observed window.
+  const score = (option: LegalAction) => {
+    if (option.kind === 'respond') return respondScore(option, context);
+    if (option.kind === 'respond_pvp') return pvpResponseScore(option, context);
+    if (option.kind === 'choose_reward') return rewardScore(option, context);
+    if (windowOpen && (option.kind === 'activate_ability' || option.kind === 'skip')) {
+      return windowScore(option, context);
+    }
+    return phaseScore(option, context);
+  };
   return new Map(options.map((option) => [option.id, score(option)]));
 }
 
@@ -95,6 +112,61 @@ function respondScore(option: LegalAction, { observation, personality }: Context
     personality.weights.loyalty + promiseTrustStep * question.trust - promiseGrudge * grudges;
   // Rounded so that float noise never decides a tie at the bar.
   return Math.round((willingness - promiseBar) * 1e6) / 1e6 + 1e-9;
+}
+
+/**
+ * Spec §4.4, §5.3 PvP response: accept scores the chance to win less the chance to lose (the engine's
+ * exact odds for this seat, `facts.battle`; none counts as even), shifted by the seat's appetite for
+ * a fight, the mean of risk and aggression above ½; decline scores 0. A tie goes to accepting.
+ * Willingness never changes legality: both options are always scored.
+ */
+function pvpResponseScore(option: LegalAction, { personality, facts }: Context): number {
+  if (option.kind !== 'respond_pvp' || !option.payload.accept) return 0;
+  const { risk, aggression } = personality.weights;
+  const edge = facts.battle ? facts.battle.win - facts.battle.loss : 0;
+  const appetite = FALLBACK_TUNING.pvpAppetite * ((risk + aggression) / 2 - 0.5);
+  return Math.round((edge + appetite) * 1e6) / 1e6 + 1e-9;
+}
+
+/** Spec §4.4, §5.3 Battle / Gym reward: coins are worth the seat's liquidity, an evolution its aggression. */
+function rewardScore(option: LegalAction, { personality }: Context): number {
+  if (option.kind !== 'choose_reward') return 0;
+  const { liquidity, aggression } = personality.weights;
+  return option.payload.kind === 'coins' ? liquidity : aggression;
+}
+
+/** Whether the seat holds an open Ability window: a battle window or a private Pickpocket reaction. */
+function inAbilityWindow(observation: Observation): boolean {
+  const { phase } = observation.public;
+  return (
+    observation.own.pickpocketReaction === true ||
+    (phase.kind === 'pvp' &&
+      (phase.battle.step === 'attacker_window' || phase.battle.step === 'defender_window')) ||
+    (phase.kind === 'gym' && phase.battle.step === 'window')
+  );
+}
+
+/**
+ * Spec §4.4, §5.3 Reaction Ability: using none scores 0. An Ability that moves the battle odds is
+ * worth the gain in win-minus-lose chance (the engine's own preview of each activation,
+ * `facts.battleChoices`); one that leaves them alone protects or heals, worth the seat's liquidity
+ * times its chance to lose; a Pickpocket reaction, which certainly costs coins, is worth its
+ * liquidity. Each is less what holding the Ability back is worth, `holdAbility` times 1 − aggression.
+ */
+function windowScore(option: LegalAction, { observation, personality, facts }: Context): number {
+  if (option.kind !== 'activate_ability') return 0;
+  const { liquidity, aggression } = personality.weights;
+  const held = FALLBACK_TUNING.holdAbility * (1 - aggression);
+  let worth: number;
+  if (observation.own.pickpocketReaction) {
+    worth = liquidity;
+  } else {
+    const now = facts.battle;
+    const after = facts.battleChoices?.[option.id];
+    const gain = now && after ? after.win - after.loss - (now.win - now.loss) : 0;
+    worth = gain > 0 ? gain : liquidity * (now?.loss ?? 0);
+  }
+  return Math.round((worth - held) * 1e6) / 1e6;
 }
 
 const SCORERS: Partial<

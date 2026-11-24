@@ -482,9 +482,20 @@ This deliberately defers the §3.1/§5.3 guarantee of keeping every legal action
 declarations only. Until then AI seats do not declare PvP at all: the fallback policy's
 Strategy score ranks `declare_pvp` below `skip`, so auto-applied and fallback-only Strategy
 decisions never pick it. Engine legality and the random sim/property drivers still include
-declarations. Pending PvP responses and rewards use the orchestrator's existing generic policy
-fallback. Stream B must remove this filter and the fallback penalty when it adds PvP Strategy
+declarations. Stream B must remove this filter and the fallback penalty when it adds PvP Strategy
 questions.
+
+**Battle decision questions (#56 C3):** a pending PvP response, an open Ability window (a battle
+window or a Pickpocket reaction) and a battle or Gym reward are Choices of their own (`pvp_response`,
+`ability_window`, `reward`), answered by the orchestrator with Jev's question and the usual fallback
+(deadline, low confidence, invalid choice). Each question is worded from engine facts only: the
+challenger's and the defender's chances come from the engine's battle preview as `low`, `medium` or
+`high` buckets, an Ability by name and effect in words, a reward by its options; no number or
+hidden information is sent. Their fallback scores use the personality weights: accepting a challenge
+by the odds and the mean of `risk` and `aggression`, an Ability by the gain in the odds and
+`aggression`, a Pickpocket reaction by `liquidity`, coins by `liquidity` and an evolution by
+`aggression`. The browser submits the engine's first listed choice for these points until the
+web store routes them to the server (the same follow-up as the Deal response).
 
 ### 5.4 Rules for writing state and questions
 

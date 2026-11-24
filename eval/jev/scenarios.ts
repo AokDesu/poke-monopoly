@@ -1,4 +1,5 @@
 import {
+  battlePreview,
   legalActions,
   observe,
   oddsForAllBalls,
@@ -9,6 +10,8 @@ import {
 import { PERSONALITIES } from '../../ai/fallback/index.ts';
 import type { DecideRequest } from '../../ai/orchestrator.ts';
 import { createPolicyRng } from '../../sim/policy.ts';
+import { battleDecisionPoint, ownBattle, wireBattleFacts } from '../../ai/battle.ts';
+import { BATTLE_SCENARIOS } from './battle-scenarios.ts';
 import { personalityScenarios } from './personality-scenarios.ts';
 import { PROMISE_SCENARIOS } from './promise-scenarios.ts';
 import {
@@ -240,6 +243,7 @@ export const SCENARIOS: readonly EvalScenario[] = [
   ...GREEDY_SCENARIOS,
   ...personalityScenarios(GREEDY_SCENARIOS),
   ...PROMISE_SCENARIOS,
+  ...BATTLE_SCENARIOS,
 ];
 
 /**
@@ -271,6 +275,18 @@ export function decideRequest(scenario: EvalScenario): {
   }
   // A pending promise question is answered by seat 0, the AI, while the human's Social window waits.
   if (state.pendingResponse?.kind === 'promise_offer') request.decisionPoint = 'promise_response';
+  // A battle decision (§4.4, §5.3) is named by the pending seat's own window or reward.
+  const battlePoint = battleDecisionPoint(request.observation);
+  if (battlePoint) request.decisionPoint = battlePoint;
+  // The chances come from the engine's battle preview, read for the asked seat's own side.
+  const preview = battlePoint === 'reward' ? null : battlePreview(state, 0);
+  if (preview) {
+    const own = ownBattle(request.observation, wireBattleFacts(preview));
+    request.facts = {
+      battle: own,
+      policy: { battle: own.now, battleChoices: own.choices },
+    };
+  }
   if (state.phase.kind === 'encounter') {
     const odds = oddsForAllBalls(state, 0);
     request.facts = {

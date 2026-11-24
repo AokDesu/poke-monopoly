@@ -50,6 +50,9 @@ export function confirmGym(next: GameState): EngineEvent[] {
   if (next.phase.kind !== 'gym') return [];
   const battle = next.phase.battle;
   if (battle.step !== 'entry' && battle.step !== 'window') return [];
+  // No battle-ready challenger leaves the Gym as the entry step does (D5 step 1), instead of throwing.
+  const challenger = next.players.find((entry) => entry.seatIndex === next.activeSeatIndex)!;
+  if (!battleReadyMembers(challenger).length) return leaveGym(next);
   const snapshot = gymSnapshot(
     next,
     next.activeSeatIndex,

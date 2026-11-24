@@ -6,18 +6,35 @@ import { dealFactsSchema, legalActionSchema, observationSchema } from './schema.
 
 const id = z.string().min(1);
 const count = z.int().nonnegative();
+const chance = z.number().min(0).max(1);
 
 export const decisionPointSchema = z.enum([
   'strategy',
   'encounter',
   'sell',
   // Responder decisions (§4.8, §6 item 2): asked of the engine's pending-decision seat, which is not
-  // always the active one. S12–S14 add `pvp_response`, `reaction` and `reward` the same way.
+  // always the active one.
   'promise_response',
   'deal_response',
+  // Battle decisions (§4.4, §5.3, #56 C3): also asked of the engine's pending-decision seat. The
+  // PvP defender answers `pvp_response`, a seat with an open Ability window (a battle window or a
+  // Pickpocket reaction) answers `ability_window`, and the winner answers `reward`.
+  'pvp_response',
+  'ability_window',
+  'reward',
 ]);
 /** The decision points a pending responder answers, rather than the active seat's own phase. */
 export const responderDecisionPointSchema = z.enum(['promise_response', 'deal_response']);
+/** The decision points a battle's pending seat answers (§4.4, §5.3), told apart by the observed phase. */
+export const battleDecisionPointSchema = z.enum(['pvp_response', 'ability_window', 'reward']);
+/** The action kinds each battle decision offers, and nothing else. */
+const battleActionKinds: Readonly<
+  Record<'pvp_response' | 'ability_window' | 'reward', readonly string[]>
+> = {
+  pvp_response: ['respond_pvp'],
+  ability_window: ['activate_ability', 'skip'],
+  reward: ['choose_reward'],
+};
 /** The decision point a pending question (`own.pendingResponse.kind`) is answered at. */
 const responderPointOfPending: Readonly<Record<string, DecisionPoint | undefined>> = {
   promise_offer: 'promise_response',
@@ -77,7 +94,66 @@ export const decisionFactsSchema = z.strictObject({
    * `dealFacts` from the engine; ai/ passes them on and computes nothing.
    */
   deal: dealFactsSchema.optional(),
+  /**
+   * A pending PvP or Gym battle's chances (spec §4.4, §5.3), from the engine's `battlePreview` or
+   * `challengeOdds` for the asked seat, and never computed by ai/. They are the challenger's (the
+   * PvP attacker's, the Gym challenger's) as the engine gives them; ai/ reads the asked seat's own
+   * side from its observation, and turns them into named buckets for Jev. `choices` is the same
+   * for each open Ability activation, by its action ID. A viewer's own window only.
+   */
+  battle: z
+    .strictObject({
+      kind: z.enum(['pvp', 'gym']),
+      win: chance,
+      tie: chance,
+      loss: chance,
+      choices: z
+        .array(z.strictObject({ id, win: chance, tie: chance, loss: chance }))
+        .max(64)
+        .optional(),
+    })
+    .optional(),
 });
+
+/**
+ * Why a battle decision point does not match what its seat observes, or undefined when it does:
+ * the PvP defender answers a response, the seat whose window is open answers an Ability window
+ * (including a private Pickpocket reaction), and the winner answers the reward (§4.4, Appendix C.3).
+ */
+function battleDecisionIssue(request: {
+  seatIndex: number;
+  decisionPoint: string;
+  observation: z.infer<typeof observationSchema>;
+}): string | undefined {
+  const { observation, seatIndex } = request;
+  const { phase } = observation.public;
+  const battle = phase.kind === 'pvp' || phase.kind === 'gym' ? phase.battle : undefined;
+  if (request.decisionPoint === 'pvp_response') {
+    return phase.kind === 'pvp' &&
+      phase.battle.step === 'response' &&
+      phase.battle.defenderSeatIndex === seatIndex
+      ? undefined
+      : 'Must be the challenged seat answering a pending PvP challenge';
+  }
+  if (request.decisionPoint === 'reward') {
+    const winner = observation.public.players.find(
+      (player) => battle?.step === 'reward' && player.actorId === battle.request.winnerId,
+    );
+    return winner?.seatIndex === seatIndex
+      ? undefined
+      : 'Must be the winner choosing a pending battle reward';
+  }
+  const open =
+    observation.own.pickpocketReaction === true ||
+    (phase.kind === 'pvp' &&
+      ((phase.battle.step === 'attacker_window' && phase.battle.attackerSeatIndex === seatIndex) ||
+        (phase.battle.step === 'defender_window' &&
+          phase.battle.defenderSeatIndex === seatIndex))) ||
+    (phase.kind === 'gym' &&
+      phase.battle.step === 'window' &&
+      observation.public.activeSeatIndex === seatIndex);
+  return open ? undefined : 'Must be the seat whose Ability window is open';
+}
 
 export const decisionRequestSchema = z
   .strictObject({
@@ -134,6 +210,17 @@ export const decisionRequestSchema = z
           code: 'custom',
           path: ['decisionPoint'],
           message: 'Only a proposed Deal Card is answered by the AI',
+        });
+      }
+    } else if (battleDecisionPointSchema.safeParse(request.decisionPoint).success) {
+      const issue = battleDecisionIssue(request);
+      if (issue) ctx.addIssue({ code: 'custom', path: ['decisionPoint'], message: issue });
+      const allowed = battleActionKinds[request.decisionPoint as keyof typeof battleActionKinds];
+      if (request.enabledActions.some((action) => !allowed.includes(action.kind))) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['enabledActions'],
+          message: `A ${request.decisionPoint} decision offers only ${allowed.join(' and ')} actions`,
         });
       }
     } else if (observation.public.phase.kind !== request.decisionPoint) {

@@ -281,6 +281,9 @@ describe('Jev off, late or unusable: the fallback answers with its reason', () =
           encounter: { few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 },
           deal: { few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 },
           promise_response: { few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 },
+          pvp_response: { few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 },
+          ability_window: { few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 },
+          reward: { few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 },
         },
       },
     });
