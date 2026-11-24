@@ -226,6 +226,19 @@ function measure(end: GameState, seat: number, coinsBefore: number) {
  * world cannot offer the seat's own options or fewer than `ROLLOUT_CONFIG.minSamples` finish.
  */
 export function rolloutOptions(request: RolloutRequest): RolloutResult | undefined {
+  const steps = rolloutSteps(request);
+  let step = steps.next();
+  while (!step.done) step = steps.next();
+  return step.value;
+}
+
+/**
+ * `rolloutOptions` one option's rollout at a time: it yields after each option of each sampled world
+ * and returns the result, so a caller that must not hold its thread (a server answering other requests) may
+ * pause between worlds. Still pure and no IO; running it to the end gives `rolloutOptions`'s result
+ * exactly, since the worlds, draws and order do not depend on when it is resumed (§5.6, #64).
+ */
+export function* rolloutSteps(request: RolloutRequest): Generator<void, RolloutResult | undefined> {
   const { observation, content, policy, seed, shouldStop } = request;
   const enabled = request.legalActions.enabled;
   const rolled = request.options && new Set(request.options);
@@ -245,11 +258,16 @@ export function rolloutOptions(request: RolloutRequest): RolloutResult | undefin
     if (shouldStop?.()) break;
     const world = sampleBelief(observation, content, `${seed}:${index}`, hints);
     const actorId = world.players.find((player) => player.seatIndex === seat)!.actorId;
-    const results = options.map((option) => {
+    const results: { change: number; lead: number }[] = [];
+    for (const option of options) {
       const after = apply(structuredClone(world), actorId, option);
-      return after && measure(playOn(after, seat, policy, `${seed}:${index}`), seat, coinsBefore);
-    });
-    if (results.some((result) => result === undefined)) return undefined;
+      const result =
+        after && measure(playOn(after, seat, policy, `${seed}:${index}`), seat, coinsBefore);
+      if (!result) return undefined;
+      results.push(result);
+      // One option's rollout is the unit of work between pauses (a caller may resume or not).
+      yield;
+    }
     options.forEach((option, row) => {
       const total = totals.get(option.id)!;
       total.change += results[row]!.change;

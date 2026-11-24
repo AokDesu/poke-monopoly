@@ -47,6 +47,8 @@ jobs:
           fi
 
       - run: npm ci
+      # §7, #64: production dependencies only; a dev-only advisory does not fail CI.
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run format:check

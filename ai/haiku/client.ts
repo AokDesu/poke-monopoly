@@ -5,6 +5,7 @@ import {
   type SpendConfig,
   type UsageLine,
   type UsageRecorder,
+  warnLedgerFailed,
 } from '../jev/spend.ts';
 import { haikuApiKey, haikuEnabled } from './status.ts';
 
@@ -291,7 +292,7 @@ export const createHaikuClient = ({
     try {
       ledger.record(line);
     } catch (error) {
-      console.warn(`Could not write the Haiku usage log: ${String(error)}`);
+      warnLedgerFailed('Could not write the Haiku usage log', error);
     }
 
     if (outcome.reason === 'ok') {
