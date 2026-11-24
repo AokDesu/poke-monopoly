@@ -5,6 +5,7 @@ import type {
   DecisionRequest,
 } from '../engine/contract/decision.ts';
 import { createPolicyRng, type PolicyChoice, type PolicyFacts } from '../sim/policy.ts';
+import { ownBattle } from './battle.ts';
 import { FallbackPolicy, PERSONALITIES } from './fallback/index.ts';
 import { HARD_ROLLOUT_MS } from './hard.ts';
 import { createSdkJevClient, jevEnabled, type JevClient } from './jev/client.ts';
@@ -157,6 +158,20 @@ const sellFactsOf = (
  * the Sell Phase's prices for the Sell Nouls and the policy's sale values.
  */
 const toFacts = (request: DecisionRequest): DecideFacts => {
+  const facts = numberFacts(request);
+  // A battle's chances, read for the asked seat's own side (spec §4.4, §5.3): the engine's own
+  // numbers, for the question's buckets and the fallback policy's scores.
+  const wire = request.facts.battle;
+  if (!wire) return facts;
+  const battle = ownBattle(request.observation, wire);
+  return {
+    ...facts,
+    battle,
+    policy: { ...facts.policy, battle: battle.now, battleChoices: battle.choices },
+  };
+};
+
+const numberFacts = (request: DecisionRequest): DecideFacts => {
   const sale = sellFactsOf(request);
   if (sale)
     return { policy: { saleValue: sale.saleValue, keepValue: sale.keepValue }, sell: sale.facts };

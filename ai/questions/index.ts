@@ -9,6 +9,9 @@ export {
   type EncounterFacts,
   type EncounterState,
 } from './encounter.ts';
+export { buildPvpResponseQuestion, PVP_INSTRUCTIONS, type PvpResponseState } from './pvp.ts';
+export { buildReactionQuestion, REACTION_INSTRUCTIONS, type ReactionState } from './reaction.ts';
+export { buildRewardQuestion, REWARD_INSTRUCTIONS, type RewardState } from './reward.ts';
 export { outcomeSentence, type OptionOutcomes } from './outcome.ts';
 export {
   buildPromiseResponseQuestion,

@@ -1,6 +1,8 @@
 import { toEngineContent } from '../content/schema.ts';
+import { ownBattle, wireBattleFacts } from '../ai/fallback/index.ts';
 import {
   advanceAutomatically,
+  battlePreview,
   applyAction,
   createGame,
   createGameConfig,
@@ -82,6 +84,13 @@ function facts(state: GameState, seatIndex: number): SeatFacts {
 }
 
 function numberFacts(state: GameState, seatIndex: number): PolicyFacts {
+  // A battle's chances for the seat asked, active or not (spec §4.4, §5.3): the engine's preview.
+  if (state.phase.kind === 'pvp' || state.phase.kind === 'gym') {
+    const preview = battlePreview(state, seatIndex);
+    if (!preview) return {};
+    const own = ownBattle(observe(state, seatIndex), wireBattleFacts(preview));
+    return { battle: own.now, battleChoices: own.choices };
+  }
   if (seatIndex !== state.activeSeatIndex) return {};
   if (state.phase.kind === 'encounter' && !state.phase.catchRoll) {
     const odds = oddsForAllBalls(state, seatIndex);
