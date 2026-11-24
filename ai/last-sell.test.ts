@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { GameState, PokemonInstance } from '../engine/index.ts';
 import { caught, sell, withFinalTableRound } from '../eval/jev/scenario-kit.ts';
 import { decideRequest, type EvalScenario } from '../eval/jev/scenarios.ts';
@@ -14,6 +14,8 @@ import { Orchestrator, type DecideRequest } from './orchestrator.ts';
 
 // Spec §5.6 (last Sell Phase), §4.7.3: the Final Table Round's Sell Phase sells everything
 // sellable unless a Gym follows, and Jev is then not asked. Offline: fake client, no key.
+// An exported JEV_ENABLED=false (the §9 kill switch) must not turn these fake-transport tests into fallback runs: pin the switch on; tests of the switch stub it off themselves (#64).
+beforeEach(() => vi.stubEnv('JEV_ENABLED', 'true'));
 afterEach(() => vi.unstubAllEnvs());
 
 const PERSONALITY_LIST = Object.values(PERSONALITIES);

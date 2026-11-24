@@ -10,6 +10,7 @@ import {
   DECISION_DEADLINE_MS,
   jevEnabled,
   resolveJevModel,
+  warnJevRejected,
   type FallbackReason as JevFailureReason,
   type JevAnswer,
   type JevClient,
@@ -504,7 +505,7 @@ export class Orchestrator {
         requests++;
         const call = this.#client.ask({ state, questions }, { decisionSignal: deadline.signal });
         // A late or unusable answer still counts its tokens against the game's budget.
-        void call.then((result) => this.usage.record(result));
+        void call.then((result) => this.usage.record(result)).catch(warnJevRejected);
         this.#logRequest(call, log);
         // §5.6: return at the deadline even if the client does not, and never apply an answer
         // that lands after it, even a valid one.
@@ -531,12 +532,15 @@ export class Orchestrator {
     if (!usage) return;
     const time = new Date().toISOString();
     const sent = performance.now();
-    const answered = call.then((result) => ({
-      result,
-      latencyMs: Math.round(performance.now() - sent),
-    }));
+    // A rejected call is logged where it is made; it has no usage to write.
+    const answered = call.then(
+      (result) => ({ result, latencyMs: Math.round(performance.now() - sent) }),
+      () => undefined,
+    );
     void Promise.all([answered, log.finished])
-      .then(([{ result, latencyMs }, decisionMs]) => {
+      .then(([answer, decisionMs]) => {
+        if (!answer) return;
+        const { result, latencyMs } = answer;
         const billed = billedUsage(result);
         if (!billed) return;
         usage.record({

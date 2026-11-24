@@ -36,7 +36,7 @@ import { speechStatus } from './haiku/status.ts';
 import { presentationHeaders } from './presentation.ts';
 import { decideShop, shopRequestSchema } from './shop.ts';
 import { createManipulationGate } from './speech/gate.ts';
-import { sameOriginJson } from './speech/guard.ts';
+import { loopbackHost, sameOriginJson } from './speech/guard.ts';
 import { createSpeaker, InvalidSpeakRequest, type SpeakerOptions } from './speech/speak.ts';
 
 /** Spec §6 item 2: the endpoint validates payload size before it reads the body. */
@@ -108,7 +108,7 @@ export const createApp = ({
   // Never a stack trace or an error message: either could carry request or key material.
   app.onError((_error, c) => c.json({ error: 'internal_error' }, 500));
 
-  app.get('/api/ai/status', (c) =>
+  app.get('/api/ai/status', loopbackHost, (c) =>
     c.json(
       aiStatusSchema.parse({
         ...jevStatus(usage),
@@ -122,6 +122,7 @@ export const createApp = ({
   // deadline. Only then is the decision logged (spec §6.8); the speculative fallback never is.
   app.post(
     '/api/ai/outcome',
+    sameOriginJson,
     bodyLimit({
       maxSize: MAX_BODY_BYTES,
       onError: (c) => c.json({ error: 'payload_too_large' }, 413),
@@ -150,6 +151,7 @@ export const createApp = ({
   // is removed from every later decision request below.
   app.post(
     '/api/ai/chat',
+    sameOriginJson,
     bodyLimit({
       maxSize: MAX_BODY_BYTES,
       onError: (c) => c.json({ error: 'payload_too_large' }, 413),
@@ -232,6 +234,7 @@ export const createApp = ({
   for (const path of ['/api/ai/decide', '/api/ai/fallback'])
     app.post(
       path,
+      sameOriginJson,
       bodyLimit({
         maxSize: MAX_BODY_BYTES,
         onError: (c) => c.json({ error: 'payload_too_large' }, 413),

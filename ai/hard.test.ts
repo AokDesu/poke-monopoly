@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import {
   legalActions,
   observe,
@@ -22,6 +22,10 @@ import { outcomeSentence } from './questions/index.ts';
 import { isStrategyQuestionAction } from './questions/strategy.ts';
 
 const greedy = PERSONALITIES.greedy;
+
+// An exported JEV_ENABLED=false (the §9 kill switch) must not turn these fake-transport tests into fallback runs: pin the switch on; tests of the switch stub it off themselves (#64).
+beforeEach(() => vi.stubEnv('JEV_ENABLED', 'true'));
+afterEach(() => vi.unstubAllEnvs());
 
 /** Real, randomly played decision states, searched until one of each kind Jev is asked about. */
 function findState(match: (state: GameState) => boolean): GameState {

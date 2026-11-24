@@ -12,6 +12,9 @@ import { t } from './i18n/en.ts';
 import { className } from './i18n/names.ts';
 import { PresetScreen } from './setup/PresetScreen.tsx';
 
+// Named per-test budgets (ET-05): these take 2 to 8 s at full parallelism, so the 5 s default is too tight on a loaded machine.
+const SLOW_TEST_MS = 30_000;
+
 const heading = () => screen.getByRole('heading', { level: 1 });
 const button = (name: string | RegExp) => screen.getByRole('button', { name });
 const radio = (name: RegExp) => screen.getByRole('radio', { name });
@@ -59,42 +62,46 @@ test('Home offers the presets and Random All and New game stay reachable without
   expect(heading().textContent).toBe(t('home.heading'));
 });
 
-test('a preset fills every seat, the review shows each exact choice, and one edit changes no other seat (§3, #157)', async () => {
-  const user = open({ seed: 1 });
-  await user.click(button(t('home.presets')));
-  await user.click(presetButton('two-rivals-normal'));
+test(
+  'a preset fills every seat, the review shows each exact choice, and one edit changes no other seat (§3, #157)',
+  async () => {
+    const user = open({ seed: 1 });
+    await user.click(button(t('home.presets')));
+    await user.click(presetButton('two-rivals-normal'));
 
-  expect(heading().textContent).toBe(t('review.heading'));
-  expect(seats()).toEqual([
-    expect.stringMatching(/^You.*Researcher.*Porygon/),
-    expect.stringMatching(/^AI rival · seat 1.*Main Character.*Charmander.*Greedy.*Normal/),
-    expect.stringMatching(/^AI rival · seat 2.*Bug Catcher.*Caterpie.*Greedy.*Normal/),
-  ]);
+    expect(heading().textContent).toBe(t('review.heading'));
+    expect(seats()).toEqual([
+      expect.stringMatching(/^You.*Researcher.*Porygon/),
+      expect.stringMatching(/^AI rival · seat 1.*Main Character.*Charmander.*Greedy.*Normal/),
+      expect.stringMatching(/^AI rival · seat 2.*Bug Catcher.*Caterpie.*Greedy.*Normal/),
+    ]);
 
-  // Back reaches the per-seat editor with the preset's choices already in it.
-  await user.click(button(t('nav.back')));
-  expect(heading().textContent).toBe(t('opponents.heading'));
-  await user.click(radio(/^AI rival · seat 2/));
-  await user.click(radio(new RegExp(`^${t('difficulty.easy')}`)));
-  await user.click(button(t('opponents.next')));
-  expect(seats()).toEqual([
-    expect.stringMatching(/^You.*Researcher.*Porygon/),
-    expect.stringMatching(/^AI rival · seat 1.*Main Character.*Charmander.*Greedy.*Normal/),
-    expect.stringMatching(/^AI rival · seat 2.*Bug Catcher.*Caterpie.*Greedy.*Easy/),
-  ]);
+    // Back reaches the per-seat editor with the preset's choices already in it.
+    await user.click(button(t('nav.back')));
+    expect(heading().textContent).toBe(t('opponents.heading'));
+    await user.click(radio(/^AI rival · seat 2/));
+    await user.click(radio(new RegExp(`^${t('difficulty.easy')}`)));
+    await user.click(button(t('opponents.next')));
+    expect(seats()).toEqual([
+      expect.stringMatching(/^You.*Researcher.*Porygon/),
+      expect.stringMatching(/^AI rival · seat 1.*Main Character.*Charmander.*Greedy.*Normal/),
+      expect.stringMatching(/^AI rival · seat 2.*Bug Catcher.*Caterpie.*Greedy.*Easy/),
+    ]);
 
-  // The player's own class is editable too, and it does not touch a rival.
-  await user.click(button(t('nav.back')));
-  await user.click(button(t('nav.back')));
-  await user.click(radio(/^Nurse Joy/));
-  await user.click(button(t('nav.next')));
-  await user.click(button(t('opponents.next')));
-  expect(seats()[0]).toMatch(/^You.*Nurse Joy/);
-  expect(seats().slice(1)).toEqual([
-    expect.stringMatching(/Main Character.*Normal/),
-    expect.stringMatching(/Bug Catcher.*Easy/),
-  ]);
-});
+    // The player's own class is editable too, and it does not touch a rival.
+    await user.click(button(t('nav.back')));
+    await user.click(button(t('nav.back')));
+    await user.click(radio(/^Nurse Joy/));
+    await user.click(button(t('nav.next')));
+    await user.click(button(t('opponents.next')));
+    expect(seats()[0]).toMatch(/^You.*Nurse Joy/);
+    expect(seats().slice(1)).toEqual([
+      expect.stringMatching(/Main Character.*Normal/),
+      expect.stringMatching(/Bug Catcher.*Easy/),
+    ]);
+  },
+  SLOW_TEST_MS,
+);
 
 test('Three rivals, random fills three seats with four different classes before the roll', async () => {
   const user = open({ seed: 1, random: () => 0.5 });
