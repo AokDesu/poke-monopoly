@@ -312,7 +312,7 @@ describe('a Potion nothing can use is worth 0 (§4.8, spec owner)', () => {
     expect(valuation(open, buyPotion(1)).valueGiven).toBe(2);
   });
 
-  test("a private combat debuff changes nothing: the Deal facts are the same with or without it (§4.8, §5.4)", () => {
+  test('a private combat debuff changes nothing: the Deal facts are the same with or without it (§4.8, §5.4)', () => {
     const plain = finalTurnPotion();
     const debuffed = finalTurnPotion();
     debuffed.players[0]!.team[0]!.combatDebuffed = true;
