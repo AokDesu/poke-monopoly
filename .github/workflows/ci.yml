@@ -40,6 +40,11 @@ jobs:
             echo "::error::A tracked file sets TYPESAFE_API_KEY or ANTHROPIC_API_KEY to a value. Remove it and rotate the key."
             exit 1
           fi
+          # An Anthropic key keeps its shape wherever it is pasted (JSON, Markdown, a test), not only after `NAME=`.
+          if git grep -nE 'sk-ant-[A-Za-z0-9_-]{8,}'; then
+            echo "::error::A tracked file holds a string shaped like an Anthropic API key. Remove it and rotate the key."
+            exit 1
+          fi
 
       - run: npm ci
       - run: npm run typecheck
