@@ -10,7 +10,7 @@ Does Hard (the engine's Monte Carlo rollouts add expected-outcome buckets to eac
 
 ## Design
 
-- **Block:** one held-out seed with one focal seat. **Two games per block.** Treatment: `jev-hard` at the focal seat, `jev` (Normal) at the other seat. Control: `jev` at both seats. Every seat is Greedy and every seat decides through the Jev orchestrator, so difficulty is the one difference. The control game is played again for each block (never shared), so blocks are independent.
+- **Block:** one held-out seed with one focal seat. **Two games per block.** Treatment: `jev-hard` at the focal seat, `jev` (Normal) at the other seat. Control: `jev` at both seats. Every seat is Greedy and every seat decides through the Jev orchestrator, so difficulty is the one difference. The control game is played again for each block. The two blocks of a seed have the same control configuration (Normal on both seats, same seed, classes and Starters), so they are not fully independent: on a deterministic client the two control games are the same game, and live they share a start but not Jev's answers. The analysis resamples blocks as if independent, which can make the stated interval too narrow when the two control scores agree. The report therefore prints the same difference with whole seeds resampled, as a sensitivity (not part of the rule), so the reader can see how far it moves.
 - **Rotation:** each seed makes one block per seat, so Hard sits in every seat for every seed and a seat or class advantage cancels. The 198 seeds are 33 whole class rotations, so every class takes every seat equally often.
 - **Seats:** two (a duel). Three- and four-seat tables are not tested (a stated limit).
 - **Seeds:** 1,300,002 to 1,300,199, held-out (`--seed-set eval` range, 1,000,000 and up). Disjoint from every range in the C5 seed ledger, and never tuned on; the live run is the first use. A test checks the disjointness against `c5-plan.json`.
@@ -22,7 +22,7 @@ Does Hard (the engine's Monte Carlo rollouts add expected-outcome buckets to eac
 
 Written before any live game, and held in `g2-plan.json` (`rule`), which the analysis code reads. Changing it means a new plan version, never a change after a result. Thresholds marked **captain to confirm** are proposed defaults.
 
-1. **Integrity (else no verdict).** Every row is from the live service. Every planned block has both rows. `illegalAppliedActionCount = 0`, invariant failures 0, replay failures 0, no decision fell back on a spent budget, and aborted pairs are at most 2% of planned blocks. Anything else: no G2 verdict; fix the cause and play again on fresh seeds.
+1. **Integrity (else no verdict).** Every row is from the live service. Every planned block has both rows. `illegalAppliedActionCount = 0`, invariant failures 0, replay failures 0, no decision fell back on a spent budget, and aborted pairs are at most 2% of planned blocks. **Jev must have answered:** for Hard and for Normal each, decisions that reached Jev and applied its answer with no fallback are at least **0.30** of all decisions that reached Jev (*captain to confirm*), and decisions lost to the service, network or key (`timeout`, `network`, `auth`, `rate_limited`, `server_error`, `disabled`) are at most **0.05** (*captain to confirm*). Hard's own `timeout` is left out of Hard's share, because Hard's rollouts spend part of the deadline and the latency rule (3) judges that against Normal's; Normal has no rollout, so all its listed causes count. The report prints both numbers by difficulty and cause in the check detail. Without these checks an outage (service down, key refused, every request timing out) makes every decision fall back for both difficulties, the arms look alike, and the rule would read it as "Hard is no better". Anything else: no G2 verdict; fix the cause and play again on fresh seeds.
 2. **Evidence.** The 95% interval of the paired score difference (Hard minus Normal) has its lower bound above 0, **and** the point estimate is at least **0.05** (*captain to confirm*: half of the 0.10 gap the run is sized for).
 3. **Latency** (Hard, over decisions that involved Jev): decision p95 at most **1,500 ms** (§5.6), AI turn p95 at most **2,000 ms** (§1 target), and Hard's share of decisions that fall back on a timeout exceeds Normal's by at most **0.02** (*captain to confirm*).
 4. **Verdict.** Integrity, evidence and latency all hold: **keep three levels**. Integrity holds and evidence or latency fails: **ship two levels** (Easy and Normal; cut Monte Carlo per §10 "Cut if late"), and the report says which part failed. A failure to show evidence at this n is reported as "not shown", not as "Hard is worse".
@@ -31,7 +31,7 @@ Never to do after a result: add hidden information, change what Hard's rollouts 
 
 ## Power and the n to run
 
-Per block, the score difference is two independent games, each close to a win-or-lose score with variance about 0.25 at two seats, so SD ≈ 0.7071 (a correlation between the arms from the shared seed would lower it; none is assumed). Two-sided 5% test, 80% power: blocks = ((1.96 + 0.84) × 0.7071 / gap)². A seed gives two blocks and four games. Seeds are rounded up to whole class rotations (multiples of 6).
+Per block, the score difference is two games, each close to a win-or-lose score with variance about 0.25 at two seats, so SD ≈ 0.7071 (a correlation between the arms from the shared seed would lower it; none is assumed; the two blocks of a seed share their control configuration, so a seed's mean difference can vary more than this, see Design). Two-sided 5% test, 80% power: blocks = ((1.96 + 0.84) × 0.7071 / gap)². A seed gives two blocks and four games. Seeds are rounded up to whole class rotations (multiples of 6).
 
 Requests and THB per game are **from the offline dry run, not from live**: 24.5 Jev requests per game (589 requests over 24 games; the fake client changes answers, not how many requests a game asks for, but a live game may run longer or shorter). `logs/jev-usage.jsonl` is absent in this copy, so the price per request is the spec's: 3,242 input tokens per request (`docs/jev-spike-report.md`, 26 Oct live pair; `SPEND_CONFIG` carries 3,240), $0.042 per million input tokens, THB 33 per USD (`ai/jev/spend.ts`), so about **THB 0.0045 per request, THB 0.110 per game**. The live run measures the real figures in the usage log.
 
@@ -43,7 +43,20 @@ Requests and THB per game are **from the offline dry run, not from live**: 24.5 
 | 0.15 | 175 | 90 | 360 | 0.99 | 8,820 | 40 |
 | 0.20 | 99 | 54 | 216 | 1.00 | 5,292 | 24 |
 
-**Recommended n: 198 seeds (396 blocks, 792 games), powered for a 0.10 gap**, estimated THB 87 and about 19,400 requests, 6% of the THB 1,500 total AI cap (Haiku's THB 150 is separate and unused here). Money is not the limit; wall time is, and it is not yet measured live (guess: one second or less per Jev decision at about 25 requests a game). The smallest useful gap is a product call (**captain to confirm**; the plan assumes 0.10). A gap between 0.05 and 0.10 is under-powered at 198 seeds and would end as "not shown". To size for 0.075 instead, raise `seeds.count` and `seedLedger` in the plan to 354 seeds before the run. n is fixed before the run; the captain may play a prefix with `--seeds k` only by choosing k before the first live game.
+**Recommended n: 198 seeds (396 blocks, 792 games), powered for a 0.10 gap**, estimated THB 87 and about 19,400 requests, 6% of the THB 1,500 total AI cap (Haiku's THB 150 is separate and unused here). Money is not the limit; wall time is, and it is not yet measured live (guess: one second or less per Jev decision at about 25 requests a game). The smallest useful gap is a product call (**captain to confirm**; the plan assumes 0.10). A gap between 0.05 and 0.10 is under-powered at 198 seeds and would end as "not shown". To size for 0.075 instead, raise `seeds.count` and `seedLedger` in the plan to 354 seeds before the run. n is fixed before the run; the captain may play a prefix with `--seeds k` only by choosing k before the first live game. Each row records the `--seeds` it was played under, and `--analyze` refuses a different `--seeds` (so a run stopped half way is never read as a smaller plan) and a rows file started for another n is never continued.
+
+## Run order
+
+1. **Merge this PR** with the thresholds above confirmed (or changed in the plan before merge): the plan is frozen on merge, and a change after it is a new plan version.
+2. **Live smoke run on tuning seeds (not held-out)**, below. It spends about THB 3 (24 games at about THB 0.11), shows that Jev answers (the answered share and the infrastructure share of the check detail), what the real latency is on this machine, and the real requests and THB per game from `logs/jev-usage.jsonl`. Its output is labelled `not-evidence: tuning seeds` and carries no verdict. If the answered share is far from the 0.30 floor, or the latency is far from what the plan assumes, change the plan (new version) **before** step 3: the held-out seeds are still unopened.
+3. **The held-out run**, below, played once.
+
+Smoke run (tuning seeds 100,200 to 100,205, 6 seeds, 24 games):
+
+```powershell
+npx tsx --require $NoPqTls --env-file=.env sim/experiments/g2-cli.ts --seed-base 100200 --seeds 6 --max-thb 10 --out logs/g2-smoke.rows.jsonl
+npx tsx --env-file=.env sim/experiments/g2-cli.ts --seed-base 100200 --seeds 6 --analyze --out logs/g2-smoke.rows.jsonl
+```
 
 ## Live command (captain, Windows PowerShell, with the key)
 
@@ -75,7 +88,7 @@ Run date, commit, machine and `--seeds` used: _empty_.
 
 | Check | Pass | Detail |
 |---|---|---|
-| live, complete, illegalAppliedActionCount, invariantFailures, replay, spend, aborts | | |
+| live, complete, illegalAppliedActionCount, invariantFailures, replay, spend, jev-answered, infrastructure-fallbacks, aborts | | |
 | evidence-interval, evidence-size | | |
 | latency-decision-p95, latency-turn-p95, latency-timeouts | | |
 
@@ -91,6 +104,7 @@ Win, tie and loss (score = 1/k per co-winner):
 | Score | | |
 | Sole-win rate | | |
 | Standardized score effect (paired d) | | |
+| Score, whole seeds resampled (sensitivity, not part of the rule) | | |
 
 | Focal seat | n | Score difference | 95% interval |
 |---|---|---|---|
@@ -123,10 +137,12 @@ Setup: no key (`TYPESAFE_API_KEY` and `ANTHROPIC_API_KEY` unset), `JEV_ENABLED` 
 - **Requests.** 589 Jev requests in 24 games, 24.5 per game (the number behind the cost column above).
 - **Hard rollout compute, untimed (offline, this machine).** Hard decision p50 211 ms, p95 435 ms, max 644 ms; Normal p95 21 ms. Hard's p95 is above its 400 ms rollout limit, so live about one Hard decision in twenty will have its rollouts stopped early (fewer than 16 worlds; under 4 worlds gives no buckets and plays as Normal), and the decision still ends well inside 1,500 ms (the worst, 644 ms, is less than half). This does not show that the defaults cannot fit the deadline, so they are unchanged. The live run records the real figures with the 400 ms limit on.
 
-Analysis output of that dry run (the banner is what the tool prints on fake rows):
+Re-run after the integrity-check change (same setup, killed by a 60 s timeout after 7 games, resumed with 17 to play, 0 failing): 24 of 24 games finished, `illegalAppliedActionCount` 0, 0 invariant failures, 0 replay failures, and the 24.5 requests per game are unchanged. This re-run overlapped with the test suite on the same machine, so its Hard decision p95 (1,743 ms, max 2,574 ms) is load, not Hard; the idle figures above stand. It does show why latency is read on a quiet machine, and that the latency rule would then fail (decision p95 above 1,500 ms) if the live run were this loaded.
 
-> **Source: not-evidence: fake-client. This output proves the plumbing only. It is not evidence about Hard or Normal, and it carries no verdict.**
-> **Verdict: no-verdict.** The `live` check fails by design, so a fake run can never produce a verdict.
+Analysis output of that dry run (the banner is what the tool prints on fake rows). The fake client answers 11% of decisions without a fallback and loses 45% of Normal's decisions to timeouts and rate limits, so both new integrity checks (`jev-answered`, `infrastructure-fallbacks`) fail here as they should, besides `live`:
+
+> **Source: not-evidence: fake-client. This output checks plumbing, latency, fallbacks and cost only. It is not evidence about Hard or Normal, and it carries no verdict.**
+> **Verdict: no-verdict.** `live`, `jev-answered` (hard 0.093, normal 0.109, each at least 0.3) and `infrastructure-fallbacks` fail; a fake run can never produce a verdict.
 
 ## Limits of this study
 

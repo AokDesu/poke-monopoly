@@ -118,6 +118,16 @@ export async function runG2Cli(
         `${stray.length} row(s) are not games of this plan and seed range, such as ${stray[0]!.gameId}`,
       );
     }
+    // n is declared when a run starts. A run stopped half way is not read as a smaller plan: the
+    // seeds count of the analysis must be the one every row was played under (spec §8, plan seeds).
+    const declared = seeds ?? plan.seeds.count;
+    const other = rows.find((row) => row.plannedSeeds !== declared);
+    if (other) {
+      return usage(
+        io,
+        `${other.gameId} was played in a run of ${other.plannedSeeds ?? 'an unrecorded number of'} seeds; this analysis is for ${declared}. A verdict is only given for the n declared when the run started; pass --seeds ${other.plannedSeeds ?? '<that n>'} or leave it out for the whole plan.`,
+      );
+    }
     const shas = new Set(rows.map((row) => row.planSha256));
     if (shas.size > 1 || (rows.length > 0 && !shas.has(planSha256(planText)))) {
       return usage(io, 'the rows were played under another version of the plan');
@@ -156,6 +166,12 @@ export async function runG2Cli(
     for (const row of parsed.rows) {
       if (row.planSha256 !== sha)
         return usage(io, `${out} holds rows of another version of the plan`);
+      if (row.plannedSeeds !== (seeds ?? plan.seeds.count)) {
+        return usage(
+          io,
+          `${out} holds rows of a run of ${row.plannedSeeds} seeds; this run is ${seeds ?? plan.seeds.count}. Use another --out.`,
+        );
+      }
       if (row.mode !== mode) {
         return usage(
           io,

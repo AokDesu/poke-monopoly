@@ -143,17 +143,17 @@ export type DuelRun = {
 };
 
 /**
- * The G2 duel's Jev wiring (spec §5.6, §9). Live, the game gets the server's settings: a 1,500 ms
- * decision deadline and Hard's rollouts stopped at `HARD_ROLLOUT_MS` inside it, with each request
- * logged under `gameId` in `logs/jev-usage.jsonl` and held to the spend cap. Offline there is no
- * clock to cut rollouts, so they run untimed and a dry run measures their compute only.
+ * Wraps the process ledger for one duel game: every line goes to the ledger as before, the spend
+ * guard (`budgetExceeded`, and `reserve` for the request about to go out) is the ledger's own, and
+ * the game's requests, input tokens, estimated requests and THB are tallied from the lines it records.
  */
-export function createDuelRun(gameId: string, seed: number, offline = false): DuelRun {
-  const mode = jevRunMode(offline);
+export function tallyingRecorder(ledger: UsageRecorder): {
+  recorder: UsageRecorder;
+  usage(): NonNullable<DuelUsage>;
+} {
   const tally = { requests: 0, inputTokens: 0, estimated: 0, thb: 0 };
-  if (mode === 'live') {
-    const ledger = defaultUsageLedger();
-    const counting: UsageRecorder = {
+  return {
+    recorder: {
       record(line) {
         tally.requests += 1;
         tally.inputTokens += line.inputTokens;
@@ -162,7 +162,27 @@ export function createDuelRun(gameId: string, seed: number, offline = false): Du
         ledger.record(line);
       },
       budgetExceeded: (provider) => ledger.budgetExceeded(provider),
-    };
+      ...(ledger.reserve && { reserve: (provider) => ledger.reserve!(provider) }),
+    },
+    usage: () => ({
+      requests: tally.requests,
+      inputTokens: tally.inputTokens,
+      estimatedRequests: tally.estimated,
+      thb: tally.thb,
+    }),
+  };
+}
+
+/**
+ * The G2 duel's Jev wiring (spec §5.6, §9). Live, the game gets the server's settings: a 1,500 ms
+ * decision deadline and Hard's rollouts stopped at `HARD_ROLLOUT_MS` inside it, with each request
+ * logged under `gameId` in `logs/jev-usage.jsonl` and held to the spend cap. Offline there is no
+ * clock to cut rollouts, so they run untimed and a dry run measures their compute only.
+ */
+export function createDuelRun(gameId: string, seed: number, offline = false): DuelRun {
+  const mode = jevRunMode(offline);
+  if (mode === 'live') {
+    const { recorder: counting, usage } = tallyingRecorder(defaultUsageLedger());
     return {
       mode,
       rolloutMs: HARD_ROLLOUT_MS,
@@ -172,12 +192,7 @@ export function createDuelRun(gameId: string, seed: number, offline = false): Du
         usage: counting,
         rolloutMs: HARD_ROLLOUT_MS,
       }),
-      usage: () => ({
-        requests: tally.requests,
-        inputTokens: tally.inputTokens,
-        estimatedRequests: tally.estimated,
-        thb: tally.thb,
-      }),
+      usage,
     };
   }
   const offlineClient =

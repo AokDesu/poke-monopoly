@@ -23,7 +23,7 @@
     "blocksPerSeed": "one per seat: Hard sits in every seat for every seed, so a seat or class advantage cancels",
     "gamesPerBlock": 2,
     "order": "seed ascending, then focal seat, then control before treatment, so an interrupted run leaves whole pairs",
-    "dependence": "A block's two arms share a seed but not their dice after the first different decision. The control game is played again for each block, so no game is shared and blocks stay independent.",
+    "dependence": "A block's two arms share a seed but not their dice after the first different decision. The two blocks of one seed have the same control configuration (Normal on both seats, same seed, classes and Starters), and the control game is played again for each block. On a deterministic client the two control games are the same game; live, Jev's answers differ between plays, so they are the same start and a different course. The analysis resamples blocks as if independent, which is not exactly true: when the two control games agree, the two blocks of a seed share their control score and the stated interval can be too narrow. The report therefore also prints the same difference with whole seeds resampled (a sensitivity, not part of the rule), so the reader can see how much it moves.",
     "analysis": "sim/analysis/paired.ts (analyzePaired): per-block score difference, Hard minus Normal, with a stratified percentile bootstrap over blocks within (seat count, focal seat) cells.",
     "score": "k co-winners score 1/k each (spec §8 Scoring)",
     "realism": "The sim does not send Sell Phase questions (no Sell facts yet, ai/README.md), so those decisions use the fallback on both difficulties. Hard's rollouts act only on Strategy and Encounter, so the duel covers every decision where Hard differs from Normal."
@@ -49,7 +49,7 @@
     "alpha": 0.05,
     "power": 0.8,
     "assumedScoreSdPerBlock": 0.7071,
-    "sdNote": "Two independent games, each a win-or-lose score with variance about 0.25 at two seats (0.25 + 0.25 = 0.5, SD 0.7071). A correlation between the arms, shared by the seed, would lower it; none is assumed.",
+    "sdNote": "Two independent games, each a win-or-lose score with variance about 0.25 at two seats (0.25 + 0.25 = 0.5, SD 0.7071). A correlation between the arms, shared by the seed, would lower it; none is assumed. The two blocks of a seed share their control configuration, so the SD of a seed's mean difference can be larger than this; the seed-cluster sensitivity in the report shows it.",
     "gaps": [0.05, 0.075, 0.1, 0.15, 0.2],
     "minimumUsefulGap": 0.1,
     "recommendedSeeds": 198,
@@ -73,6 +73,18 @@
       "budgetExceededFallbacks": 0,
       "maxAbortedPairShare": 0.02,
       "everyRowLive": true,
+      "minJevAnsweredShare": 0.3,
+      "infrastructureCauses": [
+        "timeout",
+        "network",
+        "auth",
+        "rate_limited",
+        "server_error",
+        "disabled"
+      ],
+      "maxInfrastructureFallbackShare": 0.05,
+      "jevAnsweredNote": "Jev answered = a decision that reached Jev and applied its answer with no fallback, over all decisions that reached Jev (not auto), for Hard and for Normal each. Fallbacks that are Jev's own judgement (low_confidence, invalid_choice, revision_mismatch) and the Sell Phase decisions the sim never asks (missing_facts) are ordinary and stay out of the infrastructure share. Hard's own timeouts are not counted in Hard's infrastructure share: Hard's rollouts spend part of the deadline, so Hard's timeout excess over Normal's is the latency rule's job (latency-timeouts); Normal has no rollout, so all its listed causes count. Spend-guard fallbacks (budget_exceeded) are held at zero above. A dead service, a refused key or a run of timeouts fails these checks, so an outage can never be read as 'Hard is no better'.",
+      "captainToConfirm": "minJevAnsweredShare (0.30) and maxInfrastructureFallbackShare (0.05). The floor is deliberately low: it exists to catch an outage, not to judge Jev. The live smoke run on tuning seeds shows the real share first; if 0.30 is far from it, change the plan before the held-out run.",
       "onFailure": "no verdict: fix the cause and play the plan again on fresh seeds"
     },
     "evidence": {

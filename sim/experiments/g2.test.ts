@@ -10,6 +10,7 @@ import {
   decideVerdict,
   estimateThb,
   normalCdf,
+  seedClusteredScore,
   offlineBackend,
   parseG2Plan,
   parseG2Rows,
@@ -22,11 +23,13 @@ import {
   requiredBlocks,
   validateG2Plan,
   type DifficultyStats,
+  type DuelBackend,
+  type G2Mode,
   type G2Plan,
   type G2Provenance,
   type G2Row,
 } from './g2.ts';
-import { DEFAULT_G2_PLAN, runG2Cli } from './g2-main.ts';
+import { DEFAULT_G2_PLAN, runG2Cli as runG2CliWith } from './g2-main.ts';
 
 const planText = readFileSync(DEFAULT_G2_PLAN, 'utf8');
 const plan = parseG2Plan(JSON.parse(planText));
@@ -48,10 +51,36 @@ const dir = mkdtempSync(join(tmpdir(), 'poke-g2-'));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
 // Every game here runs on `offlineBackend`: the seeded fake client, whatever key the machine holds.
+// The Jev key's name may not appear in sim/ (lint, spec §7), so it is not stubbed here: no call can
+// reach `envBackend` (see `runG2Cli` below), and `ai/jev-duel.test.ts` checks, with a key set, that
+// the offline backend's mode is never live.
 beforeEach(() => vi.stubEnv('JEV_ENABLED', ''));
 afterEach(() => vi.unstubAllEnvs());
 
-function io() {
+/**
+ * The one way this file calls the runner: the backend is a required argument, so no test can fall
+ * through to `envBackend`, which is live on a machine with the key in its shell.
+ */
+function runG2Cli(
+  args: string[],
+  io: ReturnType<typeof makeIo>,
+  backend: DuelBackend = offlineBackend,
+): Promise<number> {
+  return runG2CliWith(args, realEngine, noViolations, io, () => provenance, backend);
+}
+
+/** A backend that must never play a game: a `create` that throws fails the test that reaches it. */
+const neverPlays = (mode: G2Mode): DuelBackend => ({
+  mode: () => mode,
+  create: () => {
+    throw new Error(
+      `a ${mode} game was started; the guard under test should have stopped it first`,
+    );
+  },
+  budgetExceeded: () => false,
+});
+
+function makeIo() {
   const lines: string[] = [];
   const errors: string[] = [];
   return { lines, errors, log: (l: string) => lines.push(l), error: (l: string) => errors.push(l) };
@@ -274,6 +303,7 @@ function row(block: number, arm: 'control' | 'treatment', overrides: Partial<G2R
       estimatedRequests: 0,
       thb: 0.09,
     },
+    plannedSeeds: plan.seeds.count,
     ...provenance,
     ...overrides,
   };
@@ -408,6 +438,7 @@ describe('analysis and the pre-registered verdict', () => {
         scoreDifference: { mean, lo, hi: mean + 0.1 },
         winDifference: { mean, lo, hi: mean + 0.1 },
         effectSize: 1,
+        bySeedCluster: null,
         byFocalSeat: {},
       }) as const;
     const input = (lo: number, mean: number, p95: number) => ({
@@ -435,6 +466,114 @@ describe('analysis and the pre-registered verdict', () => {
   });
 });
 
+describe('Jev must have answered (pre-registered integrity, B2)', () => {
+  const fast = { resamples: 400 };
+  const withCounts = (counts: Record<string, number>, which?: 'hard' | 'normal') =>
+    rows(120, 100, 40).map((r) => ({
+      ...r,
+      seatStats: r.seatStats.map((s) =>
+        which === undefined || s.difficulty === which ? { ...s, counts } : s,
+      ),
+    }));
+  const verdictOf = (all: G2Row[]) => analyzeG2(all, plan, { plannedBlocks: 120, ...fast }).verdict;
+
+  test('the plan states the floor, the ceiling and the causes', () => {
+    expect(plan.rule.integrity.minJevAnsweredShare).toBe(0.3);
+    expect(plan.rule.integrity.maxInfrastructureFallbackShare).toBe(0.05);
+    expect(plan.rule.integrity.infrastructureCauses).toEqual(
+      expect.arrayContaining(['timeout', 'network', 'auth']),
+    );
+  });
+
+  test('live rows that are all fallback:timeout give no verdict, however the arms compare', () => {
+    // An outage: every decision of both difficulties times out, so the arms look identical.
+    const outage = withCounts({ decisions: 10, requests: 10, 'fallback:timeout': 10 });
+    const report = analyzeG2(outage, plan, { plannedBlocks: 120, ...fast });
+    expect(report.evidence).toBe('live');
+    expect(report.verdict.status).toBe('no-verdict');
+    const failed = report.verdict.checks.filter((c) => !c.pass).map((c) => c.id);
+    expect(failed).toEqual(['jev-answered', 'infrastructure-fallbacks']);
+    expect(report.verdict.statement).not.toContain('Ship two levels');
+    const answered = report.verdict.checks.find((c) => c.id === 'jev-answered')!.detail;
+    expect(answered).toContain('hard 0.000');
+    expect(answered).toContain('normal 0.000');
+  });
+
+  test('every other infrastructure cause is caught as well, with the numbers in the detail', () => {
+    for (const cause of ['network', 'auth', 'rate_limited', 'server_error']) {
+      const verdict = verdictOf(
+        withCounts({ decisions: 10, requests: 10, [`fallback:${cause}`]: 10 }),
+      );
+      expect(verdict.status, cause).toBe('no-verdict');
+      const infra = verdict.checks.find((c) => c.id === 'infrastructure-fallbacks')!;
+      expect(infra.pass).toBe(false);
+      expect(infra.detail).toContain(`${cause} 1.000`);
+    }
+  });
+
+  test('a service that answers badly is not an outage: Jev-side fallbacks do not trip the infrastructure check', () => {
+    const lowConfidence = withCounts({ decisions: 10, requests: 10, 'fallback:low_confidence': 5 });
+    const verdict = verdictOf(lowConfidence);
+    expect(verdict.checks.find((c) => c.id === 'jev-answered')!.pass).toBe(true);
+    expect(verdict.checks.find((c) => c.id === 'infrastructure-fallbacks')!.pass).toBe(true);
+  });
+
+  test('the floor is exact: answered 0.30 passes, below it gives no verdict', () => {
+    const at = withCounts({ decisions: 10, requests: 10, 'fallback:low_confidence': 7 });
+    expect(verdictOf(at).checks.find((c) => c.id === 'jev-answered')!.pass).toBe(true);
+    const below = withCounts({ decisions: 10, requests: 10, 'fallback:low_confidence': 8 });
+    const verdict = verdictOf(below);
+    expect(verdict.status).toBe('no-verdict');
+    expect(verdict.reasons.join()).toContain('jev-answered');
+  });
+
+  test("Hard's own timeouts are the latency rule's, not an outage: Normal answering keeps the verdict", () => {
+    // Hard times out on half its decisions (rollouts eat the deadline); Normal is healthy.
+    const slowHard = withCounts({ decisions: 10, requests: 10, 'fallback:timeout': 5 }, 'hard');
+    const verdict = verdictOf(slowHard);
+    expect(verdict.status).toBe('ship-2-levels');
+    expect(verdict.checks.find((c) => c.id === 'infrastructure-fallbacks')!.pass).toBe(true);
+    expect(verdict.checks.find((c) => c.id === 'latency-timeouts')!.pass).toBe(false);
+  });
+
+  test('a run with no decision at all that reached Jev has no answered share to trust', () => {
+    const none = withCounts({ decisions: 0, requests: 0 });
+    expect(verdictOf(none).status).toBe('no-verdict');
+  });
+});
+
+describe('a live smoke run on tuning seeds', () => {
+  test('is not evidence and gives no verdict, but still shows the answered share', () => {
+    const smoke = rows(40, 30, 10).map((r) => {
+      const seed = r.seed - plan.seeds.first + 100_200;
+      const blockId = blockIdOf(2, seed, r.focalSeat);
+      return { ...r, seed, blockId, gameId: `${blockId}/${r.arm}` };
+    });
+    const report = analyzeG2(smoke, plan, { plannedBlocks: 40, resamples: 100 });
+    expect(report.evidence).toBe('not-evidence: tuning seeds');
+    expect(report.verdict.status).toBe('no-verdict');
+    expect(report.verdict.checks.find((c) => c.id === 'jev-answered')!.detail).toContain(
+      'hard 1.000',
+    );
+  });
+});
+
+describe('the seed-clustered sensitivity', () => {
+  test('averages a seed’s two blocks and resamples whole seeds, and says nothing for a single seed', () => {
+    const all = rows(40, 30, 10);
+    const result = seedClusteredScore(all, { confidence: 0.95, analysisSeed: 1, resamples: 400 })!;
+    expect(result.seeds).toBe(20);
+    const report = analyzeG2(all, plan, { plannedBlocks: 40, resamples: 400 });
+    expect(result.mean).toBeCloseTo(report.duel!.scoreDifference.mean, 9);
+    expect(result.lo).toBeLessThan(result.mean);
+    expect(result.hi).toBeGreaterThan(result.mean);
+    expect(report.duel!.bySeedCluster).not.toBeNull();
+    expect(
+      seedClusteredScore(rows(2, 1), { confidence: 0.95, analysisSeed: 1, resamples: 100 }),
+    ).toBeNull();
+  });
+});
+
 describe('the runner: resume, held-out guard and analysis', () => {
   const smoke = ['--seed-base', String(SMOKE_BASE), '--seeds', '1'];
 
@@ -442,22 +581,14 @@ describe('the runner: resume, held-out guard and analysis', () => {
     'plays the plan, skips what is written on a rerun, survives a torn last line, and analyses it as not evidence',
     async () => {
       const out = join(dir, 'resume.rows.jsonl');
-      const first = io();
-      expect(
-        await runG2Cli(
-          [...smoke, '--out', out],
-          realEngine,
-          noViolations,
-          first,
-          () => provenance,
-          offlineBackend,
-        ),
-      ).toBe(0);
+      const first = makeIo();
+      expect(await runG2Cli([...smoke, '--out', out], first)).toBe(0);
       expect(first.lines.some((l) => l.includes('4 to play'))).toBe(true);
       const written = parseG2Rows(readFileSync(out, 'utf8'));
       expect(written.rows.map((r) => r.gameId)).toEqual(
         planG2Games(plan, { seedBase: SMOKE_BASE, seeds: 1 }).map((g) => g.gameId),
       );
+      expect(written.rows.every((r) => r.plannedSeeds === 1)).toBe(true);
       // Rotation: Hard sat in seat 0 in one block and seat 1 in the other, with Normal opposite.
       expect(
         written.rows.filter((r) => r.arm === 'treatment').map((r) => r.seatPolicies.join('+')),
@@ -466,44 +597,24 @@ describe('the runner: resume, held-out guard and analysis', () => {
       // An interrupted write: the last game's row is cut mid-line.
       const lines = readFileSync(out, 'utf8').trimEnd().split('\n');
       writeFileSync(out, `${lines.slice(0, 3).join('\n')}\n${lines[3]!.slice(0, 40)}`);
-      const resumed = io();
-      expect(
-        await runG2Cli(
-          [...smoke, '--out', out],
-          realEngine,
-          noViolations,
-          resumed,
-          () => provenance,
-        ),
-      ).toBe(0);
+      const resumed = makeIo();
+      expect(await runG2Cli([...smoke, '--out', out], resumed)).toBe(0);
       expect(resumed.lines[0]).toContain('3 already in');
       expect(resumed.lines[0]).toContain('1 to play');
       const after = parseG2Rows(readFileSync(out, 'utf8'));
       expect(after.rows).toHaveLength(4);
       expect(new Set(after.rows.map((r) => r.gameId)).size).toBe(4);
 
-      const rerun = io();
-      expect(
-        await runG2Cli(
-          [...smoke, '--out', out],
-          realEngine,
-          noViolations,
-          rerun,
-          () => provenance,
-          offlineBackend,
-        ),
-      ).toBe(0);
+      const rerun = makeIo();
+      expect(await runG2Cli([...smoke, '--out', out], rerun)).toBe(0);
       expect(rerun.lines[0]).toContain('0 to play');
 
-      const report = io();
+      const report = makeIo();
       const json = join(dir, 'report.json');
       expect(
         await runG2Cli(
           [...smoke, '--out', out, '--analyze', '--resamples', '200', '--json', json],
-          realEngine,
-          noViolations,
           report,
-          () => provenance,
         ),
       ).toBe(0);
       const text = report.lines.join('\n');
@@ -516,108 +627,109 @@ describe('the runner: resume, held-out guard and analysis', () => {
 
   test('refuses --held-out unless the run is live, and writes nothing', async () => {
     const out = join(dir, 'held-out.rows.jsonl');
-    const run = io();
-    expect(
-      await runG2Cli(
-        ['--held-out', '--seeds', '1', '--out', out],
-        realEngine,
-        noViolations,
-        run,
-        () => provenance,
-      ),
-    ).toBe(2);
-    expect(run.errors.join()).toContain('needs a live run');
-    expect(existsSync(out)).toBe(false);
-    vi.stubEnv('JEV_ENABLED', 'false');
-    const off = io();
-    expect(
-      await runG2Cli(
-        ['--held-out', '--seeds', '1', '--out', out],
-        realEngine,
-        noViolations,
-        off,
-        () => provenance,
-      ),
-    ).toBe(2);
+    // Fake (no key) and disabled (kill switch): the guard must stop both before a game is created.
+    for (const mode of ['fake', 'disabled'] as const) {
+      const run = makeIo();
+      expect(
+        await runG2Cli(['--held-out', '--seeds', '1', '--out', out], run, neverPlays(mode)),
+      ).toBe(2);
+      expect(run.errors.join(), mode).toContain('needs a live run');
+      expect(existsSync(out), mode).toBe(false);
+    }
+    // The offline backend is the default of the helper and is never live, whatever the shell holds.
+    const offline = makeIo();
+    expect(await runG2Cli(['--held-out', '--seeds', '1', '--out', out], offline)).toBe(2);
     expect(existsSync(out)).toBe(false);
   });
 
   test('refuses a seed base outside the tuning range, two seed choices and a mixed-mode rows file', async () => {
     const out = join(dir, 'guards.rows.jsonl');
-    const a = io();
-    expect(
-      await runG2Cli(
-        ['--seed-base', '1000002', '--out', out],
-        realEngine,
-        noViolations,
-        a,
-        () => provenance,
-      ),
-    ).toBe(2);
-    const b = io();
-    expect(
-      await runG2Cli(['--out', out], realEngine, noViolations, b, () => provenance, offlineBackend),
-    ).toBe(2);
-    const c = io();
-    expect(
-      await runG2Cli(
-        ['--seed-base', '100002', '--held-out', '--out', out],
-        realEngine,
-        noViolations,
-        c,
-        () => provenance,
-      ),
-    ).toBe(2);
-    writeFileSync(out, `${JSON.stringify(row(0, 'control', { mode: 'live' }))}\n`);
-    const d = io();
-    expect(
-      await runG2Cli(
-        [...smoke, '--out', out],
-        realEngine,
-        noViolations,
-        d,
-        () => provenance,
-        offlineBackend,
-      ),
-    ).toBe(2);
+    const a = makeIo();
+    expect(await runG2Cli(['--seed-base', '1000002', '--out', out], a)).toBe(2);
+    const b = makeIo();
+    expect(await runG2Cli(['--out', out], b)).toBe(2);
+    const c = makeIo();
+    expect(await runG2Cli(['--seed-base', '100002', '--held-out', '--out', out], c)).toBe(2);
+    writeFileSync(out, `${JSON.stringify(row(0, 'control', { mode: 'live', plannedSeeds: 1 }))}\n`);
+    const d = makeIo();
+    expect(await runG2Cli([...smoke, '--out', out], d)).toBe(2);
     expect(d.errors.join()).toContain('live rows');
   });
 
   test("--validate prints the power table; --analyze refuses rows that are not this plan's games", async () => {
-    const v = io();
-    expect(await runG2Cli(['--validate'], realEngine, noViolations, v)).toBe(0);
+    const v = makeIo();
+    expect(await runG2Cli(['--validate'], v)).toBe(0);
     expect(v.lines.join('\n')).toContain('gap 0.1: 393 blocks, 198 seeds, 792 games');
     const out = join(dir, 'stray.rows.jsonl');
     writeFileSync(out, `${JSON.stringify(row(0, 'control'))}\n`);
-    const a = io();
+    const a = makeIo();
+    expect(await runG2Cli([...smoke, '--out', out, '--analyze'], a)).toBe(2);
+    expect(a.errors.join()).toContain('not games of this plan');
+  });
+
+  test('--analyze --seeds k refuses a run that was not declared with k seeds, so a half-played run gets no verdict', async () => {
+    const out = join(dir, 'half.rows.jsonl');
+    // Two seeds declared (--seeds 2), one of them played: its rows say plannedSeeds 2.
+    const half = planG2Games(plan, { seedBase: SMOKE_BASE, seeds: 2 }).slice(0, 4);
+    writeFileSync(
+      out,
+      half
+        .map((g) =>
+          JSON.stringify(
+            row(0, g.arm, {
+              gameId: g.gameId,
+              blockId: g.blockId,
+              seed: g.seed,
+              focalSeat: g.focalSeat,
+              mode: 'fake',
+              plannedSeeds: 2,
+            }),
+          ),
+        )
+        .join('\n') + '\n',
+    );
+    // Reading it as a finished one-seed run would complete every block; it is refused instead.
+    const prefix = makeIo();
     expect(
       await runG2Cli(
-        [...smoke, '--out', out, '--analyze'],
-        realEngine,
-        noViolations,
-        a,
-        () => provenance,
+        ['--seed-base', String(SMOKE_BASE), '--seeds', '1', '--out', out, '--analyze'],
+        prefix,
       ),
     ).toBe(2);
-    expect(a.errors.join()).toContain('not games of this plan');
+    expect(prefix.errors.join()).toContain('declared when the run started');
+    expect(prefix.lines).toEqual([]);
+    // Without --seeds the analysis is for the whole plan: also not the declared 2.
+    const whole = makeIo();
+    expect(
+      await runG2Cli(['--seed-base', String(SMOKE_BASE), '--out', out, '--analyze'], whole),
+    ).toBe(2);
+    // The declared n is accepted, and the missing blocks then give no verdict.
+    const declared = makeIo();
+    expect(
+      await runG2Cli(
+        ['--seed-base', String(SMOKE_BASE), '--seeds', '2', '--out', out, '--analyze'],
+        declared,
+      ),
+    ).toBe(0);
+    expect(declared.lines.join('\n')).toContain('Verdict: no-verdict');
+  });
+
+  test('a rows file started for another n is not continued', async () => {
+    const out = join(dir, 'other-n.rows.jsonl');
+    writeFileSync(out, `${JSON.stringify(row(0, 'control', { mode: 'fake', plannedSeeds: 3 }))}\n`);
+    const run = makeIo();
+    expect(await runG2Cli([...smoke, '--out', out], run)).toBe(2);
+    expect(run.errors.join()).toContain('run of 3 seeds');
   });
 
   test('--max-thb stops before the next game and exits 3, leaving the rows to resume', async () => {
     const out = join(dir, 'cap.rows.jsonl');
     writeFileSync(
       out,
-      `${JSON.stringify(row(0, 'control', { gameId: 'g2/2p/s100200/f0/control', blockId: 'g2/2p/s100200/f0', seed: 100200, mode: 'fake', usage: { source: 'decision-counts', requests: 100, inputTokens: null, estimatedRequests: 0, thb: null } }))}\n`,
+      `${JSON.stringify(row(0, 'control', { gameId: 'g2/2p/s100200/f0/control', blockId: 'g2/2p/s100200/f0', seed: 100200, mode: 'fake', plannedSeeds: 1, usage: { source: 'decision-counts', requests: 100, inputTokens: null, estimatedRequests: 0, thb: null } }))}\n`,
     );
-    const run = io();
-    expect(
-      await runG2Cli(
-        [...smoke, '--out', out, '--max-thb', '0.0001'],
-        realEngine,
-        noViolations,
-        run,
-        () => provenance,
-      ),
-    ).toBe(3);
+    const run = makeIo();
+    expect(await runG2Cli([...smoke, '--out', out, '--max-thb', '0.0001'], run)).toBe(3);
     expect(run.errors.join()).toContain('--max-thb');
   });
 });

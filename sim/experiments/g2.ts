@@ -14,8 +14,20 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { PERSONALITIES } from '../../ai/fallback/index.ts';
-import type { LegalActions, Observation } from '../../engine/index.ts';
-import { analyzePaired, type PairedGameRecord, type PairedReport } from '../analysis/paired.ts';
+import {
+  createRng,
+  int,
+  type LegalActions,
+  type Observation,
+  type RngState,
+} from '../../engine/index.ts';
+import {
+  analyzePaired,
+  DEFAULT_ANALYSIS_SEED,
+  DEFAULT_RESAMPLES,
+  type PairedGameRecord,
+  type PairedReport,
+} from '../analysis/paired.ts';
 import { createMetrics } from '../metrics.ts';
 import {
   createDuelRun,
@@ -91,6 +103,12 @@ const planSchema = z.object({
       budgetExceededFallbacks: z.literal(0),
       maxAbortedPairShare: z.number().min(0).max(1),
       everyRowLive: z.boolean(),
+      /** Floor on decisions that Jev answered itself (no fallback) over all Jev decisions, per difficulty. */
+      minJevAnsweredShare: z.number().min(0).max(1),
+      /** Fallback causes that mean the service, the network or the key failed rather than Jev answering badly. */
+      infrastructureCauses: z.array(z.string()).min(1),
+      /** Ceiling on the share of decisions that fell back on one of those causes, per difficulty. */
+      maxInfrastructureFallbackShare: z.number().min(0).max(1),
     }),
     evidence: z.object({
       intervalConfidence: z.number().gt(0).lt(1),
@@ -180,6 +198,8 @@ export type G2GamePlan = {
   seatPolicies: readonly string[];
   /** Position of the block in the plan, which a shard splits on. */
   blockIndex: number;
+  /** Seeds of the plan this run was started with (`--seeds`, else the whole plan): the n declared before the run. */
+  plannedSeeds: number;
 };
 
 export type G2PlanFilter = {
@@ -234,6 +254,7 @@ export function planG2Games(plan: G2Plan, filter: G2PlanFilter = {}): G2GamePlan
               : plan.policies.background,
           ),
           blockIndex,
+          plannedSeeds: count,
         });
       }
     }
@@ -318,6 +339,8 @@ export type G2Row = {
   failureReasons: string[];
   seatStats: G2SeatStats[];
   usage: G2Usage;
+  /** Seeds the run was declared to play when it started; an analysis of a different n is refused. */
+  plannedSeeds: number;
 } & G2Provenance;
 
 /** Wraps a seat's Jev policy and times each decision that reached the orchestrator's question path. */
@@ -457,6 +480,7 @@ export async function playG2Game(
     failureReasons: reasons,
     seatStats,
     usage,
+    plannedSeeds: plan.plannedSeeds,
     ...provenance,
   };
 }
@@ -609,6 +633,7 @@ export type G2Report = {
     | 'not-evidence: fake-client'
     | 'not-evidence: Jev disabled'
     | 'not-evidence: mixed modes'
+    | 'not-evidence: tuning seeds'
     | 'none';
   modes: Record<string, number>;
   seedSet: 'tune' | 'eval' | null;
@@ -623,6 +648,12 @@ export type G2Report = {
     scoreDifference: { mean: number; lo: number | null; hi: number | null };
     winDifference: { mean: number; lo: number | null; hi: number | null };
     effectSize: number | null;
+    /**
+     * Sensitivity, not part of the rule: the same score difference with whole seeds resampled (a
+     * seed's two blocks together), which keeps the two blocks that share a control configuration
+     * together. `null` when fewer than two seeds are scored.
+     */
+    bySeedCluster: { seeds: number; mean: number; lo: number; hi: number } | null;
     byFocalSeat: Record<
       string,
       { n: number; scoreMean: number; lo: number | null; hi: number | null }
@@ -670,7 +701,7 @@ export function analyzeG2(rows: readonly G2Row[], plan: G2Plan, options: Analyze
   const modes: Record<string, number> = {};
   for (const row of rows) modes[row.mode] = (modes[row.mode] ?? 0) + 1;
   const modeKeys = Object.keys(modes);
-  const evidence: G2Report['evidence'] =
+  const modeEvidence: G2Report['evidence'] =
     modeKeys.length === 0
       ? 'none'
       : modeKeys.length > 1
@@ -686,6 +717,11 @@ export function analyzeG2(rows: readonly G2Row[], plan: G2Plan, options: Analyze
     ...(options.analysisSeed !== undefined && { analysisSeed: options.analysisSeed }),
     ...(options.resamples !== undefined && { resamples: options.resamples }),
   });
+  // A live smoke run on tuning seeds measures the service, not the held-out question.
+  const evidence: G2Report['evidence'] =
+    modeEvidence === 'live' && paired.seedSet !== 'eval'
+      ? 'not-evidence: tuning seeds'
+      : modeEvidence;
   const comparison = paired.comparisons.find(
     (entry) =>
       entry.treatmentPolicy === plan.policies.treatment &&
@@ -701,6 +737,11 @@ export function analyzeG2(rows: readonly G2Row[], plan: G2Plan, options: Analyze
           scoreDifference: pooled.differences.score,
           winDifference: pooled.differences.win,
           effectSize: pooled.effectSize.score,
+          bySeedCluster: seedClusteredScore(rows, {
+            confidence: plan.rule.evidence.intervalConfidence,
+            analysisSeed: options.analysisSeed ?? DEFAULT_ANALYSIS_SEED,
+            resamples: options.resamples ?? DEFAULT_RESAMPLES,
+          }),
           byFocalSeat: Object.fromEntries(
             Object.entries(
               comparison.bySeatCount[String(plan.game.seats)]?.strata.focalSeat ?? {},
@@ -798,6 +839,57 @@ export function analyzeG2(rows: readonly G2Row[], plan: G2Plan, options: Analyze
   };
 }
 
+const focalScore = (row: G2Row): number =>
+  row.winners.includes(row.focalSeat) ? 1 / row.winners.length : 0;
+
+/**
+ * The mean score difference (Hard minus Normal) over scored blocks with a percentile bootstrap that
+ * resamples whole seeds. A scored block has both arms finished and no invariant failure, as in
+ * `analyzePaired`; a seed's blocks are averaged and each seed counts once.
+ */
+export function seedClusteredScore(
+  rows: readonly G2Row[],
+  options: { confidence: number; analysisSeed: number; resamples: number },
+): { seeds: number; mean: number; lo: number; hi: number } | null {
+  const byBlock = new Map<string, Partial<Record<G2Arm, G2Row>>>();
+  for (const row of rows) {
+    const block = byBlock.get(row.blockId) ?? {};
+    block[row.arm] = row;
+    byBlock.set(row.blockId, block);
+  }
+  const bySeed = new Map<number, number[]>();
+  for (const block of byBlock.values()) {
+    const { treatment, control } = block;
+    if (!treatment || !control) continue;
+    if (!treatment.finished || !control.finished) continue;
+    if (treatment.invariantFailures > 0 || control.invariantFailures > 0) continue;
+    const diffs = bySeed.get(treatment.seed) ?? [];
+    diffs.push(focalScore(treatment) - focalScore(control));
+    bySeed.set(treatment.seed, diffs);
+  }
+  const perSeed = [...bySeed.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([, diffs]) => diffs.reduce((sum, d) => sum + d, 0) / diffs.length);
+  if (perSeed.length < 2) return null;
+  const mean = perSeed.reduce((sum, d) => sum + d, 0) / perSeed.length;
+  let rng: RngState = createRng(`g2-seed-cluster-${options.analysisSeed}`);
+  const means: number[] = [];
+  for (let r = 0; r < options.resamples; r++) {
+    let sum = 0;
+    for (let i = 0; i < perSeed.length; i++) {
+      const draw = int(rng, perSeed.length, 'bootstrap');
+      rng = draw.rng;
+      sum += perSeed[draw.value]!;
+    }
+    means.push(sum / perSeed.length);
+  }
+  means.sort((a, b) => a - b);
+  const tail = (1 - options.confidence) / 2;
+  const lo = means[Math.floor(tail * options.resamples)]!;
+  const hi = means[Math.min(options.resamples - 1, Math.ceil((1 - tail) * options.resamples) - 1)]!;
+  return { seeds: perSeed.length, mean, lo, hi };
+}
+
 function armLine(arm: { wins: number; ties: number; losses: number; score: number }) {
   return { wins: arm.wins, ties: arm.ties, losses: arm.losses, score: arm.score };
 }
@@ -852,6 +944,7 @@ export function decideVerdict(plan: G2Plan, input: VerdictInput): G2Verdict {
       pass: integrity.budgetExceededFallbacks === 0,
       detail: `${integrity.budgetExceededFallbacks} decisions fell back on a spent budget (must be 0)`,
     },
+    ...jevAnsweredChecks(rule.integrity, stats),
     {
       id: 'aborts',
       pass:
@@ -939,6 +1032,64 @@ export function decideVerdict(plan: G2Plan, input: VerdictInput): G2Verdict {
   };
 }
 
+/**
+ * Did Jev actually answer? Without this an outage (a dead service, a refused key, timeouts)
+ * makes every decision fall back for both difficulties, the arms look alike and the rule would
+ * read it as "Hard is no better". Two pre-registered checks per difficulty: the share of Jev
+ * decisions answered without a fallback has a floor, and the share lost to infrastructure causes
+ * has a ceiling. Either one failing means no verdict.
+ */
+function jevAnsweredChecks(
+  integrity: G2Plan['rule']['integrity'],
+  stats: Record<G2Difficulty, DifficultyStats>,
+): Check[] {
+  // Normal has no rollout, so every one of these fallbacks is the service, the network or the key.
+  // Hard's own timeouts are what the latency rule judges (`latency-timeouts`, against Normal's), so
+  // they stay out of Hard's infrastructure share; a dead service still shows in Normal's.
+  const causesOf = (which: G2Difficulty) =>
+    which === 'hard'
+      ? integrity.infrastructureCauses.filter((cause) => cause !== 'timeout')
+      : integrity.infrastructureCauses;
+  const shares = (which: G2Difficulty) => {
+    const { rates } = stats[which];
+    return {
+      which,
+      decisions: rates.decisions,
+      answered: rates.decisions === 0 ? 0 : 1 - rates.fallbackRate.total,
+      infrastructure: causesOf(which).reduce(
+        (sum, cause) => sum + (rates.fallbackRate.byCause[cause] ?? 0),
+        0,
+      ),
+    };
+  };
+  const both = [shares('hard'), shares('normal')];
+  const named = (share: ReturnType<typeof shares>) =>
+    `${share.which} ${fmt(share.answered)} of ${share.decisions} decisions`;
+  const infraDetail = (share: ReturnType<typeof shares>) => {
+    const byCause = causesOf(share.which)
+      .map((cause) => `${cause} ${fmt(stats[share.which].rates.fallbackRate.byCause[cause] ?? 0)}`)
+      .join(', ');
+    return `${share.which} ${fmt(share.infrastructure)} (${byCause})`;
+  };
+  return [
+    {
+      id: 'jev-answered',
+      pass: both.every(
+        (share) => share.decisions > 0 && share.answered >= integrity.minJevAnsweredShare,
+      ),
+      detail: `Jev answered without a fallback: ${both.map(named).join('; ')}; each must be at least ${integrity.minJevAnsweredShare}`,
+    },
+    {
+      id: 'infrastructure-fallbacks',
+      pass: both.every(
+        (share) =>
+          share.decisions > 0 && share.infrastructure <= integrity.maxInfrastructureFallbackShare,
+      ),
+      detail: `decisions lost to the service, network or key (Hard's timeouts are judged by the latency rule): ${both.map(infraDetail).join('; ')}; each at most ${integrity.maxInfrastructureFallbackShare}`,
+    },
+  ];
+}
+
 const fmt = (value: number | null) => (value === null ? 'n/a' : value.toFixed(3));
 const ms = (value: number | null) => (value === null ? 'n/a' : `${Math.round(value)} ms`);
 
@@ -951,7 +1102,7 @@ export function formatG2Report(report: G2Report): string[] {
   out(
     report.evidence === 'live'
       ? `Source: live Jev rows (${report.rowsRead} games), seed set ${report.seedSet ?? 'n/a'}.`
-      : `**Source: ${report.evidence}. This output proves the plumbing only. It is not evidence about Hard or Normal, and it carries no verdict.**`,
+      : `**Source: ${report.evidence}. This output checks plumbing, latency, fallbacks and cost only. It is not evidence about Hard or Normal, and it carries no verdict.**`,
   );
   out();
   out(`**Verdict: ${report.verdict.status}.** ${report.verdict.statement}`);
@@ -988,6 +1139,11 @@ export function formatG2Report(report: G2Report): string[] {
       `| Sole-win rate | ${fmt(duel.winDifference.mean)} | ${fmt(duel.winDifference.lo)} to ${fmt(duel.winDifference.hi)} |`,
     );
     out(`| Standardized score effect (paired d) | ${fmt(duel.effectSize)} | |`);
+    out(
+      duel.bySeedCluster
+        ? `| Score, whole seeds resampled (sensitivity, not part of the rule; ${duel.bySeedCluster.seeds} seeds) | ${fmt(duel.bySeedCluster.mean)} | ${fmt(duel.bySeedCluster.lo)} to ${fmt(duel.bySeedCluster.hi)} |`
+        : '| Score, whole seeds resampled (sensitivity) | n/a | |',
+    );
     out();
     out('| Focal seat | n | Score difference | 95% interval |');
     out('|---|---|---|---|');
