@@ -14,7 +14,7 @@ import {
   warnJevRejected,
   type JevClient,
 } from './jev/client.ts';
-import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
+import { defaultUsageLedger, warnLedgerFailed, type UsageRecorder } from './jev/spend.ts';
 import { billedUsage } from './jev/usage.ts';
 import { confidenceFloor } from './orchestrator.ts';
 import { LINES, selectLine, type Situation } from './lines.ts';
@@ -235,7 +235,7 @@ export const createChatReplier = ({
               ...(billed.estimated && { estimated: true }),
             });
           } catch (error) {
-            console.warn(`Could not write the Jev usage log: ${String(error)}`);
+            warnLedgerFailed('Could not write the Jev usage log', error);
           }
         })
         .catch(warnJevRejected);

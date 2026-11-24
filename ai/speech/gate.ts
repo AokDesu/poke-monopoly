@@ -1,7 +1,7 @@
 import { CHAT_TUNING } from '../chat.ts';
 import { billedUsage } from '../jev/usage.ts';
 import { decisionDeadline, resolveJevModel, type JevClient } from '../jev/client.ts';
-import { defaultUsageLedger, type UsageRecorder } from '../jev/spend.ts';
+import { defaultUsageLedger, warnLedgerFailed, type UsageRecorder } from '../jev/spend.ts';
 import {
   buildManipulationRequest,
   manipulationVerdict,
@@ -75,7 +75,7 @@ export const createManipulationGate = ({
               ...(billed.estimated && { estimated: true }),
             });
           } catch (error) {
-            console.warn(`Could not write the Jev usage log: ${String(error)}`);
+            warnLedgerFailed('Could not write the Jev usage log', error);
           }
         }
         // A late answer was already turned into a timeout by the client.
