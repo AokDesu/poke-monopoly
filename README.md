@@ -80,7 +80,7 @@ Remove-Item Env:DEMO_MODE         # after stopping the server
 
 Clear it afterwards rather than put it in `.env`, so a later real-play server does not start in demo mode.
 
-Leave `DEMO_MODE` unset on any server used for real play. The kill switch (§11 step 7) is `JEV_ENABLED=false`. The server reads it on every call, but a running process cannot have its environment changed from outside, so stop the server and start it again with the variable set. `GET /api/ai/status` shows the result (`"jevEnabled":false,"reason":"disabled"`). `docs/pr-evidence/64-demo-rehearsal/` holds the last walk of steps 1 to 8 with what each one needs.
+Leave `DEMO_MODE` unset on any server used for real play. The kill switch (§11 step 7) is `JEV_ENABLED=false`; it fails closed, so only an unset, empty or `true` value leaves Jev on and `0`, `off` or a typo turns it off. The server reads it on every call, but a running process cannot have its environment changed from outside, so stop the server and start it again with the variable set. `GET /api/ai/status` shows the result (`"jevEnabled":false,"reason":"disabled"`). `docs/pr-evidence/64-demo-rehearsal/` holds the last walk of steps 1 to 8 with what each one needs.
 
 ## Folders
 
