@@ -563,6 +563,7 @@ TypeScript plus a web app with API routes. The folders are `engine/`, `content/`
 6. **Instance IDs:** every Pokémon and item has its own instance ID.
 7. **Save:** a local save after each accepted action.
    - It holds the current state plus the action log, with no log nested inside the snapshot, and no key.
+   - Loading a save replays its log and refuses a snapshot the log does not reproduce (`loadGame`, #64). The state hash is a comparison aid, not a signature: a save whose initial state, log and snapshot were edited consistently still loads.
    - Postgres/Docker are out of scope.
 8. **Replay:**
    - Executable command-log requirements and validation are defined in [Engine contract v1](engine-contract.md#command-log-and-replay-issue-20).

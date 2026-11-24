@@ -13,7 +13,7 @@ Run with `npm run dev:web` (port 5173). Spec: §3, §3.1, §6.1. Skill: `skills/
 | `src/ui/three/`         | Three.js scenes (lazy chunk); `public/models/` holds the licensed GLB models.                                                                    |
 | `src/i18n/en.ts`        | Every player-facing string (English, spec §3), read with `t(key)`. `src/i18n/inline-text.test.ts` fails on UI text typed elsewhere.              |
 | `src/game/store.ts`     | Rules adapter: state and action log. Calls engine functions only from `engine/index.ts`.                                                         |
-| `src/game/save.ts`      | Browser storage adapter: engine `serialize` / `deserialize`, Continue, and log export.                                                           |
+| `src/game/save.ts`      | Browser storage adapter: engine `serialize` / `loadGame`, Continue, and log export.                                                              |
 | `src/ErrorBoundary.tsx` | No blank screens: a render error shows what to do next and a retry button.                                                                       |
 | `src/ui/`               | Shared controls.                                                                                                                                 |
 

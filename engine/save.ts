@@ -69,7 +69,12 @@ const CURRENT = {
   rngVersion: ['RNG', RNG_VERSION],
 } as const;
 
-/** Throws on malformed text, another save format, or a save from another engine, content or RNG. */
+/**
+ * Parses and schema-checks only: it does not replay the log. Callers that resume a game use
+ * `loadGame`, which also refuses a snapshot its log does not reproduce.
+ *
+ * Throws on malformed text, another save format, or a save from another engine, content or RNG.
+ */
 export function deserialize(text: string): SavedGame {
   const raw: unknown = JSON.parse(text);
   const header = z
@@ -162,4 +167,22 @@ export function verifyReplay(game: SavedGame): ReplayCheck {
     return { pass: false, reason: `state hash ${expected} but replay gives ${actual}` };
   }
   return { pass: true, stateHash: actual };
+}
+
+/**
+ * Spec §6.7, §6.8: the way to load a save. `deserialize` plus `verifyReplay`, so a snapshot edited
+ * to differ from its log (or a log edited to differ from its snapshot) is refused instead of
+ * resumed. Throws what `deserialize` throws, or `Invalid save: ...` when the log does not replay
+ * to the saved state. The state hash is a comparison aid, not a signature (§6.8): a save whose
+ * initial state, log and snapshot were all edited consistently still replays and loads.
+ */
+export function loadGame(text: string): SavedGame {
+  const game = deserialize(text);
+  const check = verifyReplay(game);
+  if (!check.pass) {
+    throw new RangeError(
+      `Invalid save: the log does not replay to the saved state (${check.reason})`,
+    );
+  }
+  return game;
 }
