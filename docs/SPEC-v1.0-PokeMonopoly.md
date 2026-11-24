@@ -778,6 +778,8 @@ Never cut playing to completion, the fallback, the hard gates, or the core conve
 7. Flip the kill switch; the game continues on the backup bot with a visible badge.
 8. Show graphs separating policy-only from Jev: n, latency, fallback rate, actual spend and limitations.
 
+Accepted scope for steps 6 and 8 (owner decision after the demo rehearsal, recorded 2026-11-24 in `docs/release/engine-triage.md`, "§11 demo path against the queue"): step 6 is accepted as memory-only, with no fifth scene (§3 stays at four); step 8 is the committed results tables plus the three commands (`sim`, `eval:jev --offline`, `usage`), with no figure page.
+
 The prototype succeeds when players enjoy the decisions, feel that each opponent plays differently, and the rules remain auditable.
 
 ## 12. Risks and open decisions
