@@ -18,6 +18,9 @@ import { engineContent } from './content.ts';
 import { loadSave, saveText, summarize, type SaveStorage } from './save.ts';
 import { createGameStore, type GameStore } from './store.ts';
 
+// Named per-test budgets (ET-05): these take 2 to 8 s at full parallelism, so the 5 s default is too tight on a loaded machine.
+const SLOW_TEST_MS = 30_000;
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -38,6 +41,7 @@ test.each([2, 3, 4] as const)(
     expect(store.getResults()).not.toHaveProperty('humanSeat');
     expect(verifyReplay(session)).toMatchObject({ pass: true });
   },
+  SLOW_TEST_MS,
 );
 
 test('an unreachable decision service finishes the game on the backup bot (§3.1)', async () => {
@@ -61,28 +65,32 @@ test('an unreachable decision service finishes the game on the backup bot (§3.1
   expect(store.getResults()).not.toBeNull();
 });
 
-test('the watcher view holds the public half only: no seat, pouch, chat, seed or RNG (§4.1)', async () => {
-  fakeServer();
-  const seed = 'sentinel-seed-do-not-show';
-  const store = watchStore(4, seed);
-  const rng = store.getSession()!.state.rng.state;
-  await playOut(store, () => {
-    const view = store.getSpectatorView()!;
-    const text = JSON.stringify(view);
-    expect(Object.keys(view.observation)).toEqual(['public']);
-    expect(view.seatIndex).toBeUndefined();
-    expect(text).not.toContain(seed);
-    expect(text).not.toContain(rng);
-    expect(text).not.toMatch(/"(own|balls|chats|rng|eventDeck|initialState)"/);
-    expect(view.feed.map((entry) => entry.record.action.actionSeq)).toEqual(
-      view.feed.map((_, index) => index + 1),
-    );
-    return false;
-  });
-  // A watcher submits nothing and quotes nothing.
-  expect(store.choose('roll')).toMatchObject({ rejected: true });
-  expect(() => store.quoteSale([])).toThrow();
-});
+test(
+  'the watcher view holds the public half only: no seat, pouch, chat, seed or RNG (§4.1)',
+  async () => {
+    fakeServer();
+    const seed = 'sentinel-seed-do-not-show';
+    const store = watchStore(4, seed);
+    const rng = store.getSession()!.state.rng.state;
+    await playOut(store, () => {
+      const view = store.getSpectatorView()!;
+      const text = JSON.stringify(view);
+      expect(Object.keys(view.observation)).toEqual(['public']);
+      expect(view.seatIndex).toBeUndefined();
+      expect(text).not.toContain(seed);
+      expect(text).not.toContain(rng);
+      expect(text).not.toMatch(/"(own|balls|chats|rng|eventDeck|initialState)"/);
+      expect(view.feed.map((entry) => entry.record.action.actionSeq)).toEqual(
+        view.feed.map((_, index) => index + 1),
+      );
+      return false;
+    });
+    // A watcher submits nothing and quotes nothing.
+    expect(store.choose('roll')).toMatchObject({ rejected: true });
+    expect(() => store.quoteSale([])).toThrow();
+  },
+  SLOW_TEST_MS,
+);
 
 test('a game with a human seat keeps its seat view and has no spectator view', () => {
   const store = createGameStore();
@@ -142,28 +150,32 @@ test('a watched save summarizes without a human seat (§3.1)', async () => {
   expect(summary.turn).toBe(store.getSession()!.state.globalTurnNo);
 });
 
-test('Continue offers a watched game and resumes it with its AI settings (§3.1)', async () => {
-  fakeServer();
-  const data = new Map<string, string>();
-  const storage: SaveStorage = {
-    getItem: (key) => data.get(key) ?? null,
-    setItem: (key, value) => void data.set(key, value),
-    removeItem: (key) => void data.delete(key),
-  };
-  const first = createGameStore();
-  render(<App store={first} storage={storage} />);
-  act(() => first.start(watchConfig(3), engineContent, settingsFor(3)));
-  await act(() => playOut(first, (steps) => steps === 40));
-  const turn = first.getSession()!.state.globalTurnNo;
-  cleanup();
+test(
+  'Continue offers a watched game and resumes it with its AI settings (§3.1)',
+  async () => {
+    fakeServer();
+    const data = new Map<string, string>();
+    const storage: SaveStorage = {
+      getItem: (key) => data.get(key) ?? null,
+      setItem: (key, value) => void data.set(key, value),
+      removeItem: (key) => void data.delete(key),
+    };
+    const first = createGameStore();
+    render(<App store={first} storage={storage} />);
+    act(() => first.start(watchConfig(3), engineContent, settingsFor(3)));
+    await act(() => playOut(first, (steps) => steps === 40));
+    const turn = first.getSession()!.state.globalTurnNo;
+    cleanup();
 
-  const second = createGameStore();
-  render(<App store={second} storage={storage} />);
-  expect(screen.getByRole('status').textContent).toBe(t('save.pendingWatched', { turn }));
-  await userEvent.click(screen.getByRole('button', { name: t('save.continue') }));
-  expect(second.getOpponents()).toEqual(settingsFor(3));
-  expect(finalHash(second)).toBe(finalHash(first));
-});
+    const second = createGameStore();
+    render(<App store={second} storage={storage} />);
+    expect(screen.getByRole('status').textContent).toBe(t('save.pendingWatched', { turn }));
+    await userEvent.click(screen.getByRole('button', { name: t('save.continue') }));
+    expect(second.getOpponents()).toEqual(settingsFor(3));
+    expect(finalHash(second)).toBe(finalHash(first));
+  },
+  SLOW_TEST_MS,
+);
 
 test('a late answer is never applied after the game is replaced or restored', async () => {
   const { promise, resolve: release } = Promise.withResolvers<void>();
@@ -192,34 +204,38 @@ function watch(store: GameStore, speed: 'normal' | 'instant' = 'instant') {
 
 const idle = (ms = 80) => act(() => new Promise<void>((resolve) => setTimeout(resolve, ms)));
 
-test('paused holds the game, step applies exactly one action, resume continues (§3)', async () => {
-  fakeServer();
-  const store = watchStore(2);
-  const { result } = watch(store);
-  act(() => result.current.setPaused(true));
-  await idle();
-  expect(logLength(store)).toBe(0);
+test(
+  'paused holds the game, step applies exactly one action, resume continues (§3)',
+  async () => {
+    fakeServer();
+    const store = watchStore(2);
+    const { result } = watch(store);
+    act(() => result.current.setPaused(true));
+    await idle();
+    expect(logLength(store)).toBe(0);
 
-  for (let step = 1; step <= 40; step++) {
-    await waitFor(() => expect(result.current.stepBlocked).toBeNull());
-    act(() => result.current.step());
-    await waitFor(() => expect(logLength(store)).toBe(step));
-    await idle(20);
-    expect(logLength(store)).toBe(step);
-  }
-  expect(store.getSession()!.log.actions.map((record) => record.action.actionSeq)).toEqual(
-    Array.from({ length: 40 }, (_, index) => index + 1),
-  );
+    for (let step = 1; step <= 40; step++) {
+      await waitFor(() => expect(result.current.stepBlocked).toBeNull());
+      act(() => result.current.step());
+      await waitFor(() => expect(logLength(store)).toBe(step));
+      await idle(20);
+      expect(logLength(store)).toBe(step);
+    }
+    expect(store.getSession()!.log.actions.map((record) => record.action.actionSeq)).toEqual(
+      Array.from({ length: 40 }, (_, index) => index + 1),
+    );
 
-  act(() => result.current.setPaused(false));
-  await waitFor(() => expect(store.getSession()!.state.phase.kind).toBe('finished'), {
-    timeout: 20_000,
-  });
-  // Pausing and stepping lost and repeated nothing: the same game as one that never paused.
-  const uninterrupted = watchStore(2);
-  await playOut(uninterrupted);
-  expect(finalHash(store)).toBe(finalHash(uninterrupted));
-});
+    act(() => result.current.setPaused(false));
+    await waitFor(() => expect(store.getSession()!.state.phase.kind).toBe('finished'), {
+      timeout: 20_000,
+    });
+    // Pausing and stepping lost and repeated nothing: the same game as one that never paused.
+    const uninterrupted = watchStore(2);
+    await playOut(uninterrupted);
+    expect(finalHash(store)).toBe(finalHash(uninterrupted));
+  },
+  SLOW_TEST_MS,
+);
 
 test('a step while running is ignored and says why', async () => {
   fakeServer();
@@ -274,4 +290,5 @@ test.each(['running', 'paused'] as const)(
     expect(verifyReplay(store.getSession()!)).toMatchObject({ pass: true });
     expect(result.current.stepBlocked).not.toBeNull();
   },
+  SLOW_TEST_MS,
 );

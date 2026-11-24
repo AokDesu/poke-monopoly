@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { check, resolveConfig } from 'prettier';
-import { describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createSdkJevClient, type JevResult } from '../../ai/jev/client.ts';
 import { createFakeJevClient } from '../../ai/jev/fake.ts';
 import {
@@ -22,6 +22,10 @@ import {
 const PLACEHOLDER_KEY = 'placeholder-key-not-real-3a9d1c';
 const PINNED = 'jev-1.13.0';
 const THAI = /[฀-๿]/;
+
+// An exported JEV_ENABLED=false (the §9 kill switch) must not turn these fake-transport tests into fallback runs: pin the switch on; tests of the switch stub it off themselves (#64).
+beforeEach(() => vi.stubEnv('JEV_ENABLED', 'true'));
+afterEach(() => vi.unstubAllEnvs());
 
 const committed = readTrial();
 // The committed file may already hold the live run; runs and guards start from a cleared copy.
