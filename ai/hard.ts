@@ -1,7 +1,7 @@
 import type { Personality } from '../content/personality-schema.ts';
 import { toEngineContent } from '../content/schema.ts';
 import {
-  rolloutOptions,
+  rolloutSteps,
   type LegalActions,
   type Observation,
   type RolloutPolicy,
@@ -53,9 +53,39 @@ export type HardRequest = {
  * out (see `rolloutOptions`), and the decision then plays as Normal.
  */
 export function hardOutcomes(request: HardRequest): OptionOutcomes | undefined {
+  const steps = rolloutWorlds(request);
+  let step = steps.next();
+  while (!step.done) step = steps.next();
+  return step.value?.outcomes;
+}
+
+/** One macrotask turn: every request already waiting on the event loop runs before this resolves. */
+const nextTurn = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
+
+/**
+ * `hardOutcomes` for the server (spec §5.6, §9, #64): the same worlds, draws and buckets, but it
+ * gives the event loop a turn after each option's rollout in each sampled world, so a status check, the speech gate or another
+ * seat's decision is answered while the rollout runs instead of after up to `HARD_ROLLOUT_MS`.
+ * The deadline counts wall time, yields included: a busy server draws fewer worlds, never more
+ * than its limit. Pass `yieldTurn` to pause some other way (tests).
+ */
+export async function hardOutcomesYielding(
+  request: HardRequest,
+  yieldTurn: () => Promise<void> = nextTurn,
+): Promise<OptionOutcomes | undefined> {
+  const steps = rolloutWorlds(request);
+  let step = steps.next();
+  while (!step.done) {
+    await yieldTurn();
+    step = steps.next();
+  }
+  return step.value?.outcomes;
+}
+
+function rolloutWorlds(request: HardRequest) {
   const { observation, legalActions, options, personality, seed, deadlineMs } = request;
   const stopAt = deadlineMs === undefined ? undefined : performance.now() + deadlineMs;
-  return rolloutOptions({
+  return rolloutSteps({
     observation,
     legalActions,
     ...(options && { options }),
@@ -63,5 +93,5 @@ export function hardOutcomes(request: HardRequest): OptionOutcomes | undefined {
     policy: rolloutPolicy(observation.own.seatIndex, personality),
     seed,
     ...(stopAt !== undefined && { shouldStop: () => performance.now() >= stopAt }),
-  })?.outcomes;
+  });
 }

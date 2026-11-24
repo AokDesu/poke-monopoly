@@ -7,6 +7,7 @@ import {
   pendingDecision,
   ROLLOUT_CONFIG,
   rolloutOptions,
+  rolloutSteps,
   type GameState,
   type RolloutPolicy,
 } from './index.ts';
@@ -152,6 +153,22 @@ describe('rolloutOptions (spec §5.6 Hard)', () => {
     const result = rolloutOptions(request(state, { options: [all[0]!, all[2]!] }))!;
     expect(Object.keys(result.outcomes)).toEqual([all[0], all[2]]);
   });
+
+  test.each(states.map((state, index) => [index, state] as const))(
+    "rolloutSteps pauses after each option and ends with rolloutOptions's result (state %i, #64)",
+    (_index, state) => {
+      const asked = request(state);
+      const steps = rolloutSteps(asked);
+      let pauses = 0;
+      let step = steps.next();
+      while (!step.done) {
+        pauses++;
+        step = steps.next();
+      }
+      expect(step.value).toEqual(rolloutOptions(asked));
+      if (step.value) expect(pauses).toBe(4 * asked.legalActions.enabled.length);
+    },
+  );
 
   test('the asked state and options are not changed', () => {
     const state = states[0]!;

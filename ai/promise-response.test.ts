@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { legalActions, observe, type GameState } from '../engine/index.ts';
 import { promiseTable } from '../eval/jev/scenario-kit.ts';
 import type { DecisionRequest } from '../engine/contract/decision.ts';
@@ -18,6 +18,8 @@ import { Orchestrator, type DecideRequest, type Difficulty } from './orchestrato
 
 // Spec §4.8, §5.3, §5.6: the promise response through the orchestrator (S09). Fake clients only.
 
+// An exported JEV_ENABLED=false (the §9 kill switch) must not turn these fake-transport tests into fallback runs: pin the switch on; tests of the switch stub it off themselves (#64).
+beforeEach(() => vi.stubEnv('JEV_ENABLED', 'true'));
 afterEach(() => vi.unstubAllEnvs());
 
 const ACCEPT = 'respond:accept';

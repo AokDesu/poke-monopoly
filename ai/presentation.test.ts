@@ -6,6 +6,13 @@ import { createApp } from './app.ts';
 import { DECISION_DEADLINE_MS } from './jev/client.ts';
 import { LINES } from './lines.ts';
 
+/** The loopback Host and its own Origin that every `/api/ai/*` route requires (spec §9). */
+const SAME_ORIGIN = {
+  host: 'localhost:5173',
+  origin: 'http://localhost:5173',
+  'content-type': 'application/json',
+};
+
 const parsed = fixtureSchema.parse(fixture);
 const seatIndex = parsed.state.activeSeatIndex;
 const request = {
@@ -23,7 +30,7 @@ const request = {
 const post = (app: Hono, path: string, body: unknown = request) =>
   app.request(path, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: SAME_ORIGIN,
     body: JSON.stringify(body),
   });
 afterEach(() => vi.unstubAllEnvs());

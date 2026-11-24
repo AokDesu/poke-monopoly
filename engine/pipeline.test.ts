@@ -447,7 +447,7 @@ test('200 accepted player and generated records have no sequence gaps and replay
       kind: 'shuffle',
       payload: { deckId: 'events', order: ['e3', 'e1', 'e2'] },
     });
-    accept({ actorId: 'engine', kind: 'event_draw', payload: { eventId: 'e3' } });
+    // A standalone event_draw is refused after revision zero, so the walk continues with real turns.
     // Walk real turns: generated dice and sole choices advance automatically; at a
     // decision the pending seat takes the last enabled choice, including PvP responses.
     while (log.actions.length < 200) {

@@ -9,6 +9,9 @@ import { META_KEY, SAVE_KEY, type SaveStorage } from './game/save.ts';
 import { t } from './i18n/en.ts';
 import { DemoScreen } from './setup/DemoScreen.tsx';
 
+// Named per-test budgets (ET-05): these take 2 to 8 s at full parallelism, so the 5 s default is too tight on a loaded machine.
+const SLOW_TEST_MS = 30_000;
+
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () {
     this.open = true;
@@ -89,22 +92,26 @@ test('a scene opens at its moment with the banner, and the banner stays on other
   expect(banner()).not.toBeNull();
 });
 
-test('the same scene opened twice gives the same state hash', async () => {
-  const hashes: string[] = [];
-  for (const id of DEMO_SCENES.map((scene) => scene.id)) {
-    for (let launch = 0; launch < 2; launch++) {
-      const storage = memory();
-      const { user } = open(storage, true);
-      await openScene(user, id);
-      hashes.push(`${id}:${stateHash(deserialize(storage.text(SAVE_KEY)).state)}`);
-      cleanup();
+test(
+  'the same scene opened twice gives the same state hash',
+  async () => {
+    const hashes: string[] = [];
+    for (const id of DEMO_SCENES.map((scene) => scene.id)) {
+      for (let launch = 0; launch < 2; launch++) {
+        const storage = memory();
+        const { user } = open(storage, true);
+        await openScene(user, id);
+        hashes.push(`${id}:${stateHash(deserialize(storage.text(SAVE_KEY)).state)}`);
+        cleanup();
+      }
     }
-  }
-  for (const id of DEMO_SCENES.map((scene) => scene.id)) {
-    const own = hashes.filter((hash) => hash.startsWith(`${id}:`));
-    expect(new Set(own).size).toBe(1);
-  }
-});
+    for (const id of DEMO_SCENES.map((scene) => scene.id)) {
+      const own = hashes.filter((hash) => hash.startsWith(`${id}:`));
+      expect(new Set(own).size).toBe(1);
+    }
+  },
+  SLOW_TEST_MS,
+);
 
 test('a reload keeps the banner: the prompt and the resumed game both announce the scene', async () => {
   const storage = memory();

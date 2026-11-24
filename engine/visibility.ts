@@ -127,9 +127,11 @@ function isHiddenChanceRoll(before: GameState, purpose: string, seatIndex: numbe
   );
 }
 
-/** A seat's copy of a visible event: no `actionSeq`, and a hostile Ability's target only for its user and target (§4.1, C.3). */
+/** A seat's copy of a visible event: no `actionSeq` or draw cursor, and a hostile Ability's target only for its user and target (§4.1, C.3). */
 export function seatEvent(before: GameState, event: EngineEvent, seatIndex: number): SeatEvent {
   if (event.kind === 'attack_attempt') return seatAttackAttempt(event);
+  // The draw cursor counts hidden draws too, such as deck shuffles, so a seat never sees it (§4.1).
+  if (event.kind === 'random_result') delete event.drawCounter;
   if (event.kind === 'ability_activated' && ABILITY_EFFECTS[event.effect].hostile) {
     const observerId = before.players.find((player) => player.seatIndex === seatIndex)?.actorId;
     if (event.ownerId !== observerId && event.targetId !== observerId) delete event.targetId;

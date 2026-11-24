@@ -33,6 +33,13 @@ import { Orchestrator, type DecideRequest } from './orchestrator.ts';
 import { buildDealQuestion, pendingDeal } from './questions/index.ts';
 import { assertNoComparableNumbers } from './state/index.ts';
 
+/** The loopback Host and its own Origin that every `/api/ai/*` route requires (spec §9). */
+const SAME_ORIGIN = {
+  host: 'localhost:5173',
+  origin: 'http://localhost:5173',
+  'content-type': 'application/json',
+};
+
 // Spec §4.8, §5.3, §5.4, §3 (fallback table); issue #164 D3. Offline only: fakes, no key, no network.
 
 const AI = 1;
@@ -155,7 +162,7 @@ describe('over budget: code rejects and Jev is not asked (spec §5.3)', () => {
     vi.stubEnv('TYPESAFE_API_KEY', 'placeholder-key-not-real');
     const response = await app.request('/api/ai/decide', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: SAME_ORIGIN,
       body: JSON.stringify(wireRequest(overBudget())),
     });
     const body = decisionResponseSchema.parse(await response.json());
@@ -189,7 +196,7 @@ describe('over budget: code rejects and Jev is not asked (spec §5.3)', () => {
     vi.stubEnv('TYPESAFE_API_KEY', 'placeholder-key-not-real');
     const response = await app.request('/api/ai/decide', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: SAME_ORIGIN,
       body: JSON.stringify(wireRequest(state)),
     });
     expect(response.status).toBe(200);
@@ -344,7 +351,7 @@ describe('what Jev is sent for a deal (spec §5.4)', () => {
     const app = createApp({ usage: () => new SpendLedger(), jevClient: () => client });
     const response = await app.request('/api/ai/decide', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: SAME_ORIGIN,
       body: JSON.stringify({
         ...wire,
         facts: { deal: { ...real, valueGiven: 'high', valueReceived: 'low', concession: 'many' } },
@@ -668,7 +675,7 @@ describe('the decision route and the wire contract (spec §6 item 2)', () => {
     const app = createApp({ usage: () => new SpendLedger(), jevClient: () => client });
     return app.request('/api/ai/decide', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: SAME_ORIGIN,
       body: JSON.stringify(body),
     });
   };
