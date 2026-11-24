@@ -57,9 +57,11 @@ Never cut playing to completion, the fallback, the hard gates, or the core conve
 
 2026-11-15: course deadline 2026-12-15 → cut-list item 4 (animation and decorative graphs); item 6, only its line-bank part (line bank beyond the core tier); and the stream C cut-list items Thai wording pass and Thai names, which are not on the numbered list above.
 
-Why: the owner's schedule for the date is code frozen about 9 Dec, report and demo assembled 10–14 Dec, due 15 Dec. C5 (30 Nov–9 Dec) and C6 (10–14 Dec) then have to hold the evidence, the report and the demo, so work that only decorates or widens the content no longer fits before the date. The other cut-list items do not move: the owner chose only the stream C cut-list (Thai wording pass, Thai names, line bank beyond the core tier, decorative graphs, animation). The cycle rows above were re-planned for this date in #183: C5 now ends on 9 Dec with the code freeze and C6 is a report and demo week, 10–14 Dec. Cut from the plan with that change: stretch classes, the chat card rework (#257) and the extra 200 Jev games. If the one-screen play layout (R3, #281) is not merged by 27 Nov, the multiplayer screens (#258) go too.
+Why: the owner's schedule for the date is code frozen about 9 Dec, report and demo assembled 10–14 Dec, due 15 Dec. C5 (30 Nov–13 Dec) then has to hold the evidence, the report and the demo, so work that only decorates or widens the content no longer fits before the date. The other cut-list items do not move: the owner chose only the stream C cut-list (Thai wording pass, Thai names, line bank beyond the core tier, decorative graphs, animation). This record does not re-plan the cycle rows above: C6 (14–27 Dec) and its 20 Dec code freeze fall after the due date, and revising spec §10 is a separate change.
 
 2026-11-23: re-plan for the 15 Dec date → cut-list items moved: stretch classes; chat card rework (not on the numbered list); Jev games 300 → 100 (already on the spec §10 cut line)
+
+Why: the owner decided the re-plan in #183 on 2026-11-23: the cycle rows above were changed so that C5 (30 Nov–9 Dec) holds the evidence and the code freeze on Wed 9 Dec, and C6 (10–14 Dec) is a report and demo week with no new features. Cut from the plan: stretch classes (Team Rocket, Collector), the chat card rework (#257) and the extra 200 Jev games. If the one-screen play layout (R3, #281) is not merged by 27 Nov, the multiplayer screens (#258) go too.
 
 ## Rule: when dates become known
 

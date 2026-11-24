@@ -624,7 +624,7 @@ Each layer covers what the one below misses.
 
 **Simulation:**
 
-- **Game sets:** 1,000 policy-only games for bug hunting and trends, plus 300 Jev-in-the-loop games.
+- **Game sets:** 1,000 policy-only games for bug hunting and trends, plus 100 Jev-in-the-loop games (the 300-game target was cut on 23 Nov, #183; see §10 C5).
 - **Variation:**
   - 2/3/4 seats, with class, personality and seat balanced across games.
   - Tuning seeds are kept separate from evaluation seeds.
