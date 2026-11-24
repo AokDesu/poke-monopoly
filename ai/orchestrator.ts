@@ -3,7 +3,7 @@ import type { Personality } from '../content/personality-schema.ts';
 import type { LegalActions, Observation } from '../engine/index.ts';
 import type { PolicyChoice, PolicyFacts, PolicyRng } from '../sim/policy.ts';
 import { decideWithFallback, FallbackPolicy, saleDesire } from './fallback/index.ts';
-import { hardOutcomes, type HardRequest } from './hard.ts';
+import { hardOutcomesYielding, type HardRequest } from './hard.ts';
 import { pendingPromise } from './promises.ts';
 import { openAbilityWindow, pendingPvpResponse, pendingReward, type OwnBattle } from './battle.ts';
 import { lastSellChoice, sellChoice } from './last-sell.ts';
@@ -19,7 +19,7 @@ import {
   type JevResult,
   type JevSuccess,
 } from './jev/client.ts';
-import type { UsageRecorder } from './jev/spend.ts';
+import { warnLedgerFailed, type UsageRecorder } from './jev/spend.ts';
 import { billedUsage, UsageMeter } from './jev/usage.ts';
 import {
   buildEncounterQuestion,
@@ -188,10 +188,13 @@ export interface OrchestratorOptions {
    */
   quota?: GameQuota;
   /**
-   * Hard's rollouts (spec §5.6); defaults to `hardOutcomes`. A test may replace it, and it may
-   * return `undefined`, which plays the decision as Normal.
+   * Hard's rollouts (spec §5.6); defaults to `hardOutcomesYielding`, which lets other requests run
+   * between sampled worlds. A test may replace it, and it may return `undefined`, which plays the
+   * decision as Normal.
    */
-  outcomes?: (request: HardRequest) => OptionOutcomes | undefined;
+  outcomes?: (
+    request: HardRequest,
+  ) => OptionOutcomes | undefined | Promise<OptionOutcomes | undefined>;
   /** Stops a Hard decision's rollouts this many ms in, and takes that time off Jev's deadline; none by default. */
   rolloutMs?: number;
 }
@@ -259,7 +262,7 @@ export class Orchestrator {
   readonly #decisionMs: number;
   readonly #usage: UsageRecorder | undefined;
   readonly #gameId: string;
-  readonly #outcomes: (request: HardRequest) => OptionOutcomes | undefined;
+  readonly #outcomes: NonNullable<OrchestratorOptions['outcomes']>;
   readonly #rolloutMs: number | undefined;
 
   constructor({
@@ -269,7 +272,7 @@ export class Orchestrator {
     usage,
     gameId,
     quota = new GameQuota(),
-    outcomes = hardOutcomes,
+    outcomes = hardOutcomesYielding,
     rolloutMs,
   }: OrchestratorOptions) {
     this.#outcomes = outcomes;
@@ -377,7 +380,7 @@ export class Orchestrator {
     // The battle decisions are answered on their own question, like the promise: no rollouts.
     if (request.difficulty === 'hard' && !NO_ROLLOUT.has(question)) {
       const started = performance.now();
-      const outcomes = this.#outcomes({
+      const outcomes = await this.#outcomes({
         observation,
         legalActions,
         options: Object.values(decision.options),
@@ -526,10 +529,40 @@ export class Orchestrator {
    */
   #blocked(turnKey: string): OrchestratorFallbackReason | undefined {
     if (!jevEnabled()) return 'disabled';
-    if (this.#usage?.budgetExceeded()) return 'budget_exceeded';
+    if (this.#spendGuardTrips()) return 'budget_exceeded';
     if (this.usage.totals().inputTokens >= this.#config.inputTokensPerGame) return 'token_budget';
     if (this.#quota.requests(turnKey) >= this.#config.requestsPerTurn) return 'request_limit';
     return undefined;
+  }
+
+  /**
+   * Whether the spend guard stops a request now. A guard that throws counts as tripped: with the
+   * spend unknown no request goes out, and the policy decides (spec §9); the error's class is
+   * logged, never its message.
+   */
+  #spendGuardTrips(): boolean {
+    try {
+      return this.#usage?.budgetExceeded() ?? false;
+    } catch (error) {
+      warnLedgerFailed('The spend guard failed; the fallback decides', error);
+      return true;
+    }
+  }
+
+  /**
+   * Holds the estimated cost of one request before it goes out (spec §9). `undefined` when there
+   * is no recorder or it does not reserve; `null` when the request must not go out, including when
+   * the guard throws.
+   */
+  #reserveSpend(): (() => void) | null | undefined {
+    const usage = this.#usage;
+    if (!usage?.reserve) return undefined;
+    try {
+      return usage.reserve();
+    } catch (error) {
+      warnLedgerFailed('The spend guard failed; the fallback decides', error);
+      return null;
+    }
   }
 
   /**
@@ -554,12 +587,21 @@ export class Orchestrator {
         if (this.#quota.requests(request.turnKey) >= this.#config.requestsPerTurn) {
           return { fallbackReason: 'request_limit', requests };
         }
+        // Reserved before the call and settled after, so decisions that run at once cannot all pass the cap (§9).
+        const release = this.#reserveSpend();
+        if (release === null) return { fallbackReason: 'budget_exceeded', requests };
         this.#quota.reserve(request.turnKey);
         requests++;
-        const call = this.#client.ask({ state, questions }, { decisionSignal: deadline.signal });
+        let call: Promise<JevResult>;
+        try {
+          call = this.#client.ask({ state, questions }, { decisionSignal: deadline.signal });
+        } catch (error) {
+          release?.();
+          throw error;
+        }
         // A late or unusable answer still counts its tokens against the game's budget.
         void call.then((result) => this.usage.record(result)).catch(warnJevRejected);
-        this.#logRequest(call, log);
+        this.#logRequest(call, log, release);
         // §5.6: return at the deadline even if the client does not, and never apply an answer
         // that lands after it, even a valid one.
         const result = await Promise.race([call, expired]);
@@ -580,7 +622,7 @@ export class Orchestrator {
   }
 
   /** Spec §9: one usage line per request that went out, written once its decision returns. */
-  #logRequest(call: Promise<JevResult>, log: DecisionLog): void {
+  #logRequest(call: Promise<JevResult>, log: DecisionLog, release?: () => void): void {
     const usage = this.#usage;
     if (!usage) return;
     const time = new Date().toISOString();
@@ -612,8 +654,10 @@ export class Orchestrator {
         });
       })
       .catch((error: unknown) => {
-        console.warn(`Could not write the Jev usage log: ${String(error)}`);
-      });
+        warnLedgerFailed('Could not write the Jev usage log', error);
+      })
+      // The line, or the lack of one, replaces the estimate held for this request.
+      .finally(() => release?.());
   }
 
   #fellBack(

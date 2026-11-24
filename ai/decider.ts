@@ -10,7 +10,7 @@ import { FallbackPolicy, PERSONALITIES } from './fallback/index.ts';
 import { HARD_ROLLOUT_MS } from './hard.ts';
 import { createSdkJevClient, jevEnabled, type JevClient } from './jev/client.ts';
 import type { DecisionEvent } from './jev/decision-log.ts';
-import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
+import { defaultUsageLedger, warnLedgerFailed, type UsageRecorder } from './jev/spend.ts';
 import type { SellFacts } from './questions/index.ts';
 import {
   GameQuota,
@@ -40,6 +40,9 @@ export type Decider = (request: DecisionRequest, context: DeciderContext) => Pro
 /**
  * Spec §9 kill switch, key presence and spend guard, read per call so the badge tells the truth.
  * The usage ledger is opened only once a key is set, so a keyless server never reads the log.
+ * A ledger that cannot be opened or read fails closed: with the spend unknown the guard counts as
+ * tripped (`budget_exceeded`, backup only), so the policy decides and the badge says so. The
+ * error's class is logged, never its message.
  */
 export const jevStatus = (
   usage: () => Pick<UsageRecorder, 'budgetExceeded'> = defaultUsageLedger,
@@ -48,7 +51,12 @@ export const jevStatus = (
   if (!process.env.TYPESAFE_API_KEY?.trim()) {
     return { jevEnabled: true, backupOnly: true, reason: 'missing_key' };
   }
-  if (usage().budgetExceeded()) {
+  try {
+    if (usage().budgetExceeded()) {
+      return { jevEnabled: true, backupOnly: true, reason: 'budget_exceeded' };
+    }
+  } catch (error) {
+    warnLedgerFailed('The spend ledger failed; Jev is on backup until it can be read', error);
     return { jevEnabled: true, backupOnly: true, reason: 'budget_exceeded' };
   }
   return { jevEnabled: true, backupOnly: false, reason: null };
