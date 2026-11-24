@@ -102,6 +102,8 @@ export function eventsVisibleToSpectator(before: GameState, events: EngineEvent[
     .map((event) => {
       // The use of a hostile Ability is public; its target is not (§4.1, C.3).
       if (event.kind === 'ability_activated') delete event.targetId;
+      // The draw cursor counts hidden draws too, such as deck shuffles (§4.1).
+      if (event.kind === 'random_result') delete event.drawCounter;
       return event.kind === 'attack_attempt' ? seatAttackAttempt(event) : event;
     });
 }

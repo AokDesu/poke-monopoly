@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import {
   actionRecordSchema,
+  actionVisibleTo,
   actionVisibleToSpectator,
   advanceAutomatically,
   aiSpeechEventSchema,
@@ -555,4 +556,25 @@ test('public PvP evidence omits internal sequence numbers and a battle window re
   expect(view).not.toHaveProperty('pendingDecision');
   expect(view).not.toHaveProperty('legalActions');
   expect(view.public.players[1]).not.toHaveProperty('armedShield');
+});
+
+test('a visible die leaves the RNG cursor out of every seat feed and the watcher feed, but not the log (§4.1, §8)', () => {
+  const state = newGame(4, 255, true);
+  const roll = advanceAutomatically(state);
+  const die = advanceAutomatically(roll.state);
+  const record = die.records[0]!;
+  const draws = record.events.filter((event) => event.kind === 'random_result');
+  expect(draws.length).toBeGreaterThan(0);
+  // The raw log keeps the cursor so a replay can verify it.
+  for (const draw of draws) expect(draw).toHaveProperty('drawCounter');
+  const feeds = [
+    ...state.players.map(({ seatIndex }) => actionVisibleTo(roll.state, record, seatIndex, 1)),
+    actionVisibleToSpectator(roll.state, record, 1),
+  ];
+  expect(feeds).toHaveLength(5);
+  for (const feed of feeds) {
+    const seen = feed!.events.filter((event) => event.kind === 'random_result');
+    expect(seen.length).toBeGreaterThan(0);
+    for (const event of seen) expect(event).not.toHaveProperty('drawCounter');
+  }
 });

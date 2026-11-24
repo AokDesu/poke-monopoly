@@ -302,17 +302,27 @@ describe('a Potion nothing can use is worth 0 (§4.8, spec owner)', () => {
   });
 
   test('it keeps its price when anything can still use it', () => {
-    // A tired Pokémon, or a combat debuff, gives the Potion a target.
+    // A tired Pokémon, which every seat can see, gives the Potion a target.
     expect(valuation(finalTurnPotion({ humanTired: true }), buyPotion(1)).valueGiven).toBe(2);
-    const debuffed = finalTurnPotion();
-    debuffed.players[0]!.team[0]!.combatDebuffed = true;
-    expect(valuation(debuffed, buyPotion(1)).valueGiven).toBe(2);
     // A later turn of the holder could still leave a Pokémon tired.
     expect(valuation(finalTurnPotion({ turnLeft: true }), buyPotion(1)).valueGiven).toBe(2);
     // Before any Final Table Round is announced nothing is guaranteed.
     const open = finalTurnPotion();
     open.finalTableRound = null;
     expect(valuation(open, buyPotion(1)).valueGiven).toBe(2);
+  });
+
+  test('a private combat debuff changes nothing: the Deal facts are the same with or without it (§4.8, §5.4)', () => {
+    const plain = finalTurnPotion();
+    const debuffed = finalTurnPotion();
+    debuffed.players[0]!.team[0]!.combatDebuffed = true;
+    // The AI seat cannot tell the two states apart before the Deal ...
+    expect(observe(debuffed, 1)).toEqual(observe(plain, 1));
+    // ... so neither may the valuation or the facts it is given.
+    expect(valuation(debuffed, buyPotion(1))).toEqual(valuation(plain, buyPotion(1)));
+    expect(dealFacts(propose(debuffed, buyPotion(1)), 1)).toEqual(
+      dealFacts(propose(plain, buyPotion(1)), 1),
+    );
   });
 
   test("it reads the holder's public team only, and other items are unaffected", () => {
