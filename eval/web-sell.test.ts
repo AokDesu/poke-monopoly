@@ -132,7 +132,13 @@ async function play(withJev: boolean): Promise<Played> {
   vi.stubGlobal('fetch', async (url: RequestInfo | URL, init?: RequestInit) => {
     const path = String(url);
     // `keepalive` is a browser flag that Hono's in-memory Request does not take.
-    const response = await app.request(path, { ...init, keepalive: undefined });
+    // The browser sends a same-origin Host and Origin that the server requires (spec §9).
+    const headers = {
+      host: 'localhost:5173',
+      origin: 'http://localhost:5173',
+      ...Object.fromEntries(new Headers(init?.headers)),
+    };
+    const response = await app.request(path, { ...init, headers, keepalive: undefined });
     if (path === '/api/ai/decide') {
       played.asked++;
       const request = JSON.parse(String(init?.body));

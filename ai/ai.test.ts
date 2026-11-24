@@ -35,6 +35,13 @@ import { createFakeJevClient } from './jev/fake.ts';
 import { SpendLedger, type UsageLine, type UsageRecorder } from './jev/spend.ts';
 import { usageReport } from './jev/usage-report.ts';
 
+/** The loopback Host and its own Origin that every `/api/ai/*` route requires (spec §9). */
+const SAME_ORIGIN = {
+  host: 'localhost:5173',
+  origin: 'http://localhost:5173',
+  'content-type': 'application/json',
+};
+
 // Offline only: a placeholder key, Hono's in-memory `app.request()` and no network.
 const KEY_ENV = 'TYPESAFE_API_KEY';
 const PLACEHOLDER_KEY = 'placeholder-key-not-real-4b1e8d';
@@ -60,13 +67,14 @@ const record = async (response: Response) => {
   return response;
 };
 
-const status = async (app: App = testApp()) => record(await app.request('/api/ai/status'));
+const status = async (app: App = testApp()) =>
+  record(await app.request('/api/ai/status', { headers: { host: SAME_ORIGIN.host } }));
 
 const decide = async (body: unknown, app: App = testApp()) =>
   record(
     await app.request('/api/ai/decide', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: SAME_ORIGIN,
       body: typeof body === 'string' ? body : JSON.stringify(body),
     }),
   );
@@ -86,7 +94,7 @@ const outcomeFor = (request: DecisionRequest, body: Record<string, unknown>) => 
 const report = (outcome: unknown, app: App) =>
   app.request('/api/ai/outcome', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: SAME_ORIGIN,
     body: JSON.stringify(outcome),
   });
 
@@ -225,6 +233,36 @@ describe('GET /api/ai/status', () => {
     });
   });
 
+  // Spec §9: the kill switch fails closed. Only an unset or empty value or `true` leaves Jev on.
+  test.each(['0', 'off', 'no', 'disabled', 'n', 'f', 'False0', 'banana', '1'])(
+    'JEV_ENABLED=%j turns Jev off, in the status badge and in a decision',
+    async (value) => {
+      vi.stubEnv('JEV_ENABLED', value);
+      const client = createFakeJevClient(() => ({ ok: false, fallbackReason: 'network' }));
+      const app = testApp({ jevClient: () => client });
+      expect(await (await status(app)).json()).toEqual({
+        jevEnabled: false,
+        backupOnly: true,
+        reason: 'disabled',
+        speech: speechOff,
+        demo: false,
+      });
+      expect(await (await decide(strategy, app)).json()).toMatchObject({
+        source: 'fallback',
+        fallbackReason: 'disabled',
+      });
+      expect(client.requests).toHaveLength(0);
+    },
+  );
+
+  test.each(['true', 'TRUE', ' true ', '', undefined])(
+    'JEV_ENABLED=%j leaves Jev on',
+    async (value) => {
+      vi.stubEnv('JEV_ENABLED', value);
+      expect(await (await status()).json()).toMatchObject({ backupOnly: false, reason: null });
+    },
+  );
+
   test('reports backup-only mode once the spend cap or daily budget is reached', async () => {
     expect(await (await status(testApp({ usage: overBudget }))).json()).toEqual({
       jevEnabled: true,
@@ -297,7 +335,47 @@ describe('GET /api/ai/status', () => {
   });
 });
 
+/** Unhandled promise rejections raised while `run` and the next few macrotasks settle. */
+const rejectionsDuring = async (run: () => Promise<unknown>) => {
+  const rejections: unknown[] = [];
+  const onRejection = (reason: unknown) => rejections.push(reason);
+  process.on('unhandledRejection', onRejection);
+  try {
+    await run();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  } finally {
+    process.off('unhandledRejection', onRejection);
+  }
+  return rejections;
+};
+
 describe('POST /api/ai/decide', () => {
+  // Finding 10: `JevClient.ask` is documented never to reject, but one that does must not take the
+  // server down (an unhandled rejection exits Node): the decision falls back and the class is logged.
+  test('a Jev client that rejects degrades to the fallback, logs the class and crashes nothing', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const app = testApp({
+      jevClient: () => ({
+        ask: async () => {
+          throw new TypeError(`rejected with ${PLACEHOLDER_KEY}`);
+        },
+      }),
+    });
+    const rejections = await rejectionsDuring(async () => {
+      const response = await decide(strategy, app);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        source: 'fallback',
+        fallbackReason: 'decider_error',
+      });
+    });
+    expect(rejections).toEqual([]);
+    const logged = warn.mock.calls.map((call) => call.join(' ')).join('\n');
+    expect(logged).toContain('TypeError');
+    expect(logged).not.toContain(PLACEHOLDER_KEY);
+    warn.mockRestore();
+  });
+
   test('a valid request returns only the response fields', async () => {
     const response = await decide(strategy);
     expect(response.status).toBe(200);
@@ -335,7 +413,7 @@ describe('POST /api/ai/decide', () => {
     const response = await record(
       await testApp().request('/api/ai/decide', {
         method: 'POST',
-        headers: { 'content-type': 'application/json', 'transfer-encoding': 'chunked' },
+        headers: { ...SAME_ORIGIN, 'transfer-encoding': 'chunked' },
         body,
         duplex: 'half',
       } as RequestInit),
@@ -541,7 +619,7 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
       const response = await record(
         await testApp().request('/api/ai/fallback', {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          headers: SAME_ORIGIN,
           body: JSON.stringify(request),
         }),
       );
@@ -1104,7 +1182,7 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
       });
       const response = await app.request('/api/ai/fallback', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: SAME_ORIGIN,
         body: JSON.stringify(strategy),
       });
       expect(response.status).toBe(200);
@@ -1147,7 +1225,7 @@ describe('POST /api/ai/decide: the orchestrator-backed decider (spec §5.2, §5.
         (
           await app.request('/api/ai/outcome', {
             method: 'POST',
-            headers: { 'content-type': 'application/json' },
+            headers: SAME_ORIGIN,
             body: '{',
           })
         ).status,
@@ -1376,7 +1454,7 @@ describe('POST /api/ai/decide: the demo detail (spec §3, §1, §11 step 3)', ()
     const post = (url: string, headers: Record<string, string>, payload: object) =>
       app.request(url, {
         method: 'POST',
-        headers: { 'content-type': 'application/json', ...headers },
+        headers: { ...SAME_ORIGIN, ...headers },
         body: JSON.stringify(payload),
       });
     for (const url of ['/api/ai/decide?demo=1', '/api/ai/decide?demo=true&DEMO_MODE=1']) {
@@ -1389,7 +1467,9 @@ describe('POST /api/ai/decide: the demo detail (spec §3, §1, §11 step 3)', ()
     const forged = await post('/api/ai/decide', {}, { ...strategy, demo: true });
     expect(forged.status).toBe(400);
     const status = await (
-      await app.request('/api/ai/status?demo=1', { headers: { 'x-demo': '1' } })
+      await app.request('/api/ai/status?demo=1', {
+        headers: { host: SAME_ORIGIN.host, 'x-demo': '1' },
+      })
     ).json();
     expect(status.demo).toBe(false);
   });
@@ -1406,7 +1486,7 @@ describe('POST /api/ai/decide: the demo detail (spec §3, §1, §11 step 3)', ()
     const routed = await (
       await app.request('/api/ai/fallback', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: SAME_ORIGIN,
         body: JSON.stringify(strategy),
       })
     ).json();
