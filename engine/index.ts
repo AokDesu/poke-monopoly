@@ -107,6 +107,7 @@ export {
   ROLLOUT_CONFIG,
   rolloutFacts,
   rolloutOptions,
+  rolloutSteps,
   type ExpectedCoins,
   type LeadChance,
   type OptionOutcome,
