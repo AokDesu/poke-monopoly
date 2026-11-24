@@ -1,0 +1,115 @@
+{
+  "id": "aggressive-reward-gym-won",
+  "description": "The AI beat a Gym and chooses: take coins from the bank, or evolve its Charmander.",
+  "tags": { "decisionPoint": "reward", "personality": "Aggressive" },
+  "request": {
+    "state": {
+      "phase": "gym",
+      "active_seat_id": 0,
+      "final_table_round": false,
+      "board": [
+        { "space_id": 0, "kind": "start", "name": "Start" },
+        { "space_id": 1, "kind": "wild", "name": "Wild" },
+        { "space_id": 2, "kind": "event", "name": "Event" },
+        { "space_id": 3, "kind": "wild", "name": "Wild" },
+        { "space_id": 4, "kind": "shop", "name": "Shop" },
+        { "space_id": 5, "kind": "wild", "name": "Wild" },
+        { "space_id": 6, "kind": "gym", "name": "Gym" },
+        { "space_id": 7, "kind": "wild", "name": "Wild" },
+        { "space_id": 8, "kind": "event", "name": "Event" },
+        { "space_id": 9, "kind": "wild", "name": "Wild" },
+        { "space_id": 10, "kind": "shop", "name": "Shop" },
+        { "space_id": 11, "kind": "wild", "name": "Wild" },
+        { "space_id": 12, "kind": "gym", "name": "Gym" },
+        { "space_id": 13, "kind": "wild", "name": "Wild" },
+        { "space_id": 14, "kind": "event", "name": "Event" },
+        { "space_id": 15, "kind": "shop", "name": "Shop" },
+        { "space_id": 16, "kind": "wild", "name": "Wild" },
+        { "space_id": 17, "kind": "event", "name": "Event" },
+        { "space_id": 18, "kind": "gym", "name": "Gym" },
+        { "space_id": 19, "kind": "wild", "name": "Wild" },
+        { "space_id": 20, "kind": "shop", "name": "Shop" },
+        { "space_id": 21, "kind": "wild", "name": "Wild" },
+        { "space_id": 22, "kind": "event", "name": "Event" },
+        { "space_id": 23, "kind": "wild", "name": "Wild" }
+      ],
+      "you": {
+        "id": "P1",
+        "seat_id": 0,
+        "class_id": "main-character",
+        "lap": "1 of 2",
+        "squares_to_start": "far",
+        "team_count": "one",
+        "item_count": "none",
+        "coins_rank": "2nd of 2",
+        "ability_ready": true,
+        "team": [
+          {
+            "id": "starter:0",
+            "species_id": "charmander",
+            "origin": "original_starter",
+            "tired": false,
+            "ability_ready": true
+          }
+        ],
+        "items": [],
+        "balls": { "poke": "many", "great": "one", "ultra": "none" },
+        "private_results": [],
+        "personality": "Aggressive: Hunts the leader and strikes first; takes risks for a bigger win and keeps few coins in reserve."
+      },
+      "opponents": [
+        {
+          "id": "P2",
+          "lap": "1 of 2",
+          "squares_to_start": "far",
+          "team_count": "one",
+          "item_count": "one",
+          "coins_vs_you": "ahead",
+          "seat_id": 1,
+          "class_id": "rival",
+          "ability_ready": true,
+          "team": [
+            {
+              "id": "starter:1",
+              "species_id": "eevee",
+              "origin": "original_starter",
+              "tired": false,
+              "ability_ready": true
+            }
+          ],
+          "known_items": [{ "id": "class-item:1", "item_id": "lucky-egg", "name": "Lucky Egg" }]
+        }
+      ],
+      "reward": { "source": "gym" }
+    },
+    "questions": {
+      "reward": {
+        "type": "choice",
+        "instructions": "You won a battle and now choose its reward (`reward`): coins, or evolving one of your Pokémon by one stage. Pick the ONE option that best fits `you.personality` right now. Weigh how much you need coins now against a stronger, more valuable team later. Only the listed options are allowed.",
+        "criteria": {
+          "coins": "Take coins. The bank pays you a fixed sum of coins; nothing changes for your Pokémon.",
+          "evolve_charmander_to_charmeleon": "Evolve your Charmander into Charmeleon. That Pokémon moves up one stage: it fights harder in battle and is worth more when sold. You take no coins. It happens at once and cannot be undone."
+        }
+      }
+    }
+  },
+  "acceptable": { "reward": ["evolve_charmander_to_charmeleon"] },
+  "reason": "Aggressive: aggression 0.9 and liquidity 0.3: a stronger Charmander makes the next Gym and fight easier, so it evolves.",
+  "synthetic": true,
+  "requestHash": "fbd0d2f0e2b69d5c3f57db4485ffa7cbb710d4a4d8a1e34d5fd7ba486eb60aab",
+  "recorded": {
+    "ok": true,
+    "answers": {
+      "reward": {
+        "type": "choice",
+        "choice": "coins",
+        "confidence": 0.356,
+        "probabilities": { "coins": 0.678, "evolve_charmander_to_charmeleon": 0.322 }
+      }
+    },
+    "requestId": "synthetic-aggressive-reward-gym-won",
+    "model": "jev-1.13.0",
+    "latencyMs": 0,
+    "usage": { "inputTokens": 0, "outputTokens": 0 }
+  }
+}

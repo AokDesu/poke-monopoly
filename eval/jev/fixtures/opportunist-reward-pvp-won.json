@@ -1,0 +1,138 @@
+{
+  "id": "opportunist-reward-pvp-won",
+  "description": "The AI won a PvP battle and chooses: take the loser’s coins, or evolve its Charmander or its Eevee.",
+  "tags": { "decisionPoint": "reward", "personality": "Opportunist" },
+  "request": {
+    "state": {
+      "phase": "pvp",
+      "active_seat_id": 1,
+      "final_table_round": false,
+      "board": [
+        { "space_id": 0, "kind": "start", "name": "Start" },
+        { "space_id": 1, "kind": "wild", "name": "Wild" },
+        { "space_id": 2, "kind": "event", "name": "Event" },
+        { "space_id": 3, "kind": "wild", "name": "Wild" },
+        { "space_id": 4, "kind": "shop", "name": "Shop" },
+        { "space_id": 5, "kind": "wild", "name": "Wild" },
+        { "space_id": 6, "kind": "gym", "name": "Gym" },
+        { "space_id": 7, "kind": "wild", "name": "Wild" },
+        { "space_id": 8, "kind": "event", "name": "Event" },
+        { "space_id": 9, "kind": "wild", "name": "Wild" },
+        { "space_id": 10, "kind": "shop", "name": "Shop" },
+        { "space_id": 11, "kind": "wild", "name": "Wild" },
+        { "space_id": 12, "kind": "gym", "name": "Gym" },
+        { "space_id": 13, "kind": "wild", "name": "Wild" },
+        { "space_id": 14, "kind": "event", "name": "Event" },
+        { "space_id": 15, "kind": "shop", "name": "Shop" },
+        { "space_id": 16, "kind": "wild", "name": "Wild" },
+        { "space_id": 17, "kind": "event", "name": "Event" },
+        { "space_id": 18, "kind": "gym", "name": "Gym" },
+        { "space_id": 19, "kind": "wild", "name": "Wild" },
+        { "space_id": 20, "kind": "shop", "name": "Shop" },
+        { "space_id": 21, "kind": "wild", "name": "Wild" },
+        { "space_id": 22, "kind": "event", "name": "Event" },
+        { "space_id": 23, "kind": "wild", "name": "Wild" }
+      ],
+      "you": {
+        "id": "P1",
+        "seat_id": 0,
+        "class_id": "main-character",
+        "lap": "2 of 2",
+        "squares_to_start": "far",
+        "team_count": "few",
+        "item_count": "none",
+        "coins_rank": "2nd of 2",
+        "ability_ready": true,
+        "team": [
+          {
+            "id": "starter:0",
+            "species_id": "charmander",
+            "origin": "original_starter",
+            "tired": false,
+            "ability_ready": true
+          },
+          {
+            "id": "caught:0:1",
+            "species_id": "gyarados",
+            "origin": "caught",
+            "tired": false,
+            "ability_ready": true
+          },
+          {
+            "id": "caught:0:2",
+            "species_id": "eevee",
+            "origin": "caught",
+            "tired": false,
+            "ability_ready": true
+          }
+        ],
+        "items": [],
+        "balls": { "poke": "many", "great": "one", "ultra": "none" },
+        "private_results": [],
+        "personality": "Opportunist: Reads the table and takes whatever pays right now; a steady friend only while it suits."
+      },
+      "opponents": [
+        {
+          "id": "P2",
+          "lap": "2 of 2",
+          "squares_to_start": "far",
+          "team_count": "one",
+          "item_count": "one",
+          "coins_vs_you": "ahead",
+          "seat_id": 1,
+          "class_id": "researcher",
+          "ability_ready": true,
+          "team": [
+            {
+              "id": "starter:1",
+              "species_id": "porygon",
+              "origin": "original_starter",
+              "tired": false,
+              "ability_ready": true
+            }
+          ],
+          "known_items": [{ "id": "class-item:1", "item_id": "potion", "name": "Potion" }]
+        }
+      ],
+      "reward": { "source": "pvp", "loser_id": "P2" }
+    },
+    "questions": {
+      "reward": {
+        "type": "choice",
+        "instructions": "You won a battle and now choose its reward (`reward`): coins, or evolving one of your Pokémon by one stage. Pick the ONE option that best fits `you.personality` right now. Weigh how much you need coins now against a stronger, more valuable team later. Only the listed options are allowed.",
+        "criteria": {
+          "coins": "Take coins. You take coins from P2, up to a fixed share of what they hold; nothing changes for your Pokémon. You get nothing if they have none to lose.",
+          "evolve_charmander_to_charmeleon": "Evolve your Charmander into Charmeleon. That Pokémon moves up one stage: it fights harder in battle and is worth more when sold. P2 then pays you nothing. It happens at once and cannot be undone.",
+          "evolve_eevee_to_vaporeon": "Evolve your Eevee into Vaporeon. That Pokémon moves up one stage: it fights harder in battle and is worth more when sold. P2 then pays you nothing. It happens at once and cannot be undone.",
+          "evolve_eevee_to_jolteon": "Evolve your Eevee into Jolteon. That Pokémon moves up one stage: it fights harder in battle and is worth more when sold. P2 then pays you nothing. It happens at once and cannot be undone.",
+          "evolve_eevee_to_flareon": "Evolve your Eevee into Flareon. That Pokémon moves up one stage: it fights harder in battle and is worth more when sold. P2 then pays you nothing. It happens at once and cannot be undone."
+        }
+      }
+    }
+  },
+  "acceptable": { "reward": ["coins"] },
+  "reason": "Opportunist: liquidity 0.7 and aggression 0.5: cash it can use at once beats a slow gain, so it takes the coins.",
+  "synthetic": true,
+  "requestHash": "e9db46c98c92f8f95272f5c7447c315cf34a727236b5165152394108b2300342",
+  "recorded": {
+    "ok": true,
+    "answers": {
+      "reward": {
+        "type": "choice",
+        "choice": "evolve_eevee_to_vaporeon",
+        "confidence": 0.309,
+        "probabilities": {
+          "coins": 0.122,
+          "evolve_charmander_to_charmeleon": 0.043,
+          "evolve_eevee_to_vaporeon": 0.447,
+          "evolve_eevee_to_jolteon": 0.009,
+          "evolve_eevee_to_flareon": 0.379
+        }
+      }
+    },
+    "requestId": "synthetic-opportunist-reward-pvp-won",
+    "model": "jev-1.13.0",
+    "latencyMs": 0,
+    "usage": { "inputTokens": 0, "outputTokens": 0 }
+  }
+}

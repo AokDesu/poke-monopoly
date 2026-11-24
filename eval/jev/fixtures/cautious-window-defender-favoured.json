@@ -1,0 +1,128 @@
+{
+  "id": "cautious-window-defender-favoured",
+  "description": "The AI accepted a Rival challenge with a Snorlax beside its Starter and is the favourite; Blaze would help a little and Block guards against a coin loss.",
+  "tags": { "decisionPoint": "ability_window", "personality": "Cautious" },
+  "request": {
+    "state": {
+      "phase": "pvp",
+      "active_seat_id": 1,
+      "final_table_round": false,
+      "board": [
+        { "space_id": 0, "kind": "start", "name": "Start" },
+        { "space_id": 1, "kind": "wild", "name": "Wild" },
+        { "space_id": 2, "kind": "event", "name": "Event" },
+        { "space_id": 3, "kind": "wild", "name": "Wild" },
+        { "space_id": 4, "kind": "shop", "name": "Shop" },
+        { "space_id": 5, "kind": "wild", "name": "Wild" },
+        { "space_id": 6, "kind": "gym", "name": "Gym" },
+        { "space_id": 7, "kind": "wild", "name": "Wild" },
+        { "space_id": 8, "kind": "event", "name": "Event" },
+        { "space_id": 9, "kind": "wild", "name": "Wild" },
+        { "space_id": 10, "kind": "shop", "name": "Shop" },
+        { "space_id": 11, "kind": "wild", "name": "Wild" },
+        { "space_id": 12, "kind": "gym", "name": "Gym" },
+        { "space_id": 13, "kind": "wild", "name": "Wild" },
+        { "space_id": 14, "kind": "event", "name": "Event" },
+        { "space_id": 15, "kind": "shop", "name": "Shop" },
+        { "space_id": 16, "kind": "wild", "name": "Wild" },
+        { "space_id": 17, "kind": "event", "name": "Event" },
+        { "space_id": 18, "kind": "gym", "name": "Gym" },
+        { "space_id": 19, "kind": "wild", "name": "Wild" },
+        { "space_id": 20, "kind": "shop", "name": "Shop" },
+        { "space_id": 21, "kind": "wild", "name": "Wild" },
+        { "space_id": 22, "kind": "event", "name": "Event" },
+        { "space_id": 23, "kind": "wild", "name": "Wild" }
+      ],
+      "you": {
+        "id": "P1",
+        "seat_id": 0,
+        "class_id": "main-character",
+        "lap": "2 of 2",
+        "squares_to_start": "far",
+        "team_count": "few",
+        "item_count": "none",
+        "coins_rank": "2nd of 2",
+        "ability_ready": true,
+        "team": [
+          {
+            "id": "starter:0",
+            "species_id": "charmander",
+            "origin": "original_starter",
+            "tired": false,
+            "ability_ready": true
+          },
+          {
+            "id": "caught:0:1",
+            "species_id": "snorlax",
+            "origin": "caught",
+            "tired": false,
+            "ability_ready": true
+          }
+        ],
+        "items": [],
+        "balls": { "poke": "many", "great": "one", "ultra": "none" },
+        "private_results": [],
+        "personality": "Cautious: Plays safe and steady; avoids fights and gambles, and keeps promises to protect a lead."
+      },
+      "opponents": [
+        {
+          "id": "P2",
+          "lap": "2 of 2",
+          "squares_to_start": "far",
+          "team_count": "one",
+          "item_count": "one",
+          "coins_vs_you": "ahead",
+          "seat_id": 1,
+          "class_id": "rival",
+          "ability_ready": true,
+          "team": [
+            {
+              "id": "starter:1",
+              "species_id": "eevee",
+              "origin": "original_starter",
+              "tired": false,
+              "ability_ready": true
+            }
+          ],
+          "known_items": [{ "id": "class-item:1", "item_id": "lucky-egg", "name": "Lucky Egg" }]
+        }
+      ],
+      "window": {
+        "kind": "pvp_defender",
+        "opponent_id": "P2",
+        "your_win_chance": "medium",
+        "their_win_chance": "low"
+      }
+    },
+    "questions": {
+      "ability_window": {
+        "type": "choice",
+        "instructions": "An Ability window is open (`window`): you may use one Ability now, or none. Pick the ONE option that best fits `you.personality` right now. Each option says what the Ability does and what it costs; in a battle it also says your chance to win with it and without it, as named buckets (low, medium or high). Using no Ability spends nothing. Only the listed options are allowed.",
+        "criteria": {
+          "use_blaze_charmander": "Use Blaze from your Charmander: it raises your combat total in this battle. With it your chance to win is high and P2's is low; without it medium and low. The Ability is then spent for now.",
+          "use_block_snorlax": "Use Block from your Snorlax: it prevents the next coin loss you would suffer from a PvP battle or a Pickpocket. It does not change your chance to win this battle. The Ability is then spent for now.",
+          "none": "Use no Ability. Nothing is spent and the battle goes ahead as it stands."
+        }
+      }
+    }
+  },
+  "acceptable": { "ability_window": ["use_blaze_charmander", "none"] },
+  "reason": "Cautious: aggression 0.2 and risk 0.2: already the favourite, it keeps its Abilities for later, though using one is no mistake.",
+  "synthetic": true,
+  "requestHash": "284a788effab8ec352d12a028581a716ffcd7306484aef3f87a77cf9babe55ef",
+  "recorded": {
+    "ok": true,
+    "answers": {
+      "ability_window": {
+        "type": "choice",
+        "choice": "use_block_snorlax",
+        "confidence": 0.472,
+        "probabilities": { "use_blaze_charmander": 0.08, "use_block_snorlax": 0.648, "none": 0.272 }
+      }
+    },
+    "requestId": "synthetic-cautious-window-defender-favoured",
+    "model": "jev-1.13.0",
+    "latencyMs": 0,
+    "usage": { "inputTokens": 0, "outputTokens": 0 }
+  }
+}
