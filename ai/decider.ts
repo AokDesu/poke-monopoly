@@ -8,6 +8,7 @@ import { createRng } from '../engine/index.ts';
 import { createPolicyRng, type PolicyChoice, type PolicyFacts } from '../sim/policy.ts';
 import { LINES, selectLine, type Situation } from './lines.ts';
 import { FallbackPolicy, PERSONALITIES } from './fallback/index.ts';
+import { HARD_ROLLOUT_MS } from './hard.ts';
 import { createSdkJevClient, jevEnabled, type JevClient } from './jev/client.ts';
 import type { DecisionEvent } from './jev/decision-log.ts';
 import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
@@ -104,6 +105,8 @@ export interface OrchestratorDeciderOptions {
   usage?: () => UsageRecorder | undefined;
   /** The decision deadline; defaults to 1,500 ms (spec §5.6). */
   decisionMs?: number;
+  /** How long Hard's rollouts may run per decision; defaults to `HARD_ROLLOUT_MS`. */
+  rolloutMs?: number;
   maxGames?: number;
 }
 
@@ -302,6 +305,7 @@ export const createOrchestratorDecider = ({
   client = createSdkJevClient,
   usage = defaultUsageLedger,
   decisionMs,
+  rolloutMs = HARD_ROLLOUT_MS,
   maxGames = MAX_CACHED_GAMES,
 }: OrchestratorDeciderOptions = {}): Decider => {
   const games = new Map<string, Orchestrator>();
@@ -322,6 +326,7 @@ export const createOrchestratorDecider = ({
           gameId,
           quota,
           ...(decisionMs !== undefined && { decisionMs }),
+          rolloutMs,
           ...(recorder && { usage: recorder }),
         });
       },
@@ -348,8 +353,7 @@ export const createOrchestratorDecider = ({
       observation: request.observation,
       legalActions: { enabled: request.enabledActions, disabled: [] },
       facts: toFacts(request),
-      // Hard waits for gate G2 (spec §5.6): until then it plays as Normal.
-      difficulty: request.difficulty === 'easy' ? 'easy' : 'normal',
+      difficulty: request.difficulty,
       personality: personalityFor(request.personalityId),
       decisionPoint: request.decisionPoint,
       rng: rngFor(request),

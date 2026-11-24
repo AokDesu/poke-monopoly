@@ -526,6 +526,10 @@ Every level uses the same observation.
 | Normal | The engine adds buckets for distance to Start, Laps remaining, sale opportunity and keep value (§5.4); the AI takes the **argmax** |
 | Hard *(gate G2)* | The engine runs Monte Carlo rollouts from the belief state and sends expected-outcome buckets per option before the argmax. Unknowns are sampled from known information; it never reads the real deck or seed |
 
+- **Hard rollouts (#61):** the engine (`engine/belief.ts`, `engine/rollout.ts`) takes the deciding seat's own observation and nothing else, so it cannot read the real deck or seed.
+  - **Belief:** each sampled world copies everything the seat sees and draws the rest from a seed of its own. An opponent's Poké Balls start at the kit (§4.1) minus one with probability 0.3 per past turn of theirs; its unseen secret items are uniform over utility items; the Event deck is a fresh shuffle. Purchases, catches and other seats' private state are not guessed. The seat's own spent budgets and Rival force are found from its own legal action list. A world that cannot offer exactly that list gives no buckets.
+  - **Rollout:** for each option the Strategy or Encounter question offers, every seat plays the fallback policy (§5.2: the deciding seat as its own personality, others as Greedy) until the deciding seat starts its next turn. Each option's mean coin change and its share of worlds in which the seat leads the table in coins (a tie counts half) become two buckets: `expected_coins` (falls below −1, flat to +1, rises to +6, rises a lot above) and `lead_chance` (low below ⅓, medium below ⅔, high from ⅔). A number is never sent (§5.4).
+  - **Defaults** (starting values, tuned at G2): 16 worlds per option, at least 4 or no buckets; on the server a 400 ms limit on rollouts, taken off the 1,500 ms decision deadline. With no buckets (a deadline, a world that does not match, or a decision outside Strategy and Encounter) Hard plays as Normal.
 - **Sell fallback:** the existing sale desire (relative sale coins, reduced for a ready Ability and an Original Starter) is multiplied by 1 for low keep value, 0.75 for medium and 0.5 for high before applying the personality's sell threshold. A caller without keep facts retains the existing low-keep behavior; it never invents a combat projection. This is a policy preference over separate buckets, not a conversion of Battle points into coins.
 - **Last Sell Phase (#59):** when the engine's Final Table Round is announced (§4.7.3) and the space the Sell Phase leads to is not a Gym (§4.4), every personality sells every sellable Pokémon, on the Jev path and the fallback alike, and Jev is not asked, because a Pokémon kept to the game's end is auto-sold at half price with no class bonus and no Gym follows to use it; a Rescue Starter is not sold (§4.7), a Gym destination leaves the decision to Jev as in any Sell Phase, and the risk that a later seat battles a seat that sold is accepted as a known limit.
 - **Confidence floor:** set per question type and option count, then tuned on the C4 eval set for `jev-1.13.0`.
@@ -778,6 +782,8 @@ Never cut playing to completion, the fallback, the hard gates, or the core conve
 6. Show memory from a kept or broken promise and its effect on negotiation.
 7. Flip the kill switch; the game continues on the backup bot with a visible badge.
 8. Show graphs separating policy-only from Jev: n, latency, fallback rate, actual spend and limitations.
+
+Accepted scope for steps 6 and 8 (owner decision after the demo rehearsal, recorded 2026-11-24 in `docs/release/engine-triage.md`, "§11 demo path against the queue"): step 6 is accepted as memory-only, with no fifth scene (§3 stays at four); step 8 is the committed results tables plus the three commands (`sim`, `eval:jev --offline`, `usage`), with no figure page.
 
 The prototype succeeds when players enjoy the decisions, feel that each opponent plays differently, and the rules remain auditable.
 

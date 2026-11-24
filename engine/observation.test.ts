@@ -21,6 +21,10 @@ import {
 } from './index.ts';
 import fixture from './fixtures/start-of-game-2p.json';
 
+// 500 random mid-game states, full size (§8): ~5 s alone, ~60 s at load 10 (ET-05). Named so a slow machine
+// does not turn a leak check red; a hang still fails.
+const OBSERVATION_SWEEP_MS = 60_000;
+
 /** A record as a seat's feed shows it, numbered as in the full log (no hidden records before it). */
 const seatRecord = (before: GameState, record: ActionRecord, seatIndex: number) =>
   actionVisibleTo(before, record, seatIndex, record.action.stateRevisionBefore)!;
@@ -255,94 +259,98 @@ function step(state: GameState, pick: (n: number) => number) {
   return result;
 }
 
-test('500 random mid-game states never show a seat another seat’s secrets, RNG or deck order in observations, events or records (§1, §4.1, §4.4, §4.8, §5.4, §8)', () => {
-  let states = 0;
-  const itemEvents = new Set<string>();
-  const actionKinds = new Set<string>();
-  const seatCounts = new Set<number>();
-  for (let game = 0; game < 25; game++) {
-    let state = sentinelGame(game);
-    seatCounts.add(state.players.length);
-    let choices = createRng(game);
-    const pick = (n: number) => {
-      const draw = int(choices, n);
-      choices = draw.rng;
-      return draw.value;
-    };
-    for (let move = 1; move <= 60; move++) {
-      const before = state;
-      const result = step(before, pick);
-      state = structuredClone(result.state);
-      plantSentinels(state);
-      const record = 'record' in result ? result.record : result.records[0]!;
-      actionKinds.add(record.action.kind);
-      for (const event of result.events) {
-        if (event.kind.startsWith('uid_') && 'entity' in event && event.entity === 'item') {
-          itemEvents.add(event.kind);
+test(
+  '500 random mid-game states never show a seat another seat’s secrets, RNG or deck order in observations, events or records (§1, §4.1, §4.4, §4.8, §5.4, §8)',
+  () => {
+    let states = 0;
+    const itemEvents = new Set<string>();
+    const actionKinds = new Set<string>();
+    const seatCounts = new Set<number>();
+    for (let game = 0; game < 25; game++) {
+      let state = sentinelGame(game);
+      seatCounts.add(state.players.length);
+      let choices = createRng(game);
+      const pick = (n: number) => {
+        const draw = int(choices, n);
+        choices = draw.rng;
+        return draw.value;
+      };
+      for (let move = 1; move <= 60; move++) {
+        const before = state;
+        const result = step(before, pick);
+        state = structuredClone(result.state);
+        plantSentinels(state);
+        const record = 'record' in result ? result.record : result.records[0]!;
+        actionKinds.add(record.action.kind);
+        for (const event of result.events) {
+          if (event.kind.startsWith('uid_') && 'entity' in event && event.entity === 'item') {
+            itemEvents.add(event.kind);
+          }
+          if (event.kind === 'hostile_item_used') itemEvents.add(event.kind);
         }
-        if (event.kind === 'hostile_item_used') itemEvents.add(event.kind);
-      }
-      if (move % 3 === 0) states++;
-      for (const player of state.players) {
-        const seat = player.seatIndex;
-        const secrets = othersSecrets([before, state], seat);
-        const visible = eventsVisibleTo(before, result.events, seat);
-        const events = JSON.stringify(visible);
-        for (const secret of secrets) expect(events).not.toContain(secret);
-        for (const event of visible) {
-          if (event.kind !== 'hostile_item_used') continue;
-          expect([event.userSeatIndex, event.targetSeatIndex]).toContain(seat);
+        if (move % 3 === 0) states++;
+        for (const player of state.players) {
+          const seat = player.seatIndex;
+          const secrets = othersSecrets([before, state], seat);
+          const visible = eventsVisibleTo(before, result.events, seat);
+          const events = JSON.stringify(visible);
+          for (const secret of secrets) expect(events).not.toContain(secret);
+          for (const event of visible) {
+            if (event.kind !== 'hostile_item_used') continue;
+            expect([event.userSeatIndex, event.targetSeatIndex]).toContain(seat);
+          }
+          const seatView = seatRecord(before, record, seat);
+          expect(seatView.events).toEqual(visible);
+          const seenRecord = JSON.stringify(seatView);
+          for (const secret of secrets) expect(seenRecord).not.toContain(secret);
+          for (const hidden of [SEED, ...DECK]) expect(seenRecord).not.toContain(hidden);
+          const actor = before.players.find((entry) => entry.actorId === record.action.actorId);
+          if (actor?.seatIndex !== seat) expect(seenRecord).not.toContain('"offerId"');
+          if (move % 3 !== 0) continue;
+          // Drawn Events are public now; plant impossible IDs only in the projection copy.
+          const projection = { ...state };
+          projection.eventDeck = { drawPile: [...DECK], discardPile: [] };
+          const observation = observe(projection, seat);
+          const seen = JSON.stringify([observation, legalActions(projection, seat)]);
+          for (const secret of secrets) expect(seen).not.toContain(secret);
+          expect(observation.own.balls).toEqual(player.balls);
+          expect(observation.public.players.some((publicPlayer) => 'balls' in publicPlayer)).toBe(
+            false,
+          );
+          for (const hidden of [SEED, `"${state.rng.state}"`, RNG_VERSION, ...DECK]) {
+            expect(seen).not.toContain(hidden);
+          }
+          expect(seen).not.toMatch(/"(rng|cursor|seed|rngVersion|eventDeck|drawPile)":/);
+          // Control: the seat does see its own secret items.
+          for (const item of player.items) expect(seen).toContain(`"${item.instanceId}"`);
+          for (const result of player.privateResults) expect(seen).toContain(`"${result.eventId}"`);
         }
-        const seatView = seatRecord(before, record, seat);
-        expect(seatView.events).toEqual(visible);
-        const seenRecord = JSON.stringify(seatView);
-        for (const secret of secrets) expect(seenRecord).not.toContain(secret);
-        for (const hidden of [SEED, ...DECK]) expect(seenRecord).not.toContain(hidden);
-        const actor = before.players.find((entry) => entry.actorId === record.action.actorId);
-        if (actor?.seatIndex !== seat) expect(seenRecord).not.toContain('"offerId"');
-        if (move % 3 !== 0) continue;
-        // Drawn Events are public now; plant impossible IDs only in the projection copy.
-        const projection = { ...state };
-        projection.eventDeck = { drawPile: [...DECK], discardPile: [] };
-        const observation = observe(projection, seat);
-        const seen = JSON.stringify([observation, legalActions(projection, seat)]);
-        for (const secret of secrets) expect(seen).not.toContain(secret);
-        expect(observation.own.balls).toEqual(player.balls);
-        expect(observation.public.players.some((publicPlayer) => 'balls' in publicPlayer)).toBe(
-          false,
-        );
-        for (const hidden of [SEED, `"${state.rng.state}"`, RNG_VERSION, ...DECK]) {
-          expect(seen).not.toContain(hidden);
-        }
-        expect(seen).not.toMatch(/"(rng|cursor|seed|rngVersion|eventDeck|drawPile)":/);
-        // Control: the seat does see its own secret items.
-        for (const item of player.items) expect(seen).toContain(`"${item.instanceId}"`);
-        for (const result of player.privateResults) expect(seen).toContain(`"${result.eventId}"`);
       }
     }
-  }
-  expect(states).toBe(500);
-  expect(seatCounts).toEqual(new Set([2, 3, 4]));
-  // Random play bought and used secret items, so their UID events were exercised.
-  expect(itemEvents).toEqual(new Set(['uid_created', 'uid_destroyed', 'hostile_item_used']));
-  // Random play reached these record kinds; shuffle and event_draw are checked above.
-  expect(actionKinds).toEqual(
-    new Set([
-      'roll',
-      'dice_result',
-      'skip',
-      'catch',
-      'release',
-      'buy',
-      'skip_shop',
-      'use_item',
-      'declare_pvp',
-      'respond_pvp',
-      'choose_reward',
-      'challenge_gym',
-    ]),
-  );
-}, 60_000);
+    expect(states).toBe(500);
+    expect(seatCounts).toEqual(new Set([2, 3, 4]));
+    // Random play bought and used secret items, so their UID events were exercised.
+    expect(itemEvents).toEqual(new Set(['uid_created', 'uid_destroyed', 'hostile_item_used']));
+    // Random play reached these record kinds; shuffle and event_draw are checked above.
+    expect(actionKinds).toEqual(
+      new Set([
+        'roll',
+        'dice_result',
+        'skip',
+        'catch',
+        'release',
+        'buy',
+        'skip_shop',
+        'use_item',
+        'declare_pvp',
+        'respond_pvp',
+        'choose_reward',
+        'challenge_gym',
+      ]),
+    );
+  },
+  OBSERVATION_SWEEP_MS,
+);
 
 test('an opponent observation shows coins, team, item count and the public class item, but omits the Ball pouch and secret items (§3, §4.1)', () => {
   const state = strategy('repel');

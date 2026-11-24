@@ -220,7 +220,7 @@ export function promiseTable({
         closesOwnTurnNo: index + 2,
         acceptedActionSeq: 1,
         settled: {
-          outcome: outcome === 'broken' ? 'broken' : 'kept_without_chance',
+          outcome: outcome === 'broken' ? 'broken' : 'kept_with_chance',
           globalTurnNo: created + 2,
         },
       },

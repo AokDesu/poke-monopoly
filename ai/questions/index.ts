@@ -16,6 +16,7 @@ export {
   type EncounterFacts,
   type EncounterState,
 } from './encounter.ts';
+export { outcomeSentence, type OptionOutcomes } from './outcome.ts';
 export {
   buildPromiseResponseQuestion,
   PROMISE_INSTRUCTIONS,

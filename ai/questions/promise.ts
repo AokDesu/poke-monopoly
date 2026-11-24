@@ -5,7 +5,7 @@ import { bucketTrust, pendingPromise, type PromiseMemory } from '../promises.ts'
 import {
   assertNoComparableNumbers,
   assertStateTokenBudget,
-  buildJevState,
+  buildJevBaseState,
 } from '../state/index.ts';
 import { actorName, withoutQuestion, type Decision } from './decision.ts';
 import type { Personality } from './shortlist.ts';
@@ -42,9 +42,7 @@ function memoryText(observation: Observation, memory: PromiseMemory): string {
 function promiseState(observation: Observation, personality: Personality) {
   const question = pendingPromise(observation);
   if (!question) throw new RangeError('Observation holds no promise question for this seat');
-  const { social: _social, recent_chat: _recent, ...base } = buildJevState(observation);
-  void _social;
-  void _recent;
+  const base = buildJevBaseState(observation);
   const promiser = actorName(observation, question.promiserSeatIndex);
   const chat = recentChat(observation, question.initiatorSeatIndex);
   const state = {

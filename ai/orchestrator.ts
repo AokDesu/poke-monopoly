@@ -4,6 +4,7 @@ import type { Personality } from '../content/personality-schema.ts';
 import type { LegalActions, Observation } from '../engine/index.ts';
 import type { PolicyChoice, PolicyFacts, PolicyRng } from '../sim/policy.ts';
 import { decideWithFallback, FallbackPolicy, saleDesire } from './fallback/index.ts';
+import { hardOutcomes, type HardRequest } from './hard.ts';
 import { pendingPromise } from './promises.ts';
 import { lastSellChoice, sellChoice } from './last-sell.ts';
 import {
@@ -30,6 +31,7 @@ import {
   REQUESTS_PER_TURN,
   sellAnswers,
   type EncounterFacts,
+  type OptionOutcomes,
   type SellFacts,
 } from './questions/index.ts';
 
@@ -110,7 +112,7 @@ export interface DecideFacts {
   deal?: DealFacts;
 }
 
-export type Difficulty = 'easy' | 'normal';
+export type Difficulty = 'easy' | 'normal' | 'hard';
 
 export interface DecideRequest {
   /** One AI turn: up to `requestsPerTurn` Jev requests share it. */
@@ -182,6 +184,13 @@ export interface OrchestratorOptions {
    * of a game that may be dropped and made again, so the limits survive; defaults to a new one.
    */
   quota?: GameQuota;
+  /**
+   * Hard's rollouts (spec §5.6); defaults to `hardOutcomes`. A test may replace it, and it may
+   * return `undefined`, which plays the decision as Normal.
+   */
+  outcomes?: (request: HardRequest) => OptionOutcomes | undefined;
+  /** Stops a Hard decision's rollouts this many ms in, and takes that time off Jev's deadline; none by default. */
+  rolloutMs?: number;
 }
 
 const SAMPLE_RANGE = 2 ** 32;
@@ -239,6 +248,8 @@ export class Orchestrator {
   readonly #decisionMs: number;
   readonly #usage: UsageRecorder | undefined;
   readonly #gameId: string;
+  readonly #outcomes: (request: HardRequest) => OptionOutcomes | undefined;
+  readonly #rolloutMs: number | undefined;
 
   constructor({
     client,
@@ -247,7 +258,11 @@ export class Orchestrator {
     usage,
     gameId,
     quota = new GameQuota(),
+    outcomes = hardOutcomes,
+    rolloutMs,
   }: OrchestratorOptions) {
+    this.#outcomes = outcomes;
+    this.#rolloutMs = rolloutMs;
     this.#quota = quota;
     this.usage = quota.meter;
     this.#client = client;
@@ -288,16 +303,14 @@ export class Orchestrator {
   ): Promise<OrchestratorDecision> {
     const { observation, legalActions, personality, facts } = request;
     const enabled = legalActions.enabled;
-    let decision;
-    if (question === 'strategy') {
-      decision = buildStrategyQuestion(observation, enabled, personality);
-    } else if (question === 'deal') {
+    // The Deal Card's engine buckets: the seat's own observation first, the request's only when the
+    // observation carries none (§5.4). Without them the question cannot be asked.
+    let dealFacts: DealFacts | undefined;
+    if (question === 'deal') {
       const pending = pendingDeal(observation);
       // Not this seat's proposed Deal Card to answer: nothing to ask.
       if (!pending) return policyDecision(request, 'auto', null);
-      // The engine's buckets in the seat's own observation come first; those sent in the request
-      // are only used when the observation carries none (§5.4).
-      const dealFacts = pending.facts ?? facts.deal;
+      dealFacts = pending.facts ?? facts.deal;
       // Without the engine's buckets the question cannot be asked; the policy answers (and rejects).
       if (!dealFacts && enabled.length > 1) {
         return policyDecision(
@@ -306,34 +319,66 @@ export class Orchestrator {
           this.#blocked(request.turnKey) ?? 'missing_facts',
         );
       }
-      decision = dealFacts
-        ? buildDealQuestion(observation, enabled, dealFacts, personality)
-        : { kind: 'skip' as const };
-      // Over budget (no `accept` listed): code refuses and Jev is never asked (§5.3). The log says why.
-      if (decision.kind === 'autoApply') return policyDecision(request, 'auto', 'over_budget');
-    } else if (question === 'promise_response') {
+    }
+    if (question === 'promise_response' && !pendingPromise(observation)) {
       // Only the pending responder is asked, and only about a promise (§4.8, #143).
-      if (!pendingPromise(observation)) return policyDecision(request, 'auto', null);
-      decision = buildPromiseResponseQuestion(observation, enabled, personality);
-    } else {
-      if (!facts.encounter && enabled.length > 1) {
-        return policyDecision(
-          request,
-          'fallback',
-          this.#blocked(request.turnKey) ?? 'missing_facts',
-        );
+      return policyDecision(request, 'auto', null);
+    }
+    if (question === 'encounter' && !facts.encounter && enabled.length > 1) {
+      return policyDecision(request, 'fallback', this.#blocked(request.turnKey) ?? 'missing_facts');
+    }
+    const build = (outcomes?: OptionOutcomes) => {
+      if (question === 'strategy') {
+        return buildStrategyQuestion(observation, enabled, personality, outcomes);
       }
-      decision = buildEncounterQuestion(
+      if (question === 'promise_response') {
+        return buildPromiseResponseQuestion(observation, enabled, personality);
+      }
+      if (question === 'deal') {
+        return dealFacts
+          ? buildDealQuestion(observation, enabled, dealFacts, personality)
+          : { kind: 'skip' as const };
+      }
+      return buildEncounterQuestion(
         observation,
         enabled,
         facts.encounter ?? { odds: [] },
         personality,
+        outcomes,
       );
+    };
+    let decision = build();
+    // Over budget (no `accept` listed): code refuses and Jev is never asked (§5.3). The log says why.
+    if (question === 'deal' && decision.kind === 'autoApply') {
+      return policyDecision(request, 'auto', 'over_budget');
     }
     if (decision.kind !== 'ask') return policyDecision(request, 'auto', null);
     const blocked = this.#blocked(request.turnKey);
     if (blocked) return policyDecision(request, 'fallback', blocked);
-    const asked = await this.#askAll(request, [decision], log);
+    // Spec §5.6 Hard: the engine's rollouts add expected-outcome buckets to each option before the
+    // argmax. With a rollout limit set (the server's), their time comes off Jev's deadline, so the
+    // whole decision stays inside it; without one (the sim, which has no clock) Jev keeps all of it.
+    let rolloutSpent = 0;
+    if (request.difficulty === 'hard' && question !== 'promise_response' && question !== 'deal') {
+      const started = performance.now();
+      const outcomes = this.#outcomes({
+        observation,
+        legalActions,
+        options: Object.values(decision.options),
+        personality,
+        seed: request.rng.int(SAMPLE_RANGE),
+        ...(this.#rolloutMs !== undefined && { deadlineMs: this.#rolloutMs }),
+      });
+      if (this.#rolloutMs !== undefined) rolloutSpent = performance.now() - started;
+      if (outcomes) decision = build(outcomes);
+    }
+    if (decision.kind !== 'ask') return policyDecision(request, 'auto', null);
+    const asked = await this.#askAll(
+      request,
+      [decision],
+      log,
+      Math.max(0, this.#decisionMs - rolloutSpent),
+    );
     if (!('results' in asked)) return this.#fellBack(request, asked.fallbackReason, asked);
     const [result] = asked.results;
     const answer = result!.answers[question];
@@ -481,9 +526,10 @@ export class Orchestrator {
     request: DecideRequest,
     asks: readonly JevRequest[],
     log: DecisionLog,
+    deadlineMs = this.#decisionMs,
   ): Promise<Asked> {
     const deadline = new AbortController();
-    const timer = setTimeout(() => deadline.abort(), this.#decisionMs);
+    const timer = setTimeout(() => deadline.abort(), deadlineMs);
     const expired = new Promise<undefined>((resolve) =>
       deadline.signal.addEventListener('abort', () => resolve(undefined), { once: true }),
     );

@@ -28,6 +28,9 @@ import {
 } from './index.ts';
 import fixture from './fixtures/start-of-game-2p.json';
 
+// Whole games with the Social window open: ~4 s alone; ET-05 budget for a loaded machine.
+const SOCIAL_GAMES_MS = 60_000;
+
 /** Seat 0 (human) in Social with its one interaction; seat 1 is an AI; a third seat is optional. */
 function social(options: { flag?: boolean | undefined; seats?: 2 | 3 | 4; seed?: number } = {}) {
   const { seats = 2, seed = 4 } = options;
@@ -665,25 +668,29 @@ function playRandomly(seed: number, picks: number[]): { state: GameState; chats:
   return { state, chats };
 }
 
-test('whole games with the window open obey the invariants and reopen the budget each human turn', () => {
-  let totalChats = 0;
-  fc.assert(
-    fc.property(
-      fc.integer({ min: 0, max: 100_000 }),
-      fc.array(fc.nat(1000), { minLength: 50, maxLength: 50 }),
-      (seed, picks) => {
-        const { state, chats } = playRandomly(seed, picks);
-        totalChats += chats;
-        // Chat is only ever stored by an accepted chat command, and the human chats when picked.
-        expect(state.chats === undefined).toBe(chats === 0);
-        for (const pair of state.chats ?? []) expect(pair.messages.length).toBeLessThanOrEqual(3);
-        return true;
-      },
-    ),
-    { numRuns: 5 },
-  );
-  expect(totalChats).toBeGreaterThan(10);
-}, 60_000);
+test(
+  'whole games with the window open obey the invariants and reopen the budget each human turn',
+  () => {
+    let totalChats = 0;
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 0, max: 100_000 }),
+        fc.array(fc.nat(1000), { minLength: 50, maxLength: 50 }),
+        (seed, picks) => {
+          const { state, chats } = playRandomly(seed, picks);
+          totalChats += chats;
+          // Chat is only ever stored by an accepted chat command, and the human chats when picked.
+          expect(state.chats === undefined).toBe(chats === 0);
+          for (const pair of state.chats ?? []) expect(pair.messages.length).toBeLessThanOrEqual(3);
+          return true;
+        },
+      ),
+      { numRuns: 5 },
+    );
+    expect(totalChats).toBeGreaterThan(10);
+  },
+  SOCIAL_GAMES_MS,
+);
 
 test('chats replay and survive a save round-trip (§6.7, §6.8)', () => {
   const initial = social({ seats: 3 });

@@ -3,6 +3,7 @@ import type { LegalAction, Observation } from '../../engine/index.ts';
 import { chatHints } from '../chat.ts';
 import { itemText } from './content.ts';
 import { actorName, personalState, withoutQuestion, type Decision } from './decision.ts';
+import { outcomeSentence, type OptionOutcomes } from './outcome.ts';
 import { shortlistActions, type Personality } from './shortlist.ts';
 
 export const STRATEGY_INSTRUCTIONS =
@@ -52,6 +53,13 @@ function criteriaFor(action: LegalAction, observation: Observation): string {
 }
 
 /**
+ * Temporary #55 capability boundary (S06, S10): Stream B owns PvP and Ability question
+ * integration, so the Strategy question never offers them. Hard's rollouts cover the same set.
+ */
+export const isStrategyQuestionAction = (action: LegalAction): boolean =>
+  action.kind !== 'declare_pvp' && action.kind !== 'activate_ability';
+
+/**
  * Spec §5.3 Strategy: one Choice over a personality-filtered shortlist of at most 12 legal
  * actions, `skip` included. Options are labelled `a1`, `a2`, … in the engine's order, and `skip`.
  */
@@ -59,12 +67,10 @@ export function buildStrategyQuestion(
   observation: Observation,
   enabledActions: readonly LegalAction[],
   personality: Personality,
+  outcomes?: OptionOutcomes,
 ): Decision<StrategyState> {
-  // Temporary #55 capability boundary (S06, S10): Stream B owns PvP and Ability question
-  // integration. Keep the existing item/skip questions and recordings stable in the meantime.
-  const supportedActions = enabledActions.filter(
-    (action) => action.kind !== 'declare_pvp' && action.kind !== 'activate_ability',
-  );
+  // Keep the existing item/skip questions and recordings stable until Stream B lifts the boundary.
+  const supportedActions = enabledActions.filter(isStrategyQuestionAction);
   const early = withoutQuestion(supportedActions);
   if (early) return early;
   if (!supportedActions.some((action) => action.kind === 'skip')) {
@@ -79,7 +85,8 @@ export function buildStrategyQuestion(
   for (const action of shortlist) {
     const label = action.kind === 'skip' ? 'skip' : `a${next++}`;
     options[label] = action.id;
-    criteria[label] = criteriaFor(action, observation);
+    const outcome = outcomes?.[action.id];
+    criteria[label] = criteriaFor(action, observation) + (outcome ? outcomeSentence(outcome) : '');
   }
   return {
     kind: 'ask',
