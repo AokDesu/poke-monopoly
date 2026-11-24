@@ -3,6 +3,9 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { t } from './i18n/en.ts';
 import { Root } from './Root.tsx';
 
+// Named per-test budgets (ET-05): these take 2 to 8 s at full parallelism, so the 5 s default is too tight on a loaded machine.
+const SLOW_TEST_MS = 30_000;
+
 // A dev server's Vite plugin supplies the fixtures to the route; the test hands the page its own.
 vi.mock('./gallery/GalleryRoute.tsx', async () => {
   const { GalleryPage } = await import('./gallery/GalleryPage.tsx');
@@ -22,12 +25,16 @@ afterEach(() => {
   localStorage.clear();
 });
 
-test('a dev build opens the gallery at ?gallery', async () => {
-  render(<Root search="?gallery" dev />);
-  // The lazy gallery chunk renders every screen state once, which takes most of a second cold.
-  expect(await screen.findByTestId('ui-gallery', undefined, { timeout: 2_000 })).toBeTruthy();
-  expect(screen.getByRole('heading', { level: 1, name: t('gallery.title') })).toBeTruthy();
-});
+test(
+  'a dev build opens the gallery at ?gallery',
+  async () => {
+    render(<Root search="?gallery" dev />);
+    // The lazy gallery chunk renders every screen state once: most of a second cold, ~3 s at full parallelism.
+    expect(await screen.findByTestId('ui-gallery', undefined, { timeout: 20_000 })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: t('gallery.title') })).toBeTruthy();
+  },
+  SLOW_TEST_MS,
+);
 
 test.each(['?gallery', '?gallery=1', '?seed=3&gallery'])(
   'a production build ignores %s and opens the game',

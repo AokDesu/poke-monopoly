@@ -31,6 +31,9 @@ import {
   scoreOptions,
 } from './index.ts';
 
+// Named per-test budget (ET-05): 5 to 7 s at full parallelism, so the 5 s default is too tight on a loaded machine.
+const SLOW_TEST_MS = 30_000;
+
 const greedy = PERSONALITIES.greedy;
 /** Greedy with only liquidity lowered, for directional tests (not a shipped personality). */
 const hoarder = parsePersonality('hoarder', {
@@ -356,35 +359,39 @@ describe('sim registration (§1: games finish with Jev off)', () => {
     },
   );
 
-  test('each Sell Phase across seeded two-seat Greedy games sells exactly the qualifying batch, or every non-Rescue Pokémon in the last one unless a Gym follows (§5.6)', async () => {
-    const sales: { sold: string[]; qualifying: string[] }[] = [];
-    const engine: SimEngine = {
-      ...realEngine,
-      applyAction(state, action) {
-        const command = action as Action;
-        if (state.phase.kind === 'sell' && command.kind === 'sell') {
-          const seat = state.activeSeatIndex;
-          const observation = realEngine.observe(state, seat);
-          const facts = realEngine.facts!(state, seat);
-          const team = observation.public.players.find((player) => player.seatIndex === seat)!;
-          sales.push({
-            sold: [...command.payload.pokemonInstanceIds],
-            qualifying: team.team
-              .filter((pokemon) =>
-                sellsEverythingNow(observation)
-                  ? pokemon.origin !== 'rescue_starter'
-                  : saleDesire(observation, pokemon.instanceId, facts) >= greedy.sellThreshold,
-              )
-              .map((pokemon) => pokemon.instanceId),
-          });
-        }
-        return realEngine.applyAction(state, action);
-      },
-    };
-    const options = { ...DEFAULT_OPTIONS, games: 4, seed: 10, seats: 2, policy: 'fallback' };
-    const { summary } = await runSim(engine, options, POLICIES, checkInvariants);
-    expect(summary).toMatchObject({ illegalAppliedActionCount: 0, invariantFailures: 0 });
-    for (const { sold, qualifying } of sales) expect(sold).toEqual(qualifying);
-    expect(sales.some(({ sold }) => sold.length > 1)).toBe(true);
-  });
+  test(
+    'each Sell Phase across seeded two-seat Greedy games sells exactly the qualifying batch, or every non-Rescue Pokémon in the last one unless a Gym follows (§5.6)',
+    async () => {
+      const sales: { sold: string[]; qualifying: string[] }[] = [];
+      const engine: SimEngine = {
+        ...realEngine,
+        applyAction(state, action) {
+          const command = action as Action;
+          if (state.phase.kind === 'sell' && command.kind === 'sell') {
+            const seat = state.activeSeatIndex;
+            const observation = realEngine.observe(state, seat);
+            const facts = realEngine.facts!(state, seat);
+            const team = observation.public.players.find((player) => player.seatIndex === seat)!;
+            sales.push({
+              sold: [...command.payload.pokemonInstanceIds],
+              qualifying: team.team
+                .filter((pokemon) =>
+                  sellsEverythingNow(observation)
+                    ? pokemon.origin !== 'rescue_starter'
+                    : saleDesire(observation, pokemon.instanceId, facts) >= greedy.sellThreshold,
+                )
+                .map((pokemon) => pokemon.instanceId),
+            });
+          }
+          return realEngine.applyAction(state, action);
+        },
+      };
+      const options = { ...DEFAULT_OPTIONS, games: 4, seed: 10, seats: 2, policy: 'fallback' };
+      const { summary } = await runSim(engine, options, POLICIES, checkInvariants);
+      expect(summary).toMatchObject({ illegalAppliedActionCount: 0, invariantFailures: 0 });
+      for (const { sold, qualifying } of sales) expect(sold).toEqual(qualifying);
+      expect(sales.some(({ sold }) => sold.length > 1)).toBe(true);
+    },
+    SLOW_TEST_MS,
+  );
 });

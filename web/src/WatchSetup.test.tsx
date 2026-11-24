@@ -13,6 +13,9 @@ import { t } from './i18n/en.ts';
 import { className } from './i18n/names.ts';
 import { HomeScreen } from './setup/HomeScreen.tsx';
 
+// Named per-test budgets (ET-05): these take 2 to 8 s at full parallelism, so the 5 s default is too tight on a loaded machine.
+const SLOW_TEST_MS = 30_000;
+
 afterEach(cleanup);
 
 function memory(): SaveStorage & { data: Map<string, string> } {
@@ -124,36 +127,41 @@ test.each([2, 3, 4])(
     ]);
     expect(store.getView()).toBeNull();
   },
+  SLOW_TEST_MS,
 );
 
-test('Back and forward keep every answer, and changing one AI never changes another (§3)', async () => {
-  const user = open({ storage: memory() });
-  await toAis(user);
-  await user.click(radio(/^3 AIs/));
-  const before = [0, 1, 2].map(classOf);
-  expect(new Set(before).size).toBe(3);
+test(
+  'Back and forward keep every answer, and changing one AI never changes another (§3)',
+  async () => {
+    const user = open({ storage: memory() });
+    await toAis(user);
+    await user.click(radio(/^3 AIs/));
+    const before = [0, 1, 2].map(classOf);
+    expect(new Set(before).size).toBe(3);
 
-  // Change AI seat 1 only: a class nobody holds, and a difficulty.
-  await user.click(tab(1));
-  const free = classOptions.find((option) => option.playable && !before.includes(option.id))!;
-  await user.click(radio(new RegExp(`^${className(free.id)}`)));
-  await user.click(radio(/^Normal/));
-  const after = [0, 1, 2].map(classOf);
-  expect(after).toEqual([before[0], free.id, before[2]]);
+    // Change AI seat 1 only: a class nobody holds, and a difficulty.
+    await user.click(tab(1));
+    const free = classOptions.find((option) => option.playable && !before.includes(option.id))!;
+    await user.click(radio(new RegExp(`^${className(free.id)}`)));
+    await user.click(radio(/^Normal/));
+    const after = [0, 1, 2].map(classOf);
+    expect(after).toEqual([before[0], free.id, before[2]]);
 
-  await user.click(button(t('watchSetup.next')));
-  await user.click(button(t('watchOptions.next')));
-  expect(heading()).toBe(t('watchReview.heading'));
-  await user.click(button(t('nav.back')));
-  await user.click(button(t('nav.back')));
-  expect(heading()).toBe(t('watchSetup.heading'));
-  expect(radio(/^3 AIs/)).toHaveProperty('checked', true);
-  expect([0, 1, 2].map(classOf)).toEqual(after);
-  await user.click(tab(1));
-  expect(radio(/^Normal/)).toHaveProperty('checked', true);
-  await user.click(tab(0));
-  expect(radio(/^Easy/)).toHaveProperty('checked', true);
-});
+    await user.click(button(t('watchSetup.next')));
+    await user.click(button(t('watchOptions.next')));
+    expect(heading()).toBe(t('watchReview.heading'));
+    await user.click(button(t('nav.back')));
+    await user.click(button(t('nav.back')));
+    expect(heading()).toBe(t('watchSetup.heading'));
+    expect(radio(/^3 AIs/)).toHaveProperty('checked', true);
+    expect([0, 1, 2].map(classOf)).toEqual(after);
+    await user.click(tab(1));
+    expect(radio(/^Normal/)).toHaveProperty('checked', true);
+    await user.click(tab(0));
+    expect(radio(/^Easy/)).toHaveProperty('checked', true);
+  },
+  SLOW_TEST_MS,
+);
 
 test('a class another AI has and a closed mode are greyed with a reason; every personality is open (§3.1)', async () => {
   const user = open({ storage: memory() });
@@ -200,46 +208,50 @@ test('Random All fills every AI, keeps the count and never repeats a class (§3)
   expect([...positions].sort((a, b) => a - b)).toEqual(positions);
 });
 
-test('a reload on the review screen restores every seat and setting; Back still works (§3.1)', async () => {
-  const storage = memory();
-  const first = open({ storage });
-  await toAis(first);
-  await first.click(radio(/^3 AIs/));
-  await first.click(tab(2));
-  await first.click(radio(/^Normal/));
-  const chosen = [0, 1, 2].map(classOf);
-  await first.click(button(t('watchSetup.next')));
-  await first.click(radio(/^Talk off/));
-  await first.click(radio(/^Instant/));
-  await first.click(button(t('watchOptions.next')));
-  expect(heading()).toBe(t('watchReview.heading'));
-  expect(storage.data.has(WATCH_SETUP_KEY)).toBe(true);
-  cleanup();
+test(
+  'a reload on the review screen restores every seat and setting; Back still works (§3.1)',
+  async () => {
+    const storage = memory();
+    const first = open({ storage });
+    await toAis(first);
+    await first.click(radio(/^3 AIs/));
+    await first.click(tab(2));
+    await first.click(radio(/^Normal/));
+    const chosen = [0, 1, 2].map(classOf);
+    await first.click(button(t('watchSetup.next')));
+    await first.click(radio(/^Talk off/));
+    await first.click(radio(/^Instant/));
+    await first.click(button(t('watchOptions.next')));
+    expect(heading()).toBe(t('watchReview.heading'));
+    expect(storage.data.has(WATCH_SETUP_KEY)).toBe(true);
+    cleanup();
 
-  const store = createGameStore();
-  const second = open({ storage, store, seed: 1 });
-  expect(heading()).toBe(t('watchReview.heading'));
-  const text = document.body.textContent!;
-  const positions = chosen.map((id) => text.indexOf(className(id!)));
-  expect(positions.every((position) => position >= 0)).toBe(true);
-  expect([...positions].sort((a, b) => a - b)).toEqual(positions);
-  expect(text).toContain(`${t('watchReview.talk')}: ${t('watchReview.off')}`);
-  expect(text).toContain(`${t('watchReview.speed')}: ${t('ai.speed.instant')}`);
-  expect(within(document.body).getAllByText(new RegExp(t('difficulty.normal'))).length).toBe(1);
+    const store = createGameStore();
+    const second = open({ storage, store, seed: 1 });
+    expect(heading()).toBe(t('watchReview.heading'));
+    const text = document.body.textContent!;
+    const positions = chosen.map((id) => text.indexOf(className(id!)));
+    expect(positions.every((position) => position >= 0)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    expect(text).toContain(`${t('watchReview.talk')}: ${t('watchReview.off')}`);
+    expect(text).toContain(`${t('watchReview.speed')}: ${t('ai.speed.instant')}`);
+    expect(within(document.body).getAllByText(new RegExp(t('difficulty.normal'))).length).toBe(1);
 
-  await second.click(button(t('nav.back')));
-  await second.click(button(t('nav.back')));
-  expect(radio(/^3 AIs/)).toHaveProperty('checked', true);
-  expect([0, 1, 2].map(classOf)).toEqual(chosen);
+    await second.click(button(t('nav.back')));
+    await second.click(button(t('nav.back')));
+    expect(radio(/^3 AIs/)).toHaveProperty('checked', true);
+    expect([0, 1, 2].map(classOf)).toEqual(chosen);
 
-  // Starting uses exactly the restored answers, and the unfinished setup is forgotten.
-  await second.click(button(t('watchSetup.next')));
-  await second.click(button(t('watchOptions.next')));
-  await second.click(button(t('watchReview.start')));
-  expect(store.getSession()!.state.config.seats.map((seat) => seat.classId)).toEqual(chosen);
-  expect(store.getWatchSettings()).toEqual({ talk: false, speed: 'instant' });
-  expect(storage.data.has(WATCH_SETUP_KEY)).toBe(false);
-});
+    // Starting uses exactly the restored answers, and the unfinished setup is forgotten.
+    await second.click(button(t('watchSetup.next')));
+    await second.click(button(t('watchOptions.next')));
+    await second.click(button(t('watchReview.start')));
+    expect(store.getSession()!.state.config.seats.map((seat) => seat.classId)).toEqual(chosen);
+    expect(store.getWatchSettings()).toEqual({ talk: false, speed: 'instant' });
+    expect(storage.data.has(WATCH_SETUP_KEY)).toBe(false);
+  },
+  SLOW_TEST_MS,
+);
 
 test('leaving the watch setup for Home forgets it, and a reload then opens Home (§3.1)', async () => {
   const storage = memory();
@@ -333,41 +345,45 @@ test('a saved game waiting on Home wins over a stale watch setup (§3.1)', async
   expect(storage.data.has(WATCH_SETUP_KEY)).toBe(false);
 });
 
-test('the saved game resumes as a watched game with the same seats and settings (§3.1)', async () => {
-  const storage = memory();
-  const first = createGameStore();
-  const user = open({ storage, store: first, seed: 3 });
-  await toAis(user);
-  await user.click(radio(/^3 AIs/));
-  await user.click(tab(1));
-  await user.click(radio(/^Normal/));
-  await user.click(button(t('watchSetup.next')));
-  await user.click(radio(/^Talk off/));
-  await user.click(radio(/^Instant/));
-  await user.click(button(t('watchOptions.next')));
-  await user.click(button(t('watchReview.start')));
-  const seats = first
-    .getSession()!
-    .state.config.seats.map((seat) => [seat.seatIndex, seat.classId]);
-  const opponents = first.getOpponents();
-  expect(JSON.parse(storage.data.get(META_KEY)!)).toMatchObject({
-    watch: { talk: false, speed: 'instant' },
-  });
-  cleanup();
+test(
+  'the saved game resumes as a watched game with the same seats and settings (§3.1)',
+  async () => {
+    const storage = memory();
+    const first = createGameStore();
+    const user = open({ storage, store: first, seed: 3 });
+    await toAis(user);
+    await user.click(radio(/^3 AIs/));
+    await user.click(tab(1));
+    await user.click(radio(/^Normal/));
+    await user.click(button(t('watchSetup.next')));
+    await user.click(radio(/^Talk off/));
+    await user.click(radio(/^Instant/));
+    await user.click(button(t('watchOptions.next')));
+    await user.click(button(t('watchReview.start')));
+    const seats = first
+      .getSession()!
+      .state.config.seats.map((seat) => [seat.seatIndex, seat.classId]);
+    const opponents = first.getOpponents();
+    expect(JSON.parse(storage.data.get(META_KEY)!)).toMatchObject({
+      watch: { talk: false, speed: 'instant' },
+    });
+    cleanup();
 
-  const second = createGameStore();
-  const again = open({ storage, store: second });
-  expect(heading()).toBe(t('save.continueHeading'));
-  await again.click(button(t('save.continue')));
-  expect(screen.queryByRole('heading', { name: t('firstPlayer.heading') })).toBeNull();
-  const resumed = second.getSession()!.state;
-  expect(resumed.config.seats.map((seat) => [seat.seatIndex, seat.classId])).toEqual(seats);
-  expect(resumed.config.seats.every((seat) => seat.controller === 'ai')).toBe(true);
-  expect(second.getOpponents()).toEqual(opponents);
-  expect(second.getWatchSettings()).toEqual({ talk: false, speed: 'instant' });
-  expect(second.getView()).toBeNull();
-  expect(second.getSpectatorView()).not.toBeNull();
-});
+    const second = createGameStore();
+    const again = open({ storage, store: second });
+    expect(heading()).toBe(t('save.continueHeading'));
+    await again.click(button(t('save.continue')));
+    expect(screen.queryByRole('heading', { name: t('firstPlayer.heading') })).toBeNull();
+    const resumed = second.getSession()!.state;
+    expect(resumed.config.seats.map((seat) => [seat.seatIndex, seat.classId])).toEqual(seats);
+    expect(resumed.config.seats.every((seat) => seat.controller === 'ai')).toBe(true);
+    expect(second.getOpponents()).toEqual(opponents);
+    expect(second.getWatchSettings()).toEqual({ talk: false, speed: 'instant' });
+    expect(second.getView()).toBeNull();
+    expect(second.getSpectatorView()).not.toBeNull();
+  },
+  SLOW_TEST_MS,
+);
 
 test('a normal New game still ends setup on its own first-player roll screen (§3)', async () => {
   const user = open({ storage: memory(), seed: 1 });

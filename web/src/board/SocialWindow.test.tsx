@@ -10,6 +10,9 @@ import { BoardScreen } from './BoardScreen.tsx';
 import { seatLabel } from './labels.ts';
 import { SocialPanel } from './SocialPanel.tsx';
 
+// Named per-test budgets (ET-05): these take 2 to 8 s at full parallelism, so the 5 s default is too tight on a loaded machine.
+const SLOW_TEST_MS = 30_000;
+
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () {
     this.open = true;
@@ -63,103 +66,113 @@ async function openWindow(rivals: 1 | 2, chat?: Parameters<typeof fakeServer>[0]
   return { server, store };
 }
 
-test('all five topics are reachable without typing; one message and its reply use the window up and change nothing else', async () => {
-  const { server, store } = await openWindow(2);
-  for (const topic of CHAT_TOPICS) {
-    const button = within(panel()).getByRole('button', { name: t(`social.topic.${topic}`) });
-    expect(button.hasAttribute('disabled'), topic).toBe(false);
-  }
-  expect(within(panel()).queryByRole('textbox')).toBeNull();
-  // Nothing is sent until the player chooses one rival, one topic and presses Send, whose reason shows.
-  const send = within(panel()).getByRole('button', { name: t('social.sendNone') });
-  expect(send.hasAttribute('disabled')).toBe(true);
-  expect(document.getElementById(send.getAttribute('aria-describedby')!)!.textContent).toBe(
-    t('social.reason.chooseRival'),
-  );
-  press(rivalTwo);
-  press(t('social.topic.point_leader'));
-  // Only a third seat can be pointed at: not the speaker and not the one spoken to.
-  const leaders = within(panel()).getByRole('group', { name: t('social.leaders') });
-  expect(
-    within(leaders)
-      .getAllByRole('button')
-      .map((b) => b.textContent),
-  ).toEqual([rivalOne]);
-  fireEvent.click(within(leaders).getByRole('button', { name: rivalOne }));
-  expect(panel().textContent).toContain(
-    t('social.preview', {
-      rival: rivalTwo,
-      summary: t('social.summary.point_leader', { leader: t('board.rivalLabel', { seat: 1 }) }),
-    }),
-  );
-  const before = holdings(store);
-  expect(chatsIn(store)).toHaveLength(0);
-  press(t('social.send', { rival: rivalTwo }));
-  await settle();
-
-  expect(chatsIn(store)).toHaveLength(1);
-  expect(chatsIn(store)[0]!.action).toMatchObject({
-    kind: 'chat',
-    payload: { targetSeatIndex: 2, topic: 'point_leader', leaderSeatIndex: 1 },
-  });
-  expect(server.calls.chat).toHaveLength(1);
-  expect(server.calls.chat[0]).toMatchObject({
-    seatIndex: 2,
-    observation: { own: { seatIndex: 2 } },
-  });
-  // The reply is a bank line, labelled, and the window is used up: no second topic, only Continue.
-  expect(panel().textContent).toContain(line);
-  expect(panel().textContent).toContain(t('talk.bank'));
-  expect(panel().textContent).toContain(t('social.spent'));
-  expect(panel().textContent).toContain(t('social.onlyWords'));
-  for (const topic of CHAT_TOPICS) {
-    expect(within(panel()).queryByRole('button', { name: t(`social.topic.${topic}`) })).toBeNull();
-  }
-  // The game waits for the player here and only here.
-  await settle(10_000);
-  expect(phaseOf(store)).toBe('social');
-  fireEvent.click(within(panel()).getByRole('button', { name: t('social.continue') }));
-  expect(phaseOf(store)).toBe('strategy');
-  const { state } = store.getSession()!;
-  expect(holdings(store)).toBe(before);
-  expect(state.turnBudgets.tacticalAction).toBe(1);
-  expect(state.promises ?? []).toEqual([]);
-  expect(state.pendingResponse).toBeUndefined();
-  expect(chatsIn(store)).toHaveLength(1);
-});
-
-test('every topic can be sent to a rival and shows the only-words notice; a trade or truce is never a contract', async () => {
-  const notice = {
-    truce: t('social.noticeTruce'),
-    trade: t('social.noticeTrade'),
-  } as const;
-  const item = engineContent.items.find((entry) => entry.kind === 'utility')!;
-  for (const topic of CHAT_TOPICS) {
-    const { store } = await openWindow(2);
-    press(rivalOne);
-    press(t(`social.topic.${topic}`));
-    expect(panel().textContent).toContain(t('social.onlyWords'));
-    if (topic === 'truce' || topic === 'trade')
-      expect(panel().textContent).toContain(notice[topic]);
-    if (topic === 'point_leader') {
-      fireEvent.click(
-        within(within(panel()).getByRole('group', { name: t('social.leaders') })).getByRole(
-          'button',
-          { name: rivalTwo },
-        ),
-      );
+test(
+  'all five topics are reachable without typing; one message and its reply use the window up and change nothing else',
+  async () => {
+    const { server, store } = await openWindow(2);
+    for (const topic of CHAT_TOPICS) {
+      const button = within(panel()).getByRole('button', { name: t(`social.topic.${topic}`) });
+      expect(button.hasAttribute('disabled'), topic).toBe(false);
     }
-    if (topic === 'use_item' || topic === 'hold_item') press(itemName(item.id));
-    press(t('social.send', { rival: rivalOne }));
+    expect(within(panel()).queryByRole('textbox')).toBeNull();
+    // Nothing is sent until the player chooses one rival, one topic and presses Send, whose reason shows.
+    const send = within(panel()).getByRole('button', { name: t('social.sendNone') });
+    expect(send.hasAttribute('disabled')).toBe(true);
+    expect(document.getElementById(send.getAttribute('aria-describedby')!)!.textContent).toBe(
+      t('social.reason.chooseRival'),
+    );
+    press(rivalTwo);
+    press(t('social.topic.point_leader'));
+    // Only a third seat can be pointed at: not the speaker and not the one spoken to.
+    const leaders = within(panel()).getByRole('group', { name: t('social.leaders') });
+    expect(
+      within(leaders)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual([rivalOne]);
+    fireEvent.click(within(leaders).getByRole('button', { name: rivalOne }));
+    expect(panel().textContent).toContain(
+      t('social.preview', {
+        rival: rivalTwo,
+        summary: t('social.summary.point_leader', { leader: t('board.rivalLabel', { seat: 1 }) }),
+      }),
+    );
+    const before = holdings(store);
+    expect(chatsIn(store)).toHaveLength(0);
+    press(t('social.send', { rival: rivalTwo }));
     await settle();
-    expect(chatsIn(store), topic).toHaveLength(1);
+
+    expect(chatsIn(store)).toHaveLength(1);
+    expect(chatsIn(store)[0]!.action).toMatchObject({
+      kind: 'chat',
+      payload: { targetSeatIndex: 2, topic: 'point_leader', leaderSeatIndex: 1 },
+    });
+    expect(server.calls.chat).toHaveLength(1);
+    expect(server.calls.chat[0]).toMatchObject({
+      seatIndex: 2,
+      observation: { own: { seatIndex: 2 } },
+    });
+    // The reply is a bank line, labelled, and the window is used up: no second topic, only Continue.
+    expect(panel().textContent).toContain(line);
+    expect(panel().textContent).toContain(t('talk.bank'));
+    expect(panel().textContent).toContain(t('social.spent'));
     expect(panel().textContent).toContain(t('social.onlyWords'));
-    // The only choice left is Continue: no deal, promise or second message is on offer.
-    expect(store.getView()!.legalActions.enabled.map((action) => action.kind)).toEqual(['skip']);
-    expect(store.getSession()!.state.promises ?? []).toEqual([]);
-    cleanup();
-  }
-});
+    for (const topic of CHAT_TOPICS) {
+      expect(
+        within(panel()).queryByRole('button', { name: t(`social.topic.${topic}`) }),
+      ).toBeNull();
+    }
+    // The game waits for the player here and only here.
+    await settle(10_000);
+    expect(phaseOf(store)).toBe('social');
+    fireEvent.click(within(panel()).getByRole('button', { name: t('social.continue') }));
+    expect(phaseOf(store)).toBe('strategy');
+    const { state } = store.getSession()!;
+    expect(holdings(store)).toBe(before);
+    expect(state.turnBudgets.tacticalAction).toBe(1);
+    expect(state.promises ?? []).toEqual([]);
+    expect(state.pendingResponse).toBeUndefined();
+    expect(chatsIn(store)).toHaveLength(1);
+  },
+  SLOW_TEST_MS,
+);
+
+test(
+  'every topic can be sent to a rival and shows the only-words notice; a trade or truce is never a contract',
+  async () => {
+    const notice = {
+      truce: t('social.noticeTruce'),
+      trade: t('social.noticeTrade'),
+    } as const;
+    const item = engineContent.items.find((entry) => entry.kind === 'utility')!;
+    for (const topic of CHAT_TOPICS) {
+      const { store } = await openWindow(2);
+      press(rivalOne);
+      press(t(`social.topic.${topic}`));
+      expect(panel().textContent).toContain(t('social.onlyWords'));
+      if (topic === 'truce' || topic === 'trade')
+        expect(panel().textContent).toContain(notice[topic]);
+      if (topic === 'point_leader') {
+        fireEvent.click(
+          within(within(panel()).getByRole('group', { name: t('social.leaders') })).getByRole(
+            'button',
+            { name: rivalTwo },
+          ),
+        );
+      }
+      if (topic === 'use_item' || topic === 'hold_item') press(itemName(item.id));
+      press(t('social.send', { rival: rivalOne }));
+      await settle();
+      expect(chatsIn(store), topic).toHaveLength(1);
+      expect(panel().textContent).toContain(t('social.onlyWords'));
+      // The only choice left is Continue: no deal, promise or second message is on offer.
+      expect(store.getView()!.legalActions.enabled.map((action) => action.kind)).toEqual(['skip']);
+      expect(store.getSession()!.state.promises ?? []).toEqual([]);
+      cleanup();
+    }
+  },
+  SLOW_TEST_MS,
+);
 
 test('with two seats there is nobody to point at: the topic is greyed out and says why', async () => {
   await openWindow(1);
