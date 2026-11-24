@@ -434,7 +434,7 @@ export async function playPlan(
 }
 
 /** Saves the finished game as the CLI's `--save` does, reloads it and replays it (§6.8). */
-function replays(game: PlayedGame): boolean {
+export function replays(game: PlayedGame): boolean {
   try {
     const log = createGameLog(game.initialState);
     log.actions = game.records;

@@ -1,0 +1,99 @@
+{
+  "id": "g2-hard-vs-normal",
+  "version": 1,
+  "status": "frozen-before-run",
+  "note": "G2 duel plan. The pre-registered rule below was written before any live game; change it only by a new version, never after a result. Thresholds marked captainToConfirm are proposed defaults.",
+  "spec": ["§5.6 Difficulty", "§8 Simulation: Difficulty", "§10 C5 gate G2"],
+  "epic": "AokDesu/poke-monopoly#62",
+  "game": {
+    "lapTarget": 2,
+    "maxSteps": 5000,
+    "seats": 2,
+    "classPool": ["main-character", "rival", "fisherman", "nurse-joy", "bug-catcher", "researcher"]
+  },
+  "policies": {
+    "treatment": "jev-hard",
+    "control": "jev",
+    "background": "jev",
+    "personality": "greedy",
+    "note": "Every seat plays Greedy through the Jev orchestrator. The treatment arm seats Hard at the focal seat and Normal at every other seat; the control arm seats Normal everywhere. Nothing else differs: same seed, classes, Starters and personality."
+  },
+  "design": {
+    "unit": "block = one seed with one focal seat",
+    "blocksPerSeed": "one per seat: Hard sits in every seat for every seed, so a seat or class advantage cancels",
+    "gamesPerBlock": 2,
+    "order": "seed ascending, then focal seat, then control before treatment, so an interrupted run leaves whole pairs",
+    "dependence": "A block's two arms share a seed but not their dice after the first different decision. The control game is played again for each block, so no game is shared and blocks stay independent.",
+    "analysis": "sim/analysis/paired.ts (analyzePaired): per-block score difference, Hard minus Normal, with a stratified percentile bootstrap over blocks within (seat count, focal seat) cells.",
+    "score": "k co-winners score 1/k each (spec §8 Scoring)",
+    "realism": "The sim does not send Sell Phase questions (no Sell facts yet, ai/README.md), so those decisions use the fallback on both difficulties. Hard's rollouts act only on Strategy and Encounter, so the duel covers every decision where Hard differs from Normal."
+  },
+  "seeds": {
+    "seedSet": "eval",
+    "first": 1300002,
+    "count": 198,
+    "note": "A multiple of 6 seeds, so every class takes every seat equally often. Run a prefix by --seeds only for a smaller n chosen before the run."
+  },
+  "seedLedger": [
+    {
+      "id": "g2-held-out",
+      "first": 1300002,
+      "last": 1300199,
+      "partition": "eval",
+      "status": "unopened",
+      "role": "G2 evaluation seeds. Disjoint from every range in sim/experiments/c5-plan.json; never tuned on. The live run is the first and only use."
+    }
+  ],
+  "power": {
+    "metric": "score difference per block (Hard minus Normal)",
+    "alpha": 0.05,
+    "power": 0.8,
+    "assumedScoreSdPerBlock": 0.7071,
+    "sdNote": "Two independent games, each a win-or-lose score with variance about 0.25 at two seats (0.25 + 0.25 = 0.5, SD 0.7071). A correlation between the arms, shared by the seed, would lower it; none is assumed.",
+    "gaps": [0.05, 0.075, 0.1, 0.15, 0.2],
+    "minimumUsefulGap": 0.1,
+    "recommendedSeeds": 198,
+    "captainToConfirm": "The smallest gap worth a third level is a product call. 0.10 means Hard scores 0.60 against Normal's 0.50 at a two-seat table: about 60 games in 100 won, not 50."
+  },
+  "cost": {
+    "inputTokensPerRequest": 3242.23,
+    "inputTokensSource": "docs/jev-spike-report.md: mean input tokens per request over the 26 Oct live pair; SPEND_CONFIG.estimatedInputTokensPerRequest is 3,240",
+    "usdPerMillionInputTokens": 0.042,
+    "thbPerUsd": 33,
+    "priceSource": "ai/jev/spend.ts SPEND_CONFIG (spec §5.1, §9)",
+    "requestsPerGame": 24.5,
+    "requestsSource": "mean of 24 offline games (6 seeds x 2 seats x 2 arms) on the seeded fake client, 589 requests, see docs/experiments/g2-hard-vs-normal.md; not a live number: the live run measures it in logs/jev-usage.jsonl"
+  },
+  "rule": {
+    "writtenBefore": "any live game of this plan",
+    "integrity": {
+      "illegalAppliedActionCount": 0,
+      "invariantFailures": 0,
+      "replayFailures": 0,
+      "budgetExceededFallbacks": 0,
+      "maxAbortedPairShare": 0.02,
+      "everyRowLive": true,
+      "onFailure": "no verdict: fix the cause and play the plan again on fresh seeds"
+    },
+    "evidence": {
+      "metric": "score",
+      "intervalConfidence": 0.95,
+      "lowerBoundAbove": 0,
+      "minPointEstimate": 0.05,
+      "captainToConfirm": "minPointEstimate: Hard must be ahead with a 95% interval that excludes zero, and by at least half the 0.10 gap the run is sized for."
+    },
+    "latency": {
+      "decisionP95MsMax": 1500,
+      "turnP95MsMax": 2000,
+      "hardTimeoutRateExcessMax": 0.02,
+      "basis": "Spec §5.6: a decision returns by 1,500 ms and Hard's rollouts take at most 400 ms of it. Spec §1: AI decision time per turn p95 at most 2 s. Hard's share of decisions that fall back on a timeout may exceed Normal's by at most 0.02.",
+      "captainToConfirm": "hardTimeoutRateExcessMax"
+    },
+    "verdict": {
+      "keepThreeLevels": "integrity holds AND evidence holds AND latency holds",
+      "shipTwoLevels": "integrity holds and either evidence or latency fails: Easy and Normal ship, Hard is cut (spec §10 'Cut if late: Monte Carlo'), and the report says which part failed",
+      "noVerdict": "an integrity check fails, or planned blocks are missing: say so, never read a partial run as G2",
+      "neverDo": "Do not add hidden information, change what Hard's rollouts read or tune the rollout defaults after seeing a result to move the verdict (spec §8)."
+    }
+  }
+}
