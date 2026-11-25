@@ -44,8 +44,19 @@ import {
 
 const content = toEngineContent(CONTENT);
 
-/** How many games keep speech limits at once; a game past this is never given a fresh count. */
+/**
+ * How many games keep live speech counters at once. A new game past this takes the place of the
+ * least recently used idle one, which is retired: it is remembered as spent, never given a fresh
+ * count (spec §9, #64), so a flood of new IDs cannot lock new games out or reset an old one.
+ */
 export const MAX_SPEECH_GAMES = 1_000;
+
+/**
+ * How many retired game IDs are remembered (about 10 MB of 100-byte IDs). Past it the speaker
+ * refuses a new game (`game_limit`) rather than forget one: with the server-wide Haiku window it
+ * takes weeks of calls to get there.
+ */
+export const MAX_RETIRED_SPEECH_GAMES = 100_000;
 
 /** The request names something the server cannot speak about; the route answers 400. */
 export class InvalidSpeakRequest extends Error {
@@ -54,7 +65,7 @@ export class InvalidSpeakRequest extends Error {
   }
 }
 
-/** A game's lifetime Haiku accounting (spec §9); a few counters, never evicted, so a game cannot reset its own limits. */
+/** A game's lifetime Haiku accounting (spec §9); a few counters, retired rather than reset, so a game cannot reset its own limits. */
 class SpeechQuota {
   calls = 0;
   inputTokens = 0;
@@ -128,12 +139,29 @@ export const createSpeaker = ({
   const quotas = new Map<string, SpeechQuota>();
   const rejected: Partial<Record<Rejection, number>> = {};
 
+  const retired = new Set<string>();
+
   const limitReason = (gameId: string): SpeakFallbackReason | undefined => {
+    if (retired.has(gameId)) return 'call_limit';
     let quota = quotas.get(gameId);
     if (!quota) {
-      if (quotas.size >= MAX_SPEECH_GAMES) return 'game_limit';
-      quotas.set(gameId, (quota = new SpeechQuota()));
+      if (quotas.size >= MAX_SPEECH_GAMES) {
+        // Least recently used first (a read moves a game to the end); one with a call out stays.
+        let idle: string | undefined;
+        for (const [id, entry] of quotas)
+          if (!entry.inFlight) {
+            idle = id;
+            break;
+          }
+        if (idle === undefined || retired.size >= MAX_RETIRED_SPEECH_GAMES) return 'game_limit';
+        quotas.delete(idle);
+        retired.add(idle);
+      }
+      quota = new SpeechQuota();
+    } else {
+      quotas.delete(gameId);
     }
+    quotas.set(gameId, quota);
     if (quota.inFlight) return 'in_flight';
     if (quota.calls >= config.haikuMaxCallsPerGame) return 'call_limit';
     // The call is counted by what it reports afterwards, so reserve the estimate for it now.

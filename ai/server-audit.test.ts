@@ -19,6 +19,7 @@ import encounterFixture from '../engine/fixtures/encounter-with-balls.json';
 import strategyFixture from '../engine/fixtures/strategy-with-items.json';
 import { createPolicyRng } from '../sim/policy.ts';
 import { createApp } from './app.ts';
+import { ChatLedger } from './chat-reply.ts';
 import { FallbackPolicy, PERSONALITIES } from './fallback/index.ts';
 import { hardOutcomes } from './hard.ts';
 import { PINNED_JEV_MODEL, type JevAnswer, type JevRequest, type JevResult } from './jev/client.ts';
@@ -627,5 +628,34 @@ describe('finding 8: every client string is bounded before it reaches the decisi
     expect(records).toHaveLength(1);
     expect(warn).toHaveBeenCalledOnce();
     expect(JSON.stringify(warn.mock.calls)).not.toContain('bad');
+  });
+});
+
+describe('finding 7: per-game state is bounded and eviction never resets a limit (spec §9)', () => {
+  const message = (turn: number) =>
+    ({ fromSeatIndex: 0, toSeatIndex: 1, globalTurnNo: turn, topic: 'truce' }) as never;
+  const refusal = {
+    fromSeatIndex: 0,
+    toSeatIndex: 1,
+    topic: 'truce',
+    situation: 'manipulation_refused',
+    lineId: 'x',
+    refused: true,
+    source: 'jev',
+  } as never;
+
+  test('a game keeps at most 256 refused messages, the newest, so its memory is bounded', async () => {
+    const ledger = new ChatLedger();
+    for (let turn = 0; turn < 300; turn++) {
+      await ledger.reply('game-chat', message(turn), async () => refusal);
+    }
+    const chats = Array.from({ length: 300 }, (_, turn) => message(turn));
+    const scrubbed = ledger.scrub('game-chat', {
+      ...strategy.observation,
+      own: { ...strategy.observation.own, chats },
+    });
+    // The newest 256 are removed from a decision; the 44 oldest are forgotten.
+    expect(scrubbed.own.chats).toHaveLength(300 - 256);
+    expect(scrubbed.own.chats!.every((chat) => chat.globalTurnNo < 44)).toBe(true);
   });
 });
