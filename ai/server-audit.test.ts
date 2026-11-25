@@ -1,3 +1,6 @@
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import {
   aiStatusSchema,
@@ -22,6 +25,8 @@ import { PINNED_JEV_MODEL, type JevAnswer, type JevRequest, type JevResult } fro
 import { createFakeJevClient } from './jev/fake.ts';
 import {
   costUsd,
+  openUsageLedger,
+  readUsageLog,
   SPEND_CONFIG,
   SpendLedger,
   type UsageLine,
@@ -434,4 +439,92 @@ describe('finding 9: Hard rollouts let other requests through while they run', (
       expect(secondSeat[0]).toBeLessThan(wholeRollout / 2);
     },
   );
+});
+
+describe('finding 5: a damaged usage log never undercounts spend (spec §9)', () => {
+  const estimateThb =
+    costUsd({ inputTokens: SPEND_CONFIG.estimatedInputTokensPerRequest, outputTokens: 0 }) *
+    SPEND_CONFIG.thbPerUsd;
+  const logFile = () => join(mkdtempSync(join(tmpdir(), 'jev-usage-')), 'jev-usage.jsonl');
+  const goodLine = JSON.stringify({
+    time: '2026-11-20T10:00:00.000Z',
+    gameId: 'g',
+    requestId: null,
+    model: PINNED_JEV_MODEL,
+    inputTokens: 1000,
+    outputTokens: 0,
+    latencyMs: 5,
+    status: 'ok',
+    turnKey: 't',
+    decision: 0,
+    decisionMs: 5,
+  });
+  // A line that says nothing of its provider counts at the dearer one, which is Haiku's estimate.
+  const unknownThb =
+    costUsd({
+      provider: 'haiku',
+      inputTokens: SPEND_CONFIG.estimatedHaikuInputTokensPerRequest,
+      outputTokens: SPEND_CONFIG.estimatedHaikuOutputTokensPerRequest,
+    }) * SPEND_CONFIG.thbPerUsd;
+  const goodThb = costUsd({ inputTokens: 1000, outputTokens: 0 }) * SPEND_CONFIG.thbPerUsd;
+
+  test('each unreadable line counts as a request, and the guard trips at the cap through the status route', async () => {
+    const file = logFile();
+    writeFileSync(
+      file,
+      `${goodLine}\n{"time":"2026-11-20T10:00:01.000Z","gameId":"g","inpu\nnot json at all\n`,
+    );
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const ledger = openUsageLedger(file, {
+      config: { ...SPEND_CONFIG, totalCapThb: goodThb + estimateThb + unknownThb * 1.5 },
+    });
+    expect(ledger.spentThb()).toBeCloseTo(goodThb + estimateThb + unknownThb, 9);
+    expect(ledger.budgetExceeded()).toBe(false);
+    const app = createApp({ usage: () => ledger, decisionLog: () => {} });
+    expect(aiStatusSchema.parse(await (await getStatus(app)).json()).reason).toBeNull();
+    // A third unreadable line (the log's own damage grows) pushes the same cap over.
+    writeFileSync(file, `${readFileSync(file, 'utf8')}{"oops\n`);
+    const again = openUsageLedger(file, {
+      config: { ...SPEND_CONFIG, totalCapThb: goodThb + estimateThb + unknownThb * 1.5 },
+    });
+    const status = aiStatusSchema.parse(
+      await (await getStatus(createApp({ usage: () => again, decisionLog: () => {} }))).json(),
+    );
+    expect(status).toMatchObject({ backupOnly: true, reason: 'budget_exceeded' });
+  });
+
+  test('a damaged line counts the tokens it still shows when that is more than the estimate', () => {
+    const file = logFile();
+    writeFileSync(file, '{"provider":"haiku","gameId":"g","inputTokens":900000,"outp\n');
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const ledger = openUsageLedger(file);
+    expect(ledger.spentThb('haiku')).toBeGreaterThan(
+      costUsd({ provider: 'haiku', inputTokens: 900_000, outputTokens: 0 }) *
+        SPEND_CONFIG.thbPerUsd,
+    );
+  });
+
+  test('the warning names line numbers and never the content', () => {
+    const file = logFile();
+    writeFileSync(file, `${goodLine}\nSECRET-DEBRIS-7c1\n`);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    openUsageLedger(file);
+    expect(JSON.stringify(warn.mock.calls)).toMatch(/line 2/);
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('SECRET-DEBRIS');
+  });
+
+  test('a log cut short mid-line does not swallow the next line', () => {
+    const file = logFile();
+    writeFileSync(file, `${goodLine}\n{"time":"2026-11-20T10:00:01.000Z","gameId":"g","inpu`);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const ledger = openUsageLedger(file);
+    ledger.record(JSON.parse(goodLine));
+    ledger.record(JSON.parse(goodLine));
+    const parsed = readUsageLog(file);
+    expect(parsed.lines).toHaveLength(3);
+    expect(parsed.invalid).toEqual([2]);
+    // The next start counts the debris once and every real line once.
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(openUsageLedger(file).spentThb()).toBeCloseTo(goodThb * 3 + estimateThb, 9);
+  });
 });
