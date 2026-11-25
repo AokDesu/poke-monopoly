@@ -1,8 +1,7 @@
 import {
-  deserialize,
+  loadGame,
   resume,
   serialize,
-  verifyReplay,
   type Resumed,
   type SavedGame,
 } from '../../../engine/index.ts';
@@ -183,9 +182,7 @@ export function savedRivals(game: SavedGame, meta: SaveMeta): SavedRival[] {
  */
 export function loadSave(text: string): LoadResult {
   try {
-    const game = deserialize(text);
-    const check = verifyReplay(game);
-    if (!check.pass) return { ok: false, kind: 'unreadable', message: check.reason };
+    const game = loadGame(text);
     return { ok: true, game, resumed: resume(game) };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -233,7 +230,7 @@ export function saveText(game: SavedGame): string {
   return serialize(game);
 }
 
-/** Downloads the engine save. The file is what `deserialize` reads, with no extra fields. */
+/** Downloads the engine save. The file is what `loadGame` reads, with no extra fields. */
 export function downloadSave(text: string): void {
   const blob = new Blob([text], { type: 'application/json' });
   const url = URL.createObjectURL(blob);

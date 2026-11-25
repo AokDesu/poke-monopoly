@@ -13,6 +13,6 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["engine", "content", "ai", "web", "sim", "eval"],
+  "include": ["engine", "content", "ai", "web", "sim", "eval", "playtest"],
   "exclude": ["web/dist", "sim/out"]
 }

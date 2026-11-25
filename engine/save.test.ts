@@ -10,6 +10,7 @@ import {
   deserialize,
   fixtureSchema,
   legalActions,
+  loadGame,
   observe,
   pendingDecision,
   resume,
@@ -213,6 +214,35 @@ test('replaying a save confirms its state hash and fails a tampered save (§6.8,
   if (die.action.kind !== 'dice_result') throw new Error('unreachable');
   die.action.payload.value = (die.action.payload.value % 6) + 1;
   expect(verifyReplay(reRolled)).toMatchObject({ pass: false });
+});
+
+test('loadGame returns a valid save unchanged and refuses one edited on one side only (§6.8)', () => {
+  let game = newGame(11);
+  for (let i = 0; i < 80; i++) game = step(game);
+  const text = serialize(game);
+  expect(loadGame(text)).toEqual(deserialize(text));
+  expect(stateHash(loadGame(text).state)).toBe(stateHash(game.state));
+
+  // The snapshot edited and the log left alone: the log no longer replays to the state.
+  const richerState = JSON.parse(text);
+  richerState.state.players[0].coins += 5;
+  expect(() => loadGame(JSON.stringify(richerState))).toThrow(/replay.*hash/i);
+
+  // The log's initial state edited and the snapshot left alone: the replay ends elsewhere.
+  const richerStart = JSON.parse(text);
+  richerStart.log.initialState.players[0].coins += 5;
+  expect(() => loadGame(JSON.stringify(richerStart))).toThrow(/replay.*hash/i);
+
+  // A re-rolled die in the log, the snapshot left alone.
+  const reRolled = JSON.parse(text);
+  const die = reRolled.log.actions.find(
+    (record: { action: { kind: string } }) => record.action.kind === 'dice_result',
+  );
+  die.action.payload.value = (die.action.payload.value % 6) + 1;
+  expect(() => loadGame(JSON.stringify(reRolled))).toThrow(RangeError);
+
+  // Format and version refusals keep the messages deserialize gives them.
+  expect(() => loadGame('{"saveVersion":"save-v0"}')).toThrow(/save-v0/);
 });
 
 test.each([2, 3] as const)(

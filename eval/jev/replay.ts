@@ -18,6 +18,9 @@ import {
 import {
   buildEncounterQuestion,
   buildPromiseResponseQuestion,
+  buildPvpResponseQuestion,
+  buildReactionQuestion,
+  buildRewardQuestion,
   buildSellQuestions,
   buildStrategyQuestion,
 } from '../../ai/questions/index.ts';
@@ -32,7 +35,14 @@ import {
 import { decideRequest, type EvalScenario } from './scenarios.ts';
 
 export interface ScenarioRun {
-  decisionPoint: 'strategy' | 'encounter' | 'sell' | 'promise_response';
+  decisionPoint:
+    | 'strategy'
+    | 'encounter'
+    | 'sell'
+    | 'promise_response'
+    | 'pvp_response'
+    | 'ability_window'
+    | 'reward';
   decision: OrchestratorDecision;
   /** Every request the orchestrator sent, and what the client answered. */
   requests: JevRequest[];
@@ -70,7 +80,10 @@ export async function runScenario(
     decisionPoint !== 'strategy' &&
     decisionPoint !== 'encounter' &&
     decisionPoint !== 'sell' &&
-    decisionPoint !== 'promise_response'
+    decisionPoint !== 'promise_response' &&
+    decisionPoint !== 'pvp_response' &&
+    decisionPoint !== 'ability_window' &&
+    decisionPoint !== 'reward'
   ) {
     throw new RangeError(`${scenario.id}: no Jev decision point in phase "${decisionPoint}"`);
   }
@@ -132,7 +145,18 @@ function acceptableLabels(
       ? buildStrategyQuestion(observation, legalActions.enabled, personality)
       : phase === 'promise_response'
         ? buildPromiseResponseQuestion(observation, legalActions.enabled, personality)
-        : buildEncounterQuestion(observation, legalActions.enabled, facts.encounter!, personality);
+        : phase === 'pvp_response'
+          ? buildPvpResponseQuestion(observation, legalActions.enabled, personality, facts.battle)
+          : phase === 'ability_window'
+            ? buildReactionQuestion(observation, legalActions.enabled, personality, facts.battle)
+            : phase === 'reward'
+              ? buildRewardQuestion(observation, legalActions.enabled, personality)
+              : buildEncounterQuestion(
+                  observation,
+                  legalActions.enabled,
+                  facts.encounter!,
+                  personality,
+                );
   if (decision.kind !== 'ask') throw new RangeError(`${scenario.id}: asks no question`);
   const labels = Object.entries(decision.options).flatMap(([label, id]) =>
     acceptable.includes(id) ? [label] : [],

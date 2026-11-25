@@ -8,6 +8,9 @@ import { t } from '../i18n/en.ts';
 import { BoardScreen } from './BoardScreen.tsx';
 import { PACE_TIMING } from './pace.ts';
 
+// Twenty seeded human turns through the real screen: ~50 s at full parallelism, so a 60 s limit is not a margin (ET-05).
+const LONG_GAME_MS = 240_000;
+
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () {
     this.open = true;
@@ -113,46 +116,50 @@ function reasonsAreVisible() {
   }
 }
 
-test('20 seeded human turns have reachable choices, automatic single steps, visible reasons and replayable actions', async () => {
-  const store = start(1);
-  for (let step = 0; step < 700; step++) {
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(t('play.heading'));
-    expect(
-      screen.getByRole('region', { name: t('turn.actions') }).textContent?.trim(),
-    ).toBeTruthy();
-    reasonsAreVisible();
-    const view = store.getView()!;
-    if (
-      view.observation.public.activeSeatIndex === 0 &&
-      view.observation.public.phase.kind === 'encounter' &&
-      !view.observation.public.phase.catchRoll
-    ) {
-      if (view.legalActions.enabled.length > 1) {
-        expect(screen.getByRole('region', { name: t('turn.actions') }).textContent).toContain(
-          t('turn.encounterBody'),
-        );
+test(
+  '20 seeded human turns have reachable choices, automatic single steps, visible reasons and replayable actions',
+  async () => {
+    const store = start(1);
+    for (let step = 0; step < 700; step++) {
+      expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(t('play.heading'));
+      expect(
+        screen.getByRole('region', { name: t('turn.actions') }).textContent?.trim(),
+      ).toBeTruthy();
+      reasonsAreVisible();
+      const view = store.getView()!;
+      if (
+        view.observation.public.activeSeatIndex === 0 &&
+        view.observation.public.phase.kind === 'encounter' &&
+        !view.observation.public.phase.catchRoll
+      ) {
+        if (view.legalActions.enabled.length > 1) {
+          expect(screen.getByRole('region', { name: t('turn.actions') }).textContent).toContain(
+            t('turn.encounterBody'),
+          );
+        }
       }
+      if (view.observation.public.players[0]!.ownTurnNo > 20) break;
+      // A click may end in the next human decision (Social, then Strategy), which waits for the
+      // player; the turn still has to have moved on since before it.
+      const revision = store.getView()!.observation.public.stateRevision;
+      clickDecision();
+      await tick();
+      expect(store.getView()!.observation.public.stateRevision).toBeGreaterThan(revision);
     }
-    if (view.observation.public.players[0]!.ownTurnNo > 20) break;
-    // A click may end in the next human decision (Social, then Strategy), which waits for the
-    // player; the turn still has to have moved on since before it.
-    const revision = store.getView()!.observation.public.stateRevision;
-    clickDecision();
-    await tick();
-    expect(store.getView()!.observation.public.stateRevision).toBeGreaterThan(revision);
-  }
-  expect(store.getView()!.observation.public.players[0]!.ownTurnNo).toBe(21);
-  for (const result of ['caught', 'escaped', 'released']) {
-    expect(document.querySelector(`[data-message-key="encounter.${result}"]`)).not.toBeNull();
-  }
-  expect(
-    within(screen.getByRole('log', { name: t('board.log') })).getAllByText(
-      t('turn.automatic', { phase: t('board.phase.start') }),
-    ).length,
-  ).toBeGreaterThan(0);
-  const session = store.getSession()!;
-  expect(stateHash(replay(session.log))).toBe(stateHash(session.state));
-}, 60000);
+    expect(store.getView()!.observation.public.players[0]!.ownTurnNo).toBe(21);
+    for (const result of ['caught', 'escaped', 'released']) {
+      expect(document.querySelector(`[data-message-key="encounter.${result}"]`)).not.toBeNull();
+    }
+    expect(
+      within(screen.getByRole('log', { name: t('board.log') })).getAllByText(
+        t('turn.automatic', { phase: t('board.phase.start') }),
+      ).length,
+    ).toBeGreaterThan(0);
+    const session = store.getSession()!;
+    expect(stateHash(replay(session.log))).toBe(stateHash(session.state));
+  },
+  LONG_GAME_MS,
+);
 
 test('Start opens Sell before the destination resolves, then continues through the engine', async () => {
   const store = start(1);

@@ -349,6 +349,11 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
     if (pendingPurpose && action.payload.purpose !== pendingPurpose) {
       return { rejected: true, reason: 'illegal_action', state };
     }
+    // A die nobody is waiting for exists only in revision-zero contract snapshots (§6.8). Mid-game, taking
+    // it would burn a roll, and accepting or refusing a face would tell the sender what the next die is (§8).
+    if (!pendingPurpose && state.stateRevision !== 0) {
+      return { rejected: true, reason: 'illegal_action', state };
+    }
     if (state.config.rngVersion !== RNG_VERSION) {
       return { rejected: true, reason: 'illegal_action', state };
     }
@@ -376,6 +381,15 @@ export function applyAction(state: GameState, input: unknown): ApplyActionResult
     };
   }
   if ((state.phase.kind === 'pvp' || state.phase.kind === 'gym') && action.actorId === 'engine') {
+    return { rejected: true, reason: 'illegal_action', state };
+  }
+  // Standalone shuffle and draw shapes exist for revision-zero contract snapshots only: a live game shuffles
+  // and draws inside Resolve (§4.6), and answering a guess would tell the sender the deck order (§5.4, §8).
+  if (
+    action.actorId === 'engine' &&
+    (action.kind === 'shuffle' || action.kind === 'event_draw') &&
+    state.stateRevision !== 0
+  ) {
     return { rejected: true, reason: 'illegal_action', state };
   }
   if (action.actorId === 'engine' && action.kind === 'shuffle') {

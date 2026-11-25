@@ -59,7 +59,7 @@ What must be proven:
 ### Delivery scope
 
 - Local play has 2–4 seats in total, with any mix of human and AI seats and at least one human. Watch mode has 2–4 AIs and no human seat. Quick 2 Laps is core; Standard 3 Laps opens once playtest confirms the session length is acceptable.
-- 6 core classes with passive abilities; Team Rocket and Collector are stretch goals after G2.
+- 6 core classes with passive abilities. Team Rocket and Collector are cut (§10).
 - Content is tiered: core is the starter lines of the 6 classes; the target is 19 base species with evolution lines and Abilities.
 - 3 Ball types, 7 utility items, one board and 6 events. No Market, Buyer or Trend.
 - 4 personality presets. Easy and Normal are core; Hard depends on gate G2.
@@ -116,7 +116,7 @@ Watch path: Home → Watch AIs → choose Quick → choose 2–4 AIs → set eac
 **AI turns**
 
 - Each seat row tells that player's last turn in short beats, such as “Rolled 3 → Wild 5”, “Found Magikarp · threw a Poké Ball” and “Caught Magikarp” (`web/src/board/beats.ts`; issue #254). A step that changes nothing a player acts on (a skip, a phase change, an automatic roll) is not a beat. A rival's row writes itself beat by beat while it plays, folds to one line 1.5 s after its turn ends and keeps that line until the seat plays again, so at the start of the player's turn every rival's last turn is readable without a click; a long turn shows its last 4 beats and “+N more”, which opens that turn in place and reads “Show fewer” while open, and the seat's next turn starts at its last 4 beats again. Rows state only public facts: a rival's purchase is “Bought from the Shop (−3)”, an item it used is named only to the seat it was used on, and no Ball pouch appears (§4.1). What touched the player (a hostile item or Ability on them, a battle with them, coins taken from them) is lit in its row and, at the start of the player's turn, listed first above the rows. The rows and that list are drawn for the viewing seat, passed as a value.
-- Pace (`web/src/board/pace.ts`; presentation numbers, not game rules): Step, Readable (the default), Fast or Instant, chosen on the board and saved with every game; a watched game starts at the pace chosen in its setup. At Readable a step that tells nothing waits 250 ms; each outcome is held 1.2 s + 0.3 s per word, between 2.5 s and 5 s, before the next step starts; the player's own results (move, landing, Event, catch, battle) are held at least 2.5 s, and the turn passes only after them. At Step every outcome waits for Next; Fast holds briefly and Instant not at all. Only Next (Space) ends the current hold early: a choice the player makes during a hold is applied at once and told after it. Pause (P) holds the game until resumed. Skip to my turn runs at Instant until the player's turn starts, and a watcher's Skip to results until the results, while still writing every row; while skipping, the pace choice reads Instant and a status line says “Skipping to your turn” (to a watcher, “Skipping to the results”), and choosing a pace ends the skip. The pace never cancels, repeats or changes an AI decision: a request already sent always lands, and a failed one offers Retry.
+- Pace (`web/src/board/pace.ts`; presentation numbers, not game rules): Step, Readable (the default), Fast or Instant, chosen on the board and saved with every game; a watched game starts at the pace chosen in its setup. At Readable a step that tells nothing waits 250 ms; each outcome is held 1.2 s + 0.3 s per word, between 2.5 s and 5 s, before the next step starts; the player's own results (move, landing, Event, catch, battle) are held at least 2.5 s, and the turn passes only after them. At Step every outcome waits for Next; Fast holds briefly and Instant not at all. Only Next (Space) ends the current hold early: a choice the player makes during a hold is applied at once and told after it. Pause (P) holds the game until resumed, and ends when the turn reaches the viewing seat (stepping there with Next never leaves the game held). Skip to my turn runs at Instant until the player's turn starts, and a watcher's Skip to results until the results, while still writing every row; while skipping, the pace choice reads Instant and a status line says “Skipping to your turn” (to a watcher, “Skipping to the results”), and choosing a pace ends the skip. The pace never cancels, repeats or changes an AI decision: a request already sent always lands, and a failed one offers Retry.
 - The AI speaks briefly at significant moments: at most one line per rival turn, shown inside that turn's story in its seat row with its source label (“only words”), adding 1 s to the hold of the beat it sits in, and only at Step or Readable pace. Speech is a line-bank line or, when Haiku is on, a table talk or chat line written by Haiku and labelled “AI-written · only words”; after-action lines always come from the line bank (§5.7). The backup bot's notice is not repeated as speech: the seat's Backup bot badge says it. AIs may also talk to each other in a Table talk panel. Speech never changes a game number.
 - The game can be finished without ever typing in chat.
 - A "Backup bot mode" badge shows truthfully while Jev is unavailable for an AI (`disabled`, `missing_key`, `budget_exceeded`, `timeout`, `network`, `rate_limited`, `server_error`, `auth`); the "every AI in backup mode" banner follows the same rule. A fallback during normal play (an invalid answer, a revision mismatch or low confidence) shows the §3.1 per-turn note on that AI turn instead, and a decision with only one legal action (`auto`) shows nothing.
@@ -378,7 +378,7 @@ Each turn has three budgets. They do not accumulate, and inventory and cooldown 
   - It is charged to the budget only on commit.
   - Baseline: ≤2 per deal and ≤3 per game, read from `content/config.json` (`dealBudget: { perDeal, perGame }`).
   - **Valuation (#164 D2, engine only, `engine/deal-facts.ts`).** The AI seat's side of a deal is valued in coins: coins are worth their face value; a Pokémon is worth its sale price now (§4.7: sale basis, `round(×0.8)` when Tired, no class bonus); an item is worth its content `price`, or 0 when it has no legal use window left. There is no netting, no fee and no class bonus. `concession = max(0, value the AI seat gives − value it receives)`.
-  - **Legal use window (a reading where §4.8 is silent, for the spec owner to approve).** An item has no legal use window for the seat that would hold it after the deal when its content effect is only planned (held but no legal use exists, §4.6), when the game is finished, or when the Final Table Round is announced and that seat has no turn left (it has played its target number of own turns and is not the active seat, whose Strategy phase is still ahead of the Social window). A Potion is guaranteed unusable, and so worth 0, when that Final Table Round is announced, the seat has no later turn after its current one, and none of its Pokémon is tired or combat-debuffed (spec owner, punkharb): nothing can change that before its last Strategy phase, where Potion would have no valid target. Balls and every other item otherwise have one. It reads public state only.
+  - **Legal use window (a reading where §4.8 is silent, for the spec owner to approve).** An item has no legal use window for the seat that would hold it after the deal when its content effect is only planned (held but no legal use exists, §4.6), when the game is finished, or when the Final Table Round is announced and that seat has no turn left (it has played its target number of own turns and is not the active seat, whose Strategy phase is still ahead of the Social window). A Potion is worth 0 when that Final Table Round is announced, the seat has no later turn after its current one, and none of its Pokémon is Tired (spec owner, punkharb): nothing can change that before its last Strategy phase, so the valuation treats the Potion as having no target there. Balls and every other item otherwise have one. It reads public state only: a private status, such as a combat debuff (§4.1), never changes a Deal's value, so the facts the AI gets are the same whether or not another seat holds one.
   - **Over budget.** The concession must fit the room left, `min(perDeal, perGame − spent)`. Over it, `accept` is not legal: the AI may `reject`, or `counter` with an amount whose own concession fits the room left (a counter that is still over budget is not listed). When no such counter exists, `reject` is the only legal answer and code applies it without calling Jev (§3.1, §5.3). Like the quota, it is checked when the AI answers and when the human confirms, not at the offer, so the proposer cannot probe the AI's budget and sees an ordinary refusal. The concession is charged to the AI seat (`Player.dealConcessionSpent`) on commit only, at the committed terms (a countered amount, not the first); a reject or a cancel costs nothing. The human has no budget. The regenerating budget is not built.
   - If late-game refusals spike because the budget is spent, trial a regenerating budget of 1 per Lap, capped at 3, via content config.
 - **Item value:** an item with no legal use window left is worth 0.
@@ -479,9 +479,20 @@ This deliberately defers the §3.1/§5.3 guarantee of keeping every legal action
 declarations only. Until then AI seats do not declare PvP at all: the fallback policy's
 Strategy score ranks `declare_pvp` below `skip`, so auto-applied and fallback-only Strategy
 decisions never pick it. Engine legality and the random sim/property drivers still include
-declarations. Pending PvP responses and rewards use the orchestrator's existing generic policy
-fallback. Stream B must remove this filter and the fallback penalty when it adds PvP Strategy
+declarations. Stream B must remove this filter and the fallback penalty when it adds PvP Strategy
 questions.
+
+**Battle decision questions (#56 C3):** a pending PvP response, an open Ability window (a battle
+window or a Pickpocket reaction) and a battle or Gym reward are Choices of their own (`pvp_response`,
+`ability_window`, `reward`), answered by the orchestrator with Jev's question and the usual fallback
+(deadline, low confidence, invalid choice). Each question is worded from engine facts only: the
+challenger's and the defender's chances come from the engine's battle preview as `low`, `medium` or
+`high` buckets, an Ability by name and effect in words, a reward by its options; no number or
+hidden information is sent. Their fallback scores use the personality weights: accepting a challenge
+by the odds and the mean of `risk` and `aggression`, an Ability by the gain in the odds and
+`aggression`, a Pickpocket reaction by `liquidity`, coins by `liquidity` and an evolution by
+`aggression`. The browser submits the engine's first listed choice for these points until the
+web store routes them to the server (the same follow-up as the Deal response).
 
 ### 5.4 Rules for writing state and questions
 
@@ -526,7 +537,7 @@ Every level uses the same observation.
 - **Hard rollouts (#61):** the engine (`engine/belief.ts`, `engine/rollout.ts`) takes the deciding seat's own observation and nothing else, so it cannot read the real deck or seed.
   - **Belief:** each sampled world copies everything the seat sees and draws the rest from a seed of its own. An opponent's Poké Balls start at the kit (§4.1) minus one with probability 0.3 per past turn of theirs; its unseen secret items are uniform over utility items; the Event deck is a fresh shuffle. Purchases, catches and other seats' private state are not guessed. The seat's own spent budgets and Rival force are found from its own legal action list. A world that cannot offer exactly that list gives no buckets.
   - **Rollout:** for each option the Strategy or Encounter question offers, every seat plays the fallback policy (§5.2: the deciding seat as its own personality, others as Greedy) until the deciding seat starts its next turn. Each option's mean coin change and its share of worlds in which the seat leads the table in coins (a tie counts half) become two buckets: `expected_coins` (falls below −1, flat to +1, rises to +6, rises a lot above) and `lead_chance` (low below ⅓, medium below ⅔, high from ⅔). A number is never sent (§5.4).
-  - **Defaults** (starting values, tuned at G2): 16 worlds per option, at least 4 or no buckets; on the server a 400 ms limit on rollouts, taken off the 1,500 ms decision deadline. With no buckets (a deadline, a world that does not match, or a decision outside Strategy and Encounter) Hard plays as Normal.
+  - **Defaults** (starting values, tuned at G2): 16 worlds per option, at least 4 or no buckets; on the server a 400 ms limit on rollouts, taken off the 1,500 ms decision deadline. With no buckets (a deadline, a world that does not match, or a decision outside Strategy and Encounter) Hard plays as Normal. The rollouts give the server's event loop a turn after each option's rollout in each sampled world (the engine yields, it does no IO), so a status check, the speech gate or another seat's decision is answered while one runs; the 400 ms counts wall time, so a busy server draws fewer worlds, never more (#64).
 - **Sell fallback:** the existing sale desire (relative sale coins, reduced for a ready Ability and an Original Starter) is multiplied by 1 for low keep value, 0.75 for medium and 0.5 for high before applying the personality's sell threshold. A caller without keep facts retains the existing low-keep behavior; it never invents a combat projection. This is a policy preference over separate buckets, not a conversion of Battle points into coins.
 - **Last Sell Phase (#59):** when the engine's Final Table Round is announced (§4.7.3) and the space the Sell Phase leads to is not a Gym (§4.4), every personality sells every sellable Pokémon, on the Jev path and the fallback alike, and Jev is not asked, because a Pokémon kept to the game's end is auto-sold at half price with no class bonus and no Gym follows to use it; a Rescue Starter is not sold (§4.7), a Gym destination leaves the decision to Jev as in any Sell Phase, and the risk that a later seat battles a seat that sold is accepted as a known limit.
 - **Confidence floor:** set per question type and option count, then tuned on the C4 eval set for `jev-1.13.0`.
@@ -565,6 +576,7 @@ TypeScript plus a web app with API routes. The folders are `engine/`, `content/`
 6. **Instance IDs:** every Pokémon and item has its own instance ID.
 7. **Save:** a local save after each accepted action.
    - It holds the current state plus the action log, with no log nested inside the snapshot, and no key.
+   - Loading a save replays its log and refuses a snapshot the log does not reproduce (`loadGame`, #64). The state hash is a comparison aid, not a signature: a save whose initial state, log and snapshot were edited consistently still loads.
    - Postgres/Docker are out of scope.
 8. **Replay:**
    - Executable command-log requirements and validation are defined in [Engine contract v1](engine-contract.md#command-log-and-replay-issue-20).
@@ -626,7 +638,7 @@ Each layer covers what the one below misses.
 
 **Simulation:**
 
-- **Game sets:** 1,000 policy-only games for bug hunting and trends, plus 300 Jev-in-the-loop games.
+- **Game sets:** 1,000 policy-only games for bug hunting and trends, plus 100 Jev-in-the-loop games (the 300-game target was cut on 23 Nov, #183; see §10 C5).
 - **Variation:**
   - 2/3/4 seats, with class, personality and seat balanced across games.
   - Tuning seeds are kept separate from evaluation seeds.
@@ -662,14 +674,17 @@ Each layer covers what the one below misses.
   - ≤3 requests per AI turn and ≤600k input tokens per game. Past that, the AI uses the fallback until the game ends.
   - A daily budget on the development key.
   - A **total cap of THB 1,500**, tracked from the usage log, which counts Jev and Haiku together.
+  - **Concurrent requests (#64):** a Jev decision reserves its configured token estimate (the one a timed-out request counts) before the request goes out and gives it back when its usage line is written, so decisions that run at the same time cannot all pass the cap together. As with one request at a time, the request that reaches the cap is the last.
   - Haiku: at most 150 calls and 200,000 input tokens per game (raised from 60 and 80,000 on 18 Nov 2026, issue #214, so every round can have table talk), one call in flight per game and a 3,000 ms deadline per call (raised from 1,200 ms: table talk may wait about 3 s, and it never holds up a decision, which keeps the deadlines of §5.6); at most THB 150 in total for Haiku (10% of the THB 1,500 cap), inside that cap. These are hard stops: at a per-game limit that game's AIs speak from the line bank, and at THB 150 in total every game's AIs do. A timed-out request counts its configured token estimate, as Jev's does. The per-game counters belong to the game ID, which a saved game keeps, so a reload does not reset them.
-- **Kill switch:** `JEV_ENABLED=false` puts every AI on the fallback, and the UI says so truthfully. `HAIKU_ENABLED=false` (or no key) silences generated speech; the line bank continues and the UI says so truthfully. `GET /api/ai/status` says whether speech is on and, when off, why.
+- **Kill switch:** `JEV_ENABLED=false` puts every AI on the fallback, and the UI says so truthfully. The switch fails closed: Jev is on only when `JEV_ENABLED` is unset, empty or `true` (any case), so any other value (`0`, `off`, `no`, a typo) turns it off, as the status badge and the fallback both show. `HAIKU_ENABLED=false` (or no key) silences generated speech; the line bank continues and the UI says so truthfully. `GET /api/ai/status` says whether speech is on and, when off, why.
 - **Sim limits:** max steps per game, and concurrency ≤10 requests/s, well under the rate limit.
 
 **Safety (least privilege)**
 
 - Both keys (`TYPESAFE_API_KEY`, `ANTHROPIC_API_KEY`) live only on the server: never in the browser, saves, logs, or a coding agent's sandbox.
-- The speech route (`POST /api/ai/speak`) spends the Haiku credit, so it accepts only JSON requests whose Host is loopback and whose Origin is that same host. Every failure past a valid request is an HTTP 200 with a line-bank line or no line.
+- The speech route (`POST /api/ai/speak`) spends the Haiku credit, so it accepts only JSON requests whose Host is loopback and whose Origin is that same host. Every failure past a valid request is an HTTP 200 with a line-bank line or no line. The Jev routes (`POST /api/ai/decide`, `/fallback`, `/chat` and `/outcome`) spend the Jev credit or write the decision log, so they take the same rule: only JSON requests from the same loopback origin, refused with 403 (wrong Host or Origin) or 415 (not JSON) before any body is read. `GET /api/ai/status` and the static pages carry no body or Origin, so they require a loopback Host (and, if an Origin is sent, the same host). A page on another site, or a name that resolves to this machine by DNS rebinding, can neither spend credit nor read the status.
+- A Jev client that fails unexpectedly (a rejection instead of a typed fallback reason) never stops the server: the request falls back to the policy and the error's class is logged, never its message.
+- A spend ledger or usage log that fails (it cannot be opened, read or written) never stops the server and never turns a decision into the first enabled action: with the spend unknown the guard counts as tripped, so the policy decides with the reason `budget_exceeded` and the status route says backup only (and voice off), and a failed write of a usage line still counts the spend. The error's class is logged, never its message, and any other 500 logs its class too (#64).
 - Jev reads one role's observation and can answer only with IDs from the options, so it cannot modify state.
 - Chat is length-limited, sent as quoted data, and screened by the manipulation Noul. A message that fails never enters any decision's state. The adversarial set is a gate before free text is enabled. It is also a gate before generated speech is enabled. An AI's table talk line that fails the same Noul is never quoted to another AI, and the Jev request for it is a logged request like any other (§5.7).
 - No personal data about players is stored; playtests use codes instead of names.
@@ -680,15 +695,13 @@ Each layer covers what the one below misses.
 - The human confirms their own deals.
 - The team owns the spec. Coding agents propose through PRs, and people merge.
 
-## 10. Three-month plan: 6 cycles × 2 weeks
+## 10. Plan to the 15 Dec due date: 4 cycles × 2 weeks, a 10-day evidence cycle and a report week
 
 **Assumptions:**
 
-- **Dates:** start Monday 2026-10-05 and finish 2026-12-27.
-- **Hours:** 12 h/week per the proposal, 144 h in total. **It is unclear whether that is per person or for the whole team**; confirm in C1.
-  - This plan is sized for 144 h across the whole team.
-  - If it is per person, pull stretch items in after G2.
-- **Calendar:** actual course deadline ____ · exam or no-development weeks ____ (team to fill in).
+- **Dates:** start Monday 2026-10-05; code freeze Wednesday 2026-12-09; report and demo assembled 10–14 Dec; the course submission is due 2026-12-15 (repository owner, 2026-11-15).
+- **Hours:** 12 h/week per person (confirmed in C1, `docs/PLAN.md`), about 72 h for the team per cycle.
+- **Calendar:** actual course deadline 2026-12-15 · exam or no-development weeks ____ (team to fill in).
 - **Suggested owner per stream:** A = engine + sim, B = Jev + eval, C = web UI + playtest.
 
 ### C1 · 5–18 Oct · M1 "Spec + engine skeleton + Jev spike"
@@ -736,27 +749,30 @@ Each layer covers what the one below misses.
   - A decision on whether Thai free text works or chat stays button-only.
 - **Cut if late:** keep core-tier content only (starter lines + part of the encounter pool) and move the 19 species to stretch.
 
-### C5 · 30 Nov–13 Dec · M5 "Evidence"
+### C5 · 30 Nov–9 Dec · M5 "Evidence"
 
-- **Gate G2 (6 Dec):** duel Hard against Normal on paired seeds.
+- **Gate G2 (6 Dec):** duel Hard against Normal on paired seeds; the result is due by 6 Dec.
   - If Hard is better with evidence and within the latency budget, keep 3 levels.
   - Otherwise ship 2 levels and report it plainly.
 - **Deliverables:**
-  - 1,000 policy-only games, 300 Jev-in-the-loop games and the exploit policies.
+  - 1,000 policy-only games, 100 Jev-in-the-loop games and the exploit policies.
   - Tune on training seeds and evaluate on held-out seeds.
   - Personality, chat and memory scenarios.
-  - User playtest with 5–8 people.
-- **Exit:** complete §8 result tables with n; playtest issues prioritised.
-- **Cut if late:** Monte Carlo (ship 2 levels); reduce Jev-in-the-loop games to 100.
+  - User playtest with 5–8 people on the build that has the play-screen redesign and the Deal Card screen.
+  - Play-screen redesign (one-screen layout, readable pace), Deal Card screen, setup presets, How to play, prepared-scenario demo mode and the multiplayer screens.
+  - Bug fixes from playtest and sim; clean-install check of the frozen build.
+- **Code freeze on Wed 9 Dec.** After it, only a fix for a failing §11 step may change code, and the report says which.
+- **Exit:** complete §8 result tables with n; playtest issues prioritised; the §11 demo runs end-to-end from a clean install on the frozen build.
+- **Cut if late:** in this order, the multiplayer screens (decided on Fri 27 Nov: if the one-screen play layout, R3 (#281), is not merged by then, they are dropped); Monte Carlo (ship 2 levels). Not planned: stretch classes (Team Rocket, Collector), the chat card rework (#257) and the extra 200 Jev-in-the-loop games.
 
-### C6 · 14–27 Dec · M6 "Release + demo"
+### C6 · 10–14 Dec · M6 "Report + demo" (no new features)
 
 - **Deliverables:**
-  - Bug fixes, setup presets and a tutorial.
-  - Stretch classes (Team Rocket, Collector) only if G2 passed and no bugs remain open.
-  - Code freeze on 20 Dec, demo rehearsal, report.
-- **Exit:** the §11 demo runs end-to-end from a clean install; the report separates policy-only results from Jev results.
-- **Cut if late:** stretch classes, decorative graphs, animation.
+  - Final report assembled from the evidence index in `docs/report/`, with the actual spend from the usage logs.
+  - Demo rehearsal from a clean install of the frozen build.
+  - Runbook and key-handling note.
+- **Exit:** the §11 demo runs end-to-end from a clean install; the report separates policy-only results from Jev results; submitted on 15 Dec.
+- **Cut if late:** decorative graphs, animation.
 
 **Cut order when time runs short:**
 
@@ -779,6 +795,8 @@ Never cut playing to completion, the fallback, the hard gates, or the core conve
 6. Show memory from a kept or broken promise and its effect on negotiation.
 7. Flip the kill switch; the game continues on the backup bot with a visible badge.
 8. Show graphs separating policy-only from Jev: n, latency, fallback rate, actual spend and limitations.
+
+Accepted scope for steps 6 and 8 (owner decision after the demo rehearsal, recorded 2026-11-24 in `docs/release/engine-triage.md`, "§11 demo path against the queue"): step 6 is accepted as memory-only, with no fifth scene (§3 stays at four); step 8 is the committed results tables plus the three commands (`sim`, `eval:jev --offline`, `usage`), with no figure page.
 
 The prototype succeeds when players enjoy the decisions, feel that each opponent plays differently, and the rules remain auditable.
 

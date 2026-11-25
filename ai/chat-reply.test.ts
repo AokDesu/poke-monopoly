@@ -21,6 +21,13 @@ import { createFakeJevClient } from './jev/fake.ts';
 import { SpendLedger, type UsageLine } from './jev/spend.ts';
 import { LINES } from './lines.ts';
 
+/** The loopback Host and its own Origin that every `/api/ai/*` route requires (spec §9). */
+const SAME_ORIGIN = {
+  host: 'localhost:5173',
+  origin: 'http://localhost:5173',
+  'content-type': 'application/json',
+};
+
 // Offline only: a placeholder key, a fake Jev client and Hono's in-memory `app.request()`.
 const TOPICS: ChatTopic[] = ['truce', 'trade', 'point_leader', 'use_item', 'hold_item'];
 
@@ -109,7 +116,7 @@ const usageLines: UsageLine[] = [];
 const post = (app: ReturnType<typeof createApp>, path: string, body: unknown) =>
   app.request(path, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: SAME_ORIGIN,
     body: JSON.stringify(body),
   });
 
@@ -140,7 +147,42 @@ const appWith = (
   return { app, client };
 };
 
+/** Unhandled promise rejections raised while `run` and the next few macrotasks settle. */
+const rejectionsDuring = async (run: () => Promise<unknown>) => {
+  const rejections: unknown[] = [];
+  const onRejection = (reason: unknown) => rejections.push(reason);
+  process.on('unhandledRejection', onRejection);
+  try {
+    await run();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  } finally {
+    process.off('unhandledRejection', onRejection);
+  }
+  return rejections;
+};
+
 describe('POST /api/ai/chat', () => {
+  test('a Jev client that rejects degrades to the fallback, logs the class and crashes nothing', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { app } = appWith(() => {
+      throw new RangeError('rejected with a secret');
+    });
+    const request = chatRequest(chat(game(3), 'truce'), 1);
+    const rejections = await rejectionsDuring(async () => {
+      const response = await post(app, '/api/ai/chat', request);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        source: 'fallback',
+        fallbackReason: 'decider_error',
+      });
+    });
+    expect(rejections).toEqual([]);
+    const logged = warn.mock.calls.map((call) => call.join(' ')).join('\n');
+    expect(logged).toContain('RangeError');
+    expect(logged).not.toContain('secret');
+    warn.mockRestore();
+  });
+
   test.each(TOPICS)('every topic gets a bank line with Jev on and off: %s', async (topic) => {
     const state = chat(game(3), topic);
     for (const personalityId of PERSONALITY_IDS) {
