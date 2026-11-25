@@ -131,40 +131,7 @@ npm run eval:jev -- --record
 
 It makes one request per scenario that is missing, synthetic or stale, through the orchestrator, and writes each fixture with `synthetic: false`. Requests are logged to the usage ledger and stop at the spend cap or daily budget (spec §9). A scenario whose request changed (for example after a wording change) is stale and recorded again; a current recording is kept. Afterwards run `npm run eval:jev -- --offline` and commit the changed fixtures.
 
-Fixtures still to record: the 32 battle decision fixtures (spec §4.4, §5.3, issue #56 C3), synthetic placeholders until the captain records them with `npm run eval:jev -- --record`. Eight tables by four personalities: the PvP challenge (`pvp_response`), the open Ability window (`ability_window`, a battle window and a Pickpocket reaction) and the winner's reward (`reward`, PvP and Gym).
-
-- `greedy-pvp-response-even`
-- `aggressive-pvp-response-even`
-- `cautious-pvp-response-even`
-- `opportunist-pvp-response-even`
-- `greedy-pvp-response-underdog`
-- `aggressive-pvp-response-underdog`
-- `cautious-pvp-response-underdog`
-- `opportunist-pvp-response-underdog`
-- `greedy-pvp-response-favoured`
-- `aggressive-pvp-response-favoured`
-- `cautious-pvp-response-favoured`
-- `opportunist-pvp-response-favoured`
-- `greedy-window-defender-underdog`
-- `aggressive-window-defender-underdog`
-- `cautious-window-defender-underdog`
-- `opportunist-window-defender-underdog`
-- `greedy-window-defender-favoured`
-- `aggressive-window-defender-favoured`
-- `cautious-window-defender-favoured`
-- `opportunist-window-defender-favoured`
-- `greedy-window-pickpocket-block`
-- `aggressive-window-pickpocket-block`
-- `cautious-window-pickpocket-block`
-- `opportunist-window-pickpocket-block`
-- `greedy-reward-pvp-won`
-- `aggressive-reward-pvp-won`
-- `cautious-reward-pvp-won`
-- `opportunist-reward-pvp-won`
-- `greedy-reward-gym-won`
-- `aggressive-reward-gym-won`
-- `cautious-reward-gym-won`
-- `opportunist-reward-gym-won`
+Fixtures still to record: none.
 
 The 16 promise response fixtures were recorded by the captain on 2026-11-20 (`jev-1.13.0`, one request each, through the orchestrator):
 
@@ -192,6 +159,41 @@ Recorded on 2026-11-20 (the captain, `jev-1.13.0`, replacing the synthetic place
 - aggressive-sell-last-phase-gym-ahead
 - cautious-sell-last-phase-gym-ahead
 - opportunist-sell-last-phase-gym-ahead
+
+Recorded on 2026-11-25 (the captain, `jev-1.13.0`, one request each through the orchestrator, replacing the 32 battle decision synthetic placeholders: spec §4.4, §5.3, issue #56 C3; the PvP challenge `pvp_response`, the open Ability window `ability_window` and the winner's reward `reward`):
+
+- greedy-pvp-response-even
+- aggressive-pvp-response-even
+- cautious-pvp-response-even
+- opportunist-pvp-response-even
+- greedy-pvp-response-underdog
+- aggressive-pvp-response-underdog
+- cautious-pvp-response-underdog
+- opportunist-pvp-response-underdog
+- greedy-pvp-response-favoured
+- aggressive-pvp-response-favoured
+- cautious-pvp-response-favoured
+- opportunist-pvp-response-favoured
+- greedy-window-defender-underdog
+- aggressive-window-defender-underdog
+- cautious-window-defender-underdog
+- opportunist-window-defender-underdog
+- greedy-window-defender-favoured
+- aggressive-window-defender-favoured
+- cautious-window-defender-favoured
+- opportunist-window-defender-favoured
+- greedy-window-pickpocket-block
+- aggressive-window-pickpocket-block
+- cautious-window-pickpocket-block
+- opportunist-window-pickpocket-block
+- greedy-reward-pvp-won
+- aggressive-reward-pvp-won
+- cautious-reward-pvp-won
+- opportunist-reward-pvp-won
+- greedy-reward-gym-won
+- aggressive-reward-gym-won
+- cautious-reward-gym-won
+- opportunist-reward-gym-won
 
 ## Adding a scenario
 
