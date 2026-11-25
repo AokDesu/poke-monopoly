@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { check, resolveConfig } from 'prettier';
 import { afterEach, expect, test, vi } from 'vitest';
 import {
+  ALL_SCENARIOS,
   DEFAULT_FIXTURES,
   recordFixture,
   recordScenarios,
@@ -49,7 +50,7 @@ test('offline evaluation needs neither a key nor enabled Jev', async () => {
       throw new Error('network forbidden');
     }),
   );
-  expect(new Set((await runOffline()).map((row) => row.fixture)).size).toBe(SCENARIOS.length);
+  expect(new Set((await runOffline()).map((row) => row.fixture)).size).toBe(ALL_SCENARIOS.length);
   expect(globalThis.fetch).not.toHaveBeenCalled();
 });
 
