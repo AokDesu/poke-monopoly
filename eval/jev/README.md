@@ -8,7 +8,7 @@ Spec §8 asks for at least 60 decision scenarios, 15 per personality, each with 
 npm run eval:jev -- --offline   # replays every fixture: no key, no network
 ```
 
-The report counts the scenarios per personality, and splits recorded fixtures from synthetic ones (see below). The 84 Strategy, Encounter, Sell and promise response scenarios are recorded; the 32 battle decision scenarios (below) are synthetic placeholders until the captain records them; see the results.
+The report counts the scenarios per personality, and splits recorded fixtures from synthetic ones (see below). 136 scenarios: 104 recorded and 32 synthetic. The recorded ones are the 20 Deal Card scenarios (below), the 68 Strategy, Encounter and Sell scenarios (including the three last-Sell Gym twins) and the 16 promise response scenarios (below); the 32 battle decision scenarios (below) are synthetic placeholders until the captain records them; see the results.
 
 ## The scenarios
 
@@ -107,6 +107,68 @@ These are small counts, not a general claim about Jev or the personalities, and 
 
 Still out of scope: tuning the confidence floors and pinning a baseline. Scoring Choice answers as the raw recorded answer, before the floor and fallback, is unchanged.
 
+## Deal Card scenarios (#164 D3)
+
+Spec §4.8, §5.3, §5.5. Seat 1 is the AI answering a Deal Card; seat 0 is the human who proposed it. There are 5 table states for each of the four personalities (`deal-scenarios.ts`: fair, lopsided, counter within budget, low trust, reject within budget), each with an acceptable set and a reason citing the personality's weights. Three over-budget states per personality have no fixture: code rejects and Jev is not asked, so the test replays them through the orchestrator and checks that no request goes out.
+
+**Recorded on 2026-11-20** (`jev-1.13.0`, one request each, through the orchestrator), 20 fixtures. The 8 Repel ones were recorded again on 2026-11-21 (next paragraph):
+
+- `greedy-deal-fair-eevee-sale`
+- `greedy-deal-lopsided-snorlax-sale`
+- `greedy-deal-counter-repel-overpay`
+- `greedy-deal-low-trust-eevee-sale`
+- `greedy-deal-reject-repel-overpay-low-trust`
+- `aggressive-deal-fair-eevee-sale`
+- `aggressive-deal-lopsided-snorlax-sale`
+- `aggressive-deal-counter-repel-overpay`
+- `aggressive-deal-low-trust-eevee-sale`
+- `aggressive-deal-reject-repel-overpay-low-trust`
+- `cautious-deal-fair-eevee-sale`
+- `cautious-deal-lopsided-snorlax-sale`
+- `cautious-deal-counter-repel-overpay`
+- `cautious-deal-low-trust-eevee-sale`
+- `cautious-deal-reject-repel-overpay-low-trust`
+- `opportunist-deal-fair-eevee-sale`
+- `opportunist-deal-lopsided-snorlax-sale`
+- `opportunist-deal-counter-repel-overpay`
+- `opportunist-deal-low-trust-eevee-sale`
+- `opportunist-deal-reject-repel-overpay-low-trust`
+
+**Re-recorded on 2026-11-21.** A deal request now names an item by its name only, with no effect text: an effect text carries numbers (Repel's was "Target's next move −2 (minimum 1)"), and §5.4 sends Jev none. That changed the request of every Repel deal, so the 8 recordings below went stale and were synthetic placeholders for a while. The captain recorded them live again on 2026-11-21 (`jev-1.13.0`, one request each, through the orchestrator); they are real recordings now and no fixture is synthetic:
+
+- `greedy-deal-counter-repel-overpay`
+- `greedy-deal-reject-repel-overpay-low-trust`
+- `aggressive-deal-counter-repel-overpay`
+- `aggressive-deal-reject-repel-overpay-low-trust`
+- `cautious-deal-counter-repel-overpay`
+- `cautious-deal-reject-repel-overpay-low-trust`
+- `opportunist-deal-counter-repel-overpay`
+- `opportunist-deal-reject-repel-overpay-low-trust`
+
+Scores of the 20 deal rows (Jev's answer against the acceptable set), after the Repel re-recording on 2026-11-21:
+
+| Personality | Fixtures | Correct / total (Jev's answer against the set) |
+| ----------- | -------: | ---------------------------------------------: |
+| Greedy      |        5 |                                            4/5 |
+| Aggressive  |        5 |                                            4/5 |
+| Cautious    |        5 |                                            4/5 |
+| Opportunist |        5 |                                            3/5 |
+| All         |       20 |                                    15/20 (75%) |
+
+The whole offline set now scores 123/136 rows (90.4%), all 104 fixtures recorded, 0 synthetic; mean confidence correct 0.657 (n=68), incorrect 0.400 (n=12); `illegalAppliedActionCount` 0; `low_confidence` fallbacks 34 of 104. Earlier totals: 120/128 (93.8%) with the 8 Repel rows synthetic and left out, 124/136 (91.2%) with the first Repel recordings, 108/116 (93.1%) before the deal scenarios. The 12 non-Repel deal rows are 12/12 against their sets; the 8 Repel rows are 3/8. These are small counts and the acceptable sets are judgements.
+
+Five Jev answers are outside their set in the 2026-11-21 Repel recording. All five were below the confidence floor, so the fallback policy chose the applied action, and each applied action is in its set (illegalAppliedActionCount 0). They are findings, not changes to a set:
+
+- `aggressive-deal-counter-repel-overpay`: Jev `reject` (0.070); applied `respond-deal:accept`; set accept or counter.
+- `cautious-deal-counter-repel-overpay`: Jev `accept` (0.430); applied `respond-deal:reject`; set counter or reject.
+- `greedy-deal-counter-repel-overpay`: Jev `accept` (0.330); applied `respond-deal:reject`; set counter or reject.
+- `opportunist-deal-counter-repel-overpay`: Jev `accept` (0.480); applied `counter-deal:coins-4`; set counter or reject.
+- `opportunist-deal-reject-repel-overpay-low-trust`: Jev `accept` (0.130); applied `counter-deal:coins-4`; set counter or reject.
+
+Four are the small-overpay Repel states, where Jev prefers to accept a loss of one or two coins that the personality weights say to counter or refuse; the fifth, `aggressive-deal-counter-repel-overpay`, is the opposite (reject for a small loss on an item the Aggressive weights would accept). The 2026-11-20 recording, with the effect text in the request, missed four of these five (the Aggressive one was right then); one recording per row is too few to say whether the wording caused the change.
+
+**For #59 (the confidence floor; not tuned here).** 16 of the 20 recorded deal answers fall under the 0.6 floor (`ORCHESTRATOR_CONFIG.confidenceFloor.deal`, 0.6 up to 4 options), so for those the fallback policy chose, not Jev. All 20 are three-option questions (accept, reject, counter). In all 20 recordings Jev's reported confidence equals `(top − 1/n) / (1 − 1/n)` for `n` options and the top probability, to rounding: confidence measures the top probability above an even split, so the same confidence needs a different peak for a different option count (0.6 is a top probability of 0.80 for two options and 0.73 for three). The recorded tops run from 0.43 to 0.92, mean 0.60. That is an observation from 20 rows, not a documented Jev rule. The floor stays as it is until #59.
+
 ## Synthetic placeholders
 
 A new scenario starts as a **synthetic placeholder** so the offline run, the counts and the guards work before anyone records it. A placeholder is a seeded stand-in, not a Jev answer. It cannot be mistaken for a recording:
@@ -119,7 +181,7 @@ A new scenario starts as a **synthetic placeholder** so the offline run, the cou
 npm run eval:jev -- --placeholders   # writes placeholders for scenarios with no fixture; offline, no key
 ```
 
-No fixture is synthetic now (below). Never run `--placeholders` expecting it to change a recording: it does not replace one.
+No fixture is synthetic now. Never run `--placeholders` expecting it to change a recording: it does not replace one; a stale recording is removed first (as the eight Repel deal fixtures were before their re-recording).
 
 ## Recording (needs the key; a person does it)
 
@@ -165,6 +227,8 @@ Fixtures still to record: the 32 battle decision fixtures (spec §4.4, §5.3, is
 - `aggressive-reward-gym-won`
 - `cautious-reward-gym-won`
 - `opportunist-reward-gym-won`
+
+The 104 other fixtures are recorded, and the 8 Repel deal fixtures were re-recorded on 2026-11-21 (listed under the Deal Card scenarios above).
 
 The 16 promise response fixtures were recorded by the captain on 2026-11-20 (`jev-1.13.0`, one request each, through the orchestrator):
 

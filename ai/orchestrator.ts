@@ -1,4 +1,5 @@
 import type { DecisionDetail, DecisionPoint } from '../engine/contract/decision.ts';
+import type { DealFacts } from '../engine/index.ts';
 import type { Personality } from '../content/personality-schema.ts';
 import type { LegalActions, Observation } from '../engine/index.ts';
 import type { PolicyChoice, PolicyFacts, PolicyRng } from '../sim/policy.ts';
@@ -23,12 +24,14 @@ import { warnLedgerFailed, type UsageRecorder } from './jev/spend.ts';
 import type { RequestWindow } from './jev/window.ts';
 import { billedUsage, UsageMeter } from './jev/usage.ts';
 import {
+  buildDealQuestion,
   buildEncounterQuestion,
   buildPromiseResponseQuestion,
   buildPvpResponseQuestion,
   buildReactionQuestion,
   buildRewardQuestion,
   buildSellQuestions,
+  pendingDeal,
   buildStrategyQuestion,
   decideSales,
   REQUESTS_PER_TURN,
@@ -40,7 +43,13 @@ import {
 
 /** The Choice decision points; a confidence floor applies only to these (spec §5.6). */
 export type ChoiceQuestion =
-  'strategy' | 'encounter' | 'promise_response' | 'pvp_response' | 'ability_window' | 'reward';
+  | 'strategy'
+  | 'encounter'
+  | 'deal'
+  | 'promise_response'
+  | 'pvp_response'
+  | 'ability_window'
+  | 'reward';
 
 /**
  * A Choice's confidence floor by option count: `few` up to `fewMax` options, falling in a straight
@@ -60,6 +69,8 @@ export const ORCHESTRATOR_CONFIG = Object.freeze({
   confidenceFloor: Object.freeze({
     strategy: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
     encounter: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
+    // Accept / reject / counter: at most 3 options, so the few-option floor.
+    deal: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
     // Two options (accept or reject), so always the `few` end of the curve.
     promise_response: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
     // Accept or decline: two options.
@@ -92,7 +103,9 @@ export function confidenceFloor(
  * Why a decision did not apply Jev's own answer (spec §3.1, §5.6, §9), beyond the client's
  * failures: an answer not among the options, a stale revision, low confidence, the per-turn
  * request limit, the per-game token budget, the spend cap or daily budget, or engine facts the
- * question needs but did not get.
+ * question needs but did not get. `over_budget` is only logged, never put on the wire: a Deal Card
+ * the AI cannot afford is refused by code with no Jev request (spec §5.3), and the log says why so
+ * it does not look like a one-option auto.
  */
 export type OrchestratorFallbackReason =
   | JevFailureReason
@@ -102,7 +115,8 @@ export type OrchestratorFallbackReason =
   | 'request_limit'
   | 'token_budget'
   | 'budget_exceeded'
-  | 'missing_facts';
+  | 'missing_facts'
+  | 'over_budget';
 
 /** Engine numbers a decision point's question or the fallback policy reads (§5.2). */
 export interface DecideFacts {
@@ -112,6 +126,8 @@ export interface DecideFacts {
   encounter?: EncounterFacts;
   /** For the Sell Phase Nouls: sale prices, class bonuses and keep values. */
   sell?: SellFacts;
+  /** For the Deal response question: the engine's buckets for the pending Deal Card (`dealFacts`, §5.4). */
+  deal?: DealFacts;
   /** For the PvP response and Ability window questions: the engine's battle chances (§4.4, §5.3). */
   battle?: OwnBattle;
 }
@@ -204,12 +220,16 @@ export interface OrchestratorOptions {
 
 const SAMPLE_RANGE = 2 ** 32;
 
-/** Questions whose Hard play is Normal: the engine's rollouts do not cover them (spec §5.6). */
+/**
+ * Questions whose Hard play is Normal: Hard plays every decision outside Strategy and Encounter
+ * as Normal, because the engine's rollouts do not cover them (spec §5.6).
+ */
 const NO_ROLLOUT: ReadonlySet<ChoiceQuestion> = new Set([
   'promise_response',
   'pvp_response',
   'ability_window',
   'reward',
+  'deal',
 ]);
 
 /** How many AI turns of one game a quota tracks; a game has far fewer, so this only bounds abuse. */
@@ -299,6 +319,10 @@ export class Orchestrator {
     const log = { turnKey: request.turnKey, decision: this.#quota.nextDecision(), finished };
     try {
       const { phase } = request.observation.public;
+      // A Deal Card and a promise are each one Choice (§5.3).
+      if (request.decisionPoint === 'deal_response') {
+        return await this.#decideChoice(request, 'deal', log);
+      }
       if (request.decisionPoint === 'promise_response') {
         return await this.#decideChoice(request, 'promise_response', log);
       }
@@ -310,8 +334,6 @@ export class Orchestrator {
       ) {
         return await this.#decideChoice(request, request.decisionPoint, log);
       }
-      // The deal response uses the `auto` policy until S10 adds its question builder.
-      if (request.decisionPoint === 'deal_response') return policyDecision(request, 'auto', null);
       if (phase.kind === 'strategy' || phase.kind === 'encounter') {
         return await this.#decideChoice(request, phase.kind, log);
       }
@@ -329,6 +351,23 @@ export class Orchestrator {
   ): Promise<OrchestratorDecision> {
     const { observation, legalActions, personality, facts } = request;
     const enabled = legalActions.enabled;
+    // The Deal Card's engine buckets: the seat's own observation first, the request's only when the
+    // observation carries none (§5.4). Without them the question cannot be asked.
+    let dealFacts: DealFacts | undefined;
+    if (question === 'deal') {
+      const pending = pendingDeal(observation);
+      // Not this seat's proposed Deal Card to answer: nothing to ask.
+      if (!pending) return policyDecision(request, 'auto', null);
+      dealFacts = pending.facts ?? facts.deal;
+      // Without the engine's buckets the question cannot be asked; the policy answers (and rejects).
+      if (!dealFacts && enabled.length > 1) {
+        return policyDecision(
+          request,
+          'fallback',
+          this.#blocked(request.turnKey) ?? 'missing_facts',
+        );
+      }
+    }
     if (question === 'promise_response' && !pendingPromise(observation)) {
       // Only the pending responder is asked, and only about a promise (§4.8, #143).
       return policyDecision(request, 'auto', null);
@@ -360,6 +399,11 @@ export class Orchestrator {
       if (question === 'promise_response') {
         return buildPromiseResponseQuestion(observation, enabled, personality);
       }
+      if (question === 'deal') {
+        return dealFacts
+          ? buildDealQuestion(observation, enabled, dealFacts, personality)
+          : { kind: 'skip' as const };
+      }
       if (question === 'pvp_response') {
         return buildPvpResponseQuestion(observation, enabled, personality, facts.battle);
       }
@@ -376,6 +420,10 @@ export class Orchestrator {
       );
     };
     let decision = build();
+    // Over budget (no `accept` listed): code refuses and Jev is never asked (§5.3). The log says why.
+    if (question === 'deal' && decision.kind === 'autoApply') {
+      return policyDecision(request, 'auto', 'over_budget');
+    }
     if (decision.kind !== 'ask') return policyDecision(request, 'auto', null);
     const blocked = this.#blocked(request.turnKey);
     if (blocked) return policyDecision(request, 'fallback', blocked);
@@ -383,7 +431,7 @@ export class Orchestrator {
     // argmax. With a rollout limit set (the server's), their time comes off Jev's deadline, so the
     // whole decision stays inside it; without one (the sim, which has no clock) Jev keeps all of it.
     let rolloutSpent = 0;
-    // The battle decisions are answered on their own question, like the promise: no rollouts.
+    // The promise, the battle decisions and the Deal Card are answered on their own question: no rollouts.
     if (request.difficulty === 'hard' && !NO_ROLLOUT.has(question)) {
       const started = performance.now();
       const outcomes = await this.#outcomes({
@@ -422,10 +470,12 @@ export class Orchestrator {
     if (!ids.every((id) => enabled.some((action) => action.id === id))) {
       return this.#fellBack(request, 'invalid_choice', asked);
     }
+    // The log and the demo detail name a Deal Card by its decision point, like every other question.
+    const loggedName = question === 'deal' ? 'deal_response' : question;
     const event = (choice: string, extra: Partial<JevDecisionEvent>): JevDecisionEvent => ({
       requestId: result!.requestId ?? null,
       model: result!.model,
-      questionId: question,
+      questionId: loggedName,
       choice,
       probabilities,
       confidence: answer.confidence,
@@ -434,7 +484,7 @@ export class Orchestrator {
       ...extra,
     });
     const detailOf = (): DecisionDetail => ({
-      questionId: question,
+      questionId: loggedName,
       confidence: answer.confidence,
       options: ids.map((id) => ({ id, probability: probabilities[id]! })),
     });
