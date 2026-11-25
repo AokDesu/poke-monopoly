@@ -1,11 +1,11 @@
 import {
-  deserialize,
+  loadGame,
   resume,
   serialize,
-  verifyReplay,
   type Resumed,
   type SavedGame,
 } from '../../../engine/index.ts';
+import { readSavedChatWords, type SavedChatWords } from './chat.ts';
 import {
   DIFFICULTIES,
   PERSONALITIES,
@@ -36,11 +36,18 @@ export interface SaveMeta {
   }[];
   /** Present only for a watched game: its talk setting and starting speed. */
   readonly watch?: WatchSettings;
+  /** The rivals' words for the human's topic messages, so a reload shows the same lines (spec §5.7). */
+  readonly chatWords?: readonly SavedChatWords[];
   /**
    * The id the speech and decision routes know this game by, so the server's per-game limits
    * (spec §9) carry on across a reload. Never part of the exported log.
    */
   readonly gameId?: string;
+  /**
+   * The prepared scenario this game was opened from (`?demo`, issue #222). Marks the game as
+   * prepared so a reload keeps announcing it. Never part of the exported log.
+   */
+  readonly scene?: string;
 }
 
 export type LoadResult =
@@ -70,7 +77,13 @@ export function writeSave(storage: SaveStorage, game: SavedGame, meta: SaveMeta)
   storage.setItem(SAVE_KEY, serialize(game));
   storage.setItem(
     META_KEY,
-    JSON.stringify({ opponents: meta.opponents, watch: meta.watch, gameId: meta.gameId }),
+    JSON.stringify({
+      opponents: meta.opponents,
+      watch: meta.watch,
+      gameId: meta.gameId,
+      scene: meta.scene,
+      chatWords: meta.chatWords,
+    }),
   );
 }
 
@@ -92,6 +105,7 @@ export function readMeta(storage: SaveStorage): SaveMeta {
     const speed = watch && typeof watch === 'object' && 'speed' in watch ? watch.speed : undefined;
     const startSpeed = TURN_SPEEDS.find((item) => item === speed);
     const gameId = 'gameId' in parsed ? parsed.gameId : undefined;
+    const scene = 'scene' in parsed ? parsed.scene : undefined;
     return {
       opponents: rows.flatMap((entry) => {
         if (!entry || typeof entry !== 'object') return [];
@@ -103,6 +117,8 @@ export function readMeta(storage: SaveStorage): SaveMeta {
       }),
       ...(typeof talk === 'boolean' && startSpeed && { watch: { talk, speed: startSpeed } }),
       ...(typeof gameId === 'string' && /^[\w-]{1,64}$/.test(gameId) && { gameId }),
+      ...(typeof scene === 'string' && /^[\w-]{1,64}$/.test(scene) && { scene }),
+      ...('chatWords' in parsed && { chatWords: readSavedChatWords(parsed.chatWords) }),
     };
   } catch {
     return EMPTY_META;
@@ -157,9 +173,7 @@ export function savedRivals(game: SavedGame, meta: SaveMeta): SavedRival[] {
  */
 export function loadSave(text: string): LoadResult {
   try {
-    const game = deserialize(text);
-    const check = verifyReplay(game);
-    if (!check.pass) return { ok: false, kind: 'unreadable', message: check.reason };
+    const game = loadGame(text);
     return { ok: true, game, resumed: resume(game) };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -207,7 +221,7 @@ export function saveText(game: SavedGame): string {
   return serialize(game);
 }
 
-/** Downloads the engine save. The file is what `deserialize` reads, with no extra fields. */
+/** Downloads the engine save. The file is what `loadGame` reads, with no extra fields. */
 export function downloadSave(text: string): void {
   const blob = new Blob([text], { type: 'application/json' });
   const url = URL.createObjectURL(blob);

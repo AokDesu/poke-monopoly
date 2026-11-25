@@ -17,15 +17,32 @@ import {
 } from '../../ai/orchestrator.ts';
 import {
   buildEncounterQuestion,
+  buildPromiseResponseQuestion,
+  buildPvpResponseQuestion,
+  buildReactionQuestion,
+  buildRewardQuestion,
   buildSellQuestions,
   buildStrategyQuestion,
 } from '../../ai/questions/index.ts';
 import { command, resolveChoice } from '../../sim/runner.ts';
-import { fixtureSchema, requestHash, validateFixture, type Fixture } from './fixture.ts';
+import {
+  fixtureSchema,
+  requestHash,
+  SYNTHETIC_REQUEST_PREFIX,
+  validateFixture,
+  type Fixture,
+} from './fixture.ts';
 import { decideRequest, type EvalScenario } from './scenarios.ts';
 
 export interface ScenarioRun {
-  decisionPoint: 'strategy' | 'encounter' | 'sell';
+  decisionPoint:
+    | 'strategy'
+    | 'encounter'
+    | 'sell'
+    | 'promise_response'
+    | 'pvp_response'
+    | 'ability_window'
+    | 'reward';
   decision: OrchestratorDecision;
   /** Every request the orchestrator sent, and what the client answered. */
   requests: JevRequest[];
@@ -57,8 +74,17 @@ export async function runScenario(
   usage?: UsageRecorder,
 ): Promise<ScenarioRun> {
   const { state, request } = decideRequest(scenario);
-  const decisionPoint = request.observation.public.phase.kind;
-  if (decisionPoint !== 'strategy' && decisionPoint !== 'encounter' && decisionPoint !== 'sell') {
+  // A responder point (a pending question) is named by the wire, not by the asker's phase.
+  const decisionPoint = request.decisionPoint ?? request.observation.public.phase.kind;
+  if (
+    decisionPoint !== 'strategy' &&
+    decisionPoint !== 'encounter' &&
+    decisionPoint !== 'sell' &&
+    decisionPoint !== 'promise_response' &&
+    decisionPoint !== 'pvp_response' &&
+    decisionPoint !== 'ability_window' &&
+    decisionPoint !== 'reward'
+  ) {
     throw new RangeError(`${scenario.id}: no Jev decision point in phase "${decisionPoint}"`);
   }
   const requests: JevRequest[] = [];
@@ -90,10 +116,16 @@ export async function runScenario(
 /** Maps the scenario's acceptable action or Pokémon IDs to the labels its question offers. */
 function acceptableLabels(
   scenario: EvalScenario,
-  { observation, legalActions, facts, personality }: ReturnType<typeof decideRequest>['request'],
+  {
+    observation,
+    legalActions,
+    facts,
+    personality,
+    decisionPoint,
+  }: ReturnType<typeof decideRequest>['request'],
 ): Record<string, string[]> {
   const { acceptable } = scenario;
-  const phase = observation.public.phase.kind;
+  const phase = decisionPoint ?? observation.public.phase.kind;
   if (phase === 'sell') {
     if (Array.isArray(acceptable))
       throw new TypeError(`${scenario.id}: Sell needs per-Pokémon sets`);
@@ -111,7 +143,20 @@ function acceptableLabels(
   const decision =
     phase === 'strategy'
       ? buildStrategyQuestion(observation, legalActions.enabled, personality)
-      : buildEncounterQuestion(observation, legalActions.enabled, facts.encounter!, personality);
+      : phase === 'promise_response'
+        ? buildPromiseResponseQuestion(observation, legalActions.enabled, personality)
+        : phase === 'pvp_response'
+          ? buildPvpResponseQuestion(observation, legalActions.enabled, personality, facts.battle)
+          : phase === 'ability_window'
+            ? buildReactionQuestion(observation, legalActions.enabled, personality, facts.battle)
+            : phase === 'reward'
+              ? buildRewardQuestion(observation, legalActions.enabled, personality)
+              : buildEncounterQuestion(
+                  observation,
+                  legalActions.enabled,
+                  facts.encounter!,
+                  personality,
+                );
   if (decision.kind !== 'ask') throw new RangeError(`${scenario.id}: asks no question`);
   const labels = Object.entries(decision.options).flatMap(([label, id]) =>
     acceptable.includes(id) ? [label] : [],
@@ -143,15 +188,65 @@ const unanswered: JevClient = {
   ask: async () => ({ ok: false, fallbackReason: 'network', requestSent: false }),
 };
 
-/** The request the orchestrator would send for a scenario now, built without calling Jev. */
+/**
+ * The scenario's decision when no Jev request goes out: the last Sell Phase sells everything
+ * (spec §5.6), so the orchestrator never asks. `undefined` when Jev is asked as usual.
+ */
+export async function unaskedRun(scenario: EvalScenario): Promise<ScenarioRun | undefined> {
+  const run = await runScenario(scenario, unanswered);
+  return run.requests.length === 0 ? run : undefined;
+}
+
+/**
+ * The request the orchestrator would send for a scenario now, built without calling Jev. For a
+ * scenario the orchestrator no longer asks about (the last Sell Phase, spec §5.6), this is the
+ * request it would send if it did, so a recording stays comparable with the question builders.
+ */
 export async function scenarioRequest(scenario: EvalScenario): Promise<JevRequest> {
   const run = await runScenario(scenario, unanswered);
+  if (run.requests.length === 0) {
+    const { request } = decideRequest(scenario);
+    const [first] = request.facts.sell
+      ? buildSellQuestions(request.observation, request.facts.sell, request.personality).requests
+      : [];
+    if (!first) throw new RangeError(`${scenario.id}: asks no Jev request`);
+    return { state: first.state, questions: first.questions };
+  }
   if (run.requests.length !== 1) {
     throw new RangeError(
       `${scenario.id}: must ask exactly 1 Jev request, asked ${run.requests.length}`,
     );
   }
   return run.requests[0]!;
+}
+
+/**
+ * Each Pokémon question's answer as the applied sale makes it: `true` when the decision sells that
+ * Pokémon. Labels are `sell_team_<position>` (spec §5.3), so a scenario with no Jev answer to read
+ * still scores per question against its acceptable sets.
+ */
+export function appliedSellAnswers(
+  scenario: EvalScenario,
+  run: ScenarioRun,
+): Record<string, 'true' | 'false'> {
+  const { request } = decideRequest(scenario);
+  const { choice } = run.decision;
+  const sold = new Set(
+    typeof choice === 'string'
+      ? request.legalActions.enabled.flatMap((action) =>
+          action.id === choice && action.kind === 'sell' ? action.payload.pokemonInstanceIds : [],
+        )
+      : choice.sellUids,
+  );
+  const you = request.observation.public.players.find(
+    (player) => player.seatIndex === request.observation.own.seatIndex,
+  )!;
+  return Object.fromEntries(
+    Object.keys(run.acceptable).map((label) => {
+      const pokemon = you.team[Number(label.slice('sell_team_'.length))];
+      return [label, pokemon && sold.has(pokemon.instanceId) ? 'true' : 'false'];
+    }),
+  );
 }
 
 /** A fixture for a scenario and its answer; `synthetic` unless a person recorded it live. */
@@ -168,6 +263,7 @@ export function scenarioFixture(
     tags: { decisionPoint: run.decisionPoint, personality: scenario.personality.name },
     request,
     acceptable: run.acceptable,
+    ...(scenario.reason && { reason: scenario.reason }),
     synthetic,
     requestHash: requestHash(request),
     recorded,
@@ -208,7 +304,7 @@ export function placeholderResult(id: string, request: JevRequest): JevSuccess {
   return {
     ok: true,
     answers,
-    requestId: `synthetic-${id}`,
+    requestId: `${SYNTHETIC_REQUEST_PREFIX}${id}`,
     model: PINNED_JEV_MODEL,
     latencyMs: 0,
     usage: { inputTokens: 0, outputTokens: 0 },

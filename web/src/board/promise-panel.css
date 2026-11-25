@@ -1,0 +1,59 @@
+/* Promises and memory (spec §4.8): the same panel look as the field log and Table talk. */
+.promise-panel {
+  padding: 1rem 1.25rem;
+  border-radius: 18px;
+}
+.promise-panel h2 {
+  font-size: 1.1rem;
+  margin-bottom: 0.4rem;
+}
+.promise-panel h3 {
+  margin-top: 0.85rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.95rem;
+}
+.promise-list,
+.promise-memory,
+.promise-trust {
+  display: grid;
+  gap: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.promise-list > li,
+.promise-memory > li {
+  padding: 0.5rem 0;
+}
+.promise-list > li + li,
+.promise-memory > li + li {
+  border-top: 1px solid var(--color-line);
+}
+.promise-status {
+  display: inline-block;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  background: var(--color-panel-lip);
+  color: var(--color-ink);
+}
+[data-promise-status='active'] .promise-status {
+  background: var(--color-reward);
+}
+[data-promise-status='broken'] .promise-status {
+  background: var(--color-action);
+  color: #fff;
+}
+.promise-evidence {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.3rem 0 0.2rem;
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--color-line);
+}
+.promise-ref {
+  margin-top: 0.1rem;
+  font-size: 0.75rem;
+  color: var(--color-ink-soft);
+  overflow-wrap: anywhere;
+}

@@ -6,6 +6,11 @@ import { fakeServer, playOut, watchStore } from '../test/watchGame.ts';
 import { BoardScreen } from './BoardScreen.tsx';
 import { STEP_MS } from './useTurnPlayback.ts';
 
+// Named per-test budgets (ET-05): these take 2 to 8 s at full parallelism, so the 5 s default is too tight on a loaded machine.
+const SLOW_TEST_MS = 30_000;
+// A whole 4-AI game played to the results: ~40 to 60 s at full parallelism, so a 60 s limit is not a margin.
+const LONG_GAME_MS = 240_000;
+
 beforeEach(() => {
   vi.useFakeTimers();
 });
@@ -91,6 +96,7 @@ test('a sentinel secret handed to the spectator view never reaches the screen (�
           phase: { kind: 'strategy' },
           activeSeatIndex: 1,
           globalTurnNo: 1,
+          pokemon: [],
         },
         record: {
           action: {
@@ -169,27 +175,31 @@ test('Pause stops the next AI request from starting; Resume continues from the s
   );
 });
 
-test('Step while paused applies exactly one action and pauses again, AI decisions included (§3)', async () => {
-  const calls = fakeServer();
-  const store = watchStore(2);
-  render(<BoardScreen store={store} />);
-  press(t('watch.pause'));
-  expect(control(t('watch.step')).disabled).toBe(false);
+test(
+  'Step while paused applies exactly one action and pauses again, AI decisions included (§3)',
+  async () => {
+    const calls = fakeServer();
+    const store = watchStore(2);
+    render(<BoardScreen store={store} />);
+    press(t('watch.pause'));
+    expect(control(t('watch.step')).disabled).toBe(false);
 
-  let decisions = 0;
-  for (let step = 0; step < 60 && decisions < 2; step++) {
-    const before = { actions: logLength(store), requests: calls.decide };
-    fireEvent.click(control(t('watch.step')));
-    await tick(50);
-    expect(logLength(store), `step ${step}`).toBe(before.actions + 1);
-    decisions += calls.decide - before.requests;
-    // Held again: nothing more happens however long we wait, and Resume is still on offer.
-    await tick(60_000);
-    expect(logLength(store), `step ${step} holds`).toBe(before.actions + 1);
-    expect(control(t('watch.resume'))).toBeTruthy();
-  }
-  expect(decisions, 'stepped through AI decisions').toBeGreaterThanOrEqual(2);
-});
+    let decisions = 0;
+    for (let step = 0; step < 60 && decisions < 2; step++) {
+      const before = { actions: logLength(store), requests: calls.decide };
+      fireEvent.click(control(t('watch.step')));
+      await tick(50);
+      expect(logLength(store), `step ${step}`).toBe(before.actions + 1);
+      decisions += calls.decide - before.requests;
+      // Held again: nothing more happens however long we wait, and Resume is still on offer.
+      await tick(60_000);
+      expect(logLength(store), `step ${step} holds`).toBe(before.actions + 1);
+      expect(control(t('watch.resume'))).toBeTruthy();
+    }
+    expect(decisions, 'stepped through AI decisions').toBeGreaterThanOrEqual(2);
+  },
+  SLOW_TEST_MS,
+);
 
 test('a slow AI shows Thinking, and Step says why it must wait (§3.1)', async () => {
   const { promise, resolve } = Promise.withResolvers<void>();
@@ -242,23 +252,27 @@ test('Skip to results asks once, and Keep watching changes nothing (§3)', async
   await finish(store);
 }, 60_000);
 
-test('Instant on a 4-AI game reaches the results (§3)', async () => {
-  fakeServer();
-  const store = watchStore(4);
-  const finished = vi.fn();
-  render(<BoardScreen store={store} onFinished={finished} />);
-  fireEvent.change(screen.getByLabelText(t('ai.speed')), { target: { value: 'instant' } });
-  await finish(store);
-  expect(store.getResults()).not.toBeNull();
-  expect(screen.getByText(t('turn.finished'))).toBeTruthy();
-  fireEvent.click(control(t('nav.results')));
-  expect(finished).toHaveBeenCalledOnce();
-  // A finished game has nothing to pause, step or skip, and each control says so.
-  for (const name of [t('watch.pause'), t('watch.step'), t('watch.skip')]) {
-    expect(control(name).disabled, name).toBe(true);
-  }
-  expect(screen.getAllByText(t('watch.stepFinished')).length).toBeGreaterThanOrEqual(3);
-}, 60_000);
+test(
+  'Instant on a 4-AI game reaches the results (§3)',
+  async () => {
+    fakeServer();
+    const store = watchStore(4);
+    const finished = vi.fn();
+    render(<BoardScreen store={store} onFinished={finished} />);
+    fireEvent.change(screen.getByLabelText(t('ai.speed')), { target: { value: 'instant' } });
+    await finish(store);
+    expect(store.getResults()).not.toBeNull();
+    expect(screen.getByText(t('turn.finished'))).toBeTruthy();
+    fireEvent.click(control(t('nav.results')));
+    expect(finished).toHaveBeenCalledOnce();
+    // A finished game has nothing to pause, step or skip, and each control says so.
+    for (const name of [t('watch.pause'), t('watch.step'), t('watch.skip')]) {
+      expect(control(name).disabled, name).toBe(true);
+    }
+    expect(screen.getAllByText(t('watch.stepFinished')).length).toBeGreaterThanOrEqual(3);
+  },
+  LONG_GAME_MS,
+);
 
 test('with Jev down every AI shows the backup bot and the one banner (§3.1 rows 9 and 18)', async () => {
   fakeServer('down');

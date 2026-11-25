@@ -11,9 +11,10 @@ import {
   DECISION_DEADLINE_MS,
   createSdkJevClient,
   resolveJevModel,
+  warnJevRejected,
   type JevClient,
 } from './jev/client.ts';
-import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
+import { defaultUsageLedger, warnLedgerFailed, type UsageRecorder } from './jev/spend.ts';
 import { billedUsage } from './jev/usage.ts';
 import { confidenceFloor } from './orchestrator.ts';
 import { LINES, selectLine, type Situation } from './lines.ts';
@@ -213,29 +214,31 @@ export const createChatReplier = ({
       jev ??= client();
       const started = performance.now();
       const call = jev.ask({ state, questions }, { decisionSignal: deadline.signal });
-      void call.then((result) => {
-        const billed = billedUsage(result);
-        const recorder = usage();
-        if (!billed || !recorder) return;
-        try {
-          recorder.record({
-            time: new Date().toISOString(),
-            gameId: request.gameId,
-            requestId: result.ok ? (result.requestId ?? null) : null,
-            model: result.ok ? result.model : resolveJevModel(),
-            inputTokens: billed.inputTokens,
-            outputTokens: billed.outputTokens,
-            latencyMs: Math.round(performance.now() - started),
-            status: result.ok ? 'ok' : result.fallbackReason,
-            turnKey: request.turnKey,
-            decision: 0,
-            decisionMs: Math.round(performance.now() - started),
-            ...(billed.estimated && { estimated: true }),
-          });
-        } catch (error) {
-          console.warn(`Could not write the Jev usage log: ${String(error)}`);
-        }
-      });
+      void call
+        .then((result) => {
+          const billed = billedUsage(result);
+          const recorder = usage();
+          if (!billed || !recorder) return;
+          try {
+            recorder.record({
+              time: new Date().toISOString(),
+              gameId: request.gameId,
+              requestId: result.ok ? (result.requestId ?? null) : null,
+              model: result.ok ? result.model : resolveJevModel(),
+              inputTokens: billed.inputTokens,
+              outputTokens: billed.outputTokens,
+              latencyMs: Math.round(performance.now() - started),
+              status: result.ok ? 'ok' : result.fallbackReason,
+              turnKey: request.turnKey,
+              decision: 0,
+              decisionMs: Math.round(performance.now() - started),
+              ...(billed.estimated && { estimated: true }),
+            });
+          } catch (error) {
+            warnLedgerFailed('Could not write the Jev usage log', error);
+          }
+        })
+        .catch(warnJevRejected);
       const result = await Promise.race([call, expired]);
       // §5.6: a late answer is never applied, even a valid one.
       if (result === undefined || deadline.signal.aborted) return fallback('timeout');

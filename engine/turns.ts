@@ -50,23 +50,34 @@ export function pendingRollPurpose(state: GameState): string | undefined {
   }
   if (state.phase.kind === 'move' && state.phase.awaitingResult) {
     const purpose = `move:${state.activeSeatIndex}:${state.globalTurnNo}`;
+    if (state.phase.confusionReroll) return `${purpose}:confusion`;
     return state.phase.rerolling ? `${purpose}:reroll` : purpose;
   }
 }
 
 export function recordMoveRoll(next: GameState, value: number): EngineEvent[] {
   if (next.phase.kind !== 'move' || !next.phase.awaitingResult) return [];
-  // C.3 move order: an eligible A window follows the die before slows and movement (D11).
-  if (!next.phase.rerolling && canReroll(next, next.activeSeatIndex)) {
+  const { rerolling, confusionReroll } = next.phase;
+  if (!rerolling && !confusionReroll && movingPlayer(next).confused) {
+    next.phase = { kind: 'move', awaitingResult: true, confusionReroll: true };
+    return [];
+  }
+  // C.3 move order: Calculate sees the value after any mandatory Confusion reroll.
+  if (!rerolling && canReroll(next, next.activeSeatIndex)) {
     next.phase = { kind: 'move', rolled: value };
     return [];
   }
   return applyMove(next, value);
 }
 
+function movingPlayer(state: GameState): Player {
+  return state.players.find((player) => player.seatIndex === state.activeSeatIndex)!;
+}
+
 /** Owner movement by `value` before slows: Start credit, Sell, then Resolve (§4.2, §4.7). */
 function applyMove(next: GameState, value: number): EngineEvent[] {
-  const player = next.players.find((entry) => entry.seatIndex === next.activeSeatIndex)!;
+  const player = movingPlayer(next);
+  delete player.confused;
   const previousMilestone = Math.floor(player.routeProgress / 24);
   player.routeProgress += slowedSteps(player, value);
   const milestone = Math.floor(player.routeProgress / 24);
@@ -105,9 +116,12 @@ export function recordTurnCommand(next: GameState, kind: string): EngineEvent[] 
   // Historical contract fixtures retain their illustrative choices and no gameplay effects.
   if (next.config.engineVersion !== ENGINE_VERSION) return [];
   if (kind === 'roll' && next.phase.kind === 'move') {
-    // A replaceRoll Ability draws no die; pending slows still apply to its steps (D8).
     const fixed = next.turnEffects?.fixedMove;
-    if (fixed !== undefined) return applyMove(next, fixed);
+    if (fixed !== undefined) {
+      if (!movingPlayer(next).confused) return applyMove(next, fixed);
+      // Quick Flight supplies the first value. Confusion still draws its replacement die.
+      next.phase.confusionReroll = true;
+    }
     next.phase.awaitingResult = true;
     return [];
   }

@@ -29,6 +29,9 @@ import {
 } from './index.ts';
 import recorded from './fixtures/recorded-replies.json';
 
+// Named per-test budget (ET-05): 5 to 7 s at full parallelism, so the 5 s default is too tight on a loaded machine.
+const SLOW_TEST_MS = 30_000;
+
 const content = toEngineContent(CONTENT);
 const greedy = PERSONALITIES.greedy;
 const SEED = 'SPEECH-SEED-SENTINEL';
@@ -49,14 +52,14 @@ const seatOf = (classId: string) => ({
   starterSpeciesId: content.classes.find((entry) => entry.id === classId)!.starterSpeciesIds[0]!,
 });
 
-/** 2 to 4 seats, human-controlled with the Social window open so chats happen, each holding secret items. */
+/** 2 to 4 seats with one AI recipient and the Social window open, each holding secret items. */
 function game(index: number): GameState {
   const seatCount = 2 + (index % 3);
   const seats = Array.from({ length: seatCount }, (_, seatIndex) => ({
     actorId: `player-${seatIndex}`,
     seatIndex,
     ...seatOf(CLASSES[(index + seatIndex) % CLASSES.length]!),
-    controller: 'human' as const,
+    controller: seatIndex === seatCount - 1 ? ('ai' as const) : ('human' as const),
   }));
   const state = createGame(
     createGameConfig({ seats, seed: `${SEED}-${index}`, lapTarget: 3, socialWindow: true }),
@@ -137,58 +140,64 @@ function leaks(
 }
 
 describe('speech brief (§4.1, §4.8, §5.4, §8)', () => {
-  test('across 25 seeded 2 to 4 seat games, no brief for any seat, target and situation leaks a secret, a chat or a digit', () => {
-    let briefs = 0;
-    let withEvents = 0;
-    const seatCounts = new Set<number>();
-    const chats = new Set<string>();
-    for (let index = 0; index < 25; index++) {
-      let state = game(index);
-      seatCounts.add(state.players.length);
-      let choices = createRng(index);
-      const pick = (n: number) => {
-        const draw = int(choices, n);
-        choices = draw.rng;
-        return draw.value;
-      };
-      const feeds = new Map<number, SeatEvent[]>(state.players.map((p) => [p.seatIndex, []]));
-      for (let move = 1; move <= 60; move++) {
-        const before = state;
-        const result = step(before, pick);
-        state = structuredClone(result.state);
-        for (const player of state.players) {
-          feeds
-            .get(player.seatIndex)!
-            .push(...eventsVisibleTo(before, result.events, player.seatIndex));
-        }
-        for (const event of result.events) if (event.kind === 'chat_sent') chats.add(event.topic);
-        if (move % 3 !== 0) continue;
-        for (const player of state.players) {
-          const seat = player.seatIndex;
-          const projection = { ...state };
-          projection.eventDeck = { drawPile: [...DECK], discardPile: [] };
-          const observation = observe(projection, seat);
-          const publicNames = observation.public.players.flatMap((p) =>
-            p.knownItems.map((item) => item.name),
-          );
-          const others = state.players.map((p) => p.seatIndex).filter((s) => s !== seat);
-          const situation = SITUATIONS[(move / 3 + seat) % SITUATIONS.length]!;
-          for (const addressed of [undefined, ...others]) {
-            const made = brief(observation, feeds.get(seat)!, situation, addressed);
-            const json = JSON.stringify(made);
-            expect(leaks(json, state, seat, publicNames), `game ${index} move ${move}`).toEqual([]);
-            expect(made.recent_events.length).toBeLessThanOrEqual(3);
-            briefs++;
-            if (made.recent_events.length > 0) withEvents++;
+  test(
+    'across 25 seeded 2 to 4 seat games, no brief for any seat, target and situation leaks a secret, a chat or a digit',
+    () => {
+      let briefs = 0;
+      let withEvents = 0;
+      const seatCounts = new Set<number>();
+      const chats = new Set<string>();
+      for (let index = 0; index < 25; index++) {
+        let state = game(index);
+        seatCounts.add(state.players.length);
+        let choices = createRng(index);
+        const pick = (n: number) => {
+          const draw = int(choices, n);
+          choices = draw.rng;
+          return draw.value;
+        };
+        const feeds = new Map<number, SeatEvent[]>(state.players.map((p) => [p.seatIndex, []]));
+        for (let move = 1; move <= 60; move++) {
+          const before = state;
+          const result = step(before, pick);
+          state = structuredClone(result.state);
+          for (const player of state.players) {
+            feeds
+              .get(player.seatIndex)!
+              .push(...eventsVisibleTo(before, result.events, player.seatIndex));
+          }
+          for (const event of result.events) if (event.kind === 'chat_sent') chats.add(event.topic);
+          if (move % 3 !== 0) continue;
+          for (const player of state.players) {
+            const seat = player.seatIndex;
+            const projection = { ...state };
+            projection.eventDeck = { drawPile: [...DECK], discardPile: [] };
+            const observation = observe(projection, seat);
+            const publicNames = observation.public.players.flatMap((p) =>
+              p.knownItems.map((item) => item.name),
+            );
+            const others = state.players.map((p) => p.seatIndex).filter((s) => s !== seat);
+            const situation = SITUATIONS[(move / 3 + seat) % SITUATIONS.length]!;
+            for (const addressed of [undefined, ...others]) {
+              const made = brief(observation, feeds.get(seat)!, situation, addressed);
+              const json = JSON.stringify(made);
+              expect(leaks(json, state, seat, publicNames), `game ${index} move ${move}`).toEqual(
+                [],
+              );
+              expect(made.recent_events.length).toBeLessThanOrEqual(3);
+              briefs++;
+              if (made.recent_events.length > 0) withEvents++;
+            }
           }
         }
       }
-    }
-    expect(seatCounts).toEqual(new Set([2, 3, 4]));
-    expect(chats.size, 'random play reached chats').toBeGreaterThan(0);
-    expect(withEvents).toBeGreaterThan(0);
-    expect(briefs).toBeGreaterThan(1000);
-  });
+      expect(seatCounts).toEqual(new Set([2, 3, 4]));
+      expect(chats.size, 'random play reached chats').toBeGreaterThan(0);
+      expect(withEvents).toBeGreaterThan(0);
+      expect(briefs).toBeGreaterThan(1000);
+    },
+    SLOW_TEST_MS,
+  );
 
   test('the leak check fails when a sentinel, a secret item name, a digit or a chat topic is put into a brief', () => {
     const state = game(0);

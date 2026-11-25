@@ -21,7 +21,6 @@ export function TeamDetails({
     <details className="team-details">
       <summary>{t('team.details', { name: form.name })}</summary>
       <div className="team-details-body">
-        <p className="team-instance">{t('team.instance', { id: pokemon.instanceId })}</p>
         {pokemon.tired && <p className="team-status-note">{t('team.tiredReason')}</p>}
         {pokemon.origin === 'rescue_starter' && (
           <p className="team-status-note">{t('team.rescueRestriction')}</p>

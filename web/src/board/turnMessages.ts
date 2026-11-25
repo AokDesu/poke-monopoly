@@ -77,7 +77,15 @@ export function turnMessages(
       });
     }
   }
-  if (record.auto && record.action.actorId !== 'engine') {
+  // Gym entry: leaving without a challenge costs nothing (§4.4). With no battle-ready Pokémon the
+  // engine applies the skip itself (§3.1, Appendix C.3 D5 step 1).
+  const gymSkip = phase.kind === 'gym' && phase.battle.step === 'entry' && action.kind === 'skip';
+  if (gymSkip) {
+    const name = seatLabel(before.activeSeatIndex, viewerSeat);
+    const key = record.auto ? 'battle.gymAutoSkipped' : 'battle.gymSkipped';
+    messages.push({ key, text: t(key, { name }) });
+  }
+  if (record.auto && record.action.actorId !== 'engine' && !gymSkip) {
     messages.push({
       key: 'turn.automatic',
       text: t('turn.automatic', {
@@ -85,9 +93,12 @@ export function turnMessages(
       }),
     });
   }
+  // An encounter is announced once its outcome is final: the record that leaves the Encounter. A
+  // catch die held open for Porygon's reroll (Appendix C.6) leaves it later, by a reroll or a keep.
   if (
     before.phase.kind === 'encounter' &&
-    ['release', 'dice_result'].includes(record.action.kind)
+    ['release', 'dice_result', 'skip'].includes(record.action.kind) &&
+    record.events.some((event) => event.kind === 'phase_changed' && event.from === 'encounter')
   ) {
     const outcome =
       record.action.kind === 'release'

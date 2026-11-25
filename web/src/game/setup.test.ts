@@ -45,13 +45,14 @@ test('?seed= is read as a whole number when it is one, a string otherwise, and a
 test('the open classes are the ones whose whole kit the browser plays (§1)', () => {
   expect(open.map((option) => option.id)).toEqual([
     'main-character',
+    'rival',
     'fisherman',
     'nurse-joy',
     'bug-catcher',
     'researcher',
   ]);
-  // Rival's forced PvP has no control in the browser yet, so it stays closed (issue #135).
-  expect(classOptions.find((option) => option.id === 'rival')?.playable).toBe(false);
+  // Rival's once-per-Lap forced challenge has its Strategy control, so the class is open (issue #135).
+  expect(classOptions.find((option) => option.id === 'rival')?.playable).toBe(true);
   // Stretch classes stay out of setup until after G2.
   expect(classOptions.map((option) => option.id)).not.toContain('team-rocket');
 });
@@ -189,7 +190,10 @@ describe('class conflicts (§3)', () => {
         rival('fisherman', id),
       ]);
     }
-    expect(completeSetup(draft([rival('rival')]), classOptions)).toBeUndefined();
+    const rivalClosed = classOptions.map((option) =>
+      option.id === 'rival' ? { ...option, playable: false } : option,
+    );
+    expect(completeSetup(draft([rival('rival')]), rivalClosed)).toBeUndefined();
     expect(
       completeSetup(draft([rival('fisherman', 'sneaky' as never)]), classOptions),
     ).toBeUndefined();
@@ -200,7 +204,7 @@ describe('class conflicts (§3)', () => {
     expect(
       completeSetup(
         draft([rival('fisherman')], { classId: 'rival', starterSpeciesId: 'eevee' }),
-        classOptions,
+        rivalClosed,
       ),
     ).toBeUndefined();
   });

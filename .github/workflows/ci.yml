@@ -40,8 +40,15 @@ jobs:
             echo "::error::A tracked file sets TYPESAFE_API_KEY or ANTHROPIC_API_KEY to a value. Remove it and rotate the key."
             exit 1
           fi
+          # An Anthropic key keeps its shape wherever it is pasted (JSON, Markdown, a test), not only after `NAME=`.
+          if git grep -nE 'sk-ant-[A-Za-z0-9_-]{8,}'; then
+            echo "::error::A tracked file holds a string shaped like an Anthropic API key. Remove it and rotate the key."
+            exit 1
+          fi
 
       - run: npm ci
+      # §7, #64: production dependencies only; a dev-only advisory does not fail CI.
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run format:check
@@ -50,4 +57,6 @@ jobs:
       - run: npm run sim -- --games 100 --seed 1 --seats 2
       - run: npm run sim -- --games 100 --seed 1 --seats 3
       - run: npm run sim -- --games 100 --seed 1 --seats 4
+      # §4.8 (#164 D1): with the Social window open the human seat deals; the run fails if no deal commits.
+      - run: npm run sim -- --social --require-deals --games 50 --seed 1 --seats 3
       - run: npm run eval:jev -- --offline

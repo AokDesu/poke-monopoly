@@ -25,20 +25,33 @@ import {
   type DecisionRates,
   type Policy,
   type PolicyChoice,
-  type PolicyFacts,
+  type PolicyGame,
+  type SeatFacts,
   type PolicyFactory,
   type PolicyRng,
-  RandomPolicy,
 } from './policy.ts';
 
 export type SeatSetup = { seatIndex: number; actorId: string; classId: string };
+type ScriptedHumans = {
+  /** `--social` opens Social for one scripted human at seat 0 by default. */
+  social?: boolean;
+  /** `--human-seats <n>` opens Social for the first n seats, overriding the count from `--social`. */
+  humanSeats?: number;
+};
+
+export function scriptedHumanCount({ humanSeats, social }: ScriptedHumans, seats: number): number {
+  if (humanSeats === undefined) return social ? 1 : 0;
+  if (!Number.isInteger(humanSeats) || humanSeats < 1 || humanSeats > seats) {
+    throw new RangeError(`--human-seats must be an integer from 1 to ${seats}; got ${humanSeats}`);
+  }
+  return humanSeats;
+}
+
 export type GameSetup = {
   seed: number;
   seats: SeatSetup[];
   lapTarget: number;
-  /** `--social`: seat 0 is a human and the Social window is open (§4.2, §4.8); AI seats unchanged. */
-  social?: boolean;
-};
+} & ScriptedHumans;
 export type GameOutcome = { finished: false } | { finished: true; winnerSeats: number[] };
 
 /** The engine seam the runner drives; the real engine and test fakes both implement it. */
@@ -56,7 +69,7 @@ export type SimEngine = {
   };
   outcome(state: GameState): GameOutcome;
   /** Engine numbers the seat's observation lacks, such as catch odds; none when absent. */
-  facts?(state: GameState, seatIndex: number): PolicyFacts;
+  facts?(state: GameState, seatIndex: number): SeatFacts;
 };
 
 /** Called after every applied or rejected action; each returned violation is one failure (§8). */
@@ -81,14 +94,21 @@ export type SimOptions = {
   lapTarget: number;
   policy: string;
   seedSet: SeedSet;
+  /** `--human-policy <name>`: each scripted human's policy; default `random`. */
+  humanPolicy?: string;
   /**
-   * `--social`: seat 0 plays as a human with the random policy, so chat, promises and later Deals
-   * are exercised; the other seats keep `policy`. Absent leaves a run exactly as before.
+   * `--require-deals` (needs `--social` or `--human-seats`): the run fails unless at least one Deal Card committed, so a change that
+   * quietly stops the human seat from dealing, or the engine from committing, cannot pass CI (§4.8, #164).
    */
-  social?: boolean;
+  requireDeals?: boolean;
+  /**
+   * `--seat-policies a,b,..`: one registered policy per seat, which replaces `policy` on the AI
+   * seats. Scripted humans use `humanPolicy`.
+   */
+  seatPolicies?: readonly string[];
   /** `--save <file>`: where each finished game is written as a save (spec §6.7). */
   save?: string;
-};
+} & ScriptedHumans;
 
 export const DEFAULT_OPTIONS: Omit<SimOptions, 'games' | 'seed'> = {
   seats: 2,
@@ -121,7 +141,7 @@ export type SimSummary = {
    * `illegalAppliedActionCount`.
    */
   jev?: DecisionRates;
-  /** `--social` only: what the human seat's offers came to (§4.8 Promise). */
+  /** Outcomes of the scripted humans' offers (§4.8 Promise). */
   social?: SocialSummary;
 } & MetricsSummary;
 
@@ -129,6 +149,8 @@ export type SocialSummary = {
   promiseOffers: number;
   promisesAccepted: number;
   promisesRejected: number;
+  dealsProposed: number;
+  dealsCommitted: number;
 };
 
 export type GameFailure = { seed: number; reasons: string[]; reproduce: string };
@@ -142,7 +164,8 @@ export type PlayedGame = {
   outcome: GameOutcome;
 };
 
-type GameResult = {
+/** What one game left behind; every field is a count or an identifier, never hidden state. */
+export type GameResult = {
   game: PlayedGame | null;
   seats: SeatSetup[];
   outcome: GameOutcome;
@@ -161,8 +184,7 @@ export async function runSim(
   checkInvariants: InvariantCheck = noInvariantCheck,
   onGame: (game: PlayedGame) => void = () => {},
 ): Promise<{ summary: SimSummary; failures: GameFailure[] }> {
-  const createPolicy = policies[options.policy];
-  if (!createPolicy) throw new RangeError(`Unknown policy: ${options.policy}`);
+  const seatPolicy = seatPolicies(options, policies);
   const summary = emptySummary(options, engine.classIds);
   summary.games = options.games;
   const failures: GameFailure[] = [];
@@ -174,7 +196,7 @@ export async function runSim(
   for (let g = 0; g < options.games; g++) {
     // Game g of seed s uses seed s + g, so `--games 1 --seed <s + g>` replays it alone.
     const seed = options.seed + g;
-    const game = await playGame(engine, options, seed, createPolicy, checkInvariants, metrics);
+    const game = await playGame(engine, options, seed, seatPolicy, checkInvariants, metrics);
     for (const seat of game.seats) summary.classInSeat[seat.classId]![seat.seatIndex]! += 1;
     for (const [key, n] of Object.entries(game.policyCounts)) {
       policyCounts ??= {};
@@ -214,11 +236,13 @@ export async function runSim(
     Object.entries(summary.winners.byClass).map(([classId, wins]) => [classId, round2(wins)]),
   );
   Object.assign(summary, metrics.summary());
-  if (options.social) {
+  if (scriptedHumanCount(options, options.seats) > 0) {
     summary.social = {
       promiseOffers: summary.promises.offered,
       promisesAccepted: summary.promises.accepted,
       promisesRejected: summary.promises.rejected,
+      dealsProposed: summary.deals.proposed,
+      dealsCommitted: summary.deals.committed,
     };
   }
   if (policyCounts) {
@@ -252,6 +276,11 @@ function emptySummary(options: SimOptions, classIds: readonly string[]): SimSumm
 }
 
 /** Non-zero exit when an illegal action was applied, an invariant failed or a game aborted. */
+/** `--require-deals`: true when it was asked for and no Deal Card committed in the whole run. */
+export function noDealCommitted(options: SimOptions, summary: SimSummary): boolean {
+  return options.requireDeals === true && summary.deals.committed === 0;
+}
+
 export function failed(summary: SimSummary): boolean {
   return (
     summary.illegalAppliedActionCount > 0 || summary.invariantFailures > 0 || summary.aborted > 0
@@ -285,7 +314,13 @@ export function reproduceCommand(options: SimOptions, seed: number): string {
     `--max-steps ${options.maxSteps}`,
     `--lap-target ${options.lapTarget}`,
     `--policy ${options.policy}`,
+    ...(options.seatPolicies ? [`--seat-policies ${options.seatPolicies.join(',')}`] : []),
     ...(options.social ? ['--social'] : []),
+    ...(options.requireDeals ? ['--require-deals'] : []),
+    ...(options.humanSeats === undefined ? [] : [`--human-seats ${options.humanSeats}`]),
+    ...(scriptedHumanCount(options, options.seats) > 0 && options.humanPolicy
+      ? [`--human-policy ${options.humanPolicy}`]
+      : []),
     ...(options.seedSet === 'eval' ? ['--seed-set eval'] : []),
   ].join(' ');
 }
@@ -306,11 +341,38 @@ export function seatSetup(classIds: readonly string[], seats: number, seed: numb
   }));
 }
 
-async function playGame(
+/**
+ * Builds a seat's policy. The `PolicyGame` carries the seed for the policies that need it (Jev's
+ * per-game client); a seat policy that takes no second parameter never sees it.
+ */
+export type SeatPolicy = (seat: SeatSetup, game: PolicyGame) => Policy;
+
+/** `--policy`, `--seat-policies` and `--human-policy` as one `SeatPolicy`; throws on an unknown name. */
+export function seatPolicies(
+  options: Pick<SimOptions, 'policy' | 'humanPolicy' | 'seatPolicies' | 'seats'> & ScriptedHumans,
+  policies: Readonly<Record<string, PolicyFactory>>,
+): SeatPolicy {
+  const factory = (name: string): PolicyFactory => {
+    const found = Object.hasOwn(policies, name) ? policies[name] : undefined;
+    if (!found) throw new RangeError(`Unknown policy: ${name}`);
+    return found;
+  };
+  const named = options.seatPolicies;
+  if (named && named.length !== options.seats) {
+    throw new RangeError(`--seat-policies needs ${options.seats} names; got ${named.length}`);
+  }
+  const ai = (seatIndex: number) => factory(named?.[seatIndex] ?? options.policy);
+  const humanSeats = scriptedHumanCount(options, options.seats);
+  const human = humanSeats > 0 ? factory(options.humanPolicy ?? 'random') : undefined;
+  for (let seatIndex = 0; seatIndex < options.seats; seatIndex++) ai(seatIndex);
+  return (seat, game) => (seat.seatIndex < humanSeats ? human! : ai(seat.seatIndex))(game);
+}
+
+export async function playGame(
   engine: SimEngine,
-  options: SimOptions,
+  options: Pick<SimOptions, 'seats' | 'maxSteps' | 'lapTarget'> & ScriptedHumans,
   seed: number,
-  createPolicy: PolicyFactory,
+  seatPolicy: SeatPolicy,
   checkInvariants: InvariantCheck,
   metrics: MetricsCollector,
 ): Promise<GameResult> {
@@ -333,9 +395,7 @@ async function playGame(
     metrics.startGame();
     for (const seat of seats) {
       deciders.push({
-        // `--social`: seat 0 is the human, always played by the random policy (§4.8).
-        policy:
-          options.social && seat.seatIndex === 0 ? new RandomPolicy() : createPolicy(policyGame),
+        policy: seatPolicy(seat, policyGame),
         rng: createPolicyRng(`policy:${seed}:${seat.seatIndex}`),
       });
     }
@@ -344,6 +404,7 @@ async function playGame(
       seats,
       lapTarget: options.lapTarget,
       ...(options.social && { social: true }),
+      ...(options.humanSeats === undefined ? {} : { humanSeats: options.humanSeats }),
     });
     const game: PlayedGame = {
       seed,

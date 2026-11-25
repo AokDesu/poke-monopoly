@@ -5,6 +5,7 @@ export const SLOWS = {
   repel: { kind: 'minus', n: 2 },
   string_shot: { kind: 'minus', n: 1 },
   sticky_web: { kind: 'cap', n: 2 },
+  thunder_shock: { kind: 'cap', n: 3 },
 } as const;
 
 export type SlowId = keyof typeof SLOWS;
@@ -26,6 +27,13 @@ export function addSlow(target: Player, slow: SlowId): void {
  * not an actual move and never calls this (D9).
  */
 export function slowedSteps(player: Player, value: number): number {
+  const steps = previewSteps(player, value);
+  delete player.pendingSlows;
+  return steps;
+}
+
+/** The steps `slowedSteps` would give, leaving every pending slow in place (read-only). */
+export function previewSteps(player: Player, value: number): number {
   let minus = 0;
   let cap = Infinity;
   for (const slow of player.pendingSlows ?? []) {
@@ -33,6 +41,5 @@ export function slowedSteps(player: Player, value: number): number {
     if (kind === 'minus') minus += n;
     else cap = Math.min(cap, n);
   }
-  delete player.pendingSlows;
   return Math.max(1, Math.min(value - minus, cap));
 }

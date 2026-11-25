@@ -2,8 +2,14 @@ import { expect, test, vi } from 'vitest';
 import { fixtureSchema } from '../engine/index.ts';
 import fixture from '../engine/fixtures/shop-low-coins.json';
 import { createApp } from './app.ts';
-import { DecisionStats, decisionRates } from './orchestrator.ts';
 import type { DecisionRecord } from './jev/decision-log.ts';
+
+/** The loopback Host and its own Origin that every `/api/ai/*` route requires (spec §9). */
+const SAME_ORIGIN = {
+  host: 'localhost:5173',
+  origin: 'http://localhost:5173',
+  'content-type': 'application/json',
+};
 
 const parsed = fixtureSchema.parse(fixture);
 const request = {
@@ -21,7 +27,7 @@ const request = {
 const post = (body: unknown, app = createApp()) =>
   app.request('/api/ai/decide', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: SAME_ORIGIN,
     body: JSON.stringify(body),
   });
 
@@ -62,7 +68,7 @@ test('a Shop request naming an unknown personality is refused, not played as ano
 const apply = (answer: Record<string, unknown>, app: ReturnType<typeof createApp>) =>
   app.request('/api/ai/outcome', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: SAME_ORIGIN,
     body: JSON.stringify({
       gameId: request.gameId,
       seatIndex: request.seatIndex,
@@ -100,7 +106,7 @@ test('a Shop decision is one decision-log row, labelled as a non-Jev decision, n
   expect(records).toHaveLength(1);
 });
 
-test('a Shop decision never reads as a fallback to a consumer: no notice, no spend, no §5.6 count', async () => {
+test('a Shop decision never reads as a fallback to a consumer: no notice and no spend', async () => {
   const record = vi.fn();
   const usage = { record, budgetExceeded: () => false };
   const app = createApp({ usage: () => usage, decisionLog: () => {} });
@@ -113,19 +119,6 @@ test('a Shop decision never reads as a fallback to a consumer: no notice, no spe
   expect(response.headers.get('x-ai-dialogue-events')).toBeNull();
   // It never reaches the orchestrator, so no Jev request, usage line or spend is recorded.
   expect(record).not.toHaveBeenCalled();
-  // And as an orchestrator decision `auto` is no decision and no fallback in the §5.6 metrics.
-  const stats = new DecisionStats();
-  stats.record({
-    choice: body.choice,
-    source: 'auto',
-    fallbackReason: null,
-    requests: 0,
-    events: [],
-  });
-  expect(decisionRates(stats.counts())).toMatchObject({
-    decisions: 0,
-    fallbackRate: { total: 0, byCause: {} },
-  });
 });
 
 test('the speculative fallback for a Shop request is never logged', async () => {
@@ -133,7 +126,7 @@ test('the speculative fallback for a Shop request is never logged', async () => 
   const app = createApp({ decisionLog: (line) => records.push(line) });
   const response = await app.request('/api/ai/fallback', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: SAME_ORIGIN,
     body: JSON.stringify(request),
   });
   await apply(await response.json(), app);

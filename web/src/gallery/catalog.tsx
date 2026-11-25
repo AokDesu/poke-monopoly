@@ -3,14 +3,22 @@ import type { AiSpeechEvent } from '../../../engine/index.ts';
 import type { PublicGame, VoiceReason } from '../game/tableTalk.ts';
 import { EncounterDialog } from '../board/EncounterDialog.tsx';
 import { EventCard } from '../board/EventCard.tsx';
+import { PromisePanel } from '../board/PromisePanel.tsx';
 import { SellPanel } from '../board/SellPanel.tsx';
 import { TableTalkPanel } from '../board/TableTalk.tsx';
 import { TurnPanel } from '../board/TurnPanel.tsx';
 import { WatchPanel } from '../board/WatchPanel.tsx';
+import { HowToPlay } from '../howToPlay/HowToPlay.tsx';
+import { buildSteps } from '../howToPlay/steps.ts';
 import { t, type MessageKey } from '../i18n/en.ts';
 import { className } from '../i18n/names.ts';
 import { pendingLine, SavePrompt } from '../SavePrompt.tsx';
+import { DemoBanner } from '../DemoBanner.tsx';
+import { openScenes } from '../game/demoScenes.ts';
+import { DemoScreen } from '../setup/DemoScreen.tsx';
 import type { TurnPlayback } from '../board/useTurnPlayback.ts';
+import type { ChatReplyControls, ChatReplyState } from '../board/useChatReply.ts';
+import type { ChatReply } from '../game/chat.ts';
 import {
   createScenes,
   STATIC_PLAYBACK,
@@ -30,6 +38,8 @@ export interface GalleryRow {
   readonly id: string;
   /** Row number in the spec §3.1 table; `null` for the §3 "Backup bot mode" badge line. */
   readonly specRow: number | null;
+  /** The spec section of a row with no §3.1 number, when it is not the §3 AI-turns line. */
+  readonly spec?: { readonly id: string; readonly label: MessageKey };
   /** The spec's own wording for the situation. */
   readonly label: MessageKey;
   /** Catalog keys the examples must put on screen; the gallery test fails if one is missing. */
@@ -61,7 +71,11 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
   const wholeTeamSold = once(scenes.wholeTeamSold);
   const reshuffled = once(scenes.eventAfterReshuffle);
   const decisionOpen = once(scenes.rivalDecisionOpen);
+  const gymNoReady = once(scenes.gymNoBattleReady);
+  const gymNoReadyAuto = once(scenes.gymNoBattleReadyAuto);
   const watchOpen = once(scenes.watchDecisionOpen);
+  const abilityStrategy = once(scenes.abilityStrategy);
+  const abilityReaction = once(scenes.abilityReaction);
   const choseBall = once(scenes.rivalChoseBall);
   const choseItem = once(scenes.rivalChoseItem);
   const choseSale = once(scenes.rivalChoseSale);
@@ -124,6 +138,29 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
     timeoutOfTwo().view.observation.public.players.map((player) =>
       player.seatIndex === 2 ? { ...player, classId: 'researcher' } : player,
     );
+  const socialOpenTwo = once(() => scenes.socialWindowOpen(2));
+  const socialOpenOne = once(() => scenes.socialWindowOpen(1));
+  const socialSent = once(scenes.socialMessageSent);
+  const promiseBlocked = once(scenes.promiseOffersBlocked);
+  const promiseOffered = once(scenes.promiseOffered);
+  const promiseAccepted = once(() => scenes.promiseAnswered('accept'));
+  const promiseRefused = once(() => scenes.promiseAnswered('reject'));
+  const promiseKept = once(scenes.promiseKept);
+  const promiseBroken = once(scenes.promiseBroken);
+  const promiseGameEnd = once(scenes.promiseGameEnd);
+  const reply = (state: ChatReplyState): ChatReplyControls => ({ state, retry: noop });
+  const chatReply = (lineId: string, refused = false): ChatReply => ({
+    fromSeatIndex: 0,
+    toSeatIndex: 1,
+    visibleToSeats: [0, 1],
+    topic: 'truce',
+    situation: refused ? 'manipulation_refused' : 'chat_reply',
+    lineId,
+    refused,
+    source: 'jev',
+    requestId: 'gallery',
+    latencyMs: 0,
+  });
   /** A line-bank line as the table saves it: the addressed seat's class fills `{target}`. */
   const casualLine = (
     lineId: string,
@@ -147,7 +184,10 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
     casualLine('roll-low-other-greedy-neutral-3', 2, 1, 12),
     casualLine('table-retort-aggressive-neutral-2', 1, 2, 12),
   ];
-  const turnPanel = (scene: Pick<Scene, 'view'>, extra?: { notice?: string }) => (
+  const turnPanel = (
+    scene: Pick<Scene, 'view'>,
+    extra?: { notice?: string; social?: ChatReplyControls },
+  ) => (
     <TurnPanel
       view={scene.view}
       playback={STATIC_PLAYBACK}
@@ -155,6 +195,10 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
       onChoose={noop}
       {...extra}
     />
+  );
+
+  const promisePanel = (scene: Pick<Scene, 'view'>) => (
+    <PromisePanel observation={scene.view.observation} feed={scene.view.feed} />
   );
 
   const watchPanel = (
@@ -175,7 +219,12 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
       id: 'only-legal-action',
       specRow: 1,
       label: 'gallery.row.onlyLegalAction',
-      keys: ['turn.onlyLegalAction', 'turn.automatic'],
+      keys: [
+        'turn.onlyLegalAction',
+        'turn.automatic',
+        'choice.challengeGym',
+        'battle.gymAutoSkipped',
+      ],
       examples: [
         {
           id: 'before',
@@ -186,6 +235,16 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
           id: 'after',
           caption: 'gallery.example.afterAuto',
           render: () => turnPanel(noBallAuto()),
+        },
+        {
+          id: 'gym-before',
+          caption: 'gallery.example.gymNoBattleReady',
+          render: () => turnPanel(gymNoReady()),
+        },
+        {
+          id: 'gym-after',
+          caption: 'gallery.example.gymAutoSkipped',
+          render: () => turnPanel(gymNoReadyAuto()),
         },
       ],
     },
@@ -309,6 +368,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
                   backupOnly: true,
                   reason: 'disabled',
                   speech: { enabled: false, reason: 'disabled' },
+                  demo: false,
                 },
               }}
               actionError={false}
@@ -494,6 +554,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
         'demo.banner',
         'demo.chosen',
         'demo.confidence',
+        'demo.modelNote',
         'demo.sellNote',
         'demo.byBackup',
         'ai.reason.timeout',
@@ -568,8 +629,368 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
                 backupOnly: true,
                 reason: 'disabled',
                 speech: { enabled: false, reason: 'disabled' },
+                demo: false,
               },
             }),
+        },
+      ],
+    },
+    {
+      id: 'pvp-gym',
+      specRow: null,
+      spec: { id: 'battle', label: 'gallery.specBattle' },
+      label: 'gallery.row.pvpGym',
+      keys: [
+        'challenge.heading',
+        'challenge.intro',
+        'battle.heading.response',
+        'battle.declineNote',
+        'battle.forcedBy',
+        'battle.heading.window',
+        'battle.withThis',
+        'battle.heading.gym',
+        'battle.termsGym',
+        'battle.heading.reward',
+        'battle.reward.evolveGroup',
+        'battle.reward.choose',
+        'battle.result',
+        'board.event.pvpResolved',
+      ],
+      examples: [
+        {
+          id: 'challenge',
+          caption: 'gallery.example.challengeChoice',
+          render: () => turnPanel(scenes.challengeChoice()),
+        },
+        {
+          id: 'challenge-blocked',
+          caption: 'gallery.example.challengeBlocked',
+          render: () => turnPanel(scenes.challengeBlocked()),
+        },
+        {
+          id: 'defender',
+          caption: 'gallery.example.defenderResponse',
+          render: () => turnPanel(scenes.defenderResponse()),
+        },
+        {
+          id: 'forced',
+          caption: 'gallery.example.forcedChallenge',
+          render: () => turnPanel(scenes.forcedChallenge()),
+        },
+        {
+          id: 'window',
+          caption: 'gallery.example.abilityWindow',
+          render: () => turnPanel(scenes.abilityWindow()),
+        },
+        {
+          id: 'gym',
+          caption: 'gallery.example.gymEntry',
+          render: () => turnPanel(scenes.gymEntry()),
+        },
+        {
+          id: 'reward',
+          caption: 'gallery.example.rewardChoice',
+          render: () => turnPanel(scenes.rewardChoice()),
+        },
+        {
+          id: 'reward-taken',
+          caption: 'gallery.example.rewardTaken',
+          render: () => turnPanel(scenes.rewardTaken()),
+        },
+      ],
+    },
+    {
+      id: 'social-window',
+      specRow: null,
+      spec: { id: 'social', label: 'gallery.specSocial' },
+      label: 'gallery.row.socialWindow',
+      keys: [
+        'social.onlyWords',
+        'social.topic.truce',
+        'social.topic.trade',
+        'social.topic.point_leader',
+        'social.topic.use_item',
+        'social.topic.hold_item',
+        'social.skip',
+        'social.reason.chooseRival',
+        'social.reason.noThirdSeat',
+        'social.spent',
+        'social.waiting',
+        'social.noticeTruce',
+        'social.continue',
+        'talk.bank',
+        'talk.aiWritten',
+        'talk.voiceOff',
+        'social.refused',
+        'social.failed.timeout',
+        'social.retry',
+      ],
+      examples: [
+        {
+          id: 'open-two-rivals',
+          caption: 'gallery.example.socialOpenTwo',
+          render: () => turnPanel(socialOpenTwo()),
+        },
+        {
+          id: 'open-one-rival',
+          caption: 'gallery.example.socialOpenOne',
+          render: () => turnPanel(socialOpenOne()),
+        },
+        {
+          id: 'waiting',
+          caption: 'gallery.example.socialWaiting',
+          render: () => turnPanel(socialSent(), { social: reply({ status: 'waiting' }) }),
+        },
+        {
+          id: 'reply',
+          caption: 'gallery.example.socialReply',
+          render: () =>
+            turnPanel(socialSent(), {
+              social: reply({
+                status: 'ready',
+                reply: chatReply('chat-reply-cautious-neutral-1'),
+                words: null,
+                voiceOff: null,
+              }),
+            }),
+        },
+        {
+          id: 'reply-words',
+          caption: 'gallery.example.socialReplyWords',
+          render: () =>
+            turnPanel(socialSent(), {
+              social: reply({
+                status: 'ready',
+                reply: chatReply('chat-reply-cautious-neutral-1'),
+                words: 'Thank you for saying so. I would rather look at the road before I answer.',
+                voiceOff: null,
+              }),
+            }),
+        },
+        {
+          id: 'reply-voice-off',
+          caption: 'gallery.example.socialVoiceOff',
+          render: () =>
+            turnPanel(socialSent(), {
+              social: reply({
+                status: 'ready',
+                reply: chatReply('chat-reply-cautious-neutral-1'),
+                words: null,
+                voiceOff: 'disabled',
+              }),
+            }),
+        },
+        {
+          id: 'refused',
+          caption: 'gallery.example.socialRefused',
+          render: () =>
+            turnPanel(socialSent(), {
+              social: reply({
+                status: 'ready',
+                reply: chatReply('manipulation-refused-greedy-neutral-2', true),
+                words: null,
+                voiceOff: null,
+              }),
+            }),
+        },
+        {
+          id: 'failed',
+          caption: 'gallery.example.socialFailed',
+          render: () =>
+            turnPanel(socialSent(), { social: reply({ status: 'failed', reason: 'timeout' }) }),
+        },
+      ],
+    },
+    {
+      id: 'promises',
+      specRow: null,
+      spec: { id: 'promises', label: 'gallery.specPromises' },
+      label: 'gallery.row.promises',
+      keys: [
+        'promise.offers',
+        'promise.offerNote',
+        'promise.reason.active',
+        'promise.pending.waiting',
+        'promise.answer.accepted',
+        'promise.expires',
+        'promise.answer.refused',
+        'promise.offeredRow',
+        'promise.status.active',
+        'promise.memory.empty',
+        'promise.memory.accepted',
+        'promise.memory.refused',
+        'promise.memory.kept',
+        'promise.memory.broken',
+        'promise.evidence.pvp_declaration',
+        'promise.memory.closed_by_game_end',
+        'promise.trust',
+      ],
+      examples: [
+        {
+          id: 'offers',
+          caption: 'gallery.example.promiseOffers',
+          render: () => turnPanel(socialOpenOne()),
+        },
+        {
+          id: 'offers-blocked',
+          caption: 'gallery.example.promiseOffersBlocked',
+          render: () => turnPanel(promiseBlocked()),
+        },
+        {
+          id: 'pending',
+          caption: 'gallery.example.promisePending',
+          render: () => (
+            <>
+              {turnPanel(promiseOffered())}
+              {promisePanel(promiseOffered())}
+            </>
+          ),
+        },
+        {
+          id: 'accepted',
+          caption: 'gallery.example.promiseAccepted',
+          render: () => (
+            <>
+              {turnPanel(promiseAccepted())}
+              {promisePanel(promiseAccepted())}
+            </>
+          ),
+        },
+        {
+          id: 'refused',
+          caption: 'gallery.example.promiseRefused',
+          render: () => (
+            <>
+              {turnPanel(promiseRefused())}
+              {promisePanel(promiseRefused())}
+            </>
+          ),
+        },
+        {
+          id: 'empty',
+          caption: 'gallery.example.promiseEmpty',
+          render: () => promisePanel(socialOpenOne()),
+        },
+        {
+          id: 'kept',
+          caption: 'gallery.example.promiseKept',
+          render: () => promisePanel(promiseKept()),
+        },
+        {
+          id: 'broken',
+          caption: 'gallery.example.promiseBroken',
+          render: () => promisePanel(promiseBroken()),
+        },
+        {
+          id: 'game-end',
+          caption: 'gallery.example.promiseGameEnd',
+          render: () => promisePanel(promiseGameEnd()),
+        },
+      ],
+    },
+    {
+      id: 'abilities',
+      specRow: null,
+      spec: { id: 'abilities', label: 'gallery.specAbilities' },
+      label: 'gallery.row.abilities',
+      keys: ['ability.heading', 'ability.choosePrompt', 'battle.heading.window'],
+      examples: [
+        {
+          id: 'strategy',
+          caption: 'gallery.example.abilityStrategy',
+          render: () => turnPanel(abilityStrategy()),
+        },
+        {
+          id: 'reaction',
+          caption: 'gallery.example.abilityReaction',
+          render: () => turnPanel(abilityReaction()),
+        },
+      ],
+    },
+    {
+      id: 'how-to-play',
+      specRow: null,
+      spec: { id: 'howToPlay', label: 'gallery.specHowToPlay' },
+      label: 'gallery.row.howToPlay',
+      keys: ['howToPlay.heading', 'howToPlay.firstStep', 'howToPlay.lastStep'],
+      examples: [
+        {
+          id: 'first-step',
+          caption: 'gallery.example.howToPlayFirst',
+          render: () => <HowToPlay inline onClose={noop} />,
+        },
+        {
+          id: 'last-step',
+          caption: 'gallery.example.howToPlayLast',
+          render: () => <HowToPlay inline onClose={noop} initialStep={buildSteps().length - 1} />,
+        },
+      ],
+    },
+    {
+      id: 'demo-scenes',
+      specRow: null,
+      spec: { id: 'demo', label: 'gallery.specDemo' },
+      label: 'gallery.row.demoScenes',
+      keys: [
+        'demo.scenes.heading',
+        'demo.scenes.body',
+        'demo.scene.ball.title',
+        'demo.scene.ball.description',
+        'demo.scene.pvp.title',
+        'demo.scene.pvp.description',
+        'demo.scene.reward.title',
+        'demo.scene.reward.description',
+        'demo.failed.heading',
+        'demo.failed.step',
+        'demo.failed.next',
+        'demo.scenes.none',
+        'demo.scene.banner',
+        'save.continue',
+      ],
+      examples: [
+        {
+          id: 'list',
+          caption: 'gallery.example.demoList',
+          render: () => <DemoScreen scenes={openScenes()} onOpen={noop} onBack={noop} />,
+        },
+        {
+          id: 'failed',
+          caption: 'gallery.example.demoFailed',
+          render: () => (
+            <DemoScreen
+              scenes={openScenes()}
+              failure={{ kind: 'step', step: 3, total: 7 }}
+              onOpen={noop}
+              onBack={noop}
+            />
+          ),
+        },
+        {
+          id: 'none',
+          caption: 'gallery.example.demoNone',
+          render: () => <DemoScreen scenes={[]} onOpen={noop} onBack={noop} />,
+        },
+        {
+          id: 'banner',
+          caption: 'gallery.example.demoBanner',
+          render: () => (
+            <>
+              <DemoBanner />
+              <SavePrompt
+                kind="continue"
+                pending={pendingLine({
+                  phase: decisionOpen().view.observation.public.phase.kind,
+                  waiting: 'decision',
+                  seatIndex: decisionOpen().view.observation.public.activeSeatIndex,
+                  humanSeat: decisionOpen().view.seatIndex,
+                  turn: decisionOpen().view.observation.public.globalTurnNo,
+                  aiDecision: false,
+                })}
+                onContinue={noop}
+                onNewGame={noop}
+              />
+            </>
+          ),
         },
       ],
     },
@@ -579,6 +1000,6 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
 export const PENDING_ROWS: readonly PendingRow[] = [
   { specRow: 2, label: 'gallery.row.shortlistEmpty', reason: 'gallery.pending.engine' },
   { specRow: 6, label: 'gallery.row.jevTimeoutDeal', reason: 'gallery.pending.dealsBadge' },
-  { specRow: 10, label: 'gallery.row.chatUnclassified', reason: 'gallery.pending.chat' },
-  { specRow: 11, label: 'gallery.row.chatManipulation', reason: 'gallery.pending.chat' },
+  { specRow: 10, label: 'gallery.row.chatUnclassified', reason: 'gallery.pending.chatFreeText' },
+  { specRow: 11, label: 'gallery.row.chatManipulation', reason: 'gallery.pending.chatFreeText' },
 ];

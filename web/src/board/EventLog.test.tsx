@@ -1,6 +1,14 @@
 import { render, screen } from '@testing-library/react';
 import { expect, test } from 'vitest';
-import { fixtureSchema, observe, type EngineEvent } from '../../../engine/index.ts';
+import {
+  createGame,
+  createGameConfig,
+  fixtureSchema,
+  observe,
+  observeSpectator,
+  type EngineEvent,
+} from '../../../engine/index.ts';
+import { engineContent } from '../game/content.ts';
 import fixture from '../../../engine/fixtures/start-of-game-2p.json';
 import { t } from '../i18n/en.ts';
 import type { SeatFeedEntry } from '../game/store.ts';
@@ -56,7 +64,7 @@ test('an empty event feed still explains the state', () => {
 
 // Spec §5.7: dialogue annotations are persisted separately; showing lines is deferred.
 test.each(['events', 'feed'] as const)(
-  '%s keeps dialogue and deferred reward records out of announcements while preserving game events',
+  '%s keeps dialogue records out of announcements, says an evolution in words and never shows an internal ID',
   (source) => {
     const annotations: EngineEvent[] = [
       {
@@ -90,7 +98,7 @@ test.each(['events', 'feed'] as const)(
       ...(source === 'feed' && {
         feed: [
           {
-            before: observation.public,
+            before: { ...observation.public, leader: null, pokemon: [] },
             record: {
               action: {
                 kind: 'skip',
@@ -111,11 +119,57 @@ test.each(['events', 'feed'] as const)(
       />,
     );
     expect(screen.getAllByRole('listitem').map((row) => row.textContent)).toEqual([
+      'Your Caterpie evolved into Metapod.',
       'The die rolled 6.',
     ]);
     expect(container.textContent).not.toContain('INTERNAL-');
-    rerender(<EventLog {...props(annotations)} />);
+    rerender(<EventLog {...props(annotations.slice(0, 2))} />);
     expect(screen.getByText(t('board.logEmpty'))).toBeTruthy();
     expect(screen.queryByRole('listitem')).toBeNull();
   },
 );
+
+// Spec §4.8: a Deal Card's payment is its two parties' alone, so only they see it in the shared log.
+test('a deal payment shows to the two parties and to no bystander or watcher', () => {
+  const state = createGame(
+    createGameConfig({
+      seats: [
+        { classId: 'main-character', starterSpeciesId: 'bulbasaur' },
+        { classId: 'researcher', starterSpeciesId: 'porygon' },
+        { classId: 'fisherman', starterSpeciesId: 'magikarp' },
+      ].map((seat, seatIndex) => ({
+        actorId: seatIndex === 0 ? 'human' : `ai-${seatIndex}`,
+        seatIndex,
+        ...seat,
+        controller: seatIndex === 0 ? ('human' as const) : ('ai' as const),
+      })),
+      seed: 1,
+      lapTarget: 2,
+    }),
+    engineContent,
+  );
+  const payment = (reason: string): EngineEvent => ({
+    kind: 'coin_transfer',
+    source: { kind: 'player', actorId: 'ai-1' },
+    destination: { kind: 'player', actorId: 'human' },
+    amount: 6,
+    reason,
+  });
+  const rows = (viewer: ReturnType<typeof observe> | ReturnType<typeof observeSpectator>) => {
+    const { unmount } = render(<EventLog observation={viewer} events={[payment('deal')]} />);
+    const text = screen.queryAllByRole('listitem').map((row) => row.textContent);
+    unmount();
+    return text;
+  };
+  // The paying party and the paid party both read it.
+  expect(rows(observe(state, 0))).toEqual(['AI rival · seat 1 paid 6 coins to You. ']);
+  expect(rows(observe(state, 1))).toEqual(['You paid 6 coins to AI rival · seat 0. ']);
+  // A third seat and a watcher read nothing, even if the record reached their feed.
+  expect(rows(observe(state, 2))).toEqual([]);
+  expect(rows(observeSpectator(state))).toEqual([]);
+  // The same payment under another reason is ordinary public news for the third seat.
+  const other = render(
+    <EventLog observation={observe(state, 2)} events={[payment('pvp_reward')]} />,
+  );
+  expect(other.container.textContent).toContain('paid 6 coins');
+});

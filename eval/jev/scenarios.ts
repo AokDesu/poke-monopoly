@@ -1,140 +1,32 @@
-import type { Personality } from '../../content/personality-schema.ts';
-import { toEngineContent } from '../../content/schema.ts';
 import {
-  createGame,
-  createGameConfig,
+  battlePreview,
   legalActions,
   observe,
   oddsForAllBalls,
   saleFacts,
   saleQuote,
   type GameState,
-  type PokemonInstance,
 } from '../../engine/index.ts';
 import { PERSONALITIES } from '../../ai/fallback/index.ts';
 import type { DecideRequest } from '../../ai/orchestrator.ts';
-import { CONTENT } from '../../ai/questions/content.ts';
 import { createPolicyRng } from '../../sim/policy.ts';
+import { battleDecisionPoint, ownBattle, wireBattleFacts } from '../../ai/battle.ts';
+import { BATTLE_SCENARIOS } from './battle-scenarios.ts';
+import { personalityScenarios } from './personality-scenarios.ts';
+import { PROMISE_SCENARIOS } from './promise-scenarios.ts';
+import {
+  caught,
+  encounter,
+  sell,
+  starter,
+  strategy,
+  withFinalTableRound,
+  type EvalScenario,
+} from './scenario-kit.ts';
 
-/**
- * One recorded decision for the offline eval (spec §8, §10 C2): an engine state where seat 0, the
- * AI, faces Strategy, Encounter or Sell. The orchestrator builds the Jev request from it, so a
- * change to question wording changes the request and the fixture must be recorded again.
- */
-export interface EvalScenario {
-  id: string;
-  description: string;
-  personality: Personality;
-  /** Engine state with seat 0 active. */
-  build(): { state: GameState };
-  /**
-   * Acceptable answers chosen by a teammate: engine action IDs for Strategy and Encounter, and for
-   * Sell each Pokémon instance ID's acceptable Noul answers (`true` sells it).
-   */
-  acceptable: readonly string[] | Readonly<Record<string, readonly ('true' | 'false')[]>>;
-}
+export type { EvalScenario } from './scenario-kit.ts';
 
-const content = toEngineContent(CONTENT);
 const greedy = PERSONALITIES.greedy;
-
-/** A live current-version Quick 2 Laps game with seat 0 (the AI) active; other seats are human. */
-function game(classIds: readonly string[], seed: number): GameState {
-  const state = createGame(
-    createGameConfig({
-      seats: classIds.map((classId, seatIndex) => ({
-        classId,
-        // The Main Character picks a Starter; Charmander is the eval's fixed pick.
-        ...(classId === 'main-character' && { starterSpeciesId: 'charmander' }),
-        actorId: `P${seatIndex + 1}`,
-        seatIndex,
-        controller: seatIndex === 0 ? 'ai' : 'human',
-      })),
-      seed,
-      lapTarget: 2,
-    }),
-    content,
-  );
-  state.globalTurnNo = classIds.length * 2 + 1;
-  state.players.forEach((player) => (player.ownTurnNo = player.seatIndex === 0 ? 3 : 2));
-  state.turnBudgets = { tacticalAction: 1, catchAttempt: 1, pokemonAbility: 1 };
-  return state;
-}
-
-function give(state: GameState, itemIds: readonly string[]): void {
-  const player = state.players[0]!;
-  for (const itemId of itemIds) {
-    player.items.push({
-      instanceId: `bought:0:${player.items.length}`,
-      itemId,
-      name: CONTENT.items.find((item) => item.id === itemId)!.name,
-      visibility: 'secret',
-    });
-  }
-}
-
-interface Table {
-  classIds?: readonly string[];
-  seed: number;
-  /** Coins per seat, in seat order. */
-  coins: readonly number[];
-  /** Squares each seat has travelled; 24 squares make one Lap. */
-  progress?: readonly number[];
-}
-
-function table({ classIds = ['main-character', 'rival'], seed, coins, progress }: Table) {
-  const state = game(classIds, seed);
-  state.players.forEach((player, seat) => {
-    player.coins = coins[seat]!;
-    player.routeProgress = progress?.[seat] ?? 30;
-    player.creditedLap = Math.floor(player.routeProgress / 24);
-  });
-  return state;
-}
-
-function strategy(setup: Table & { items: readonly string[] }): GameState {
-  const state = table(setup);
-  state.phase = { kind: 'strategy' };
-  give(state, setup.items);
-  return state;
-}
-
-function encounter(
-  speciesId: string,
-  balls: GameState['players'][number]['balls'],
-  setup: Partial<Table> = {},
-): GameState {
-  const state = table({ seed: 21, coins: [12, 14], ...setup });
-  state.phase = { kind: 'encounter', pokemon: { speciesId } };
-  state.players[0]!.balls = balls;
-  return state;
-}
-
-const caught = (n: number, speciesId: string, extra: Partial<PokemonInstance> = {}) => ({
-  instanceId: `caught:0:${n}`,
-  speciesId,
-  origin: 'caught' as const,
-  evolutionStage: 0,
-  tired: false,
-  abilityReady: true,
-  tradeable: true,
-  ...extra,
-});
-
-function sell(team: readonly PokemonInstance[], setup: Partial<Table> = {}): GameState {
-  const state = table({ seed: 31, coins: [10, 12], progress: [24, 20], ...setup });
-  state.phase = { kind: 'sell', destinationPosition: 2 };
-  // Keep the Original Starter in front, as every seat starts with one.
-  state.players[0]!.team = [state.players[0]!.team[0]!, ...team];
-  return state;
-}
-
-/** The seat-0 starter's instance ID in a fresh game, for Sell acceptable sets. */
-const starter = (state: GameState) => state.players[0]!.team[0]!.instanceId;
-
-const withFinalTableRound = (state: GameState): GameState => {
-  state.finalTableRound = { triggerSeatIndex: 1, targetOwnTurnNo: state.players[0]!.ownTurnNo };
-  return state;
-};
 
 const sellScenario = (
   id: string,
@@ -150,7 +42,7 @@ const sellScenario = (
 });
 
 /** Spec §10 C2: 8 Strategy, 6 Encounter and 6 Sell scenarios, all Greedy (the one personality). */
-export const SCENARIOS: readonly EvalScenario[] = [
+export const GREEDY_SCENARIOS: readonly EvalScenario[] = [
   {
     id: 'strategy-pickpocket-rich-rival',
     description: 'Holds Pickpocket; the only opponent is far ahead in coins.',
@@ -344,6 +236,17 @@ export const SCENARIOS: readonly EvalScenario[] = [
 ];
 
 /**
+ * Spec §8: the 20 Greedy scenarios, then 15 each for Aggressive, Cautious and Opportunist (issue
+ * #233), most on the very table state of a Greedy scenario so only the personality changes.
+ */
+export const SCENARIOS: readonly EvalScenario[] = [
+  ...GREEDY_SCENARIOS,
+  ...personalityScenarios(GREEDY_SCENARIOS),
+  ...PROMISE_SCENARIOS,
+  ...BATTLE_SCENARIOS,
+];
+
+/**
  * The orchestrator's input for a scenario, with every number from the engine (§5.2): catch odds
  * from `oddsForAllBalls`, sale prices and class bonuses from `saleQuote`. Keep values come from
  * `saleFacts`.
@@ -363,6 +266,20 @@ export function decideRequest(scenario: EvalScenario): {
     personality: scenario.personality,
     rng: createPolicyRng(scenario.id),
   };
+  // A pending promise question is answered by seat 0, the AI, while the human's Social window waits.
+  if (state.pendingResponse?.kind === 'promise_offer') request.decisionPoint = 'promise_response';
+  // A battle decision (§4.4, §5.3) is named by the pending seat's own window or reward.
+  const battlePoint = battleDecisionPoint(request.observation);
+  if (battlePoint) request.decisionPoint = battlePoint;
+  // The chances come from the engine's battle preview, read for the asked seat's own side.
+  const preview = battlePoint === 'reward' ? null : battlePreview(state, 0);
+  if (preview) {
+    const own = ownBattle(request.observation, wireBattleFacts(preview));
+    request.facts = {
+      battle: own,
+      policy: { battle: own.now, battleChoices: own.choices },
+    };
+  }
   if (state.phase.kind === 'encounter') {
     const odds = oddsForAllBalls(state, 0);
     request.facts = {

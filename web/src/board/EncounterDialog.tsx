@@ -1,10 +1,12 @@
 import { useEffect, useId, useRef } from 'react';
 import type { BallType, CatchOdds, LegalActions, Observation } from '../../../engine/index.ts';
+import { HowToPlayButton } from '../howToPlay/HowToPlay.tsx';
 import { t } from '../i18n/en.ts';
 import { speciesName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
 import { BallIcon } from '../ui/icons.tsx';
 import { SpeciesFacts } from '../ui/SpeciesFacts.tsx';
+import { AbilityPanel } from './AbilityPanel.tsx';
 
 export interface EncounterDialogProps {
   observation: Observation;
@@ -60,6 +62,12 @@ export function EncounterDialog({
       <section aria-label={t('encounter.facts')}>
         <SpeciesFacts speciesId={phase.pokemon.speciesId} showCatchDc />
       </section>
+      <AbilityPanel
+        key={observation.public.stateRevision}
+        observation={observation}
+        legalActions={legalActions}
+        onChoose={onChoose}
+      />
       <div className="encounter-choices">
         {catchOdds.map(({ ballType, percent }) => {
           const choice = legalActions.enabled.find(
@@ -91,6 +99,9 @@ export function EncounterDialog({
             {t('encounter.release')}
           </ActionButton>
         )}
+      </div>
+      <div className="encounter-help">
+        <HowToPlayButton />
       </div>
     </dialog>
   );

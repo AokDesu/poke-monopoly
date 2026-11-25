@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
+import { rollForFirstPlayer } from '../game/firstPlayer.ts';
 import { engineContent, currentForm } from '../game/content.ts';
 import { configForSetup, createGameStore, type GameStore } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
@@ -162,6 +163,10 @@ test('opening and closing a seat is a view choice: it never reaches the game', a
   fakeServer();
   const user = userEvent.setup();
   const store = playerStore(2);
+  // Settle on the human's own decision first. Left at the first-player roll, the board plays that
+  // automatic roll after HUMAN_STEP_MS, which the clicks outlast on a loaded machine (#64).
+  rollForFirstPlayer(store);
+  while (store.advance());
   const before = store.getSession()!.log.actions.length;
   const revision = store.getView()!.observation.public.stateRevision;
   render(<BoardScreen store={store} />);

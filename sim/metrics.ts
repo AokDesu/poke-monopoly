@@ -8,7 +8,9 @@ import {
 import {
   createInteractionMetrics,
   emptyHostilitySummary,
+  emptyDealSummary,
   emptyPromiseSummary,
+  type DealSummary,
   type DecisionEvidence,
   type HostilitySummary,
   type PromiseSummary,
@@ -62,6 +64,7 @@ export type MetricsSummary = {
   events: { drawn: Record<string, number>; resolved: Record<string, number>; shuffles: number };
   hostility: HostilitySummary;
   promises: PromiseSummary;
+  deals: DealSummary;
   catching: CatchingSummary;
   shop: ShopSummary;
   salesByLap: SalesByLap;
@@ -86,6 +89,7 @@ export function emptyMetricsSummary(): MetricsSummary {
     events: { drawn: {}, resolved: {}, shuffles: 0 },
     hostility: emptyHostilitySummary(),
     promises: emptyPromiseSummary(),
+    deals: emptyDealSummary(),
     catching: { encounters: 0, attempts: 0, catches: 0, releases: 0, byBallDcLap: [] },
     shop: { purchases: {} },
     salesByLap: {},

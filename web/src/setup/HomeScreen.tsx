@@ -1,4 +1,5 @@
 import { useContext, useEffect, useId, useRef } from 'react';
+import { HowToPlayButton } from '../howToPlay/HowToPlay.tsx';
 import { t } from '../i18n/en.ts';
 import { Board3D, type BoardSpace } from '../ui/Board3D.tsx';
 import { Button } from '../ui/Button.tsx';
@@ -14,7 +15,10 @@ interface HomeScreenProps {
   canWatch: boolean;
   onNewGame: () => void;
   onRandomAll: () => void;
+  onPresets: () => void;
   onWatch: () => void;
+  /** Present only in demo mode (`?demo`): opens the prepared scenarios. Absent, nothing mentions them. */
+  onDemo?: () => void;
 }
 
 export function HomeScreen({
@@ -23,7 +27,9 @@ export function HomeScreen({
   canWatch,
   onNewGame,
   onRandomAll,
+  onPresets,
   onWatch,
+  onDemo,
 }: HomeScreenProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const focusHeading = useContext(FocusHeadingContext);
@@ -84,6 +90,18 @@ export function HomeScreen({
             <Button
               variant="secondary"
               className="w-full"
+              disabled={!canStart}
+              aria-describedby={describedBy}
+              onClick={onPresets}
+            >
+              {t('home.presets')}
+            </Button>
+            <p className="mt-2 ps-2 text-sm text-ink-soft">{t('home.presetsHint')}</p>
+          </div>
+          <div>
+            <Button
+              variant="secondary"
+              className="w-full"
               disabled={!canWatch}
               aria-describedby={canWatch ? undefined : watchReasonId}
               onClick={onWatch}
@@ -91,6 +109,17 @@ export function HomeScreen({
               {t('home.watch')}
             </Button>
             <p className="mt-2 ps-2 text-sm text-ink-soft">{t('home.watchHint')}</p>
+          </div>
+          {onDemo && (
+            <div>
+              <Button variant="secondary" className="w-full" onClick={onDemo}>
+                {t('demo.scenes.entry')}
+              </Button>
+              <p className="mt-2 ps-2 text-sm text-ink-soft">{t('demo.scenes.entryHint')}</p>
+            </div>
+          )}
+          <div>
+            <HowToPlayButton />
           </div>
           {!canStart && <DisabledReason id={reasonId}>{t('home.notEnoughClasses')}</DisabledReason>}
           {!canWatch && (

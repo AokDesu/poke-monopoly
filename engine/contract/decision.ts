@@ -1,23 +1,40 @@
 import { z } from 'zod';
-import { legalActionSchema, observationSchema } from './schema.ts';
+import { dealFactsSchema, legalActionSchema, observationSchema } from './schema.ts';
 
 // The AI decision endpoint's wire contract (spec §5.2, §6 item 2, §9): types and schemas only,
 // so web/ and ai/ share it without importing each other.
 
 const id = z.string().min(1);
 const count = z.int().nonnegative();
+const chance = z.number().min(0).max(1);
 
 export const decisionPointSchema = z.enum([
   'strategy',
   'encounter',
   'sell',
   // Responder decisions (§4.8, §6 item 2): asked of the engine's pending-decision seat, which is not
-  // always the active one. S12–S14 add `pvp_response`, `reaction` and `reward` the same way.
+  // always the active one.
   'promise_response',
   'deal_response',
+  // Battle decisions (§4.4, §5.3, #56 C3): also asked of the engine's pending-decision seat. The
+  // PvP defender answers `pvp_response`, a seat with an open Ability window (a battle window or a
+  // Pickpocket reaction) answers `ability_window`, and the winner answers `reward`.
+  'pvp_response',
+  'ability_window',
+  'reward',
 ]);
 /** The decision points a pending responder answers, rather than the active seat's own phase. */
 export const responderDecisionPointSchema = z.enum(['promise_response', 'deal_response']);
+/** The decision points a battle's pending seat answers (§4.4, §5.3), told apart by the observed phase. */
+export const battleDecisionPointSchema = z.enum(['pvp_response', 'ability_window', 'reward']);
+/** The action kinds each battle decision offers, and nothing else. */
+const battleActionKinds: Readonly<
+  Record<'pvp_response' | 'ability_window' | 'reward', readonly string[]>
+> = {
+  pvp_response: ['respond_pvp'],
+  ability_window: ['activate_ability', 'skip'],
+  reward: ['choose_reward'],
+};
 /**
  * The decision point a pending question (`own.pendingResponse.kind`) is answered at. S05 adds the
  * deal kind here; until then no deal question exists to ask.
@@ -70,19 +87,71 @@ export const decisionFactsSchema = z.strictObject({
     .max(64)
     .optional(),
   /**
-   * The engine's numbers for a pending deal, for the responder (S05, S08): net values to each side,
-   * the concession asked and the budget left. All optional until the engine provides them; ai/
-   * turns them into buckets and never computes its own.
+   * The engine's buckets for a pending deal, for the AI answering it (spec §4.8, §5.4): the value it gives and
+   * receives, the concession it would make and the budget it has left, as named buckets and never numbers.
+   * `dealFacts` from the engine; ai/ passes them on and computes nothing.
    */
-  deal: z
+  deal: dealFactsSchema.optional(),
+  /**
+   * A pending PvP or Gym battle's chances (spec §4.4, §5.3), from the engine's `battlePreview` or
+   * `challengeOdds` for the asked seat, and never computed by ai/. They are the challenger's (the
+   * PvP attacker's, the Gym challenger's) as the engine gives them; ai/ reads the asked seat's own
+   * side from its observation, and turns them into named buckets for Jev. `choices` is the same
+   * for each open Ability activation, by its action ID. A viewer's own window only.
+   */
+  battle: z
     .strictObject({
-      netValueToYou: z.int().optional(),
-      netValueToProposer: z.int().optional(),
-      concession: count.optional(),
-      budgetLeft: count.optional(),
+      kind: z.enum(['pvp', 'gym']),
+      win: chance,
+      tie: chance,
+      loss: chance,
+      choices: z
+        .array(z.strictObject({ id, win: chance, tie: chance, loss: chance }))
+        .max(64)
+        .optional(),
     })
     .optional(),
 });
+
+/**
+ * Why a battle decision point does not match what its seat observes, or undefined when it does:
+ * the PvP defender answers a response, the seat whose window is open answers an Ability window
+ * (including a private Pickpocket reaction), and the winner answers the reward (§4.4, Appendix C.3).
+ */
+function battleDecisionIssue(request: {
+  seatIndex: number;
+  decisionPoint: string;
+  observation: z.infer<typeof observationSchema>;
+}): string | undefined {
+  const { observation, seatIndex } = request;
+  const { phase } = observation.public;
+  const battle = phase.kind === 'pvp' || phase.kind === 'gym' ? phase.battle : undefined;
+  if (request.decisionPoint === 'pvp_response') {
+    return phase.kind === 'pvp' &&
+      phase.battle.step === 'response' &&
+      phase.battle.defenderSeatIndex === seatIndex
+      ? undefined
+      : 'Must be the challenged seat answering a pending PvP challenge';
+  }
+  if (request.decisionPoint === 'reward') {
+    const winner = observation.public.players.find(
+      (player) => battle?.step === 'reward' && player.actorId === battle.request.winnerId,
+    );
+    return winner?.seatIndex === seatIndex
+      ? undefined
+      : 'Must be the winner choosing a pending battle reward';
+  }
+  const open =
+    observation.own.pickpocketReaction === true ||
+    (phase.kind === 'pvp' &&
+      ((phase.battle.step === 'attacker_window' && phase.battle.attackerSeatIndex === seatIndex) ||
+        (phase.battle.step === 'defender_window' &&
+          phase.battle.defenderSeatIndex === seatIndex))) ||
+    (phase.kind === 'gym' &&
+      phase.battle.step === 'window' &&
+      observation.public.activeSeatIndex === seatIndex);
+  return open ? undefined : 'Must be the seat whose Ability window is open';
+}
 
 export const decisionRequestSchema = z
   .strictObject({
@@ -131,6 +200,17 @@ export const decisionRequestSchema = z
           message: 'A responder decision offers only respond actions',
         });
       }
+    } else if (battleDecisionPointSchema.safeParse(request.decisionPoint).success) {
+      const issue = battleDecisionIssue(request);
+      if (issue) ctx.addIssue({ code: 'custom', path: ['decisionPoint'], message: issue });
+      const allowed = battleActionKinds[request.decisionPoint as keyof typeof battleActionKinds];
+      if (request.enabledActions.some((action) => !allowed.includes(action.kind))) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['enabledActions'],
+          message: `A ${request.decisionPoint} decision offers only ${allowed.join(' and ')} actions`,
+        });
+      }
     } else if (observation.public.phase.kind !== request.decisionPoint) {
       ctx.addIssue({
         code: 'custom',
@@ -175,12 +255,12 @@ export const decisionFallbackReasonSchema = z.enum([
  * Jev's probability for each option, its confidence and the question it answered. Option IDs are
  * the request's own action IDs; at the Sell Phase, where Jev answers one yes/no question per
  * Pokémon, they are the Pokémon's instance IDs and each probability is that Pokémon's chance of
- * being sold. The numbers are copied from Jev's answer, never computed. PROPOSED: no server emits
- * this yet; stream B owns the field and may change this shape (issue #65).
+ * being sold. The numbers are copied from Jev's answer, never computed.
  */
 export const decisionDetailSchema = z.strictObject({
   questionId: id,
-  confidence: z.number().min(0).max(1),
+  /** Null at the Sell Phase: Jev's yes/no answers carry no confidence, and none is computed. */
+  confidence: z.number().min(0).max(1).nullable(),
   options: z
     .array(z.strictObject({ id, probability: z.number().min(0).max(1) }))
     .min(1)
@@ -255,6 +335,8 @@ export const aiStatusSchema = z.strictObject({
   backupOnly: z.boolean(),
   reason: statusReason.nullable(),
   speech: speechStatusSchema,
+  /** The server's demo switch (spec §3); the browser never sets or derives it. */
+  demo: z.boolean(),
 });
 
 export type DecisionPoint = z.infer<typeof decisionPointSchema>;
@@ -267,5 +349,5 @@ export type DecisionDetail = z.infer<typeof decisionDetailSchema>;
 export type DecisionOutcome = z.infer<typeof decisionOutcomeSchema>;
 export type AiStatus = z.infer<typeof aiStatusSchema>;
 /** The Jev half of the status, which the decider needs; the speech half is the Haiku client's. */
-export type JevStatus = Omit<AiStatus, 'speech'>;
+export type JevStatus = Omit<AiStatus, 'speech' | 'demo'>;
 export type SpeechStatus = z.infer<typeof speechStatusSchema>;

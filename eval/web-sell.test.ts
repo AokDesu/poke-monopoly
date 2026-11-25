@@ -19,7 +19,9 @@ import { configForSetup, createGameStore, type GameStore } from '../web/src/game
 // The seed of the #150 harness; the game is built here and replayed from it, never from a log.
 const SEED = 3396655296;
 
+// An exported JEV_ENABLED=false (the §9 kill switch) must not turn these fake-transport tests into fallback runs: pin the switch on; tests of the switch stub it off themselves (#64).
 beforeEach(() => {
+  vi.stubEnv('JEV_ENABLED', 'true');
   // Deterministic game ID (the policy RNG is seeded by it) and request IDs.
   let next = 0;
   vi.spyOn(crypto, 'randomUUID').mockImplementation(
@@ -27,6 +29,7 @@ beforeEach(() => {
   );
 });
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -132,7 +135,13 @@ async function play(withJev: boolean): Promise<Played> {
   vi.stubGlobal('fetch', async (url: RequestInfo | URL, init?: RequestInit) => {
     const path = String(url);
     // `keepalive` is a browser flag that Hono's in-memory Request does not take.
-    const response = await app.request(path, { ...init, keepalive: undefined });
+    // The browser sends a same-origin Host and Origin that the server requires (spec §9).
+    const headers = {
+      host: 'localhost:5173',
+      origin: 'http://localhost:5173',
+      ...Object.fromEntries(new Headers(init?.headers)),
+    };
+    const response = await app.request(path, { ...init, headers, keepalive: undefined });
     if (path === '/api/ai/decide') {
       played.asked++;
       const request = JSON.parse(String(init?.body));

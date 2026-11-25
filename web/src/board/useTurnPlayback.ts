@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react';
 import type { AiStatus } from '../../../engine/contract/decision.ts';
 import type { GameStore, SeatView, SpectatorView } from '../game/store.ts';
 import { AI_DECISION_MS } from '../game/ai.ts';
+import { inSocialWindow } from '../game/chat.ts';
+import { rivalOwesAnswer } from '../game/promises.ts';
 import type { TurnSpeed } from '../game/setup.ts';
 import { en, t, type MessageKey } from '../i18n/en.ts';
 import { content } from '../game/content.ts';
+import { useHowToPlayOpen } from '../howToPlay/HowToPlay.tsx';
 import { seatLabel } from './labels.ts';
 
 /** Presentation pauses between rival actions, per speed. Normal is readable aloud (issue #123). */
@@ -87,7 +90,10 @@ export function useTurnPlayback(
   const finished = game?.phase.kind === 'finished';
   // A step runs until the next action lands, then the game holds again.
   const stepping = stepFrom === position;
-  const held = paused && !stepping;
+  // The walkthrough holds the game: no automatic step starts and a rival's pending question is
+  // withdrawn (it is asked again on Close), so opening and closing it changes nothing.
+  const reading = useHowToPlayOpen();
+  const held = (paused && !stepping) || reading;
   const stepBlocked = !paused
     ? t('watch.stepWhileRunning')
     : finished
@@ -145,7 +151,11 @@ export function useTurnPlayback(
   }, [lineSequence, speed]);
 
   useEffect(() => {
+    // The game pauses only in the human's Social window, and there it waits for the player: the
+    // sole Skip that follows a message is Continue, not a step to apply (spec §4.2). A promise
+    // question is the exception: the rival owes the answer, so it is asked (spec §4.8).
     if (!view || finished || held || failed || thinking || lineSequence !== undefined) return;
+    if (view.seatIndex !== undefined && inSocialWindow(view) && !rivalOwesAnswer(view)) return;
     // Only rival steps get the readable AI pace. The human's own automatic steps
     // (rolls, phase handoffs) run on their own short pause (review on #127).
     const pause = stepping
@@ -162,13 +172,13 @@ export function useTurnPlayback(
   }, [store, view, speed, lineSequence, failed, thinking, held, stepping, retry, finished]);
 
   useEffect(() => {
-    if (!view || requested !== position) return;
+    if (!view || requested !== position || reading) return;
     const controller = new AbortController();
     void store.playOpponent(controller.signal).catch(() => {
       if (!controller.signal.aborted) setFailure(position!);
     });
     return () => controller.abort();
-  }, [store, view, requested, retry]);
+  }, [store, view, requested, retry, reading]);
 
   return {
     speed,

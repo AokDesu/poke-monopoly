@@ -4,29 +4,34 @@ Ticket A64-1 of epic [#64](https://github.com/AokDesu/poke-monopoly/issues/64) (
 
 This is a queue of **candidates**, not a list of proven bugs. It tells the owner which candidates are worth a fix ticket (A64-2a/2b), which are only missing evidence, and which already have an owner. It changes no code, spec or schedule.
 
+**Refreshed 2026-11-21 on main `703d372`, text updated 2026-11-22 for main `eee81c5`.** The first version was written on 2026-11-17 on `56fb27f`. Every row was re-read against current main and the open pull requests, and the commands under Re-run were run again on `703d372`. After that, D2 ([#269](https://github.com/AokDesu/poke-monopoly/pull/269)), the follow-ups ([#278](https://github.com/AokDesu/poke-monopoly/pull/278)) and the 300-game rerun ([#279](https://github.com/AokDesu/poke-monopoly/pull/279)) merged, and the claims about them were re-checked with git and grep; the runs were not repeated. A row is marked resolved only where main or a run of mine shows it. The stretch classes and the freeze checklist and dates are not covered here (the dates are stale until [#183](https://github.com/AokDesu/poke-monopoly/issues/183) is re-planned).
+
 ## Result
 
-**No reproduced rule defect.** On the main commit below, no failing seed and no failing invariant was found. On Node 24 the only failures were two 5 s timeouts, and both tests pass when given time. On Node 22 under heavy load, 54 tests failed; 36 of those were timeouts, and the other 18 were web-test waits and assertions in files that also timed out. None of them appeared on Node 24 (ET-05).
+**No reproduced rule defect.** On the main commit below, no failing seed and no failing invariant was found in 500 sim games. On Node 24 under load the full `npm test` failed 19 of 3,544 tests (13 timeouts, 5 "Unable to find" waits and 1 assertion, all in 10 files); the same 10 files passed (327 of 327) when rerun with 2 workers and the default timeouts (ET-05, ET-09). CI on main passed.
 
-| Question                                          | Answer                                                                                                                                                                                                                                                                   |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Is any rule bug reproduced?                       | No. Not attempted for anything that is not on main yet (Deals, Events, settlement).                                                                                                                                                                                      |
-| What blocks the release now?                      | Missing features with an owner, not defects: Deal Cards ([#164](https://github.com/AokDesu/poke-monopoly/issues/164), no branch yet), promise settlement ([#198](https://github.com/AokDesu/poke-monopoly/pull/198)) and the Event deck ([#188](https://github.com/AokDesu/poke-monopoly/pull/188)). |
-| Does the old timeout report prove a rule defect?  | No. See ET-05. It is a test-reliability candidate under load, and raising timeouts is not the proposed fix.                                                                                                                                                              |
-| Is there a candidate for a fix ticket (A64-2a/b)? | Not yet. Keep the A64-2 reserve for what playtest [#63](https://github.com/AokDesu/poke-monopoly/issues/63) and the A61-6 run find. ET-05 is the only candidate that is a plain code change today, and it is test-only.                                                   |
+Since the first version, the Event deck, promise settlement, the Deal Card legality and atomic commit (D1) and the budget and valuation facts (D2) reached main, and with them the two invariants that were `pending` (`deals-atomic` and `promise-closes-on-own-turn`) are now `active`. No invariant is `pending` on main.
+
+| Question                                          | Answer                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Is any rule bug reproduced?                       | No. Events, settlement and the D1 deal path are now on main and ran clean in the sims below. D2 (the Deal facts) merged after those runs and was not rerun by me; the AI response (D3) is not on main (ET-01).                                                    |
+| What blocks the release now?                      | Missing features with an owner, not defects: the rest of Deal Cards (the AI response, D3: [#271](https://github.com/AokDesu/poke-monopoly/pull/271) shows merged but its code is not on main, see ET-01; the Deal screen [#138](https://github.com/AokDesu/poke-monopoly/issues/138), unassigned). Events, settlement and D2 are done. |
+| Does the old timeout report prove a rule defect?  | No. See ET-05. It is a test-reliability candidate under load, and raising timeouts is not the proposed fix.                                                                                                                                                                                                                                            |
+| Is there a candidate for a fix ticket (A64-2a/b)? | Not yet. Keep the A64-2 reserve for what playtest [#63](https://github.com/AokDesu/poke-monopoly/issues/63) and the A61-6 run find. ET-05 is still the only candidate that is a plain code change, and it is test-only. ET-09 is a single unexplained assertion failure with no reproduction.                                                          |
 
 ## Evidence base
 
-| Item          | Value                                                                                                                                                                                                  |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Build         | main `56fb27f7f786097e2f0d9623191ccdc46fa810d1` (merge of #203), engine 0.18.0, content 1.3.0                                                                                                          |
-| Date          | 2026-11-17                                                                                                                                                                                             |
-| Machine       | 12 cores, shared with other lanes. Load average 2.7 to 18 over the runs below.                                                                                                                         |
-| Node          | The repo requires `^24.15.0` (`package.json`, `.node-version` is `24`). Runs A and B used Node 22.22.1 by mistake (`npm ci` warns `EBADENGINE`). Runs C to E used Node 24.22.3. Run E is the sim and offline eval commands under Re-run; runs A to D are the `npm test` runs in ET-05.                        |
-| Keys          | `TYPESAFE_API_KEY` and `ANTHROPIC_API_KEY` absent. `JEV_ENABLED` and `HAIKU_ENABLED` unset for `npm test`, `false` for sim and eval. No live Jev or Haiku call.                                        |
-| CI            | CI on main at `56fb27f` passed ([run 44067424342](https://github.com/AokDesu/poke-monopoly/actions/runs/44067424342)): typecheck, lint, format, `npm test`, three 100-game sims at seed 1, offline eval. |
-| Raw output    | Task evidence outside git, not committed. Re-run with the commands below.                                                                                                                              |
-| Not examined  | Browser play with a person, live Jev, live Haiku, and anything only on an open branch.                                                                                                                 |
+| Item          | Value                                                                                                                                                                                                                                                                                                 |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Build         | main `703d3724141b478691e0808dc9783024d7baaeeb` (merge of #276, committed 2026-11-21), engine 0.22.0, content 1.4.0; all runs below. Text rechecked on `eee81c5` (#279, 2026-11-22), engine 0.23.0. The first version used `56fb27f7f786097e2f0d9623191ccdc46fa810d1`, engine 0.18.0, content 1.3.0.                                                                                  |
+| Date          | 2026-11-21                                                                                                                                                                                                                                                                                            |
+| Machine       | 12 cores, shared with other lanes. Load average 1.8 to 10.4 over the runs below.                                                                                                                                                                                                                      |
+| Node          | The repo requires `^24.15.0` (`package.json`, `.node-version` is `24`). Every run below used Node 24.22.3 (the shell default was 22.22.1, so it was switched with `nvm use 24`). The first version's runs A and B used Node 22.22.1 by mistake.                                                       |
+| Keys          | `TYPESAFE_API_KEY` and `ANTHROPIC_API_KEY` absent. `JEV_ENABLED` and `HAIKU_ENABLED` unset for `npm test`, `false` for sim and eval. No live Jev or Haiku call.                                                                                                                                       |
+| CI            | CI on main at `703d372` passed ([run 44906895252](https://github.com/AokDesu/poke-monopoly/actions/runs/44906895252)). The first version cited run 44067424342 on `56fb27f`.                                                                                                                         |
+| Raw output    | Task evidence outside git, not committed. Re-run with the commands below.                                                                                                                                                                                                                             |
+| Not examined  | Browser play by me (the 2026-11-21 demo rehearsal in `docs/pr-evidence/64-demo-rehearsal/` is cited, not repeated), live Jev, live Haiku, and anything only on an open branch.                                                                                                                         |
+| Pull requests read | [#269](https://github.com/AokDesu/poke-monopoly/pull/269) (D2, merged `44415b4`), [#271](https://github.com/AokDesu/poke-monopoly/pull/271) (D3, merged into the D2 branch, not into main), [#278](https://github.com/AokDesu/poke-monopoly/pull/278) (review follow-ups, `ai/`, merged `d569acf`) and [#279](https://github.com/AokDesu/poke-monopoly/pull/279) (300-game rerun report, merged `eee81c5`). Open when first read through `gh`; merge state rechecked on 2026-11-22. |
 
 ## How to read the queue
 
@@ -43,161 +48,190 @@ This is a queue of **candidates**, not a list of proven bugs. It tells the owner
 - **S2**: blocks content-complete or the evidence run, but the §11 demo can still run with a stated caveat.
 - **S3**: reliability or polish. Does not change what the product does.
 
-**Reproduction status**: `reproduced`, `not reproduced` (tried, found nothing), `not attempted` (nothing on main to run), or `owned upstream`.
+**Reproduction status**: `reproduced`, `not reproduced` (tried, found nothing), `not attempted` (nothing on main to run), or `owned upstream`. A row is **resolved** only when the row says what on main (a merged pull request) or which run of mine shows it. A pull request description alone never resolves a row.
 
 ## Queue
 
-Ordered by what to look at first: completion and information invariants, then demo-blocking Deals and Promises, then the rest.
+Ordered by what to look at first: completion and information invariants, then demo-blocking Deals, then the rest. Rows that are resolved on main are listed last and stay as the record.
 
-| ID                       | Candidate                                                          | Class           | Severity | Status                | Owner                         |
-| ------------------------ | ------------------------------------------------------------------ | --------------- | -------- | --------------------- | ----------------------------- |
-| [ET-01](#et-01-deal-cards) | Deal Cards have no engine implementation                           | Upstream-owned  | S1       | owned upstream        | Mrmo0p (Stream B)             |
-| [ET-02](#et-02-promise-settlement) | Promise settlement and `promise-closes-on-own-turn` not on main    | Upstream-owned  | S1       | owned upstream        | Mrmo0p (Stream B)             |
-| [ET-03](#et-03-event-deck) | Event squares are still a logged no-op                             | Upstream-owned  | S2       | owned upstream        | punkharb (Stream A)           |
-| [ET-04](#et-04-stale-bases-and-version-stamps) | #188 and #198 are stale against main and claim overlapping version stamps | Upstream-owned  | S2       | owned upstream        | punkharb and Mrmo0p           |
-| [ET-05](#et-05-full-suite-timeouts-under-load) | Full `npm test` times out under load, and one leak test has no margin | Test reliability | S3       | reproduced (load)     | punkharb, with B and C for their files |
-| [ET-06](#et-06-the-300-game-evidence-is-stale) | The 300-game evidence predates Events, Deals and settlement         | Evidence hole   | S2       | not reproduced        | punkharb                      |
-| [ET-07](#et-07-gate-g1-evidence-is-incomplete) | Gate G1 has no combined verdict and no participant latency          | Evidence hole   | S1 (gate), not engine | not attempted         | Mrmo0p and AokDesu (B and C)  |
-| [ET-08](#et-08-hostile-ability-policy-is-merged-but-unapproved) | Hostile Ability policy is merged but marked "awaiting captain approval" | Upstream-owned  | S3       | owned upstream        | captain decision; punkharb for any change |
+| ID                                                              | Candidate                                                                                                      | Class            | Severity              | Status                                                                                                                                                  | Owner                                  |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| [ET-01](#et-01-deal-cards)                                      | Deal Cards: D1 and D2 are on main; the AI response (D3) is not (#271 merged into the D2 branch); no Deal screen | Upstream-owned   | S1                    | D1 ([#262](https://github.com/AokDesu/poke-monopoly/pull/262)) and D2 ([#269](https://github.com/AokDesu/poke-monopoly/pull/269)) merged; D3 [#271](https://github.com/AokDesu/poke-monopoly/pull/271) not on main | Mrmo0p (Stream B); #138 unassigned (C) |
+| [ET-05](#et-05-full-suite-timeouts-under-load)                  | Full `npm test` times out under load; the §4.1 leak sweeps are among the timeouts                              | Test reliability | S3                    | reproduced (load)                                                                                                                                       | punkharb, with B and C for their files |
+| [ET-09](#et-09-playersarea-assertion-failed-once-in-a-full-run) | One `PlayersArea.test.tsx` assertion failed in a loaded full run and passed alone                              | Evidence hole    | S3                    | not reproduced                                                                                                                                          | AokDesu (Stream C)                     |
+| [ET-06](#et-06-the-300-game-evidence)                           | The 300-game record is merged ([#279](https://github.com/AokDesu/poke-monopoly/pull/279)) but ran before D2; my 500-game rerun is clean                               | Evidence hole    | S3                    | not reproduced; record merged in [#279](https://github.com/AokDesu/poke-monopoly/pull/279)                                                                    | punkharb                               |
+| [ET-07](#et-07-gate-g1-evidence-is-incomplete)                  | Gate G1 has no combined verdict and no participant latency                                                     | Evidence hole    | S1 (gate), not engine | not attempted                                                                                                                                           | Mrmo0p and AokDesu (B and C)           |
+| [ET-02](#et-02-promise-settlement)                              | Promise settlement and `promise-closes-on-own-turn`                                                            | Upstream-owned   | S1                    | **resolved**: merged in [#198](https://github.com/AokDesu/poke-monopoly/pull/198)                                                                      | Mrmo0p (Stream B)                      |
+| [ET-03](#et-03-event-deck)                                      | Event squares                                                                                                  | Upstream-owned   | S2                    | **resolved**: merged in [#188](https://github.com/AokDesu/poke-monopoly/pull/188)                                                                      | punkharb (Stream A)                    |
+| [ET-04](#et-04-stale-bases-and-version-stamps)                  | Version stamps of #188, #198 and #269                                             | Upstream-owned   | S3                    | **resolved**: one stamp per change up to 0.23.0                                                                                                | punkharb and Mrmo0p                    |
+| [ET-08](#et-08-hostile-ability-policy-approval)                 | Hostile Ability policy approval                                                                                | Upstream-owned   | S3                    | **resolved**: spec on main says "Approved rule (#192, captain, 2026-11-17)"                                                                             | captain; punkharb for any change       |
 
 ## Candidates
 
 ### ET-01: Deal Cards
 
 - **Spec**: §4.8 (Deal Card, concession budget), §5.3, §8 ("deals are atomic"), §10 C6 (never cut Deals), §11 step 6.
-- **Build and test**: main `56fb27f`. `deals-atomic` is `status: 'pending'` at `engine/invariants.ts:885`. `deal` is an empty-payload placeholder at `engine/contract/schema.ts:369` and `:476`, and `engine/contract/stubs.ts` has no deal path. No test names it.
-- **Expected**: a Deal commits atomically or leaves the state unchanged; over budget is rejected by code with no Jev call; a revealed item is visible only to the two parties; save, resume and replay reproduce a game with deals ([#164](https://github.com/AokDesu/poke-monopoly/issues/164) acceptance).
-- **Observed**: none of that exists. `git branch -r` and `gh pr list` show no Deal branch or pull request. The issue has no comment and no ETA. [#138](https://github.com/AokDesu/poke-monopoly/issues/138) (the Deal screen) is blocked behind it.
-- **Reproduction**: owned upstream. There is nothing to run.
-- **Severity**: S1. A core conversation feature the spec forbids cutting, and one of the two pending invariants.
-- **Owner**: Mrmo0p, per the issue.
-- **Touched files** (from the #164 scope, not a diff): `engine/contract/schema.ts`, `engine/contract/stubs.ts`, a new engine deal module and test, `engine/invariants.ts` and its test, `engine/visibility.ts`, `engine/spectator.ts`, `docs/SPEC-v1.0-PokeMonopoly.md`, `docs/engine-contract.md`, then `sim/legal-games.ts` and the Stream B response code under `ai/`.
-- **Depends on**: nothing in the queue. [#138](https://github.com/AokDesu/poke-monopoly/issues/138), A61-2 ("never negotiate" is vacuous without Deals), A61-6 and the A64-3 demo recipe depend on it. The `deals-atomic` checker should land in the same change.
-- **Bounded fix**: 6 to 8 h, a triage guess and not owner-confirmed, with low confidence. Four acceptance blocks (legality and commit, budget and valuation, AI response, save and replay) against a comparable slice like #198. **Ask the owner for a date.** A date after 30 Nov puts the 9 Dec freeze at risk, and that is a deadline risk to raise, not a reason to cut Deals.
+- **Build and test**: main `eee81c5`. `deals-atomic` is `status: 'active'` (id `deals-atomic` in `engine/invariants.ts`); the first version found it `pending`. The engine has `engine/deals.ts`, `engine/deals.test.ts`, and, since D2, `engine/deal-facts.ts` with its test and the `dealBudget` content key (`perDeal` 2, `perGame` 3). The five deal actions (`propose_deal`, `respond_deal`, `counter_deal`, `confirm_deal`, `cancel_deal`) are in `engine/contract/schema.ts`, and `web/src/game/tableTalk.ts:102` lists them as table-talk actions. D1 is [#262](https://github.com/AokDesu/poke-monopoly/pull/262), merged 2026-11-21 as `9240c4c`. D2 is [#269](https://github.com/AokDesu/poke-monopoly/pull/269), merged 2026-11-21 as `44415b4`, with the review follow-ups [#278](https://github.com/AokDesu/poke-monopoly/pull/278) as `d569acf`.
+- **Expected**: a Deal commits atomically or leaves the state unchanged; over budget cannot be accepted (a counter that fits the room left, or a reject, remains; code rejects without Jev only when nothing else is legal); a revealed item is visible only to the two parties; save, resume and replay reproduce a game with deals ([#164](https://github.com/AokDesu/poke-monopoly/issues/164) acceptance).
+- **Observed** (run on `703d372`, run E below, before D2 merged): `npm run sim -- --social --games 100 --seed 1` proposed 291 deals, committed 133, cancelled 137, countered 258, with 0 aborted, 0 illegal applied actions and 0 invariant failures, so `deals-atomic` ran on every deal step. `--require-deals` gave the same counts. I did not rerun it on D2 (`eee81c5`); the 300-game rerun [#279](https://github.com/AokDesu/poke-monopoly/pull/279) ran on `9240c4c`, also before D2. So the budget and valuation code of D2 is on main and has no run of mine. What is not on main:
+  - **The AI's response (D3)**: [#271](https://github.com/AokDesu/poke-monopoly/pull/271) shows as merged, but it merged into the D2 branch (`fm/pm-164-d2-deal-facts`) after D2 had already gone to main, so its code never reached main. On main the orchestrator still answers every `deal_response` with the `auto` policy (`ai/orchestrator.ts:275` reads "The deal response uses the `auto` policy until S10 adds its question builder."), and `ai/questions/` has no deal question. So there is no budget check in the AI path and no Jev question. D3 needs a new pull request to main (or a cherry-pick of #271's commits).
+  - **The Deal screen and the web filtering of the private payment from Table Talk and the Event Log**: [#138](https://github.com/AokDesu/poke-monopoly/issues/138) is open, has no assignee, and its dependency paragraph is stale: it still says no deal path exists on main, which D1 and D2 changed.
+- **Reproduction**: owned upstream. The D1 path was run and is clean; D2 is on main and was not run by me; D3 is not on main.
+- **Severity**: S1. A core conversation feature the spec forbids cutting. D1, D2 and the invariant are done, but a Deal Card cannot yet be answered by the AI under a budget or shown on screen.
+- **Owner**: Mrmo0p for D3, per the issue. #138 has no owner.
+- **Touched files** still open: the #271 file list (`ai/` deal question, fallback and lines, eval fixtures, and whatever of the spec and contract it touches), and for #138 the web Deal screen and its Table Talk filtering.
+- **Depends on**: a new pull request for the D3 code, based on `main`. [#138](https://github.com/AokDesu/poke-monopoly/issues/138), A61-6 and the A64-3 demo recipe depend on it.
+- **Bounded fix**: D3 was reviewed and approved in #271; what remains is getting that code onto `main` (a new pull request or a cherry-pick) and one re-verify. A date for #138 is not known and the issue has none. **Ask for a date for #138.** A date after 30 Nov puts the 9 Dec freeze at risk (the freeze dates are stale; see #183), and that is a deadline risk to raise, not a reason to cut Deals.
 
 ### ET-02: Promise settlement
 
+Resolved on main.
+
 - **Spec**: §4.8, §8 ("Promises close on the correct `ownTurnNo`"), §10 C6, §11 step 6 (memory from a kept or broken promise).
-- **Build and test**: main `56fb27f`. `promise-closes-on-own-turn` is `status: 'pending'` at `engine/invariants.ts:901`. Main has offers and answers (`engine/promises.ts`) but no settlement, trust or `promise_closed` evidence. The sim counts them itself: `docs/sim.md` says its figures "do not settle engine promises, update trust or add memory".
-- **Expected**: a due promise closes at the promiser's own End as kept or broken, trust changes, and the pair sees the evidence.
-- **Observed**: `npm run sim -- --social --games 100 --seed 1` (Node 24, run E): 144 offered, 72 accepted = 50 broken + 18 kept with opportunity + 4 closed by game end, `breachOpportunity` 71, 0 aborted, 0 illegal, 0 invariant failures. These are the sim's own counts. There is no engine trust and no memory evidence on main.
-- **Reproduction**: owned upstream. [#198](https://github.com/AokDesu/poke-monopoly/pull/198) (head `17b7162`) implements it and activates the invariant. It is approved (punkharb) and its [CI run 44046071034](https://github.com/AokDesu/poke-monopoly/actions/runs/44046071034) passed.
-- **Correction to the scout report**: it read "2 pass, 1 fail" on #198. The failing entry was an earlier run, [44046038901](https://github.com/AokDesu/poke-monopoly/actions/runs/44046038901), which was `cancelled` after 30 s by the workflow's `cancel-in-progress` and replaced by the passing run. It is not a test failure.
-- **Severity**: S1 (§11 step 6, and the second pending invariant).
-- **Owner**: Mrmo0p (author). The approving review is punkharb's.
-- **Touched files** (the #198 diff): `engine/promises.ts`, `engine/items.ts`, `engine/game-end.ts`, `engine/turns.ts`, `engine/visibility.ts`, `engine/contract/schema.ts`, `engine/contract/stubs.ts`, `engine/invariants.ts` and test, `engine/versions.ts`, `sim/runner.ts`, `sim/legal-games.ts`, `sim/sim.test.ts`, `sim/README.md`, `web/src/board/EventLog.tsx`, spec, contract.
-- **Depends on**: a rebase on main (see ET-04). It also raises `PROPERTY_TIMEOUT_MS` from 120 s to 240 s; weigh that with ET-05. After it merges, check that the sim's promise counters and the engine's settlement report the same outcomes. Two competing counters would make the A61-6 table disagree with itself (the PR keeps the sim reporting, so this needs a check, not a rewrite).
-- **Bounded fix**: 1 to 1.5 h of rebase, version bump and re-verification by the author. No new design.
+- **Build and test**: main `703d372`. [#198](https://github.com/AokDesu/poke-monopoly/pull/198) merged 2026-11-18 as `9b37350`. `promise-closes-on-own-turn` is `status: 'active'` (id `promise-closes-on-own-turn` in `engine/invariants.ts`); the first version found it `pending`. `engine/promise-settlement.test.ts` is in the 168 files of the full run and was not among the failures.
+- **Observed**: `npm run sim -- --social --games 100 --seed 1` (Node 24, run E): 113 offered, 68 accepted = 50 broken + 16 kept (4 with a chance, 12 without) + 2 closed by game end, `breachOpportunity` 23, 0 pending, 0 aborted, 0 illegal, 0 invariant failures. The first version saw 144 offered and 72 accepted on `56fb27f`, before settlement; the figures differ because the engine now settles and the game has changed since.
+- **Reproduction**: not reproduced. No failing seed.
+- **Severity**: S1 when it was open; closed now. No remaining blocker for §11 step 6 on the engine side (the demo scene is under "§11 demo path").
+- **Owner**: Mrmo0p (author); punkharb approved.
+- **Left over**:
+  - The first version's check that the sim and the engine settlement report the same outcomes: `docs/sim.md:53` says each promise count is "read from the engine's settlement record, not counted again from events", so there is one source. I did not diff the two event by event.
+  - **Stale text**: `docs/sim.md:61` still says the sim measurements "do not settle engine promises, update trust or add memory; that gameplay work remains deferred under §4.8". That contradicts `docs/sim.md:51` and `:53` and the merged engine. Docs only, S3. It is outside this ticket's single file, so it is raised in the pull request body, not edited here.
+  - `PROPERTY_TIMEOUT_MS` is now 240 s (`sim/legal-games.ts:29`). #198 raised it from 120 s. Whether to keep that pattern is step 4 of ET-05.
 
 ### ET-03: Event deck
 
+Resolved on main.
+
 - **Spec**: §3.1, §4.6, §6, §8.
-- **Build and test**: main `56fb27f`; `engine/turns.ts:166` reads "Events remain explicit placeholders until their own slice."
-- **Expected**: landing on an Event square draws, discards and resolves one of e1 to e6; empty piles recycle with a logged seeded shuffle; no seat learns the deck order.
-- **Observed**: the landing is a logged no-op. [#188](https://github.com/AokDesu/poke-monopoly/pull/188) (head `0913931`) implements it ([#162](https://github.com/AokDesu/poke-monopoly/issues/162)). It is approved (Mrmo0p), its checks passed, and GitHub reports it `DIRTY` (conflicts with main).
-- **Reproduction**: owned upstream.
-- **Severity**: S2. It is part of content-complete, and an Event square in a demo game would do nothing. It is not a §11 step.
+- **Build and test**: main `703d372`. [#188](https://github.com/AokDesu/poke-monopoly/pull/188) merged 2026-11-17 as `bd14ade` ([#162](https://github.com/AokDesu/poke-monopoly/issues/162) is closed). `engine/turns.ts:13` imports `drawAndResolveEvent` from `engine/events.ts`; the first version found the landing a logged no-op. `engine/events.test.ts`, `sim/events.test.ts` and `ai/event-visibility.test.ts` were not among the failures.
+- **Observed**: every sim run draws and resolves all six cards, and drawn equals resolved for each. Random policy, 2 seats, seeds 1,000,002 to 1,000,101: e1 to e6 resolved 94, 93, 97, 85, 96 and 86 times with 132 deck shuffles. At 3 seats 136, 138, 132, 138, 134 and 143 with 184 shuffles; at 4 seats 179, 175, 174, 173, 173 and 168 with 217 shuffles.
+- **Reproduction**: not reproduced. No failing seed.
+- **Severity**: S2 when it was open; closed now.
 - **Owner**: punkharb.
-- **Touched files** (the #188 diff, 27 files): `engine/events.ts` and test, `engine/turns.ts`, `engine/setup.ts`, `engine/abilities.ts`, `engine/visibility.ts`, `engine/spectator.ts` and test, `engine/contract/schema.ts`, `engine/contract/stubs.ts`, `engine/versions.ts`, `sim/metrics.ts`, `sim/report.ts`, `sim/README.md`, `sim/events.test.ts`, `web/src/board/EventLog.tsx`, `ai/` tests, spec, contract.
-- **Depends on**: ET-04. #200 (merged) changed `engine/visibility.ts`, `engine/spectator.ts`, `engine/spectator.test.ts`, spec and contract, and the #200 description names #188 as the likely conflict.
-- **Bounded fix**: 1 to 2 h of rebase and re-verification by punkharb.
+- **Not checked**: that no seat learns the deck order beyond what `engine/spectator.test.ts` and `ai/event-visibility.test.ts` assert. The spectator sweep timed out at 5 s in the loaded full run and passed in the rerun (ET-05); I did not read the Event rules against §4.6 again.
 
 ### ET-04: Stale bases and version stamps
 
+Resolved for #188, #198 and #269.
+
 - **Spec**: §6 (save, replay and resume), §8.
-- **Build and test**: main is already `ENGINE_VERSION = '0.18.0'` (`engine/versions.ts:10`). #188 changes `0.17.0` to `0.18.0`, so on its old base it claims a stamp main already has. #198 changes `0.18.0` to `0.19.0`. Both change save, event or observation shapes.
+- **Build and test**: main `eee81c5` is `ENGINE_VERSION = '0.23.0'` (`engine/versions.ts`). `git log` on that file shows one change per shape change, in merge order: 0.19.0 in `bd14ade` (#188), 0.20.0 in the #198 merge `e9841b6`, 0.21.0 in `09df5e3` (#265), 0.22.0 in `9240c4c` (#262), 0.23.0 in the D2 merge (#269, `44415b4`). No stamp is repeated.
 - **Expected**: one stamp per shape change, in merge order, and older saves refused.
-- **Observed**: the two pull requests cannot both be right once merged. The second to merge needs the next stamp. Not reproduced because neither is merged; this is read from the two `engine/versions.ts` patches.
-- **Reproduction**: not attempted.
-- **Severity**: S2. A wrong or repeated stamp would let an older save load into a changed shape, or break the prepared demo saves (A64-3).
-- **Owner**: punkharb and Mrmo0p, whoever merges second.
+- **Observed**: the clash the first version predicted did not happen; each merge took the next stamp, including #269 (`0.22.0` to `0.23.0`). [#278](https://github.com/AokDesu/poke-monopoly/pull/278) changed no stamp, and the D3 code ([#271](https://github.com/AokDesu/poke-monopoly/pull/271)) changed none either and is not on main. No other open pull request I checked (#230, #225 and #259, which touch no `engine/` file) does. I did not test that a save from the previous stamp is refused with the mismatch message; that check lives in the save and versions tests, which passed in the full run apart from the load failures in ET-05.
+- **Reproduction**: not attempted for a stale-save run.
+- **Severity**: S3 now (was S2). A stamp bump from another branch would have to rebase onto the next number.
+- **Owner**: whoever merges second.
 - **Touched files**: `engine/versions.ts`, the save and resume tests that assert the stamp, and `docs/engine-contract.md`.
-- **Depends on**: merge order of #188 and #198, then #164. A64-3 must regenerate its prepared saves after the last of them.
-- **Bounded fix**: 0.5 h per merge, plus a final check that `npm test` and a save made on the previous stamp is refused with the existing mismatch message.
+- **Depends on**: nothing now that #269 merged. A64-3 must regenerate any prepared saves after the last stamp change; I did not check whether the prepared scenarios hold stored saves.
+- **Bounded fix**: 0.5 h per merge, plus a check that a save made on the previous stamp is refused.
 
 ### ET-05: Full suite timeouts under load
 
 This is the "old timeout report" candidate from `docs/c4-300-game-report.md`, re-run. It does not show a rule defect.
 
 - **Spec**: §8 Tests ("100% pass in CI") and §7 (CI).
-- **Build and test**: main `56fb27f`, `npm test` (vitest 5.0.3, 2,049 tests in 119 files), keys absent.
+- **Build and test**: main `703d372`, `npm test` (vitest, 3,544 tests in 168 files; the first version had 2,049 in 119), keys absent, Node 24.22.3.
 - **Expected**: the suite passes in one run on a developer machine, so a failure means something.
 - **Observed**:
 
-| Run | Node    | Load average (12 cores) | Result                                                | Cause of every failure                                                                                                                                                         |
-| --- | ------- | ----------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| A   | 22.22.1 | 10 to 14                | 54 failed, 1,995 passed, 24 files, 427 s              | 36 timeouts (28 at 5 s, 4 at 120 s, 2 at 60 s, 2 at 20 s). 18 UI failures: "Unable to find" and two assertions, in web tests. I did not inspect each; they follow a timeout or the default wait. |
-| B   | 22.22.1 | 11 to 18                | the 24 failed files again, 2 workers: 15 failed, 568 passed | 13 timeouts. 2 web failures, one `expected 'strategy' to be 'sell'` after the 60 s timeout in the same file left overlapping `act()` calls.                                  |
-| C   | 24.22.3 | 3 to 7                  | **2 failed, 2,047 passed**, 161 s                     | `engine/observation.test.ts` "500 random mid-game states" and `web/src/game/watch.test.tsx` "paused holds the game", both at the 5 s default.                                  |
-| D   | 24.22.3 | 5 to 6                  | `watch.test.tsx` passed alone. `observation.test.ts` alone with `--testTimeout=300000`, twice: 15 of 15 pass, the 500-state test took **3.8 s and 4.9 s** against its 5 s limit | None. The leak assertions held.                                                                                                                                                |
+| Run               | Node    | Load average (12 cores)                      | Result                                                                                          | Cause of every failure                                                                                                                                                                                                                                                                                     |
+| ----------------- | ------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A to D (`56fb27f`) | 22.22.1 and 24.22.3 | 3 to 18                          | 54 failed on Node 22 under load; 2 failed on Node 24; the two leak tests alone passed           | The first version's table: timeouts, and waits that follow one. Kept for the record; the rows are in the 2026-11-17 version of this file.                                                                                                                                                                  |
+| F (`703d372`)     | 24.22.3 | 3.1 at start, 10.4 at 4 minutes, 6.4 at end   | **19 failed, 3,525 passed**, 10 files failed, 307 s                                             | 13 timeouts (10 at the 5 s default, 3 at 60 s). 5 "Unable to find" waits in web tests (role "region" named "Turn actions" twice, button "Leave", label "Turn speed", `data-testid="ui-gallery"`). 1 assertion (ET-09).                                                                                   |
+| G (`703d372`)     | 24.22.3 | 4.3 at start, 2.9 at end                      | the 10 failed files again with `--maxWorkers=2`: **10 files passed, 327 tests passed, 0 failed**, 109 s | None.                                                                                                                                                                                                                                                                                                      |
 
-- **What it shows**: the load and the Node version changed together between A/B and C, so the Node version alone is not proven to matter. What is clear: every failure is a timeout or a wait that follows one; the failing set moves between runs; failures fall from 54 to 2 as load falls; and the same pattern is described in the #200 body (6 files at the 5 s default, all pass with `--testTimeout=300000`) and the old report. CI passes in about 4 minutes on the same commit.
-- **The part that matters**: `engine/observation.test.ts` is the §4.1 and §8 information-leak check over 500 states. It runs in 3.8 to 4.9 s alone, so on a slower or busier runner it fails or is skipped in people's minds, and a red leak test gets ignored as noise. The test body passes. The fix is to keep the check and its 500 states and give it a real budget.
-- **Reproduction**: reproduced as load-dependent failure, not as a rule defect. Runs C and D found no assertion failure.
+  Run F's failed files: `ai/fallback/fallback.test.ts`, `ai/orchestrator.test.ts`, `ai/speech/speech.test.ts`, `engine/spectator.test.ts`, `sim/sim.test.ts`, `web/src/Root.test.tsx`, `web/src/board/BoardScreen.test.tsx`, `web/src/board/PlayersArea.test.tsx`, `web/src/board/WatchScreen.test.tsx` and `web/src/game/watch.test.tsx`.
+- **What it shows**: failures fall from 54 (Node 22, heavy load) to 19 (Node 24, moderate load) to 0 (2 workers, light load), and every one is a timeout, a wait that follows one, or the single assertion in ET-09. Run F differs from the first version's Node 24 run C (2 failures in 2,049 tests) because the suite is now 1.7 times larger and load peaked higher. The committed demo rehearsal saw the same pattern: 44 failures in 19 files at load 17, all passing again with `--testTimeout=120000 --maxWorkers=3`, and 3 left in `BoardScreen.test.tsx` whose tests set their own limits (`docs/pr-evidence/64-demo-rehearsal/README.md`, finding 5). [#279](https://github.com/AokDesu/poke-monopoly/pull/279) reports 34 failures in the same way. CI passes on main.
+- **The part that matters**: two of the 5 s timeouts in run F are information-leak sweeps, `engine/spectator.test.ts` ("no spectator view, event or record of 25 seeded all-AI games ... holds a secret of any seat", §4.1, §4.8, §5.4) and `ai/speech/speech.test.ts` ("no brief for any seat ... leaks a secret"). Both passed in run G with no assertion failure. `engine/observation.test.ts` (the 500-state leak check, 3.8 to 4.9 s alone against its 5 s limit in the first version) passed in run F. A red leak test gets ignored as noise, so the fix is to keep every check and run count and give each a real budget.
+- **Reproduction**: reproduced as load-dependent failure, not as a rule defect. Run G found no assertion failure in the leak sweeps.
 - **Severity**: S3 today (CI is green). It becomes S2 if CI turns flaky or a real failure hides in the noise.
 - **Owner**: punkharb for `engine/` and `sim/`; Mrmo0p for `ai/`; AokDesu for `web/`.
-- **Touched files**: `vitest.config.ts`, `sim/legal-games.ts` (`PROPERTY_TIMEOUT_MS`), `engine/observation.test.ts`, `engine/items.test.ts`, `engine/spectator.test.ts`, `ai/speech/speak.test.ts`, `ai/speech/speech.test.ts`, `ai/orchestrator.test.ts`, `ai/fallback/fallback.test.ts`, `eval/web-sell.test.ts`, `web/src/game/watch.test.tsx`, `web/src/board/BoardScreen.test.tsx`, `docs/team-setup.md`.
-- **Depends on**: nothing. Avoid touching `sim/legal-games.ts`, `sim/runner.ts` and `sim/sim.test.ts` while #198 is open, as it edits them.
-- **Bounded fix**, 2 to 3 h and no rule change:
+- **Touched files**: `vitest.config.ts` (it sets no `testTimeout` today), `sim/legal-games.ts` (`PROPERTY_TIMEOUT_MS`, now 240 s), `engine/observation.test.ts`, `engine/spectator.test.ts`, `ai/speech/speech.test.ts`, `ai/orchestrator.test.ts`, `ai/fallback/fallback.test.ts`, `sim/sim.test.ts`, `web/src/game/watch.test.tsx`, `web/src/board/WatchScreen.test.tsx`, `web/src/board/BoardScreen.test.tsx`, `web/src/Root.test.tsx`, `docs/team-setup.md`. The first version also listed `engine/items.test.ts`, `eval/web-sell.test.ts` and `web/src/board/PlayersArea.test.tsx`; the first two did not fail this time.
+- **Depends on**: nothing. #198 is merged, so the earlier warning about editing `sim/legal-games.ts`, `sim/runner.ts` and `sim/sim.test.ts` no longer applies.
+- **Fix proposal in this doc** (unchanged, 2 to 3 h, no rule change; nothing of it has been done, and this refresh changes no test, timeout or config):
   1. Record per-test durations from one CI run (`vitest run --reporter=json`) and list the tests over 2 s.
   2. Give each of those one named per-test budget with a comment on why, rather than one global `testTimeout`. Keep every run count and every assertion; do not trim the 200-game or 500-state properties.
-  3. Say in `docs/team-setup.md` that `npm test` needs Node `^24.15.0` and that a shared machine should use `--maxWorkers=2`.
+  3. Say in `docs/team-setup.md` that `npm test` needs Node `^24.15.0` and that a shared machine should use `--maxWorkers=2`. Today `docs/team-setup.md:45` says Node "22.19 or newer" for tools and "the project itself uses Node 24", and has no mention of `--maxWorkers`.
   4. Decide once whether #198's 120 s to 240 s change is the pattern to keep.
 
-### ET-06: The 300-game evidence is stale
+### ET-06: The 300-game evidence
 
 - **Spec**: §8 Simulation, §10 C4 and C6.
-- **Build and test**: [`docs/c4-300-game-report.md`](../c4-300-game-report.md) was run on `a1c3bb5`: random policies, Social off, Events as placeholders, no keep value. Since then these merged: keep value (#189), leak tests (#191), hostile Ability visibility (#200), AI table talk (#203).
-- **Expected**: the exit signal (300 clean games) holds on the build being released.
-- **Observed**: rerun on `56fb27f`, Node 24.22.3, the report's own three commands (seeds 1,000,002 to 1,000,101 per seat count, `--policy random --lap-target 2 --max-steps 5000`, run E). Exit 0, empty stderr apart from the timing line, 100 of 100 games each, 0 illegal applied actions, 0 invariant failures, 0 aborted. The headline figures equal the old report for every seat count: 27.44, 38.97 and 49.88 mean turns, 46.26, 44.86 and 44.18 mean final coins, and the same win credit by seat. I did not trace why they are identical; it is consistent with the merged slices not changing a random-policy game. Wall time 69 s, 105 s and 132 s. The Social run above (seed 1, tune set) also finished cleanly.
+- **Build and test**: [`docs/c4-300-game-report.md`](../c4-300-game-report.md) was run on `a1c3bb5` (random policies, Social off, Events as placeholders, no keep value). The first version of this row reran it on `56fb27f`. Since then Events (#188), settlement (#198), Abilities, Potion and Shop inventory (#265), Deal Card legality (#262), Monte Carlo for Hard (#276) and the Deal facts (#269) merged.
+- **Expected**: the exit signal (300 clean games) holds on the build being released, with a report of it on that build.
+- **Observed**: rerun on `703d372`, Node 24.22.3, the report's own three commands (seeds 1,000,002 to 1,000,101 per seat count, `--policy random --lap-target 2 --max-steps 5000`), then `--social` at seed 1. Exit 0 each time, 100 of 100 games, 0 aborted, 0 illegal applied actions, 0 invariant failures. All registered invariants are active. Unlike the first rerun, the headline figures now differ from the old report, as they should, since Events and the other slices change a game: mean turns 27.16, 38.64 and 50.64 (old 27.44, 38.97, 49.88); mean final coins 49.30, 48.98 and 49.01 (old 46.26, 44.86, 44.18). Wall time 55 s, 79 s and 115 s. The Social run (seed 1) also finished cleanly (ET-01, ET-02), as did the same run with `--require-deals`. That is 500 games of mine. A 5-game `--policy jev-hard` smoke run is under "Looked at and not queued", not counted here.
 - **Reproduction**: not reproduced. No failing seed.
-- **What is still missing**: no run covers Events (ET-03), Deals (ET-01) or settlement (ET-02), personalities, or the fallback policy with Social on. Those seeds are published, so they are a regression recheck and not a new held-out set (A61-4 keeps that partition).
-- **Severity**: S2. The sim being green says nothing about features that are not in it yet.
-- **Owner**: punkharb (A61-6 refresh).
+- **What is still missing**:
+  - **The record**: [#279](https://github.com/AokDesu/poke-monopoly/pull/279) (punkharb) merged 2026-11-22 as `eee81c5`. It is `docs/c4-300-game-rerun-report.md`, the report of 600 clean games (300 in each of two sets, one with Social and deals required) on `9240c4c`, which replaces the 2026-11-17 report as the exit evidence. It ran before D2, so it does not cover the budget and valuation code; its figures are the author's, and my 500 games are the evidence I ran.
+  - Personalities and the fallback policy with Social on are not in my runs. Those seeds are published, so they are a regression recheck and not a new held-out set (A61-4 keeps that partition).
+  - The Deal facts (D2) merged after both the report and my runs; the AI response (D3) is not on main (ET-01).
+- **Severity**: S3 now (was S2). The sim was green on every feature on main when run and the record is merged; what remains is one more rerun on D2 and D3.
+- **Owner**: punkharb (A61-6 refresh; #279 is the author's own).
 - **Touched files**: new report file only; no code.
-- **Depends on**: ET-01, ET-02, ET-03 merged, and the two pending invariants active.
-- **Bounded fix**: 1 h plus about 5 min of machine time for the three batches, after the dependencies merge.
+- **Depends on**: the D3 code on main; then one more rerun that includes D2.
+- **Bounded fix**: 1 h plus about 5 min of machine time per rerun.
 
 ### ET-07: Gate G1 evidence is incomplete
 
 Not an engine or sim defect. Kept here because it is a hard gate and a release blocker, and the epic says never to cut the hard gates.
 
 - **Spec**: §1, §8 Human, §10 C2 and G1, `docs/playtest/PROTOCOL.md`.
-- **Observed** (from the repository, not re-run): `docs/playtest/g1/G1-report.md` does not exist although [#54](https://github.com/AokDesu/poke-monopoly/issues/54) is closed; [#52](https://github.com/AokDesu/poke-monopoly/issues/52) is open and asks for two live sessions; the one p95 figure, 1,055 ms over 7 turns, is from a single team game and says it is "not a gate measurement"; the sell and shop decisions it missed ([#150](https://github.com/AokDesu/poke-monopoly/issues/150)) were fixed on 15 Nov and need a re-measure; no committed row records an observed hesitation (`session-sheet-A.csv` and `session-sheet-B.csv` hold `n/a`).
+- **Observed** (from the repository on `703d372`, not re-run): `docs/playtest/g1/G1-report.md` still does not exist (the folder holds `ai-latency.md`, `session-sheet-A.csv` and `session-sheet-B.csv`, last changed 2026-11-15) although [#54](https://github.com/AokDesu/poke-monopoly/issues/54) is closed; [#52](https://github.com/AokDesu/poke-monopoly/issues/52) is open with no comment and asks for two live sessions; the one p95 figure, 1,055 ms over 7 turns, is from a single team game and the file's own header says "not a gate measurement"; the sell and shop decisions it missed ([#150](https://github.com/AokDesu/poke-monopoly/issues/150)) were fixed on 15 Nov and need a re-measure; session sheet A still holds `n/a` for the game length, drop-off, meaningful-choices and hesitation fields.
 - **Reproduction**: not attempted. It needs people and a person with the server key.
 - **Severity**: S1 as a gate. Not an A64-2 fix.
 - **Owner**: Mrmo0p (live sessions and latency) and AokDesu (sheets and report).
 - **Touched files**: `docs/playtest/g1/` only.
-- **Bounded fix**: two sessions plus a report is outside Stream A's hours. Raised as scout decision D1, not decided here.
+- **Bounded fix**: two sessions plus a report is outside Stream A's hours. Raised as scout decision D1, not decided here. Related open playtest pull requests by AokDesu, not touched here: [#225](https://github.com/AokDesu/poke-monopoly/pull/225) and [#230](https://github.com/AokDesu/poke-monopoly/pull/230).
 
-### ET-08: Hostile Ability policy is merged but unapproved
+### ET-08: Hostile Ability policy approval
+
+Resolved on main.
 
 - **Spec**: §4.1 and Appendix C.3.
-- **Build and test**: #200 (merged `a593ad5`) made a hostile Ability's use public while its target, slow, shield and block stay private. It marks the spec bullet "proposed, awaiting captain approval".
-- **Expected**: a rule change has a recorded approval (house rule 4, and a team review per §7).
-- **Observed**: Mrmo0p approved the PR. No captain approval is recorded in the issue or the PR. A known limit stays: Vine Pull's `player_displaced` is public, so a third seat can tell a blocked Vine Pull from an unblocked one. The spec says so.
-- **Reproduction**: owned upstream. The leak tests in #191 and #200 pass on main (run C: `engine/movement-effects.test.ts` and `engine/spectator.test.ts` passed).
-- **Severity**: S3. It is a decision to record, not a failure.
-- **Owner**: captain to decide; punkharb for any change.
+- **Build and test**: #200 (merged `a593ad5`) made a hostile Ability's use public while its target, slow, shield and block stay private. The first version found its spec bullet marked "proposed, awaiting captain approval".
+- **Observed**: the bullet "**Approved rule (#192, captain, 2026-11-17): hostile Ability policy:**" in `docs/SPEC-v1.0-PokeMonopoly.md` is now approved, and the hostile-item and hostile-Ability bullet in Appendix C.3 cites #192. A search of the spec and contract history (`git log -S"awaiting captain"` on both files) finds no commit with the "awaiting" wording, so I could not say when it changed, only that main now says approved. The record of the approval is that spec bullet; [#192](https://github.com/AokDesu/poke-monopoly/issues/192) is closed and neither it nor #200 has a comment recording it. The known limit stays and the spec states it: Vine Pull's displacement is public, so a third seat can tell a blocked Vine Pull from an unblocked one.
+- **Reproduction**: owned upstream. The leak tests in #191 and #200 pass on main: `engine/spectator.test.ts` passed in run G, and `engine/movement-effects.test.ts` was not among the failures.
+- **Severity**: S3 when it was open; a decision to record, not a failure.
+- **Owner**: captain; punkharb for any change.
 - **Touched files** if the captain rejects it: `engine/visibility.ts`, `engine/spectator.ts`, their tests, spec, contract. Hiding the Vine Pull displacement would be a new rule and is not bounded here.
-- **Bounded fix**: 0.25 h to record the approval.
+
+### ET-09: PlayersArea assertion failed once in a full run
+
+New in this refresh.
+
+- **Spec**: §4.1 (the view is a view choice, not a game action), §8.
+- **Build and test**: main `703d372`, `web/src/board/PlayersArea.test.tsx`, "opening and closing a seat is a view choice: it never reaches the game" (`:161`).
+- **Expected**: four awaited clicks on seat toggles leave `store.getSession()!.log.actions` the same length as before the render, and the public `stateRevision` unchanged.
+- **Observed**: in the loaded full run F (above) the test failed with `AssertionError: expected [ { action: { …(5) }, …(2) } ] to have a length of +0 but got 1`, so one action was in the log that was not there before. It passed in the 2-worker rerun G, and again in three runs of the file alone (11 of 11 each, load 1.8). [#279](https://github.com/AokDesu/poke-monopoly/pull/279) reports one assertion failure in the same file, seen once and not reproduced.
+- **Reproduction**: not reproduced. Two sightings in loaded full runs, none alone.
+- **Cause**: unknown. One reading is that the board applies an automatic step on its own between render and the end of the four clicks, which under load takes long enough for it to land. I did not confirm that, and it would mean the test, not the game, is timing-dependent. It is also possible that a click did reach the game. The test and its store are Stream C's.
+- **Severity**: S3, as test reliability; it becomes S1 if a click can reach the game (§4.1).
+- **Owner**: AokDesu (Stream C, `web/`).
+- **Touched files**: `web/src/board/PlayersArea.test.tsx` and, if the cause is in the board, `web/src/board/BoardScreen.tsx`. No change here.
+- **Depends on**: ET-05 (the same loaded runs).
+- **Bounded fix**: 0.5 to 1 h to run the file under `--maxWorkers` pressure until it fails, read the action that appeared, and then either wait for the board to settle or fix the board. A triage guess.
 
 ## Looked at and not queued
 
-- **Offline Jev eval**: `npm run eval:jev -- --offline` exits 0 with 27 of 28 acceptable answers, 0 illegal applied actions and 0 leaks over 112 requests (run E). The one wrong answer, `sell-researcher-class-bonus / sell_team_2`, is the same as in the 300-game report. This is Stream B eval work (#59, [#166](https://github.com/AokDesu/poke-monopoly/issues/166)), not an engine defect.
+- **Offline Jev eval**: `npm run eval:jev -- --offline` exits 0 with 108 of 116 acceptable answers on 84 recorded fixtures (0 synthetic), 12 of the 116 rows scored from the applied last-Sell-Phase sale, 0 illegal applied actions over 84 orchestrator replays, and 0 leaks over 224 chat requests (run E). The eight misses include `sell-researcher-class-bonus / sell_team_2`, the same one as in the 300-game report. The others are Encounter and Strategy answers for Aggressive, Cautious and Opportunist. The chat set scores English intent 39 of 40 and Thai 38 of 40, with manipulation caught 16 of 16 in each language. This is Stream B eval work (#59, [#166](https://github.com/AokDesu/poke-monopoly/issues/166)), not an engine defect. The first version's 27 of 28 was a smaller set.
+- **Hard policy with Monte Carlo** ([#276](https://github.com/AokDesu/poke-monopoly/pull/276)): `npm run sim -- --games 5 --seed 1 --policy jev-hard` (no key, no network; offline it uses the seeded fake Jev client of random, invalid, late and failing answers) finished 5 of 5 games in 14 s with 0 aborted, 0 illegal applied actions and 0 invariant failures: 107 decisions, 94 requests to the fake client, 6 invalid outputs, the rest on the fallback. With `JEV_ENABLED=false` the same command put all 113 decisions on the fallback and made no request. It is a smoke run of the wiring, not a live Jev run, not a held-out run and not a measure of how Hard plays; the Monte Carlo class itself is a stretch item and was not examined.
 - **"Raise the timeouts"**: not a candidate by itself. See ET-05.
-- **Stretch classes, Monte Carlo and Hard**: out of scope by default.
+- **Stretch classes**: out of scope by default; not examined.
 
 ## §11 demo path against the queue
 
-| §11 step                           | State on main                                                         | Queue rows                    |
-| ---------------------------------- | --------------------------------------------------------------------- | ----------------------------- |
-| 2 Prepared scenario, two options   | Not built. A64-3 owns it.                                             | ET-04 (saves must be current) |
-| 4 PvP challenge, accept or decline | In the full rules engine (#152). Not re-run end to end here.          | none                          |
-| 5 Win, coins or evolution          | In the full rules engine (#152). Not re-run end to end here.          | none                          |
-| 6 Memory from a kept or broken promise | Offers and answers only; no settlement or memory                  | ET-02, ET-01                  |
-| 7 Kill switch and backup bot       | Stream B (#65). Fallback runs in the sim and passes.                  | none                          |
-| 8 Policy-only against Jev          | Stream A and B evidence not yet run                                   | ET-06, ET-07                  |
+Steps 1 to 8 were walked on 2026-11-21 in a browser by the demo rehearsal, `docs/pr-evidence/64-demo-rehearsal/README.md` (merged in [#277](https://github.com/AokDesu/poke-monopoly/pull/277), as `d07d6db`). That run is cited, not repeated here.
+
+| §11 step                           | State on main                                                                                                                                                                       | Queue rows                    |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| 2 Prepared scenario, two options   | Pass in the rehearsal ("Two Balls to choose from"). A64-3 built it.                                                                                                                 | ET-04 (saves must be current) |
+| 4 PvP challenge, accept or decline | Pass in the rehearsal, including the Rival class's forced challenge.                                                                                                                | none                          |
+| 5 Win, coins or evolution          | Pass in the rehearsal (Eevee became Vaporeon).                                                                                                                                      | none                          |
+| 6 Memory from a kept or broken promise | Decided by the owner after #277: accepted as memory-only, with no fifth scene (spec §3 stays at four). The rehearsal showed the broken promise, trust −2 and the memory entries (its finding 1). Settlement is on main. Deals: no Deal screen. | ET-01, ET-02 (resolved)       |
+| 7 Kill switch and backup bot       | Pass in the rehearsal.                                                                                                                                                              | none                          |
+| 8 Policy-only against Jev          | Decided by the owner after #277: the demo is the committed results tables plus the three commands (`sim`, `eval:jev --offline`, `usage`), with no figure page (its finding 2). Live Stream A and B evidence not yet run.                                                                                | ET-06, ET-07                  |
+
+Both points the rehearsal raised were decided by the owner after #277: step 6 is accepted as memory-only (no fifth scene, spec §3 stays at four), and step 8 uses the committed results tables plus the three commands (sim, eval:jev --offline, usage) as the demo, with no figure page.
 
 ## Add to this queue
 
@@ -218,14 +252,16 @@ Turn a row into an A64-2a or A64-2b ticket only when it is `reproduced` as a rul
 nvm use 24            # the repo requires ^24.15.0
 npm ci
 env -u JEV_ENABLED -u HAIKU_ENABLED npm test
+env -u JEV_ENABLED -u HAIKU_ENABLED npx vitest run --maxWorkers=2 <the failed files>   # run G
 JEV_ENABLED=false HAIKU_ENABLED=false npm run sim -- --games 100 --seed 1000002 --seed-set eval --seats 2 --policy random --lap-target 2 --max-steps 5000   # also --seats 3 and 4
 JEV_ENABLED=false HAIKU_ENABLED=false npm run sim -- --social --games 100 --seed 1
+JEV_ENABLED=false HAIKU_ENABLED=false npm run sim -- --social --require-deals --games 100 --seed 1
 JEV_ENABLED=false HAIKU_ENABLED=false npm run eval:jev -- --offline
 ```
 
 ## Follow-ups outside this ticket
 
-- Ask the #164 owner for a date (ET-01).
-- Merge order for #188 and #198, then one version-stamp check (ET-04).
-- Record the captain's answer on the hostile Ability policy (ET-08).
+- Ask the #164 owner to get the D3 code onto main (#271 merged into the D2 branch, not main), and ask for a date for the Deal screen [#138](https://github.com/AokDesu/poke-monopoly/issues/138) (ET-01).
+- Rerun the sims after D3 lands, so one run covers D2 and D3 (ET-06).
+- Fix the stale sentence at `docs/sim.md:61` (ET-02).
 - The G1 verdict (ET-07) and the scout's schedule questions ([#183](https://github.com/AokDesu/poke-monopoly/issues/183)) stay with the owner.

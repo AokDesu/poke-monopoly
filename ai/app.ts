@@ -12,7 +12,11 @@ import {
   chatReplySchema,
   type ChatReply,
 } from '../engine/contract/chat-reply.ts';
-import { replyRequestSchema, speakRequestSchema } from '../engine/contract/speech.ts';
+import {
+  chatSpeechRequestSchema,
+  replyRequestSchema,
+  speakRequestSchema,
+} from '../engine/contract/speech.ts';
 import {
   fallbackAnswer,
   policyAnswer,
@@ -26,13 +30,13 @@ import { ChatLedger, createChatReplier, incomingMessage, type ChatReplier } from
 import { createSdkJevClient, type JevClient } from './jev/client.ts';
 import { DecisionJournal } from './jev/decision-journal.ts';
 import { fileDecisionLog, type DecisionLog } from './jev/decision-log.ts';
-import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
+import { defaultUsageLedger, errorClass, type UsageRecorder } from './jev/spend.ts';
 import { createHaikuClient } from './haiku/client.ts';
 import { speechStatus } from './haiku/status.ts';
 import { presentationHeaders } from './presentation.ts';
 import { decideShop, shopRequestSchema } from './shop.ts';
 import { createManipulationGate } from './speech/gate.ts';
-import { sameOriginJson } from './speech/guard.ts';
+import { loopbackHost, sameOriginJson } from './speech/guard.ts';
 import { createSpeaker, InvalidSpeakRequest, type SpeakerOptions } from './speech/speak.ts';
 
 /** Spec §6 item 2: the endpoint validates payload size before it reads the body. */
@@ -64,12 +68,20 @@ export interface AppOptions {
 /** Copies only IDs and telemetry, so nothing else a decider returns can reach the browser. */
 const toResponse = (answer: DeciderAnswer, requestId: string, started: number): DecisionResponse =>
   decisionResponseSchema.parse({
+    // Spec §3, §1: private options leave the server only in demo mode, and only from a Jev answer.
+    ...(answer.source === 'jev' && answer.detail && demoMode() && { detail: answer.detail }),
     ...('choice' in answer ? { choice: answer.choice } : { sellUids: answer.sellUids }),
     source: answer.source,
     ...(answer.source === 'fallback' && { fallbackReason: answer.fallbackReason }),
     requestId,
     latencyMs: Math.round(performance.now() - started),
   });
+
+/** Spec §3 demo mode: a server switch, read per call; only the exact strings "1" and "true" mean on. */
+const demoMode = (): boolean => {
+  const value = process.env.DEMO_MODE;
+  return value === '1' || value === 'true';
+};
 
 export const createApp = ({
   usage = defaultUsageLedger,
@@ -93,17 +105,28 @@ export const createApp = ({
     ...speech,
   });
 
-  // Never a stack trace or an error message: either could carry request or key material.
-  app.onError((_error, c) => c.json({ error: 'internal_error' }, 500));
+  // Never a stack trace or an error message: either could carry request or key material. The
+  // class is logged, so a 500 is never silent (spec §9).
+  app.onError((error, c) => {
+    console.warn(`A request failed unexpectedly (${errorClass(error)}) on ${c.req.path}.`);
+    return c.json({ error: 'internal_error' }, 500);
+  });
 
-  app.get('/api/ai/status', (c) =>
-    c.json(aiStatusSchema.parse({ ...jevStatus(usage), speech: speechStatus(usage) })),
+  app.get('/api/ai/status', loopbackHost, (c) =>
+    c.json(
+      aiStatusSchema.parse({
+        ...jevStatus(usage),
+        speech: speechStatus(usage),
+        demo: demoMode(),
+      }),
+    ),
   );
 
   // The browser reports the outcome it applied: the answer here, or its own fallback at the
   // deadline. Only then is the decision logged (spec §6.8); the speculative fallback never is.
   app.post(
     '/api/ai/outcome',
+    sameOriginJson,
     bodyLimit({
       maxSize: MAX_BODY_BYTES,
       onError: (c) => c.json({ error: 'payload_too_large' }, 413),
@@ -132,6 +155,7 @@ export const createApp = ({
   // is removed from every later decision request below.
   app.post(
     '/api/ai/chat',
+    sameOriginJson,
     bodyLimit({
       maxSize: MAX_BODY_BYTES,
       onError: (c) => c.json({ error: 'payload_too_large' }, 413),
@@ -180,21 +204,27 @@ export const createApp = ({
       } catch {
         return c.json({ error: 'invalid_json' }, 400);
       }
-      // A reply names its kind; a line for the table or one seat has none.
-      const isReply =
-        typeof body === 'object' && body !== null && 'kind' in body && body.kind === 'reply';
-      const parsed = isReply
-        ? replyRequestSchema.safeParse(body)
-        : speakRequestSchema.safeParse(body);
+      // A reply and a chat reply name their kind; a line for the table or one seat has none.
+      const kind =
+        typeof body === 'object' && body !== null && 'kind' in body ? body.kind : undefined;
+      const parsed =
+        kind === 'reply'
+          ? replyRequestSchema.safeParse(body)
+          : kind === 'chat_reply'
+            ? chatSpeechRequestSchema.safeParse(body)
+            : speakRequestSchema.safeParse(body);
       if (!parsed.success) {
         const paths = parsed.error.issues.map((issue) => issue.path.join('.'));
         return c.json({ error: 'invalid_request', paths }, 400);
       }
       try {
+        const request = parsed.data;
         return c.json(
-          'kind' in parsed.data
-            ? await speaker.reply(parsed.data)
-            : await speaker.speak(parsed.data),
+          !('kind' in request)
+            ? await speaker.speak(request)
+            : request.kind === 'reply'
+              ? await speaker.reply(request)
+              : await speaker.chatReply(request),
         );
       } catch (error) {
         if (error instanceof InvalidSpeakRequest) {
@@ -208,6 +238,7 @@ export const createApp = ({
   for (const path of ['/api/ai/decide', '/api/ai/fallback'])
     app.post(
       path,
+      sameOriginJson,
       bodyLimit({
         maxSize: MAX_BODY_BYTES,
         onError: (c) => c.json({ error: 'payload_too_large' }, 413),
@@ -261,7 +292,10 @@ export const createApp = ({
             answer = fallbackAnswer(request, 'not_an_option');
             events = undefined;
           }
-        } catch {
+        } catch (error) {
+          console.warn(
+            `A decider failed unexpectedly (${errorClass(error)}); the first option stands.`,
+          );
           answer = fallbackAnswer(request, 'decider_error');
         }
         journal.propose(request, answer, events ?? []);

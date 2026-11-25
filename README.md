@@ -61,6 +61,30 @@ are saved separately from commands and never advance gameplay RNG or command
 replay. The existing HTTP decider and Shop policy are unchanged; connecting the
 orchestrator to the HTTP decider is separate work.
 
+## Demo mode
+
+Spec: §3 (Demo mode, Prepared scenarios), §11. The demo needs two switches that are independent of each other:
+
+- **Prepared scenarios** (§11 steps 2, 4, 5 and 6) need only the page address `?demo` (bare, `?demo=1` or `?demo=true`), for example `http://127.0.0.1:8787/?demo`. Home then lists the scenarios. With a saved game on the browser Home first asks "Continue this game?"; choose New game, then Back, to reach the list.
+- **The "What Jev chose" panel** (§11 step 3) needs `?demo` and the server variable `DEMO_MODE=1` (or `true`), and Jev must actually decide. Without a Jev key the server reports `missing_key`, the backup bot decides, and the panel shows only that reason and no probabilities. With `JEV_ENABLED=false` it says "Jev is switched off".
+
+```bash
+npm ci
+npm run build
+DEMO_MODE=1 npm start     # then open http://127.0.0.1:8787/?demo
+```
+
+In PowerShell the variable is set on its own line first:
+
+```powershell
+$env:DEMO_MODE='1'; npm start     # then open http://127.0.0.1:8787/?demo
+Remove-Item Env:DEMO_MODE         # after stopping the server
+```
+
+Clear it afterwards rather than put it in `.env`, so a later real-play server does not start in demo mode.
+
+Leave `DEMO_MODE` unset on any server used for real play. The kill switch (§11 step 7) is `JEV_ENABLED=false`; it fails closed, so only an unset, empty or `true` value leaves Jev on and `0`, `off` or a typo turns it off. The server reads it on every call, but a running process cannot have its environment changed from outside, so stop the server and start it again with the variable set. `GET /api/ai/status` shows the result (`"jevEnabled":false,"reason":"disabled"`). `docs/pr-evidence/64-demo-rehearsal/` holds the last walk of steps 1 to 8 with what each one needs.
+
 ## Folders
 
 | Folder      | What it is                                |

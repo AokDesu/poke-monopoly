@@ -7,6 +7,7 @@ import {
   resolveJevModel,
   type JevClient,
 } from '../../ai/jev/client.ts';
+import { PERSONALITIES } from '../../ai/fallback/index.ts';
 import { defaultUsageLedger, type UsageRecorder } from '../../ai/jev/spend.ts';
 import { billedUsage } from '../../ai/jev/usage.ts';
 import type { OrchestratorFallbackReason } from '../../ai/orchestrator.ts';
@@ -20,11 +21,14 @@ import {
   type Fixture,
 } from './fixture.ts';
 import {
+  appliedSellAnswers,
   expectedFallback,
   placeholderResult,
   runScenario,
   scenarioFixture,
   scenarioRequest,
+  unaskedRun,
+  type ScenarioRun,
 } from './replay.ts';
 import { SCENARIOS, type EvalScenario } from './scenarios.ts';
 
@@ -46,6 +50,8 @@ export const parseFixture = (data: unknown, source: string): Fixture => {
 };
 export interface EvalRow {
   fixture: string;
+  /** The scenario's personality name, from the fixture's tags. */
+  personality: string;
   synthetic: boolean;
   question: string;
   answer: string;
@@ -54,21 +60,37 @@ export interface EvalRow {
   /** Scenario fixtures only: the action the orchestrator applied and why it fell back. */
   applied?: string;
   fallbackReason?: OrchestratorFallbackReason | null;
+  /** The answer is the applied last-Sell-Phase sale (spec §5.6), not a Jev answer: Jev was not asked. */
+  rule?: true;
 }
-/** Score: most probable rubric ID, first ID wins ties. Noul: >= 0.5 means true. */
-const answerId = (answer: Fixture['recorded']['answers'][string]): string =>
+/**
+ * A Sell Phase Noul counts as `true` only at the seat's own sell threshold (spec §5.3: sell when
+ * `noul >= threshold(personality)`), because that is the decision the game makes. Any other
+ * Noul keeps the 0.5 cut-off.
+ */
+const noulCutoff = (fixture: Fixture): number => {
+  if (fixture.tags.decisionPoint !== 'sell') return 0.5;
+  const personality = Object.values(PERSONALITIES).find(
+    ({ name }) => name === fixture.tags.personality,
+  );
+  if (!personality) throw new Error(`${fixture.id}: no personality "${fixture.tags.personality}"`);
+  return personality.sellThreshold;
+};
+/** Score: most probable rubric ID, first ID wins ties. Noul: true at or above `cutoff`. */
+const answerId = (answer: Fixture['recorded']['answers'][string], cutoff: number): string =>
   answer.type === 'choice'
     ? answer.choice
     : answer.type === 'noul'
-      ? String(answer.noul >= 0.5)
+      ? String(answer.noul >= cutoff)
       : Object.entries(answer.probabilities).reduce((best, next) =>
           next[1] > best[1] ? next : best,
         )[0];
 const rowsFor = (fixture: Fixture, extra: Partial<EvalRow> = {}): EvalRow[] =>
   Object.entries(fixture.recorded.answers).map(([name, answer]) => {
-    const id = answerId(answer);
+    const id = answerId(answer, noulCutoff(fixture));
     return {
       fixture: fixture.id,
+      personality: fixture.tags.personality,
       synthetic: fixture.synthetic,
       question: name,
       answer: id,
@@ -79,6 +101,45 @@ const rowsFor = (fixture: Fixture, extra: Partial<EvalRow> = {}): EvalRow[] =>
   });
 const sameSets = (a: Record<string, string[]>, b: Record<string, string[]>) =>
   JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort());
+/**
+ * A scenario the orchestrator no longer asks Jev about: the last Sell Phase sells everything
+ * (spec §5.6). Each question is scored from the sale the orchestrator applies, so the row says
+ * what the game does, and the recording is only checked against the request Jev would get. Returns
+ * false when that request no longer matches the recording.
+ */
+async function replayUnasked(
+  fixture: Fixture,
+  scenario: EvalScenario,
+  run: ScenarioRun,
+  rows: EvalRow[],
+) {
+  if (requestHash(await scenarioRequest(scenario)) !== fixture.requestHash) return false;
+  if (!sameSets(fixture.acceptable, run.acceptable))
+    throw new Error(
+      `${fixture.id}: acceptable set differs from eval/jev/scenarios.ts; run ${PLACEHOLDER_COMMAND}`,
+    );
+  if (run.illegalApplied > 0)
+    throw new Error(
+      `${fixture.id}: illegal applied action (${JSON.stringify(run.decision.choice)})`,
+    );
+  const { choice } = run.decision;
+  const applied = typeof choice === 'string' ? choice : `sell:${choice.sellUids.join('+')}`;
+  for (const [question, answer] of Object.entries(appliedSellAnswers(scenario, run))) {
+    rows.push({
+      fixture: fixture.id,
+      personality: fixture.tags.personality,
+      synthetic: fixture.synthetic,
+      question,
+      answer,
+      confidence: undefined,
+      correct: fixture.acceptable[question]!.includes(answer),
+      applied,
+      fallbackReason: run.decision.fallbackReason,
+      rule: true,
+    });
+  }
+  return true;
+}
 /**
  * Spec §10 C2: replays a scenario's recorded answer through the orchestrator. Returns false when
  * the request the orchestrator builds now no longer matches the recording.
@@ -128,7 +189,11 @@ export const runOffline = async (
     seen.add(fixture.id);
     const scenario = scenarios.find((entry) => entry.id === fixture.id);
     if (scenario) {
-      if (!(await replayScenario(fixture, scenario, rows))) stale.push(fixture.id);
+      const unasked = await unaskedRun(scenario);
+      const current = unasked
+        ? await replayUnasked(fixture, scenario, unasked, rows)
+        : await replayScenario(fixture, scenario, rows);
+      if (!current) stale.push(fixture.id);
       continue;
     }
     const client = new FixtureJevClient(fixture);
@@ -152,11 +217,44 @@ const mean = (values: number[]) =>
   values.length
     ? `${(values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(3)} (n=${values.length})`
     : 'n/a (n=0)';
+/** Spec §8: the eval set holds at least 60 decision scenarios, at least 15 per personality. */
+export const SCENARIO_TARGET = Object.freeze({ total: 60, perPersonality: 15 });
+
+/** One line per personality: how many scenarios it has, and how many are recorded or synthetic. */
+const personalityCounts = (rows: EvalRow[]): string => {
+  const fixtures = new Map(rows.map((row) => [row.fixture, row]));
+  const counts = new Map<string, { recorded: number; synthetic: number }>();
+  for (const { personality, synthetic } of fixtures.values()) {
+    const count = counts.get(personality) ?? { recorded: 0, synthetic: 0 };
+    count[synthetic ? 'synthetic' : 'recorded']++;
+    counts.set(personality, count);
+  }
+  const short = [...counts]
+    .filter(([, { recorded, synthetic }]) => recorded + synthetic < SCENARIO_TARGET.perPersonality)
+    .map(([name]) => name);
+  const met = fixtures.size >= SCENARIO_TARGET.total && short.length === 0;
+  return [
+    `Scenarios by personality: ${[...counts]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(
+        ([name, { recorded, synthetic }]) =>
+          `${name} ${recorded + synthetic} (${recorded} recorded, ${synthetic} synthetic)`,
+      )
+      .join(', ')}`,
+    `Spec §8 scenario set (at least ${SCENARIO_TARGET.total}, ${SCENARIO_TARGET.perPersonality} per personality): ${met ? 'met' : `NOT met${short.length ? `, short: ${short.join(', ')}` : ''}`}. Counts include synthetic placeholders until a person records them.`,
+  ].join('\n');
+};
+
+/**
+ * Accuracy and confidence cover recorded fixtures only. A synthetic placeholder answers from a
+ * seed, not from Jev, so scoring it would pass off a stand-in as evidence of Jev quality.
+ */
 export const formatReport = (rows: EvalRow[]): string => {
-  const correct = rows.filter((row) => row.correct).length;
+  const recorded = rows.filter((row) => !row.synthetic);
+  const correct = recorded.filter((row) => row.correct).length;
   const confidence = (right: boolean) =>
     mean(
-      rows.flatMap((row) =>
+      recorded.flatMap((row) =>
         row.correct === right && row.confidence !== undefined ? [row.confidence] : [],
       ),
     );
@@ -169,14 +267,16 @@ export const formatReport = (rows: EvalRow[]): string => {
   }
   const orchestrated = new Set(rows.flatMap((row) => (row.applied ? [row.fixture] : []))).size;
   return [
-    `Accuracy: ${correct}/${rows.length} (${((100 * correct) / rows.length).toFixed(1)}%) against the acceptable sets`,
-    `Mean confidence: correct ${confidence(true)}, incorrect ${confidence(false)}; Noul answers have none. Not a calibration claim.`,
-    `Fixtures: ${fixtures.size} (${fixtures.size - synthetic} recorded, ${synthetic} synthetic). Synthetic samples prove the harness; they are not evidence of Jev quality.`,
+    `Accuracy: ${correct}/${recorded.length} (${recorded.length ? ((100 * correct) / recorded.length).toFixed(1) : '0.0'}%) against the acceptable sets, recorded fixtures only`,
+    `Mean confidence: correct ${confidence(true)}, incorrect ${confidence(false)}; Noul answers have none. Recorded fixtures only. Not a calibration claim.`,
+    `Scored from the applied last-Sell-Phase sale, Jev not asked (spec §5.6): ${recorded.filter((row) => row.rule).length} of those ${recorded.length} rows`,
+    `Fixtures: ${fixtures.size} (${fixtures.size - synthetic} recorded, ${synthetic} synthetic). Synthetic placeholders prove the harness; they are seeded stand-ins, not Jev answers, and are left out of the accuracy and confidence above. A person with the key replaces them (${RECORD_COMMAND}).`,
+    personalityCounts(rows),
     `Orchestrator replays: ${orchestrated}, illegalAppliedActionCount 0, fallbacks: ${[...fallbacks].map(([reason, n]) => `${reason} ${n}`).join(', ') || 'none'}`,
     'Fixture | Question | Answer | Confidence | Correct | Applied | Fallback | Synthetic',
     ...rows.map(
       (row) =>
-        `${row.fixture} | ${row.question} | ${row.answer} | ${row.confidence?.toFixed(3) ?? 'n/a'} | ${row.correct ? 'yes' : 'no'} | ${row.applied ?? 'n/a'} | ${row.fallbackReason ?? (row.applied ? 'none' : 'n/a')} | ${row.synthetic ? 'yes' : 'no'}`,
+        `${row.fixture} | ${row.question} | ${row.answer} | ${row.confidence?.toFixed(3) ?? 'n/a'} | ${row.synthetic ? 'n/a (synthetic)' : row.correct ? 'yes' : 'no'} | ${row.applied ?? 'n/a'} | ${row.fallbackReason ?? (row.applied ? 'none' : 'n/a')} | ${row.synthetic ? 'yes' : 'no'}`,
     ),
   ].join('\n');
 };
@@ -268,6 +368,11 @@ export const recordScenarios = async (
   const failed: string[] = [];
   for (const scenario of scenarios) {
     const saved = await existing(directory, scenario.id);
+    // Jev is not asked about this scenario (spec §5.6), so there is nothing to record.
+    if (await unaskedRun(scenario)) {
+      current.push(scenario.id);
+      continue;
+    }
     if (
       saved &&
       !saved.synthetic &&
@@ -304,6 +409,7 @@ export const writePlaceholders = async (
 ): Promise<string[]> => {
   const written: string[] = [];
   for (const scenario of scenarios) {
+    if (await unaskedRun(scenario)) continue; // Jev is not asked (spec §5.6): no stand-in answer.
     const saved = await existing(directory, scenario.id);
     const request = await scenarioRequest(scenario);
     const current = saved?.requestHash === requestHash(request);

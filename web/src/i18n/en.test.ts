@@ -280,7 +280,6 @@ test('AI playback controls, status reasons and line bank notices go through the 
 test('read-only team inspection covers form paths, instance identity and status explanations', () => {
   const keys: MessageKey[] = [
     'team.details',
-    'team.instance',
     'team.ability',
     'team.noAbility',
     'team.nextForms',
@@ -312,6 +311,12 @@ test('content screens: species facts, evolution hints, item facts and status lab
     'item.effect.planned',
     'item.status.partial',
     'item.status.planned',
+    'reroll.move',
+    'reroll.moveSlowed',
+    'reroll.catchHit',
+    'reroll.catchMiss',
+    'team.memberNumbered',
+    'team.memberUnknown',
   ];
   for (const key of keys) expect(t(key).trim(), key).not.toBe('');
   // Every tag a species can carry has its label, so no form shows the generic "Other".

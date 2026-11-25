@@ -3,7 +3,9 @@ import type { GameStore } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { Screen } from '../ui/Screen.tsx';
 import { Board } from './Board.tsx';
+import { PromisePanel } from './PromisePanel.tsx';
 import { TableTalkPanel } from './TableTalk.tsx';
+import { useChatReply } from './useChatReply.ts';
 import { useTableTalk } from './useTableTalk.ts';
 import { useTurnPlayback } from './useTurnPlayback.ts';
 import { EncounterDialog } from './EncounterDialog.tsx';
@@ -50,6 +52,7 @@ function PlayerBoardScreen({
   const openedAt = useRef<number | null>(null);
   const playback = useTurnPlayback(store, view);
   const talk = useTableTalk(store, view, playback);
+  const social = useChatReply(store, view);
   const [actionError, setActionError] = useState<number | null>(null);
   if (view && openedAt.current === null) openedAt.current = view.observation.public.stateRevision;
 
@@ -63,9 +66,11 @@ function PlayerBoardScreen({
   };
   const you = game.players.find((player) => player.seatIndex === view.seatIndex)!;
   const opponentMessage = opponentMessageOf(view);
-  // An Event card drawn this turn is what opened an encounter: no Wild square and Event card share a turn.
+  // The encounter card (e1) is what opened an encounter: no Wild square and Event card share a turn.
+  // Any other card drawn this turn is not the encounter's source.
   const drawn = latestEvent(view.feed, view.observation);
-  const encounterEvent = drawn?.turn === game.globalTurnNo ? drawn.text : undefined;
+  const encounterEvent =
+    drawn?.eventId === 'e1' && drawn.turn === game.globalTurnNo ? drawn.text : undefined;
   // The current rival action, spelled out under the board loop so the text sits right
   // where the spotlight is (issue #123). Same wording as the field-log row.
   const focus =
@@ -90,6 +95,7 @@ function PlayerBoardScreen({
       notice={notice && game.stateRevision === openedAt.current ? notice : undefined}
       actionError={actionError === game.stateRevision}
       onChoose={choose}
+      social={social}
       onFinished={onFinished}
     />
   );
@@ -110,6 +116,11 @@ function PlayerBoardScreen({
               onToggle={() => talk.setHidden(!talk.hidden)}
               voiceOff={talk.voiceOff}
             />
+          ) : undefined
+        }
+        promises={
+          view.observation.own.promises !== undefined ? (
+            <PromisePanel observation={view.observation} feed={view.feed} />
           ) : undefined
         }
       />

@@ -1,8 +1,10 @@
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { app } from './app.ts';
+import { loopbackHost } from './speech/guard.ts';
 
 // `npm start` also serves the built web app; in dev, Vite serves it and proxies /api here.
+app.use('/*', loopbackHost);
 app.use('/*', serveStatic({ root: './web/dist' }));
 
 const port = 8787;

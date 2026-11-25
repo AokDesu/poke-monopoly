@@ -196,10 +196,10 @@ test('Dragon Rush in PvP tires its source after a tie too, attacker first (D13)'
   const state = game(['fisherman', 'bug-catcher']);
   state.players[0]!.team[0] = { ...state.players[0]!.team[0]!, speciesId: 'dratini' };
   state.players[1]!.team[0] = { ...state.players[1]!.team[0]!, speciesId: 'scyther' };
-  // Dratini 3 + 2 + face 3 against Scyther 4 + face 4 (Quick Slash is unbound): a tie.
+  // Dratini 3 + 2 + face 3 against Scyther 4 + face 4 (without Quick Slash): a tie.
   const play = new Play(rig(state, 3, 4));
   play.act('declare_pvp', { targetSeatIndex: 1 }).act('respond_pvp', { accept: true });
-  play.act('activate_ability', { instanceId: 'starter:0' }).roll();
+  play.act('activate_ability', { instanceId: 'starter:0' }).act('skip').roll();
   expect(play.events).toContainEqual(expect.objectContaining({ outcome: 'tie' }));
   expect(play.state.phase.kind).toBe('strategy');
   expect(play.state.players[0]!.team[0]!.tired).toBe(true);

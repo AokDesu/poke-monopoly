@@ -8,11 +8,14 @@ export { stateHash } from './state-hash.ts';
 export { createGame } from './setup.ts';
 export * from './observation-buckets.ts';
 export { GAME_PRESETS, LAP_TARGETS, winner, type WinnerResult } from './game-end.ts';
+export { pendingDie, type PendingDie } from './roll-preview.ts';
 export { catchOdds, oddsForAllBalls, type BallType, type CatchOdds } from './odds.ts';
 export {
   saleFacts,
   saleQuote,
   bucketKeepValue,
+  bucketSaleValue,
+  SALE_VALUE_BUCKETS,
   type SalePriceFact,
   type SaleQuote,
 } from './selling.ts';
@@ -33,6 +36,7 @@ export { checkInvariants, INVARIANTS } from './invariants.ts';
 export type { InvariantDefinition, InvariantId, Violation } from './invariants.ts';
 export {
   deserialize,
+  loadGame,
   resume,
   saveSchema,
   serialize,
@@ -77,7 +81,39 @@ export {
   type EngineDecisionPoint,
 } from './decisions.ts';
 
-export { ABILITY_EFFECTS, type AbilityEffect } from './abilities.ts';
+export { ABILITY_EFFECTS, abilityCosts, type AbilityEffect } from './abilities.ts';
 export { itemEffectStatus, type ItemEffectStatus } from './items.ts';
 export { attackTarget } from './attack-facts.ts';
+export {
+  exploitFacts,
+  publicStrength,
+  type AbilityTiming,
+  type ChallengeSource,
+  type ExploitFacts,
+} from './exploit-facts.ts';
 export { promiseWindowStatus } from './promises.ts';
+export { itemUseWindow } from './deal-facts.ts';
+export { dealFacts } from './deals.ts';
+export {
+  battlePreview,
+  challengeOdds,
+  type BattleChoicePreview,
+  type BattlePreview,
+} from './battle-preview.ts';
+export { BELIEF_CONFIG, matchOwnState, sampleBelief, type OwnHints } from './belief.ts';
+export {
+  bucketExpectedCoins,
+  bucketLeadChance,
+  ROLLOUT_CONFIG,
+  rolloutFacts,
+  rolloutOptions,
+  rolloutSteps,
+  type ExpectedCoins,
+  type LeadChance,
+  type OptionOutcome,
+  type RolloutChoice,
+  type RolloutFacts,
+  type RolloutPolicy,
+  type RolloutRequest,
+  type RolloutResult,
+} from './rollout.ts';

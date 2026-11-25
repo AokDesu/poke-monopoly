@@ -79,7 +79,8 @@ function socialState(observation: Observation, extras: SocialExtras) {
     trust: players
       .filter((player) => player.seatIndex !== me && extras.trust?.[player.actorId] !== undefined)
       .map((player) => ({ id: player.actorId, bucket: extras.trust![player.actorId]! })),
-    ...(pendingResponse && pendingResponse.responderSeatIndex === me
+    // A pending Deal Card is the deal_response work's (#164 D3); only a promise question is described here.
+    ...(pendingResponse?.kind === 'promise_offer' && pendingResponse.responderSeatIndex === me
       ? {
           pending_card: {
             kind: pendingResponse.kind,
@@ -103,6 +104,26 @@ function socialState(observation: Observation, extras: SocialExtras) {
 
 /** Explicit projection rather than spreading observations (spec §1, §5.4, §9). */
 export function buildJevState(observation: Observation, extras: SocialExtras = {}) {
+  const state = baseState(observation, recentChat(observation));
+  const social = socialState(observation, extras);
+  const full: typeof state & { social?: NonNullable<typeof social> } = social
+    ? { ...state, social }
+    : state;
+  assertNoComparableNumbers(full);
+  assertStateTokenBudget(full);
+  return full;
+}
+
+/**
+ * The role-scoped state without the chat and social blocks, for a question that builds its own
+ * scoped versions of them (the promise response, spec §5.4). It runs no guard: the caller runs
+ * `assertNoComparableNumbers` and `assertStateTokenBudget` on the state it finally sends.
+ */
+export function buildJevBaseState(observation: Observation) {
+  return baseState(observation, []);
+}
+
+function baseState(observation: Observation, recent: ReturnType<typeof recentChat>) {
   const summary = summarizeObservation(observation);
   const you = observation.public.players.find(
     (player) => player.seatIndex === observation.own.seatIndex,
@@ -121,7 +142,6 @@ export function buildJevState(observation: Observation, extras: SocialExtras = {
     item_id: entry.itemId,
     name: entry.name,
   });
-  const recent = recentChat(observation);
   const state = {
     phase: observation.public.phase.kind,
     active_seat_id: observation.public.activeSeatIndex,
@@ -161,13 +181,7 @@ export function buildJevState(observation: Observation, extras: SocialExtras = {
       };
     }),
   };
-  const social = socialState(observation, extras);
-  const full: typeof state & { social?: NonNullable<typeof social> } = social
-    ? { ...state, social }
-    : state;
-  assertNoComparableNumbers(full);
-  assertStateTokenBudget(full);
-  return full;
+  return state;
 }
 
 export type JevState = ReturnType<typeof buildJevState>;

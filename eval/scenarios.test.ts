@@ -6,6 +6,7 @@ import type { JevAnswer, JevResult } from '../ai/jev/client.ts';
 import { createFakeJevClient } from '../ai/jev/fake.ts';
 import { SpendLedger, type UsageLine } from '../ai/jev/spend.ts';
 import { CONTENT } from '../ai/questions/content.ts';
+import { pendingDecision } from '../engine/index.ts';
 import {
   DEFAULT_FIXTURES,
   parseFixture,
@@ -14,7 +15,7 @@ import {
   runOffline,
   writePlaceholders,
 } from './jev/index.ts';
-import { placeholderResult, runScenario, scenarioRequest } from './jev/replay.ts';
+import { placeholderResult, runScenario, scenarioRequest, unaskedRun } from './jev/replay.ts';
 import { decideRequest, SCENARIOS } from './jev/scenarios.ts';
 
 const directories: string[] = [];
@@ -36,10 +37,17 @@ const fixtures = async () =>
     ),
   );
 
-test('spec §10 C2: 8 Strategy, 6 Encounter and 6 Sell scenarios, each one committed fixture', async () => {
+test('spec §10 C2: 8 Strategy, 6 Encounter and 6 Sell Greedy scenarios, each one committed fixture', async () => {
   const saved = await fixtures();
-  const count = (point: string) => saved.filter((f) => f.tags.decisionPoint === point).length;
+  // The promise response (S09/S11) and battle decision (#56 C3) fixtures are separate decision points.
+  const separate = ['promise_response', 'pvp_response', 'ability_window', 'reward'];
+  const greedy = saved.filter(
+    (f) => f.tags.personality === 'Greedy' && !separate.includes(f.tags.decisionPoint),
+  );
+  const count = (point: string) => greedy.filter((f) => f.tags.decisionPoint === point).length;
   expect([count('strategy'), count('encounter'), count('sell')]).toEqual([8, 6, 6]);
+  // The original 20 are live recordings; the personality scenarios start as placeholders (#233).
+  expect(greedy.every((f) => !f.synthetic)).toBe(true);
   expect(saved.map((f) => f.id).sort()).toEqual(SCENARIOS.map((s) => s.id).sort());
   for (const fixture of saved) {
     expect(fixture.recorded.requestId).toBeTruthy();
@@ -49,8 +57,11 @@ test('spec §10 C2: 8 Strategy, 6 Encounter and 6 Sell scenarios, each one commi
 
 test('every scenario has its seat 0 to act and asks exactly one Jev request', async () => {
   for (const scenario of SCENARIOS) {
-    const { state } = decideRequest(scenario);
-    expect(state.activeSeatIndex).toBe(0);
+    const { state, request } = decideRequest(scenario);
+    // A responder or battle scenario has the human acting and seat 0, the AI, owing the answer.
+    const owes = pendingDecision(state)?.seatIndex ?? state.activeSeatIndex;
+    expect(owes).toBe(0);
+    expect(request.decisionPoint === 'promise_response').toBe(state.pendingResponse !== undefined);
     await expect(scenarioRequest(scenario)).resolves.toBeDefined();
   }
 });
@@ -101,6 +112,13 @@ test('illegalAppliedActionCount stays 0 when every recorded choice is corrupted 
   const byId = new Map((await fixtures()).map((f) => [f.id, f]));
   let illegalAppliedActionCount = 0;
   for (const scenario of SCENARIOS) {
+    // The last Sell Phase sells everything without asking Jev (§5.6): nothing to corrupt.
+    const unasked = await unaskedRun(scenario);
+    if (unasked) {
+      expect(unasked.decision.source).toBe('auto');
+      expect(unasked.illegalApplied).toBe(0);
+      continue;
+    }
     const recorded = byId.get(scenario.id)!.recorded;
     const run = await runScenario(
       scenario,

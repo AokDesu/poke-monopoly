@@ -1,9 +1,12 @@
 import { toEngineContent } from '../content/schema.ts';
+import { ownBattle, wireBattleFacts } from '../ai/fallback/index.ts';
 import {
   advanceAutomatically,
+  battlePreview,
   applyAction,
   createGame,
   createGameConfig,
+  exploitFacts,
   legalActions,
   observe,
   oddsForAllBalls,
@@ -12,8 +15,8 @@ import {
   type GameState,
 } from '../engine/index.ts';
 import { loadContent } from './content.ts';
-import type { PolicyFacts } from './policy.ts';
-import type { SimEngine } from './runner.ts';
+import type { PolicyFacts, SeatFacts } from './policy.ts';
+import { scriptedHumanCount, type SimEngine } from './runner.ts';
 
 const parsed = loadContent();
 const content = toEngineContent(parsed);
@@ -27,7 +30,9 @@ const classIds = parsed.classes.filter((entry) => !entry.stretch).map((entry) =>
  */
 export const realEngine: SimEngine = {
   classIds,
-  createGame({ seed, seats, lapTarget, social }) {
+  createGame(setup) {
+    const { seed, seats, lapTarget } = setup;
+    const humanSeats = scriptedHumanCount(setup, seats.length);
     const config = createGameConfig({
       seats: seats.map(({ seatIndex, actorId, classId }) => {
         const starters = parsed.classes.find((entry) => entry.id === classId)!.starterSpeciesIds;
@@ -36,13 +41,12 @@ export const realEngine: SimEngine = {
           actorId,
           classId,
           starterSpeciesId: starters[Math.floor(seed / classIds.length) % starters.length],
-          // `--social`: seat 0 is the human and the Social window is open (§4.2, §4.8).
-          controller: social && seatIndex === 0 ? ('human' as const) : ('ai' as const),
+          controller: seatIndex < humanSeats ? ('human' as const) : ('ai' as const),
         };
       }),
       seed,
       lapTarget,
-      ...(social && { socialWindow: true }),
+      ...(humanSeats > 0 && { socialWindow: true }),
     });
     return createGame(config, content);
   },
@@ -64,12 +68,29 @@ export const realEngine: SimEngine = {
 };
 
 /**
- * The engine's own numbers for the deciding seat (spec §5.2): catch odds from `oddsForAllBalls`,
+ * The engine's own numbers for the deciding seat (spec §5.2): the exploit facts (`exploitFacts`:
+ * action classes and the public-information strength proxy), catch odds from `oddsForAllBalls`,
  * and each sellable Pokémon's payout within one batch selling every one of them (§4.7: a batch
  * is priced as a whole), read from the coin transfers `applyAction` reports on a detached copy
  * and keep values from `saleFacts`. Nothing here is shown to other seats.
  */
-function facts(state: GameState, seatIndex: number): PolicyFacts {
+function facts(state: GameState, seatIndex: number): SeatFacts {
+  // Exploit facts come from the deciding seat's own observation and legal actions alone (§5.4,
+  // §8 Critic); a seat answering a challenge or reaction is not the active one, so they come first.
+  return {
+    ...exploitFacts(state.content, observe(state, seatIndex), legalActions(state, seatIndex)),
+    ...numberFacts(state, seatIndex),
+  };
+}
+
+function numberFacts(state: GameState, seatIndex: number): PolicyFacts {
+  // A battle's chances for the seat asked, active or not (spec §4.4, §5.3): the engine's preview.
+  if (state.phase.kind === 'pvp' || state.phase.kind === 'gym') {
+    const preview = battlePreview(state, seatIndex);
+    if (!preview) return {};
+    const own = ownBattle(observe(state, seatIndex), wireBattleFacts(preview));
+    return { battle: own.now, battleChoices: own.choices };
+  }
   if (seatIndex !== state.activeSeatIndex) return {};
   if (state.phase.kind === 'encounter' && !state.phase.catchRoll) {
     const odds = oddsForAllBalls(state, seatIndex);

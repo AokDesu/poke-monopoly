@@ -12,6 +12,9 @@ import { galleryRows, PENDING_ROWS } from './catalog.tsx';
 import { GalleryPage } from './GalleryPage.tsx';
 import type { GalleryFixtures } from './scenes.ts';
 
+// Named per-test budgets (ET-05): these take 2 to 8 s at full parallelism, so the 5 s default is too tight on a loaded machine.
+const SLOW_TEST_MS = 30_000;
+
 afterEach(cleanup);
 
 const fixtures: GalleryFixtures = {
@@ -25,7 +28,16 @@ const fixtures: GalleryFixtures = {
 // the catalog keys each must put on screen. Do not derive it from the gallery: deleting a key from
 // an example must fail the test.
 const SHOWN = [
-  { id: 'only-legal-action', specRow: '1', keys: ['turn.onlyLegalAction', 'turn.automatic'] },
+  {
+    id: 'only-legal-action',
+    specRow: '1',
+    keys: [
+      'turn.onlyLegalAction',
+      'turn.automatic',
+      'choice.challengeGym',
+      'battle.gymAutoSkipped',
+    ],
+  },
   {
     id: 'no-ball',
     specRow: '3',
@@ -82,6 +94,7 @@ const SHOWN = [
       'demo.banner',
       'demo.chosen',
       'demo.confidence',
+      'demo.modelNote',
       'demo.sellNote',
       'demo.byBackup',
       'ai.reason.timeout',
@@ -93,9 +106,107 @@ const SHOWN = [
     keys: ['save.pendingWatched', 'save.continue', 'game.resumedAiTurn'],
   },
   { id: 'watch-all-backup', specRow: '18', keys: ['ai.allBackupBanner', 'ai.backupBadge'] },
+  {
+    id: 'pvp-gym',
+    specRow: 'battle',
+    keys: [
+      'challenge.heading',
+      'challenge.intro',
+      'battle.heading.response',
+      'battle.declineNote',
+      'battle.forcedBy',
+      'battle.heading.window',
+      'battle.withThis',
+      'battle.heading.gym',
+      'battle.termsGym',
+      'battle.heading.reward',
+      'battle.reward.evolveGroup',
+      'battle.reward.choose',
+      'battle.result',
+      'board.event.pvpResolved',
+    ],
+  },
+  {
+    id: 'social-window',
+    specRow: 'social',
+    keys: [
+      'social.onlyWords',
+      'social.topic.truce',
+      'social.topic.trade',
+      'social.topic.point_leader',
+      'social.topic.use_item',
+      'social.topic.hold_item',
+      'social.skip',
+      'social.reason.chooseRival',
+      'social.reason.noThirdSeat',
+      'social.spent',
+      'social.waiting',
+      'social.noticeTruce',
+      'social.continue',
+      'talk.bank',
+      'talk.aiWritten',
+      'talk.voiceOff',
+      'social.refused',
+      'social.failed.timeout',
+      'social.retry',
+    ],
+  },
+  {
+    id: 'promises',
+    specRow: 'promises',
+    keys: [
+      'promise.offers',
+      'promise.offerNote',
+      'promise.reason.active',
+      'promise.pending.waiting',
+      'promise.answer.accepted',
+      'promise.expires',
+      'promise.answer.refused',
+      'promise.offeredRow',
+      'promise.status.active',
+      'promise.memory.empty',
+      'promise.memory.accepted',
+      'promise.memory.refused',
+      'promise.memory.kept',
+      'promise.memory.broken',
+      'promise.evidence.pvp_declaration',
+      'promise.memory.closed_by_game_end',
+      'promise.trust',
+    ],
+  },
+  {
+    id: 'abilities',
+    specRow: 'abilities',
+    keys: ['ability.heading', 'ability.choosePrompt', 'battle.heading.window'],
+  },
+  {
+    id: 'how-to-play',
+    specRow: 'howToPlay',
+    keys: ['howToPlay.heading', 'howToPlay.firstStep', 'howToPlay.lastStep'],
+  },
+  {
+    id: 'demo-scenes',
+    specRow: 'demo',
+    keys: [
+      'demo.scenes.heading',
+      'demo.scenes.body',
+      'demo.scene.ball.title',
+      'demo.scene.ball.description',
+      'demo.scene.pvp.title',
+      'demo.scene.pvp.description',
+      'demo.scene.reward.title',
+      'demo.scene.reward.description',
+      'demo.failed.heading',
+      'demo.failed.step',
+      'demo.failed.next',
+      'demo.scenes.none',
+      'demo.scene.banner',
+      'save.continue',
+    ],
+  },
 ] as const satisfies readonly { id: string; specRow: string; keys: readonly MessageKey[] }[];
 
-/** Rows with nothing for a player to see in this build (no chat or deals screen, engine-only). */
+/** Rows with nothing for a player to see in this build (no free-text chat or deals screen, engine-only). */
 const PENDING = ['2', '6', '10', '11'];
 
 /** A catalog message as a pattern, so templated values (`{value}`) match whatever the engine says. */
@@ -121,24 +232,40 @@ function specSituations(): string[] {
     .map((line) => line.split('|')[1]!.trim());
 }
 
-test('every §3.1 row that has a screen shows each of its catalog keys, labelled with its spec row', () => {
-  render(<GalleryPage fixtures={fixtures} />);
-  expect(
-    [...document.querySelectorAll('[data-gallery-row]')].map((el) =>
-      el.getAttribute('data-gallery-row'),
-    ),
-  ).toEqual(SHOWN.map((row) => row.id));
-  for (const row of SHOWN) {
-    const el = section(row.id);
-    expect(el.getAttribute('data-spec-row'), row.id).toBe(row.specRow);
-    expect(missing(examples(row.id), row.keys), row.id).toEqual([]);
-    const label =
-      row.specRow === 'ai-turns'
-        ? t('gallery.specAiTurns')
-        : t('gallery.specRow', { row: row.specRow });
-    expect(within(el).getByText(label), row.id).toBeTruthy();
-  }
-});
+test(
+  'every §3.1 row that has a screen shows each of its catalog keys, labelled with its spec row',
+  () => {
+    render(<GalleryPage fixtures={fixtures} />);
+    expect(
+      [...document.querySelectorAll('[data-gallery-row]')].map((el) =>
+        el.getAttribute('data-gallery-row'),
+      ),
+    ).toEqual(SHOWN.map((row) => row.id));
+    for (const row of SHOWN) {
+      const el = section(row.id);
+      expect(el.getAttribute('data-spec-row'), row.id).toBe(row.specRow);
+      expect(missing(examples(row.id), row.keys), row.id).toEqual([]);
+      const label =
+        row.specRow === 'ai-turns'
+          ? t('gallery.specAiTurns')
+          : row.specRow === 'battle'
+            ? t('gallery.specBattle')
+            : row.specRow === 'social'
+              ? t('gallery.specSocial')
+              : row.specRow === 'promises'
+                ? t('gallery.specPromises')
+                : row.specRow === 'abilities'
+                  ? t('gallery.specAbilities')
+                  : row.specRow === 'howToPlay'
+                    ? t('gallery.specHowToPlay')
+                    : row.specRow === 'demo'
+                      ? t('gallery.specDemo')
+                      : t('gallery.specRow', { row: row.specRow });
+      expect(within(el).getByText(label), row.id).toBeTruthy();
+    }
+  },
+  SLOW_TEST_MS,
+);
 
 test('the gallery fails to show a key when its screen no longer does (Shop with coins has no "Not enough coins")', () => {
   const rich = structuredClone(shopLowCoins);

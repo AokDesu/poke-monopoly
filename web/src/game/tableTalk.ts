@@ -1,6 +1,6 @@
 import type { AiStatus } from '../../../engine/contract/decision.ts';
 import type { AiSpeechEvent, Observation } from '../../../engine/index.ts';
-import { en, t } from '../i18n/en.ts';
+import { en, t, type MessageKey } from '../i18n/en.ts';
 import { className, speciesName } from '../i18n/names.ts';
 import type { SeatFeedEntry, SeatView, SpectatorView } from './store.ts';
 
@@ -94,6 +94,26 @@ export interface Moment {
   readonly coins?: number;
 }
 
+/** The steps no seat outside the pair may know happened (§4.8): a chat, a promise and a Deal Card. */
+const PRIVATE_STEPS: ReadonlySet<string> = new Set([
+  'chat',
+  'offer_promise',
+  'respond',
+  'propose_deal',
+  'respond_deal',
+  'counter_deal',
+  'confirm_deal',
+  'cancel_deal',
+]);
+
+/**
+ * The feed as a bystander would hold it: without the steps that are private to a pair. Table talk is a shared
+ * moment, so what triggers it and the key that names it come from these entries only; otherwise a seat outside
+ * the pair would be asked to speak because of a proposal it never saw, or a key would differ with who watched.
+ */
+export const sharedFeed = (feed: readonly SeatFeedEntry[]): readonly SeatFeedEntry[] =>
+  feed.filter((entry) => !PRIVATE_STEPS.has(entry.record.action.kind));
+
 /** The one seat with strictly the most coins, or null on a tie. Public information only. */
 export function leaderOf(players: PublicGame['players']): number | null {
   const best = Math.max(...players.map((player) => player.coins));
@@ -102,7 +122,7 @@ export function leaderOf(players: PublicGame['players']): number | null {
 }
 
 /**
- * The moment the viewer's latest feed entry makes, if any. `previousLeader` is who led before it,
+ * The moment the viewer's latest feed entry makes, if any. `previousLeader` is who led just before it (the entry's own `before.leader`, so a private step between two renders is not charged to it),
  * `previous` the public game before it. Reads only the viewer's feed and the public game, so a
  * seat's hand can never start a comment. One moment per entry, the most newsworthy first: a Gym
  * win, a battle, coins changing hands, a catch, a sale, a change at the top, then a die.
@@ -134,6 +154,10 @@ export function detectMoment(
     ...more,
   });
 
+  // A Deal Card is its two parties' alone (§4.8): a step that carries its payment makes no table news at all, not
+  // the payment, not a change at the top its coins caused, not a die, so no seat is asked to speak about it.
+  if (events.some((event) => event.kind === 'coin_transfer' && event.reason === 'deal'))
+    return null;
   for (const event of events) {
     if (event.kind !== 'battle_reward_resolved' || event.source.kind !== 'gym') continue;
     const winner = seatOf(event.winnerId);
@@ -728,6 +752,15 @@ export function retortEvent(
 }
 
 export type VoiceReason = 'disabled' | 'missing_key' | 'budget_exceeded';
+
+const VOICE_REASON_TEXT: Record<VoiceReason, MessageKey> = {
+  disabled: 'talk.reason.disabled',
+  missing_key: 'talk.reason.missing_key',
+  budget_exceeded: 'talk.reason.budget_exceeded',
+};
+
+/** The "Voice off" badge's explanation: what the status route and the speech route may say (spec §3.1, §9). */
+export const voiceReasonText = (reason: VoiceReason): string => t(VOICE_REASON_TEXT[reason]);
 
 /**
  * Why generated speech is off, from `GET /api/ai/status`: only a reason the server gave (spec §3,

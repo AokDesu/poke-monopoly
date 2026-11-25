@@ -30,6 +30,8 @@ export interface BoardProps {
   focus?: ReactNode;
   /** The Table talk panel, shown beside the field log. */
   talk?: ReactNode;
+  /** The Promises and memory panel, shown beside the field log. */
+  promises?: ReactNode;
 }
 
 // Presentation coordinates only. Game positions are already positionOf(routeProgress) in observe().
@@ -51,6 +53,7 @@ export function Board({
   controls,
   focus,
   talk,
+  promises,
 }: BoardProps) {
   const { public: game } = observation;
   // One seat's details are open at a time; a local view choice that never reaches the game.
@@ -206,6 +209,7 @@ export function Board({
             <div className="log-row">
               <EventLog events={events} feed={feed} observation={observation} />
               {talk}
+              {promises}
             </div>
           </div>
           <aside className="trainer-panels" aria-label={t('board.team')}>

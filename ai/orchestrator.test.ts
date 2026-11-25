@@ -50,6 +50,9 @@ import {
 import { CONTENT } from './questions/content.ts';
 import type { SellFacts } from './questions/index.ts';
 
+// Named per-test budget (ET-05): 5 to 7 s at full parallelism, so the 5 s default is too tight on a loaded machine.
+const SLOW_TEST_MS = 30_000;
+
 // Offline only: fake clients, or the real wrapper with a placeholder key and a fake fetch.
 const PLACEHOLDER_KEY = 'placeholder-key-not-real-45';
 const greedy = PERSONALITIES.greedy;
@@ -61,6 +64,10 @@ const ENCOUNTER_ODDS = {
 };
 const ENCOUNTER_POLICY_FACTS = { catchChance: { poke: 0.5, great: 0.67 } };
 
+// An exported JEV_ENABLED=false (the §9 kill switch) must not turn these fake-transport tests into fallback runs: pin the switch on; tests of the switch stub it off themselves (#64).
+beforeEach(() => {
+  vi.stubEnv('JEV_ENABLED', 'true');
+});
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllEnvs();
@@ -1019,17 +1026,21 @@ describe('`--policy jev` in the sim (§5.6, §8)', () => {
     vi.stubEnv('TYPESAFE_API_KEY', '');
   });
 
-  test('random, invalid, late and failing fake answers never apply an illegal action', async () => {
-    const { summary, failures } = await runSim(realEngine, options);
-    expect(failures).toEqual([]);
-    expect(summary).toMatchObject({ aborted: 0, illegalAppliedActionCount: 0 });
-    expect(summary.jev!.decisions).toBeGreaterThan(0);
-    expect(summary.jev!.requests).toBeGreaterThan(0);
-    for (const cause of ['invalid_choice', 'timeout', 'rate_limited', 'server_error']) {
-      expect(summary.jev!.fallbackRate.byCause[cause]).toBeGreaterThan(0);
-    }
-    expect(summary.policyCounts!['fallback:timeout']).toBeGreaterThan(0);
-  });
+  test(
+    'random, invalid, late and failing fake answers never apply an illegal action',
+    async () => {
+      const { summary, failures } = await runSim(realEngine, options);
+      expect(failures).toEqual([]);
+      expect(summary).toMatchObject({ aborted: 0, illegalAppliedActionCount: 0 });
+      expect(summary.jev!.decisions).toBeGreaterThan(0);
+      expect(summary.jev!.requests).toBeGreaterThan(0);
+      for (const cause of ['invalid_choice', 'timeout', 'rate_limited', 'server_error']) {
+        expect(summary.jev!.fallbackRate.byCause[cause]).toBeGreaterThan(0);
+      }
+      expect(summary.policyCounts!['fallback:timeout']).toBeGreaterThan(0);
+    },
+    SLOW_TEST_MS,
+  );
 
   test('is reproducible for a seed', async () => {
     const one = { ...options, games: 2 };

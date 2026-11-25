@@ -1,11 +1,12 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, extname } from 'node:path';
-import { createGameLog, deserialize, serialize, verifyReplay } from '../engine/index.ts';
+import { createGameLog, loadGame, serialize, stateHash } from '../engine/index.ts';
 import { parseReplayArgs, parseSimArgs } from './args.ts';
 import { POLICIES } from './policy.ts';
 import { formatSummary } from './report.ts';
 import {
   failed,
+  noDealCommitted,
   runSim,
   type InvariantCheck,
   type PlayedGame,
@@ -54,7 +55,9 @@ export async function runCli(
   for (const line of formatSummary(summary)) io.log(line);
   // Hard gate (spec §1, §8): an applied illegal action, an invariant failure or an aborted game
   // fails the run, and so CI.
-  return failed(summary) || saveErrors > 0 ? 1 : 0;
+  const noDeals = noDealCommitted(options, summary);
+  if (noDeals) io.error('sim: --require-deals: no Deal Card committed in this run');
+  return failed(summary) || saveErrors > 0 || noDeals ? 1 : 0;
 }
 
 /**
@@ -70,18 +73,14 @@ function runReplay(args: string[], io: CliIo): number {
     io.error(`sim: ${message(error)}`);
     return 2;
   }
-  let check: ReturnType<typeof verifyReplay>;
   try {
-    check = verifyReplay(deserialize(readFileSync(file, 'utf8')));
-  } catch (error) {
-    check = { pass: false, reason: message(error) };
-  }
-  if (check.pass) {
-    io.log(`PASS ${file}: replayed state hash ${check.stateHash} matches the save`);
+    const game = loadGame(readFileSync(file, 'utf8'));
+    io.log(`PASS ${file}: replayed state hash ${stateHash(game.state)} matches the save`);
     return 0;
+  } catch (error) {
+    io.log(`FAIL ${file}: ${message(error)}`);
+    return 1;
   }
-  io.log(`FAIL ${file}: ${check.reason}`);
-  return 1;
 }
 
 function writeSave(file: string, game: PlayedGame): void {

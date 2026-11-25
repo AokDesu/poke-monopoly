@@ -3,6 +3,7 @@ import { bucketCount } from '../../engine/index.ts';
 import type { BallType, CatchOdds, LegalAction, Observation } from '../../engine/index.ts';
 import { itemText, speciesText } from './content.ts';
 import { personalState, withoutQuestion, type Decision } from './decision.ts';
+import { outcomeSentence, type OptionOutcomes } from './outcome.ts';
 import type { Personality } from './shortlist.ts';
 
 /** The engine's odds for the Encounter: `oddsForAllBalls(state, seat)` (spec §4.3). */
@@ -61,6 +62,10 @@ const BALL_ITEM_IDS: Record<BallType, string> = {
   ultra: 'ultra-ball',
 };
 
+/** Temporary #55 capability boundary (S11): Stream B owns Ability window questions. */
+const isEncounterQuestionAction = (action: LegalAction): boolean =>
+  action.kind !== 'activate_ability';
+
 export type EncounterState = ReturnType<
   typeof personalState<{ encounter: { pokemon: string; rarity: string } }>
 >;
@@ -75,9 +80,9 @@ export function buildEncounterQuestion(
   offered: readonly LegalAction[],
   facts: EncounterFacts,
   personality: Personality,
+  outcomes?: OptionOutcomes,
 ): Decision<EncounterState> {
-  // Temporary #55 capability boundary (S11): Stream B owns Ability window questions.
-  const enabledActions = offered.filter((action) => action.kind !== 'activate_ability');
+  const enabledActions = offered.filter(isEncounterQuestionAction);
   const early = withoutQuestion(enabledActions);
   if (early) return early;
   const { phase } = observation.public;
@@ -90,7 +95,8 @@ export function buildEncounterQuestion(
       options.release = action.id;
       criteria.release =
         `Release the wild ${pokemon.name} without throwing a Ball. You keep all your Balls, ` +
-        `but you do not get the ${pokemon.name} and earn no coins from it.`;
+        `but you do not get the ${pokemon.name} and earn no coins from it.` +
+        (outcomes?.[action.id] ? outcomeSentence(outcomes[action.id]!) : '');
       continue;
     }
     if (action.kind !== 'catch') {
@@ -108,7 +114,8 @@ export function buildEncounterQuestion(
       `your team and you can sell it at Start for coins. If it fails, the ${pokemon.name} is gone. ` +
       `Either way this ${ball} is used up. ${ball}s you hold now, counting this one: ` +
       `${ballCountWords(observation.own.balls[ballType])}. Whether the catch succeeds is ` +
-      'unknown until the die is rolled.';
+      'unknown until the die is rolled.' +
+      (outcomes?.[action.id] ? outcomeSentence(outcomes[action.id]!) : '');
   }
   if (!options.release) throw new RangeError('Encounter actions must include release');
   return {

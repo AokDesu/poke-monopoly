@@ -5,6 +5,9 @@ import type { Policy } from './policy.ts';
 import { formatSummary } from './report.ts';
 import { DEFAULT_OPTIONS, runSim, type SimEngine } from './runner.ts';
 
+// Real social games with promise accounting: ~2 s alone; budget for load (ET-05).
+const SOCIAL_GAMES_MS = 15_000;
+
 const classes = ['bug-catcher', 'fisherman', 'researcher'];
 
 /** Real engine commands from a small, controlled scenario, measured through runSim's summary. */
@@ -389,35 +392,41 @@ test('opportunities reset per game and remain separated by credited Lap', async 
   ]);
 });
 
-test('real social games conserve promise accounting and preserve the existing social fields', async () => {
-  let hostileUsed = 0;
-  const { summary, failures } = await runSim(
-    realEngine,
-    { ...DEFAULT_OPTIONS, games: 6, seed: 0, seats: 3, social: true, policy: 'fallback' },
-    undefined,
-    undefined,
-    (game) => {
-      hostileUsed += game.records
-        .flatMap((record) => record.events)
-        .filter(
-          (event) => event.kind === 'attack_attempt' && event.source === 'hostile_item',
-        ).length;
-    },
-  );
-  expect(failures).toEqual([]);
-  expect(summary.hostility.hostileUsed).toBe(hostileUsed);
-  expect(summary.hostility.byPersonalityLap.some((row) => row.personalityId === 'greedy')).toBe(
-    true,
-  );
-  const p = summary.promises;
-  expect(p.offered).toBeGreaterThan(0);
-  expect(p.accepted + p.rejected).toBe(p.offered);
-  expect(p.broken + p.kept + p.closedByGameEnd + p.pending).toBe(p.accepted);
-  expect(p.keptWithOpportunity + p.keptWithoutOpportunity).toBe(p.kept);
-  expect(p.pending).toBe(0);
-  expect(summary.social).toEqual({
-    promiseOffers: p.offered,
-    promisesAccepted: p.accepted,
-    promisesRejected: p.rejected,
-  });
-}, 15_000);
+test(
+  'real social games conserve promise accounting and preserve the existing social fields',
+  async () => {
+    let hostileUsed = 0;
+    const { summary, failures } = await runSim(
+      realEngine,
+      { ...DEFAULT_OPTIONS, games: 6, seed: 0, seats: 3, social: true, policy: 'fallback' },
+      undefined,
+      undefined,
+      (game) => {
+        hostileUsed += game.records
+          .flatMap((record) => record.events)
+          .filter(
+            (event) => event.kind === 'attack_attempt' && event.source === 'hostile_item',
+          ).length;
+      },
+    );
+    expect(failures).toEqual([]);
+    expect(summary.hostility.hostileUsed).toBe(hostileUsed);
+    expect(summary.hostility.byPersonalityLap.some((row) => row.personalityId === 'greedy')).toBe(
+      true,
+    );
+    const p = summary.promises;
+    expect(p.offered).toBeGreaterThan(0);
+    expect(p.accepted + p.rejected).toBe(p.offered);
+    expect(p.broken + p.kept + p.closedByGameEnd + p.pending).toBe(p.accepted);
+    expect(p.keptWithOpportunity + p.keptWithoutOpportunity).toBe(p.kept);
+    expect(p.pending).toBe(0);
+    expect(summary.social).toEqual({
+      promiseOffers: p.offered,
+      promisesAccepted: p.accepted,
+      promisesRejected: p.rejected,
+      dealsProposed: summary.deals.proposed,
+      dealsCommitted: summary.deals.committed,
+    });
+  },
+  SOCIAL_GAMES_MS,
+);

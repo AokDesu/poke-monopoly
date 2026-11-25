@@ -11,7 +11,7 @@ import type {
 } from './contract/schema.ts';
 import { ABILITY_EFFECTS, abilityChoices, abilityEffectOf } from './abilities.ts';
 import { HOSTILE, itemChoices } from './items.ts';
-import { hideFromBystanders, socialOpen } from './social.ts';
+import { hideFromBystanders, socialOpen, socialTargets } from './social.ts';
 
 /** Trust is clamped to this range (§4.8). */
 export const TRUST_MIN = -3;
@@ -92,19 +92,18 @@ function promiseAllowed(state: GameState, promiserSeatIndex: number, recipientSe
  */
 export function promiseOfferChoices(state: GameState, seatIndex: number, result: LegalActions) {
   if (!socialOpen(state, seatIndex)) return;
-  for (const target of state.config.seats) {
-    if (target.seatIndex === seatIndex || target.controller !== 'ai') continue;
+  for (const targetSeatIndex of socialTargets(state)) {
     for (const direction of ['offer', 'ask'] as const) {
       const { promiserSeatIndex, recipientSeatIndex } = roles(
         seatIndex,
-        target.seatIndex,
+        targetSeatIndex,
         direction,
       );
       if (!promiseAllowed(state, promiserSeatIndex, recipientSeatIndex)) continue;
       const action: LegalAction = {
-        id: `offer-promise:seat-${target.seatIndex}:${direction}`,
+        id: `offer-promise:seat-${targetSeatIndex}:${direction}`,
         kind: 'offer_promise',
-        payload: { targetSeatIndex: target.seatIndex, direction },
+        payload: { targetSeatIndex, direction },
       };
       result.enabled.push(action);
     }

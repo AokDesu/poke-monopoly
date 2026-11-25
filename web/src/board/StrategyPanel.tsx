@@ -1,19 +1,25 @@
 import { useState } from 'react';
 import type { LegalActions, Observation } from '../../../engine/index.ts';
+import type { ChallengeOdds } from '../game/store.ts';
 import { content, itemStatus } from '../game/content.ts';
 import { t } from '../i18n/en.ts';
-import { itemName, speciesName } from '../i18n/names.ts';
+import { itemName, memberName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
+import { AbilityPanel } from './AbilityPanel.tsx';
+import { ChallengePanel } from './ChallengePanel.tsx';
 import { ItemFacts } from './ItemFacts.tsx';
 import { seatLabel } from './labels.ts';
 
 export function StrategyPanel({
   observation,
   legalActions,
+  challenges = [],
   onChoose,
 }: {
   observation: Observation;
   legalActions: LegalActions;
+  /** The engine's odds for each challenge this seat could declare. */
+  challenges?: readonly ChallengeOdds[];
   onChoose: (id: string) => void;
 }) {
   const [selection, setSelection] = useState<{
@@ -176,10 +182,12 @@ export function StrategyPanel({
                     aria-pressed={choiceId === action.id}
                     onClick={() => setSelection({ ...currentSelection!, choiceId: action.id })}
                   >
-                    {t('strategy.potion.member', {
-                      pokemon: speciesName(pokemon.speciesId),
-                      instanceId: pokemon.instanceId,
-                    })}
+                    {t(
+                      action.payload.status === 'combat_debuff'
+                        ? 'strategy.potion.debuffMember'
+                        : 'strategy.potion.member',
+                      { pokemon: memberName(ownTeam, pokemon.instanceId) },
+                    )}
                   </ActionButton>
                 );
               })}
@@ -191,13 +199,14 @@ export function StrategyPanel({
               <p>
                 {choice.kind === 'use_item' && choice.payload.status === 'tired'
                   ? t('strategy.potion.effect')
-                  : t('strategy.effect', { effect: definition.effect })}
+                  : choice.kind === 'use_item' && choice.payload.status === 'combat_debuff'
+                    ? t('strategy.potion.debuffEffect')
+                    : t('strategy.effect', { effect: definition.effect })}
               </p>
               <p>
                 {targetPokemon
                   ? t('strategy.potion.target', {
-                      pokemon: speciesName(targetPokemon.speciesId),
-                      instanceId: targetPokemon.instanceId,
+                      pokemon: memberName(ownTeam, targetPokemon.instanceId),
                     })
                   : t('strategy.target', { target: seatLabel(targetSeat ?? ownSeat, ownSeat) })}
               </p>
@@ -216,6 +225,13 @@ export function StrategyPanel({
           )}
         </>
       )}
+      <AbilityPanel observation={observation} legalActions={legalActions} onChoose={onChoose} />
+      <ChallengePanel
+        observation={observation}
+        legalActions={legalActions}
+        challenges={challenges}
+        onChoose={onChoose}
+      />
       {skip && (
         <ActionButton enabled variant="secondary" onClick={() => onChoose(skip.id)}>
           {t('strategy.skip')}

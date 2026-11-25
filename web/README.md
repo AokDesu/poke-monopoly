@@ -13,7 +13,7 @@ Run with `npm run dev:web` (port 5173). Spec: §3, §3.1, §6.1. Skill: `skills/
 | `src/ui/three/`         | Three.js scenes (lazy chunk); `public/models/` holds the licensed GLB models.                                                                    |
 | `src/i18n/en.ts`        | Every player-facing string (English, spec §3), read with `t(key)`. `src/i18n/inline-text.test.ts` fails on UI text typed elsewhere.              |
 | `src/game/store.ts`     | Rules adapter: state and action log. Calls engine functions only from `engine/index.ts`.                                                         |
-| `src/game/save.ts`      | Browser storage adapter: engine `serialize` / `deserialize`, Continue, and log export.                                                           |
+| `src/game/save.ts`      | Browser storage adapter: engine `serialize` / `loadGame`, Continue, and log export.                                                              |
 | `src/ErrorBoundary.tsx` | No blank screens: a render error shows what to do next and a retry button.                                                                       |
 | `src/ui/`               | Shared controls.                                                                                                                                 |
 
@@ -97,9 +97,21 @@ options it sent, copies Jev's numbers from the answer's optional `detail` and pu
 in-memory feed entry (`game/demoChoice.ts`). With demo off, and in a watched game, the detail is
 never read, so no panel, banner or probability text exists and saves, exported logs and the
 requests are unchanged. `game/jevDetailAdapter.ts` is the one place that knows the field's
-name and shape (proposed, `decisionDetailSchema`); until the server sends it only backup-bot
-decisions show. `game/fakeJevAnswer.ts` is a typed fake of that answer for tests and the dev
+name and shape (`decisionDetailSchema`); the server sends it only when its `DEMO_MODE` is on and
+Jev decided, so otherwise only backup-bot decisions show. `game/fakeJevAnswer.ts` is a typed fake of that answer for tests and the dev
 gallery.
+
+Prepared scenarios (`?demo`, issue #222; `?demo=0` and `?demo=false` are off) add a "Prepared scenarios"
+entry to Home. `game/demoScenes.ts` lists each scene as a seed plus a short script of legal engine
+actions (`{ engine: n }` applies pending dice or sole choices, `{ seat, choose }` takes an enabled
+action by its ID) that `buildScene` applies through the normal store after the first-player roll;
+nothing is hand-edited and no rule lives in the script. A scene opens only if its setup passes the
+setup screens' own check (`openScenes`), and a build that fails, a step the engine no longer allows
+or a game that ends away from its moment, shows the reason with a way back instead of a game. The
+scene's name is saved in the browser beside the game (`SaveMeta.scene`), never in the exported log,
+so every screen and a reload show the "Prepared scenario" banner (`DemoBanner.tsx`); without `?demo`
+a saved scene game is not offered. To add a scene, search seeds with a throwaway driver until the
+moment is reached in a few steps, then add its test row in `game/demoScenes.test.ts`.
 
 Tokens use the `position` already projected by `observe()` (including negative and multi-Lap
 progress). Lap counts are paid Laps completed, not a UI-computed current-Lap number. Square
@@ -139,6 +151,34 @@ zero battle; final forms; duplicate UID/status separation after reordering; Tire
 sale quotes; expanded opponent privacy; and unchanged accepted actions, revision,
 cooldowns and statuses when board/Sell disclosures open and close.
 
+## PvP and Gym
+
+Spec §3, §3.1, §4.4, §4.5, Appendix C.3. Every decision is the engine's: the store exposes
+`decision` (the engine's pending seat and decision point, which differ from the active seat for a
+PvP response, window, reroll or reward), `battle` (`battlePreview`: snapshot terms and exact odds,
+and what each open Ability choice would do) and, in Strategy, `challenges` (`challengeOdds` per
+opponent). `TurnPanel` routes on them, so a human defender answers while the opponent keeps the turn.
+
+- **Strategy** shows `ChallengePanel`: one voluntary challenge per opponent and Rival's once-per-Lap
+  forced challenge, each with the engine's disabled reason ("Both teams need a battle-ready
+  Pokémon"). Choosing a target previews the chances; the tactical action is spent on Confirm.
+- **`BattlePanel`** covers the response (accept or decline, with what a decline costs), the
+  Ability windows (each choice with its effect on the chances; passing spends nothing), the Gym
+  entry (challenge greyed out with the engine reason when no Pokémon is battle-ready, in which case
+  the engine skips it and the board says so), the reroll review and the reward. `BattleTerms` is the
+  terms table: every figure is copied from the snapshot, never added up in the browser. A forced
+  challenge has no accept or decline and names who forced it from the records this seat may see
+  (`forcedSource`): a Battle Ticket or Ability aimed at another seat shows only "a forcing effect".
+- **Reward**: coins, or one authored one-stage evolution of one Pokémon, never both. Choosing only
+  selects; Confirm commits. A selection from an older list of choices is dropped and the player
+  is asked to review the refreshed rewards. The engine rejects a late confirmation either way.
+- **Result**: `BattleResult` keeps the latest battle's rows (challenge, answer, both dice, result,
+  badge, the amount that actually moved, protection, evolution) beside the board until the seat's
+  own next turn. The field log announces the same events through `battleMessages.ts`.
+- AI seats still answer these points with the engine's first listed choice, logged as a fallback
+  with reason `unsupported_decision_point`; no service is called, so an unavailable one changes
+  nothing. Rival is now an open class: its forced challenge has its control.
+
 Run `npm run dev` for API plus Vite, or `npm run build` and `npm start` for the built app.
 Review at 1440×900 and 1024×768; the board is height-bounded at desktop sizes so the whole
 loop remains visible without horizontal scrolling. Long panels and the event log remain
@@ -160,9 +200,13 @@ the privacy of every seat.
 Run `npm run dev:web` and open `/?gallery` (for example `http://localhost:5173/?gallery`). The
 page lists every spec §3.1 row that has a screen in this build (plus §3's Backup bot mode badge),
 each labelled `Spec §3.1, row N` under the spec's own wording, and each example rendered by the
-real component: `TurnPanel` (turn copy, Shop, AI badge and banners), `EncounterDialog`,
-`SellPanel` and `SavePrompt`. A closing list names the rows with no screen yet (chat, deals,
-engine-only cases) so every row of the table is accounted for.
+real component: `TurnPanel` (turn copy, Shop, AI badge and banners, the Social window of §4.8),
+`EncounterDialog`, `SellPanel` and `SavePrompt`; one extra row, "PvP and Gym" (spec §4.4), shows the
+challenge, defender, forced, Ability-window, Gym and reward screens, and one more, "Promises and
+memory" (spec §4.8), shows the promise offers, an offer waiting for the rival, an accepted and a
+refused one, and the memory a kept, broken or game-ended promise leaves. A closing list names the rows
+with no screen yet (free-text chat, deals, engine-only cases) so every row of the table is accounted
+for.
 
 The states are engine fixtures moved on only through the store's own commands
 (`createFixtureStore` in `src/game/store.ts`, scenes in `src/gallery/scenes.ts`), so the screens

@@ -1,12 +1,17 @@
-import type { DecisionPoint } from '../engine/contract/decision.ts';
+import type { DecisionDetail, DecisionPoint } from '../engine/contract/decision.ts';
 import type { Personality } from '../content/personality-schema.ts';
-import type { LegalAction, LegalActions, Observation } from '../engine/index.ts';
+import type { LegalActions, Observation } from '../engine/index.ts';
 import type { PolicyChoice, PolicyFacts, PolicyRng } from '../sim/policy.ts';
 import { decideWithFallback, FallbackPolicy, saleDesire } from './fallback/index.ts';
+import { hardOutcomesYielding, type HardRequest } from './hard.ts';
+import { pendingPromise } from './promises.ts';
+import { openAbilityWindow, pendingPvpResponse, pendingReward, type OwnBattle } from './battle.ts';
+import { lastSellChoice, sellChoice } from './last-sell.ts';
 import {
   DECISION_DEADLINE_MS,
   jevEnabled,
   resolveJevModel,
+  warnJevRejected,
   type FallbackReason as JevFailureReason,
   type JevAnswer,
   type JevClient,
@@ -14,21 +19,27 @@ import {
   type JevResult,
   type JevSuccess,
 } from './jev/client.ts';
-import type { UsageRecorder } from './jev/spend.ts';
+import { warnLedgerFailed, type UsageRecorder } from './jev/spend.ts';
 import { billedUsage, UsageMeter } from './jev/usage.ts';
 import {
   buildEncounterQuestion,
+  buildPromiseResponseQuestion,
+  buildPvpResponseQuestion,
+  buildReactionQuestion,
+  buildRewardQuestion,
   buildSellQuestions,
   buildStrategyQuestion,
   decideSales,
   REQUESTS_PER_TURN,
   sellAnswers,
   type EncounterFacts,
+  type OptionOutcomes,
   type SellFacts,
 } from './questions/index.ts';
 
 /** The Choice decision points; a confidence floor applies only to these (spec §5.6). */
-export type ChoiceQuestion = 'strategy' | 'encounter';
+export type ChoiceQuestion =
+  'strategy' | 'encounter' | 'promise_response' | 'pvp_response' | 'ability_window' | 'reward';
 
 /**
  * A Choice's confidence floor by option count: `few` up to `fewMax` options, falling in a straight
@@ -48,6 +59,13 @@ export const ORCHESTRATOR_CONFIG = Object.freeze({
   confidenceFloor: Object.freeze({
     strategy: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
     encounter: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
+    // Two options (accept or reject), so always the `few` end of the curve.
+    promise_response: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
+    // Accept or decline: two options.
+    pvp_response: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
+    // The activations the window lists plus none, and coins plus each evolution: a few options.
+    ability_window: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
+    reward: Object.freeze({ few: 0.6, fewMax: 4, many: 0.5, manyFrom: 12 }),
   }) satisfies Readonly<Record<ChoiceQuestion, FloorCurve>>,
 });
 
@@ -93,9 +111,11 @@ export interface DecideFacts {
   encounter?: EncounterFacts;
   /** For the Sell Phase Nouls: sale prices, class bonuses and keep values. */
   sell?: SellFacts;
+  /** For the PvP response and Ability window questions: the engine's battle chances (§4.4, §5.3). */
+  battle?: OwnBattle;
 }
 
-export type Difficulty = 'easy' | 'normal';
+export type Difficulty = 'easy' | 'normal' | 'hard';
 
 export interface DecideRequest {
   /** One AI turn: up to `requestsPerTurn` Jev requests share it. */
@@ -149,6 +169,8 @@ export interface OrchestratorDecision {
   requests: number;
   /** For the caller to append to the game log; replay reads them and never calls Jev. */
   events: JevDecisionEvent[];
+  /** Jev's numbers for the demo panel, copied from its answer; only a Jev decision has them. */
+  detail?: DecisionDetail;
 }
 
 export interface OrchestratorOptions {
@@ -165,9 +187,27 @@ export interface OrchestratorOptions {
    * of a game that may be dropped and made again, so the limits survive; defaults to a new one.
    */
   quota?: GameQuota;
+  /**
+   * Hard's rollouts (spec §5.6); defaults to `hardOutcomesYielding`, which lets other requests run
+   * between sampled worlds. A test may replace it, and it may return `undefined`, which plays the
+   * decision as Normal.
+   */
+  outcomes?: (
+    request: HardRequest,
+  ) => OptionOutcomes | undefined | Promise<OptionOutcomes | undefined>;
+  /** Stops a Hard decision's rollouts this many ms in, and takes that time off Jev's deadline; none by default. */
+  rolloutMs?: number;
 }
 
 const SAMPLE_RANGE = 2 ** 32;
+
+/** Questions whose Hard play is Normal: the engine's rollouts do not cover them (spec §5.6). */
+const NO_ROLLOUT: ReadonlySet<ChoiceQuestion> = new Set([
+  'promise_response',
+  'pvp_response',
+  'ability_window',
+  'reward',
+]);
 
 /** How many AI turns of one game a quota tracks; a game has far fewer, so this only bounds abuse. */
 export const MAX_TRACKED_TURNS = 2_000;
@@ -222,6 +262,8 @@ export class Orchestrator {
   readonly #decisionMs: number;
   readonly #usage: UsageRecorder | undefined;
   readonly #gameId: string;
+  readonly #outcomes: NonNullable<OrchestratorOptions['outcomes']>;
+  readonly #rolloutMs: number | undefined;
 
   constructor({
     client,
@@ -230,7 +272,11 @@ export class Orchestrator {
     usage,
     gameId,
     quota = new GameQuota(),
+    outcomes = hardOutcomesYielding,
+    rolloutMs,
   }: OrchestratorOptions) {
+    this.#outcomes = outcomes;
+    this.#rolloutMs = rolloutMs;
     this.#quota = quota;
     this.usage = quota.meter;
     this.#client = client;
@@ -247,13 +293,19 @@ export class Orchestrator {
     const log = { turnKey: request.turnKey, decision: this.#quota.nextDecision(), finished };
     try {
       const { phase } = request.observation.public;
-      // Responder decisions use the `auto` policy until S09 and S10 add their question builders.
-      if (
-        request.decisionPoint === 'promise_response' ||
-        request.decisionPoint === 'deal_response'
-      ) {
-        return policyDecision(request, 'auto', null);
+      if (request.decisionPoint === 'promise_response') {
+        return await this.#decideChoice(request, 'promise_response', log);
       }
+      // Battle decisions (§4.4, §5.3), asked of the engine's pending seat whatever the phase.
+      if (
+        request.decisionPoint === 'pvp_response' ||
+        request.decisionPoint === 'ability_window' ||
+        request.decisionPoint === 'reward'
+      ) {
+        return await this.#decideChoice(request, request.decisionPoint, log);
+      }
+      // The deal response uses the `auto` policy until S10 adds its question builder.
+      if (request.decisionPoint === 'deal_response') return policyDecision(request, 'auto', null);
       if (phase.kind === 'strategy' || phase.kind === 'encounter') {
         return await this.#decideChoice(request, phase.kind, log);
       }
@@ -271,28 +323,81 @@ export class Orchestrator {
   ): Promise<OrchestratorDecision> {
     const { observation, legalActions, personality, facts } = request;
     const enabled = legalActions.enabled;
-    let decision;
-    if (question === 'strategy') {
-      decision = buildStrategyQuestion(observation, enabled, personality);
-    } else {
-      if (!facts.encounter && enabled.length > 1) {
-        return policyDecision(
-          request,
-          'fallback',
-          this.#blocked(request.turnKey) ?? 'missing_facts',
-        );
+    if (question === 'promise_response' && !pendingPromise(observation)) {
+      // Only the pending responder is asked, and only about a promise (§4.8, #143).
+      return policyDecision(request, 'auto', null);
+    }
+    if (question === 'pvp_response' && !pendingPvpResponse(observation)) {
+      return policyDecision(request, 'auto', null);
+    }
+    if (question === 'reward' && !pendingReward(observation)) {
+      return policyDecision(request, 'auto', null);
+    }
+    if (question === 'ability_window' && !openAbilityWindow(observation)) {
+      return policyDecision(request, 'auto', null);
+    }
+    // A battle's chances come from the engine; without them the question is not asked. A private
+    // Pickpocket reaction has no battle, so it needs none.
+    const needsBattle =
+      question === 'pvp_response' ||
+      (question === 'ability_window' && !observation.own.pickpocketReaction);
+    if (needsBattle && !facts.battle && enabled.length > 1) {
+      return policyDecision(request, 'fallback', this.#blocked(request.turnKey) ?? 'missing_facts');
+    }
+    if (question === 'encounter' && !facts.encounter && enabled.length > 1) {
+      return policyDecision(request, 'fallback', this.#blocked(request.turnKey) ?? 'missing_facts');
+    }
+    const build = (outcomes?: OptionOutcomes) => {
+      if (question === 'strategy') {
+        return buildStrategyQuestion(observation, enabled, personality, outcomes);
       }
-      decision = buildEncounterQuestion(
+      if (question === 'promise_response') {
+        return buildPromiseResponseQuestion(observation, enabled, personality);
+      }
+      if (question === 'pvp_response') {
+        return buildPvpResponseQuestion(observation, enabled, personality, facts.battle);
+      }
+      if (question === 'ability_window') {
+        return buildReactionQuestion(observation, enabled, personality, facts.battle);
+      }
+      if (question === 'reward') return buildRewardQuestion(observation, enabled, personality);
+      return buildEncounterQuestion(
         observation,
         enabled,
         facts.encounter ?? { odds: [] },
         personality,
+        outcomes,
       );
-    }
+    };
+    let decision = build();
     if (decision.kind !== 'ask') return policyDecision(request, 'auto', null);
     const blocked = this.#blocked(request.turnKey);
     if (blocked) return policyDecision(request, 'fallback', blocked);
-    const asked = await this.#askAll(request, [decision], log);
+    // Spec §5.6 Hard: the engine's rollouts add expected-outcome buckets to each option before the
+    // argmax. With a rollout limit set (the server's), their time comes off Jev's deadline, so the
+    // whole decision stays inside it; without one (the sim, which has no clock) Jev keeps all of it.
+    let rolloutSpent = 0;
+    // The battle decisions are answered on their own question, like the promise: no rollouts.
+    if (request.difficulty === 'hard' && !NO_ROLLOUT.has(question)) {
+      const started = performance.now();
+      const outcomes = await this.#outcomes({
+        observation,
+        legalActions,
+        options: Object.values(decision.options),
+        personality,
+        seed: request.rng.int(SAMPLE_RANGE),
+        ...(this.#rolloutMs !== undefined && { deadlineMs: this.#rolloutMs }),
+      });
+      if (this.#rolloutMs !== undefined) rolloutSpent = performance.now() - started;
+      if (outcomes) decision = build(outcomes);
+    }
+    if (decision.kind !== 'ask') return policyDecision(request, 'auto', null);
+    const asked = await this.#askAll(
+      request,
+      [decision],
+      log,
+      Math.max(0, this.#decisionMs - rolloutSpent),
+    );
     if (!('results' in asked)) return this.#fellBack(request, asked.fallbackReason, asked);
     const [result] = asked.results;
     const answer = result!.answers[question];
@@ -322,11 +427,16 @@ export class Orchestrator {
       fallbackReason: null,
       ...extra,
     });
+    const detailOf = (): DecisionDetail => ({
+      questionId: question,
+      confidence: answer.confidence,
+      options: ids.map((id) => ({ id, probability: probabilities[id]! })),
+    });
     if (request.difficulty === 'easy') {
       const draw = request.rng.int(SAMPLE_RANGE);
       const choice = sample(ids, probabilities, draw);
       if (choice === undefined) return this.#fellBack(request, 'invalid_choice', asked);
-      return jevDecision(choice, asked.requests, [event(choice, { sampled: draw })]);
+      return jevDecision(choice, asked.requests, [event(choice, { sampled: draw })], detailOf());
     }
     // Normal: the highest-probability option; ties keep the engine's order.
     const top = ids.reduce((best, id) => (probabilities[id]! > probabilities[best]! ? id : best));
@@ -341,7 +451,7 @@ export class Orchestrator {
     });
     const choice = fallback.choice as string;
     if (fallback.fallbackReason === null) {
-      return jevDecision(choice, asked.requests, [event(choice, {})]);
+      return jevDecision(choice, asked.requests, [event(choice, {})], detailOf());
     }
     return {
       choice,
@@ -356,6 +466,10 @@ export class Orchestrator {
     const { observation, legalActions, personality, facts } = request;
     const sales = legalActions.enabled.filter((action) => action.kind === 'sell');
     if (sales.length === 0) return policyDecision(request, 'auto', null);
+    // Spec §5.6: the last Sell Phase sells everything unless a Gym follows; Jev is not asked.
+    if (lastSellChoice(observation, legalActions.enabled) !== undefined) {
+      return policyDecision(request, 'auto', null);
+    }
     if (!facts.sell) {
       return policyDecision(request, 'fallback', this.#blocked(request.turnKey) ?? 'missing_facts');
     }
@@ -373,12 +487,14 @@ export class Orchestrator {
     if (!('results' in asked)) return this.#fellBack(request, asked.fallbackReason, asked);
     const answers: Record<string, JevAnswer> = {};
     const events: JevDecisionEvent[] = [];
+    const sellOptions: DecisionDetail['options'] = [];
     for (const [index, sellRequest] of requests.entries()) {
       const result = asked.results[index]!;
       for (const label of Object.keys(sellRequest.questions)) {
         const answer = result.answers[label];
         if (answer?.type !== 'noul') return this.#fellBack(request, 'schema_mismatch', asked);
         const sell = decideSales({ [label]: answer }, personality).length > 0;
+        sellOptions.push({ id: sellRequest.options[label]!, probability: answer.noul });
         events.push({
           requestId: result.requestId ?? null,
           model: result.model,
@@ -399,7 +515,12 @@ export class Orchestrator {
     const sellUids = [...decideSales(answers, personality), ...overBudget];
     const choice = sellChoice(legalActions.enabled, sellUids);
     if (choice === undefined) return this.#fellBack(request, 'invalid_choice', asked);
-    return jevDecision(choice, asked.requests, events);
+    // A Noul answer has no confidence of its own, so the sale detail carries none (never computed).
+    return jevDecision(choice, asked.requests, events, {
+      questionId: 'sell',
+      confidence: null,
+      options: sellOptions,
+    });
   }
 
   /**
@@ -408,10 +529,40 @@ export class Orchestrator {
    */
   #blocked(turnKey: string): OrchestratorFallbackReason | undefined {
     if (!jevEnabled()) return 'disabled';
-    if (this.#usage?.budgetExceeded()) return 'budget_exceeded';
+    if (this.#spendGuardTrips()) return 'budget_exceeded';
     if (this.usage.totals().inputTokens >= this.#config.inputTokensPerGame) return 'token_budget';
     if (this.#quota.requests(turnKey) >= this.#config.requestsPerTurn) return 'request_limit';
     return undefined;
+  }
+
+  /**
+   * Whether the spend guard stops a request now. A guard that throws counts as tripped: with the
+   * spend unknown no request goes out, and the policy decides (spec §9); the error's class is
+   * logged, never its message.
+   */
+  #spendGuardTrips(): boolean {
+    try {
+      return this.#usage?.budgetExceeded() ?? false;
+    } catch (error) {
+      warnLedgerFailed('The spend guard failed; the fallback decides', error);
+      return true;
+    }
+  }
+
+  /**
+   * Holds the estimated cost of one request before it goes out (spec §9). `undefined` when there
+   * is no recorder or it does not reserve; `null` when the request must not go out, including when
+   * the guard throws.
+   */
+  #reserveSpend(): (() => void) | null | undefined {
+    const usage = this.#usage;
+    if (!usage?.reserve) return undefined;
+    try {
+      return usage.reserve();
+    } catch (error) {
+      warnLedgerFailed('The spend guard failed; the fallback decides', error);
+      return null;
+    }
   }
 
   /**
@@ -422,9 +573,10 @@ export class Orchestrator {
     request: DecideRequest,
     asks: readonly JevRequest[],
     log: DecisionLog,
+    deadlineMs = this.#decisionMs,
   ): Promise<Asked> {
     const deadline = new AbortController();
-    const timer = setTimeout(() => deadline.abort(), this.#decisionMs);
+    const timer = setTimeout(() => deadline.abort(), deadlineMs);
     const expired = new Promise<undefined>((resolve) =>
       deadline.signal.addEventListener('abort', () => resolve(undefined), { once: true }),
     );
@@ -435,12 +587,21 @@ export class Orchestrator {
         if (this.#quota.requests(request.turnKey) >= this.#config.requestsPerTurn) {
           return { fallbackReason: 'request_limit', requests };
         }
+        // Reserved before the call and settled after, so decisions that run at once cannot all pass the cap (§9).
+        const release = this.#reserveSpend();
+        if (release === null) return { fallbackReason: 'budget_exceeded', requests };
         this.#quota.reserve(request.turnKey);
         requests++;
-        const call = this.#client.ask({ state, questions }, { decisionSignal: deadline.signal });
+        let call: Promise<JevResult>;
+        try {
+          call = this.#client.ask({ state, questions }, { decisionSignal: deadline.signal });
+        } catch (error) {
+          release?.();
+          throw error;
+        }
         // A late or unusable answer still counts its tokens against the game's budget.
-        void call.then((result) => this.usage.record(result));
-        this.#logRequest(call, log);
+        void call.then((result) => this.usage.record(result)).catch(warnJevRejected);
+        this.#logRequest(call, log, release);
         // §5.6: return at the deadline even if the client does not, and never apply an answer
         // that lands after it, even a valid one.
         const result = await Promise.race([call, expired]);
@@ -461,17 +622,20 @@ export class Orchestrator {
   }
 
   /** Spec §9: one usage line per request that went out, written once its decision returns. */
-  #logRequest(call: Promise<JevResult>, log: DecisionLog): void {
+  #logRequest(call: Promise<JevResult>, log: DecisionLog, release?: () => void): void {
     const usage = this.#usage;
     if (!usage) return;
     const time = new Date().toISOString();
     const sent = performance.now();
-    const answered = call.then((result) => ({
-      result,
-      latencyMs: Math.round(performance.now() - sent),
-    }));
+    // A rejected call is logged where it is made; it has no usage to write.
+    const answered = call.then(
+      (result) => ({ result, latencyMs: Math.round(performance.now() - sent) }),
+      () => undefined,
+    );
     void Promise.all([answered, log.finished])
-      .then(([{ result, latencyMs }, decisionMs]) => {
+      .then(([answer, decisionMs]) => {
+        if (!answer) return;
+        const { result, latencyMs } = answer;
         const billed = billedUsage(result);
         if (!billed) return;
         usage.record({
@@ -490,8 +654,10 @@ export class Orchestrator {
         });
       })
       .catch((error: unknown) => {
-        console.warn(`Could not write the Jev usage log: ${String(error)}`);
-      });
+        warnLedgerFailed('Could not write the Jev usage log', error);
+      })
+      // The line, or the lack of one, replaces the estimate held for this request.
+      .finally(() => release?.());
   }
 
   #fellBack(
@@ -526,35 +692,20 @@ function sample(
   return ids.findLast((id) => probabilities[id]! > 0);
 }
 
-/**
- * The listed action for this sale: the finish for none (an empty sale in the current engine,
- * `finish_sell` in older saves), the one-Pokémon sale, or a batch.
- */
-function sellChoice(enabled: readonly LegalAction[], sellUids: string[]): PolicyChoice | undefined {
-  if (sellUids.length === 0) {
-    return enabled.find(
-      (action) =>
-        action.kind === 'finish_sell' ||
-        (action.kind === 'sell' && action.payload.pokemonInstanceIds.length === 0),
-    )?.id;
-  }
-  const sales = enabled.filter((action) => action.kind === 'sell');
-  const single = (id: string) =>
-    sales.find(
-      (action) =>
-        action.payload.pokemonInstanceIds.length === 1 &&
-        action.payload.pokemonInstanceIds[0] === id,
-    );
-  if (!sellUids.every((id) => single(id))) return undefined;
-  return sellUids.length === 1 ? single(sellUids[0]!)!.id : { sellUids };
-}
-
 function jevDecision(
   choice: PolicyChoice,
   requests: number,
   events: JevDecisionEvent[],
+  detail?: DecisionDetail,
 ): OrchestratorDecision {
-  return { choice, source: 'jev', fallbackReason: null, requests, events };
+  return {
+    choice,
+    source: 'jev',
+    fallbackReason: null,
+    requests,
+    events,
+    ...(detail && { detail }),
+  };
 }
 
 /** The fallback policy's choice, logged as one event for the decision point. */

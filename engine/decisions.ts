@@ -9,6 +9,7 @@ export function pendingDecision(state: GameState): { seatIndex: number; actorId:
   let seatIndex = state.activeSeatIndex;
   // A promise question (§4.8) is answered by its responder while the active seat waits.
   if (state.pendingResponse) seatIndex = state.pendingResponse.responderSeatIndex;
+  else if (state.pendingPickpocket) seatIndex = state.pendingPickpocket.targetSeatIndex;
   else if (state.phase.kind === 'pvp') {
     const battle = state.phase.battle;
     if (battle.step === 'response' || battle.step === 'defender_window') {
@@ -46,6 +47,7 @@ export type EngineDecisionPoint =
 
 export function decisionPoint(state: GameState): EngineDecisionPoint | null {
   if (!pendingDecision(state)) return null;
+  if (state.pendingPickpocket) return 'ability_window';
   const phase = state.phase;
   switch (phase.kind) {
     case 'pvp':
@@ -70,16 +72,4 @@ export function decisionPoint(state: GameState): EngineDecisionPoint | null {
   }
 }
 
-/**
- * The §4.2 social window: only a human seat, in its own Social phase, may open one conversation
- * with one opponent; AI seats never start conversations, so there is no AI↔AI talk. It spends no
- * tactical action. Conversation content and deals belong to the chat/deal work (§4.8).
- */
-export function socialTargets(state: GameState): number[] {
-  if (state.phase.kind !== 'social') return [];
-  const active = state.config.seats.find((seat) => seat.seatIndex === state.activeSeatIndex);
-  if (active?.controller !== 'human') return [];
-  return state.players
-    .map((player) => player.seatIndex)
-    .filter((seatIndex) => seatIndex !== state.activeSeatIndex);
-}
+export { socialTargets } from './social.ts';
