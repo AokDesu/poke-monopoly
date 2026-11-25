@@ -217,12 +217,16 @@ export interface OrchestratorOptions {
 
 const SAMPLE_RANGE = 2 ** 32;
 
-/** Questions whose Hard play is Normal: the engine's rollouts do not cover them (spec §5.6). */
+/**
+ * Questions whose Hard play is Normal: Hard plays every decision outside Strategy and Encounter
+ * as Normal, because the engine's rollouts do not cover them (spec §5.6).
+ */
 const NO_ROLLOUT: ReadonlySet<ChoiceQuestion> = new Set([
   'promise_response',
   'pvp_response',
   'ability_window',
   'reward',
+  'deal',
 ]);
 
 /** How many AI turns of one game a quota tracks; a game has far fewer, so this only bounds abuse. */
@@ -421,7 +425,7 @@ export class Orchestrator {
     // argmax. With a rollout limit set (the server's), their time comes off Jev's deadline, so the
     // whole decision stays inside it; without one (the sim, which has no clock) Jev keeps all of it.
     let rolloutSpent = 0;
-    // The battle decisions are answered on their own question, like the promise: no rollouts.
+    // The promise, the battle decisions and the Deal Card are answered on their own question: no rollouts.
     if (request.difficulty === 'hard' && !NO_ROLLOUT.has(question)) {
       const started = performance.now();
       const outcomes = await this.#outcomes({

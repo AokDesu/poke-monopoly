@@ -315,6 +315,21 @@ describe('within budget: Jev answers accept, reject or counter (spec §5.3)', ()
     );
     expect(decision).toMatchObject({ source: 'fallback', fallbackReason: 'revision_mismatch' });
   });
+
+  test('Hard plays a Deal Card as Normal: no rollouts, and the same answer (spec §5.6)', async () => {
+    const outcomes = vi.fn();
+    const hard = await new Orchestrator({
+      client: createFakeJevClient(() => choose('accept')),
+      outcomes,
+    }).decide(decideRequest(fair(), 'greedy', { difficulty: 'hard' }));
+    expect(outcomes).not.toHaveBeenCalled();
+    const normal = await new Orchestrator({
+      client: createFakeJevClient(() => choose('accept')),
+    }).decide(decideRequest(fair()));
+    expect(hard).toMatchObject({ choice: 'respond-deal:accept', source: 'jev' });
+    expect(hard.choice).toBe(normal.choice);
+    expect(hard.source).toBe(normal.source);
+  });
 });
 
 describe('what Jev is sent for a deal (spec §5.4)', () => {
