@@ -1,3 +1,4 @@
+import { JevAdmission } from '../admission.ts';
 import { CHAT_TUNING } from '../chat.ts';
 import { billedUsage } from '../jev/usage.ts';
 import { decisionDeadline, resolveJevModel, type JevClient } from '../jev/client.ts';
@@ -30,6 +31,12 @@ export interface GateOptions {
   /** Made on first use; defaults to the Jev SDK client, which the caller supplies so tests need no key. */
   client: () => JevClient;
   usage?: () => UsageRecorder;
+  /**
+   * The caps a Jev decision has (spec §9): the turn's request limit, the game's token budget, the
+   * spend reservation and the server-wide window. Shared with the decider in the app; a private
+   * one over `usage` by default. A check it refuses is `unavailable`, as ever.
+   */
+  admission?: JevAdmission;
   threshold?: number;
   deadlineMs?: number;
 }
@@ -42,20 +49,25 @@ export interface GateOptions {
 export const createManipulationGate = ({
   client,
   usage = defaultUsageLedger,
+  admission = new JevAdmission({ usage }),
   threshold = MANIPULATION_THRESHOLD,
   deadlineMs = GATE_DEADLINE_MS,
 }: GateOptions): ManipulationGate => {
   let jev: JevClient | undefined;
   return {
     async check({ gameId, turnKey, ...message }) {
+      let release = () => {};
       try {
         const ledger = usage();
-        if (ledger.budgetExceeded()) return 'unavailable';
+        const admitted = admission.admit(gameId, turnKey);
+        if ('reason' in admitted) return 'unavailable';
+        release = admitted.release;
         const request = buildManipulationRequest(message);
         jev ??= client();
         const time = new Date().toISOString();
         const started = performance.now();
         const result = await jev.ask(request, { decisionSignal: decisionDeadline(deadlineMs) });
+        admitted.quota.meter.record(result);
         const latencyMs = Math.round(performance.now() - started);
         const billed = billedUsage(result);
         if (billed) {
@@ -84,6 +96,8 @@ export const createManipulationGate = ({
       } catch {
         // Never the error text: it may name the line.
         return 'unavailable';
+      } finally {
+        release();
       }
     },
   };

@@ -20,6 +20,7 @@ import {
   type JevSuccess,
 } from './jev/client.ts';
 import { warnLedgerFailed, type UsageRecorder } from './jev/spend.ts';
+import type { RequestWindow } from './jev/window.ts';
 import { billedUsage, UsageMeter } from './jev/usage.ts';
 import {
   buildEncounterQuestion,
@@ -187,6 +188,8 @@ export interface OrchestratorOptions {
    * of a game that may be dropped and made again, so the limits survive; defaults to a new one.
    */
   quota?: GameQuota;
+  /** The server-wide window every request takes from (spec §9, #64); none for the sim and fakes. */
+  window?: RequestWindow;
   /**
    * Hard's rollouts (spec §5.6); defaults to `hardOutcomesYielding`, which lets other requests run
    * between sampled worlds. A test may replace it, and it may return `undefined`, which plays the
@@ -264,6 +267,7 @@ export class Orchestrator {
   readonly #gameId: string;
   readonly #outcomes: NonNullable<OrchestratorOptions['outcomes']>;
   readonly #rolloutMs: number | undefined;
+  readonly #window: RequestWindow | undefined;
 
   constructor({
     client,
@@ -272,9 +276,11 @@ export class Orchestrator {
     usage,
     gameId,
     quota = new GameQuota(),
+    window,
     outcomes = hardOutcomesYielding,
     rolloutMs,
   }: OrchestratorOptions) {
+    this.#window = window;
     this.#outcomes = outcomes;
     this.#rolloutMs = rolloutMs;
     this.#quota = quota;
@@ -590,6 +596,10 @@ export class Orchestrator {
         // Reserved before the call and settled after, so decisions that run at once cannot all pass the cap (§9).
         const release = this.#reserveSpend();
         if (release === null) return { fallbackReason: 'budget_exceeded', requests };
+        if (this.#window && !this.#window.take()) {
+          release?.();
+          return { fallbackReason: 'request_limit', requests };
+        }
         this.#quota.reserve(request.turnKey);
         requests++;
         let call: Promise<JevResult>;

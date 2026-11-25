@@ -20,6 +20,7 @@ import {
 } from '../haiku/client.ts';
 import { speechStatus } from '../haiku/status.ts';
 import { SPEND_CONFIG, type SpendConfig, type UsageRecorder } from '../jev/spend.ts';
+import type { RequestWindow } from '../jev/window.ts';
 import { LINES, type Situation } from '../lines.ts';
 import { CONTENT } from '../questions/content.ts';
 import {
@@ -73,6 +74,11 @@ export interface SpeakerOptions {
    * reply is ever written: a line nobody checked is never quoted.
    */
   gate?: ManipulationGate;
+  /**
+   * The server-wide Haiku window (spec §9, #64): past it a line is `rate_limited` and nothing is
+   * sent, whatever game ID the request names. None by default.
+   */
+  window?: RequestWindow;
   /** One line per rejected reply: the reason and a running count, never the text. */
   log?: (message: string) => void;
 }
@@ -116,6 +122,7 @@ export const createSpeaker = ({
   deadlineMs = HAIKU_DEADLINE_MS,
   config = SPEND_CONFIG,
   gate,
+  window,
   log = (message) => console.info(message),
 }: SpeakerOptions): Speaker => {
   const quotas = new Map<string, SpeechQuota>();
@@ -166,6 +173,7 @@ export const createSpeaker = ({
     try {
       const stop = await before?.();
       if (stop) return { ok: false, reason: stop };
+      if (window && !window.take()) return { ok: false, reason: 'rate_limited' };
       // Counted when it settles, even after the deadline: a late answer's tokens were spent.
       call = (async () => client.write(haikuRequest))()
         .catch((): HaikuFailure => ({ ok: false, fallbackReason: 'network' }))

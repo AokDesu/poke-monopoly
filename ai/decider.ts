@@ -8,16 +8,13 @@ import { createPolicyRng, type PolicyChoice, type PolicyFacts } from '../sim/pol
 import { ownBattle } from './battle.ts';
 import { FallbackPolicy, PERSONALITIES } from './fallback/index.ts';
 import { HARD_ROLLOUT_MS } from './hard.ts';
+import { QuotaBook } from './admission.ts';
 import { createSdkJevClient, jevEnabled, type JevClient } from './jev/client.ts';
 import type { DecisionEvent } from './jev/decision-log.ts';
 import { defaultUsageLedger, warnLedgerFailed, type UsageRecorder } from './jev/spend.ts';
+import type { RequestWindow } from './jev/window.ts';
 import type { SellFacts } from './questions/index.ts';
-import {
-  GameQuota,
-  Orchestrator,
-  type DecideFacts,
-  type OrchestratorDecision,
-} from './orchestrator.ts';
+import { Orchestrator, type DecideFacts, type OrchestratorDecision } from './orchestrator.ts';
 
 /** What a decider picks: an action ID, or the Pokémon to sell at the Sell Phase. */
 export type DeciderPick = { choice: string } | { sellUids: string[] };
@@ -108,6 +105,10 @@ export interface OrchestratorDeciderOptions {
   /** How long Hard's rollouts may run per decision; defaults to `HARD_ROLLOUT_MS`. */
   rolloutMs?: number;
   maxGames?: number;
+  /** The games' quotas, shared with the chat route and the gate so one game has one count; new by default. */
+  quotas?: QuotaBook;
+  /** The server-wide Jev window (spec §9, #64); none by default. */
+  window?: RequestWindow;
 }
 
 /**
@@ -265,7 +266,8 @@ const touch = <V>(cache: Map<string, V>, key: string, make: () => V, max: number
 
 /**
  * Spec §5.2, §5.6, §9: one `Orchestrator` per game, from a bounded cache, over a game's `GameQuota`
- * that is never evicted (a few counters per game, kept while the server runs), so the per-turn
+ * from a `QuotaBook` that never evicts (bounded: past its size new IDs share one overflow quota,
+ * so an invented ID gets no fresh budget), so the per-turn
  * request limit, the per-game token budget and the decision numbers hold across requests and
  * across evictions. The real client is made only when Jev is enabled with a key and the spend
  * guard is not tripped; otherwise, and when the client cannot be made, the fallback policy decides.
@@ -277,14 +279,13 @@ export const createOrchestratorDecider = ({
   decisionMs,
   rolloutMs = HARD_ROLLOUT_MS,
   maxGames = MAX_CACHED_GAMES,
+  quotas = new QuotaBook(),
+  window,
 }: OrchestratorDeciderOptions = {}): Decider => {
   const games = new Map<string, Orchestrator>();
-  const quotas = new Map<string, GameQuota>();
   let jev: JevClient | undefined;
 
   const orchestratorFor = (gameId: string): Orchestrator => {
-    let quota = quotas.get(gameId);
-    if (!quota) quotas.set(gameId, (quota = new GameQuota()));
     return touch(
       games,
       gameId,
@@ -294,7 +295,8 @@ export const createOrchestratorDecider = ({
         return new Orchestrator({
           client: jev,
           gameId,
-          quota,
+          quota: quotas.for(gameId),
+          ...(window && { window }),
           ...(decisionMs !== undefined && { decisionMs }),
           rolloutMs,
           ...(recorder && { usage: recorder }),
