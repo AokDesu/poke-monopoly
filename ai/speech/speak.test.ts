@@ -84,7 +84,7 @@ function setup(
   const app = createApp({
     usage: () => noCap,
     // These tests count the per-game limits; the server-wide window has its own tests (#64).
-    limits: { haikuWindow: new RequestWindow(Infinity) },
+    limits: { haikuWindow: new RequestWindow(Infinity), apiWindow: new RequestWindow(Infinity) },
     ...speech,
     speech: { client, env: ON, log: (line) => logs.push(line), ...speech.speech },
   });

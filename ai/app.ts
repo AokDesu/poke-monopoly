@@ -36,6 +36,7 @@ import { RequestWindow, SERVER_LIMITS } from './jev/window.ts';
 import { createHaikuClient } from './haiku/client.ts';
 import { speechStatus } from './haiku/status.ts';
 import { presentationHeaders } from './presentation.ts';
+import { apiRateLimit, securityHeaders } from './security.ts';
 import { decideShop, shopRequestSchema } from './shop.ts';
 import { createManipulationGate } from './speech/gate.ts';
 import { loopbackHost, sameOriginJson } from './speech/guard.ts';
@@ -69,7 +70,12 @@ export interface AppOptions {
    * The limits the ID-keyed counts cannot give (spec §9, #64), shared by every route: the games'
    * quotas and the server-wide Jev and Haiku windows. Fresh ones with `SERVER_LIMITS` by default.
    */
-  limits?: { quotas?: QuotaBook; jevWindow?: RequestWindow; haikuWindow?: RequestWindow };
+  limits?: {
+    quotas?: QuotaBook;
+    jevWindow?: RequestWindow;
+    haikuWindow?: RequestWindow;
+    apiWindow?: RequestWindow;
+  };
 }
 
 /** Copies only IDs and telemetry, so nothing else a decider returns can reach the browser. */
@@ -102,6 +108,9 @@ export const createApp = ({
   const quotas = limits?.quotas ?? new QuotaBook();
   const jevWindow = limits?.jevWindow ?? new RequestWindow(SERVER_LIMITS.jevRequestsPerWindow);
   const haikuWindow = limits?.haikuWindow ?? new RequestWindow(SERVER_LIMITS.haikuCallsPerWindow);
+  const limited = apiRateLimit(
+    limits?.apiWindow ?? new RequestWindow(SERVER_LIMITS.apiRequestsPerWindow),
+  );
   const admission = new JevAdmission({ usage, quotas, window: jevWindow });
   chatReplier ??= createChatReplier({
     usage,
@@ -115,6 +124,7 @@ export const createApp = ({
     ...(jevClient && { client: jevClient }),
   });
   const app = new Hono();
+  app.use('*', securityHeaders);
   const journal = new DecisionJournal(decisionLog);
   const chats = new ChatLedger();
   const speaker = createSpeaker({
@@ -133,7 +143,7 @@ export const createApp = ({
     return c.json({ error: 'internal_error' }, 500);
   });
 
-  app.get('/api/ai/status', loopbackHost, (c) =>
+  app.get('/api/ai/status', loopbackHost, limited, (c) =>
     c.json(
       aiStatusSchema.parse({
         ...jevStatus(usage),
@@ -148,6 +158,7 @@ export const createApp = ({
   app.post(
     '/api/ai/outcome',
     sameOriginJson,
+    limited,
     bodyLimit({
       maxSize: MAX_BODY_BYTES,
       onError: (c) => c.json({ error: 'payload_too_large' }, 413),
@@ -177,6 +188,7 @@ export const createApp = ({
   app.post(
     '/api/ai/chat',
     sameOriginJson,
+    limited,
     bodyLimit({
       maxSize: MAX_BODY_BYTES,
       onError: (c) => c.json({ error: 'payload_too_large' }, 413),
@@ -214,6 +226,7 @@ export const createApp = ({
   app.post(
     '/api/ai/speak',
     sameOriginJson,
+    limited,
     bodyLimit({
       maxSize: MAX_SPEAK_BODY_BYTES,
       onError: (c) => c.json({ error: 'payload_too_large' }, 400),
@@ -260,6 +273,7 @@ export const createApp = ({
     app.post(
       path,
       sameOriginJson,
+      limited,
       bodyLimit({
         maxSize: MAX_BODY_BYTES,
         onError: (c) => c.json({ error: 'payload_too_large' }, 413),

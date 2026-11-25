@@ -12,6 +12,8 @@ export const SERVER_LIMITS = Object.freeze({
   jevRequestsPerWindow: 300,
   /** Haiku calls per window, all games. */
   haikuCallsPerWindow: 60,
+  /** Every `/api/ai/*` request that passes the same-origin check, per window, all routes (#64). */
+  apiRequestsPerWindow: 1_200,
 });
 
 /** At most `max` requests in any `windowMs`, counted when they are taken; a refusal counts nothing. */
