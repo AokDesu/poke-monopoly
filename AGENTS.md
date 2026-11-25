@@ -28,16 +28,17 @@ npm run eval:jev -- --offline
 
 ## Folders
 
-| Folder     | Rule                                                             |
-| ---------- | ---------------------------------------------------------------- |
-| `engine/`  | Pure rules, no IO. The only place numbers are computed.          |
-| `content/` | Game data and text. No logic.                                    |
-| `ai/`      | Server only. Holds the Jev and Haiku keys. Never imports `web/`. |
-| `web/`     | Browser UI. Never imports `ai/`.                                 |
-| `sim/`     | Simulation CLI.                                                  |
-| `eval/`    | Jev evaluation (`eval/jev/`).                                    |
-| `docs/`    | The spec and team guides.                                        |
-| `skills/`  | Project skills, listed below.                                    |
+| Folder      | Rule                                                             |
+| ----------- | ---------------------------------------------------------------- |
+| `engine/`   | Pure rules, no IO. The only place numbers are computed.          |
+| `content/`  | Game data and text. No logic.                                    |
+| `ai/`       | Server only. Holds the Jev and Haiku keys. Never imports `web/`. |
+| `web/`      | Browser UI. Never imports `ai/`.                                 |
+| `sim/`      | Simulation CLI.                                                  |
+| `eval/`     | Jev evaluation (`eval/jev/`).                                    |
+| `playtest/` | Playtest sheet tools. Files only; never imports `ai/` or `web/`. |
+| `docs/`     | The spec and team guides.                                        |
+| `skills/`   | Project skills, listed below.                                    |
 
 ## Skills
 

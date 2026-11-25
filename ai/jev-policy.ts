@@ -4,7 +4,8 @@ import type { Policy, PolicyFacts, PolicyGame, PolicyRng } from '../sim/policy.t
 import { PERSONALITIES } from './fallback/index.ts';
 import { createSdkJevClient, disabledJevClient, jevEnabled, type JevClient } from './jev/client.ts';
 import { createChaosJevClient } from './jev/fake.ts';
-import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
+import { HARD_ROLLOUT_MS } from './hard.ts';
+import { costUsd, defaultUsageLedger, SPEND_CONFIG, type UsageRecorder } from './jev/spend.ts';
 import { pendingPromise } from './promises.ts';
 import { battleDecisionPoint } from './battle.ts';
 export { decisionRates, type DecisionRates } from './orchestrator.ts';
@@ -116,3 +117,105 @@ export function createJevPolicy(game: PolicyGame, difficulty: Difficulty = 'norm
  * carries the engine's rollout buckets. The sim draws every sample (no clock), so a run repeats.
  */
 export const createHardJevPolicy = (game: PolicyGame): JevPolicy => createJevPolicy(game, 'hard');
+
+/** `live`: the real service. `fake`: the seeded chaos client. `disabled`: `JEV_ENABLED=false`. */
+export type JevRunMode = 'live' | 'fake' | 'disabled';
+
+/**
+ * How Jev decides in this process: disabled by the kill switch, live with the key in the
+ * environment, otherwise the offline fake. `offline` ignores the key, for tests that must never
+ * reach the service.
+ */
+export function jevRunMode(offline = false): JevRunMode {
+  if (!jevEnabled()) return 'disabled';
+  return !offline && process.env.TYPESAFE_API_KEY?.trim() ? 'live' : 'fake';
+}
+
+/** What a duel game's Jev requests cost, from the live usage lines it wrote; `null` offline. */
+export type DuelUsage = {
+  requests: number;
+  inputTokens: number;
+  estimatedRequests: number;
+  thb: number;
+} | null;
+
+/** One duel game's orchestrator, shared by its seats like a server's, and its usage tally. */
+export type DuelRun = {
+  mode: JevRunMode;
+  orchestrator: Orchestrator;
+  /** Hard's rollout limit in this game, or `null` when the offline fake runs them untimed. */
+  rolloutMs: number | null;
+  usage(): DuelUsage;
+};
+
+/**
+ * Wraps the process ledger for one duel game: every line goes to the ledger as before, the spend
+ * guard (`budgetExceeded`, and `reserve` for the request about to go out) is the ledger's own, and
+ * the game's requests, input tokens, estimated requests and THB are tallied from the lines it records.
+ */
+export function tallyingRecorder(ledger: UsageRecorder): {
+  recorder: UsageRecorder;
+  usage(): NonNullable<DuelUsage>;
+} {
+  const tally = { requests: 0, inputTokens: 0, estimated: 0, thb: 0 };
+  return {
+    recorder: {
+      record(line) {
+        tally.requests += 1;
+        tally.inputTokens += line.inputTokens;
+        if (line.estimated) tally.estimated += 1;
+        tally.thb += costUsd(line) * SPEND_CONFIG.thbPerUsd;
+        ledger.record(line);
+      },
+      budgetExceeded: (provider) => ledger.budgetExceeded(provider),
+      ...(ledger.reserve && { reserve: (provider) => ledger.reserve!(provider) }),
+    },
+    usage: () => ({
+      requests: tally.requests,
+      inputTokens: tally.inputTokens,
+      estimatedRequests: tally.estimated,
+      thb: tally.thb,
+    }),
+  };
+}
+
+/**
+ * The G2 duel's Jev wiring (spec §5.6, §9). Live, the game gets the server's settings: a 1,500 ms
+ * decision deadline and Hard's rollouts stopped at `HARD_ROLLOUT_MS` inside it, with each request
+ * logged under `gameId` in `logs/jev-usage.jsonl` and held to the spend cap. Offline there is no
+ * clock to cut rollouts, so they run untimed and a dry run measures their compute only.
+ */
+export function createDuelRun(gameId: string, seed: number, offline = false): DuelRun {
+  const mode = jevRunMode(offline);
+  if (mode === 'live') {
+    const { recorder: counting, usage } = tallyingRecorder(defaultUsageLedger());
+    return {
+      mode,
+      rolloutMs: HARD_ROLLOUT_MS,
+      orchestrator: new Orchestrator({
+        client: createSdkJevClient(),
+        gameId,
+        usage: counting,
+        rolloutMs: HARD_ROLLOUT_MS,
+      }),
+      usage,
+    };
+  }
+  const offlineClient =
+    mode === 'disabled'
+      ? { client: disabledJevClient }
+      : { client: createChaosJevClient(`jev:${seed}`), decisionMs: OFFLINE_DECISION_MS };
+  return {
+    mode,
+    rolloutMs: null,
+    orchestrator: new Orchestrator({ ...offlineClient, gameId }),
+    usage: () => null,
+  };
+}
+
+/** A seat of a duel game: Greedy on `difficulty`, deciding through the game's one orchestrator. */
+export const createDuelSeat = (run: DuelRun, difficulty: Difficulty): JevPolicy =>
+  new JevPolicy(run.orchestrator, PERSONALITIES.greedy, difficulty);
+
+/** The spend guard's answer for the live ledger (§9): true once the cap or daily budget is reached. */
+export const jevBudgetExceeded = (): boolean => defaultUsageLedger().budgetExceeded();

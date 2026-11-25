@@ -3,7 +3,7 @@ import js from '@eslint/js';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
-const FOLDERS = ['ai', 'web', 'sim', 'eval'];
+const FOLDERS = ['ai', 'web', 'sim', 'eval', 'playtest'];
 const folderImport = (names) => `^(\\.{1,2}/)+(${names.join('|')})(/|$)`;
 const ADAPTERS = ['web/src/game/store.ts', 'web/src/game/save.ts', 'web/src/game/content.ts'];
 
@@ -52,7 +52,7 @@ const enginePurity = {
         { regex: '^node:', message: 'The engine has no IO.' },
         {
           regex: folderImport(FOLDERS),
-          message: 'engine/ must not import from ai, web, sim or eval.',
+          message: 'engine/ must not import from ai, web, sim, eval or playtest.',
         },
         { regex: '^@typesafe-ai/', message: 'The Jev SDK belongs in ai/ only.' },
       ],
@@ -168,6 +168,24 @@ export default defineConfig([
         {
           patterns: [
             { regex: '^(\\.{1,2}/)+ai/haiku(/|$)', message: 'eval/ must not import ai/haiku/.' },
+          ],
+        },
+      ],
+    },
+  },
+  // The playtest tools read files only (spec §8, §9): no server code, no browser code, no Jev SDK.
+  {
+    files: ['playtest/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: folderImport(['ai', 'web']),
+              message: 'playtest/ must not import from ai or web.',
+            },
+            { regex: '^@typesafe-ai/', message: 'The Jev SDK belongs in ai/ only.' },
           ],
         },
       ],

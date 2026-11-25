@@ -7,7 +7,18 @@ import {
   ImmediateAbilityPolicy,
 } from './exploits/combat.ts';
 
-export { decisionRates, type DecisionRates } from '../ai/jev-policy.ts';
+export {
+  createDuelRun,
+  createDuelSeat,
+  decisionRates,
+  jevBudgetExceeded,
+  jevRunMode,
+  type DecisionRates,
+  type DuelRun,
+  type DuelUsage,
+  type JevPolicy,
+  type JevRunMode,
+} from '../ai/jev-policy.ts';
 import {
   createRng,
   int,

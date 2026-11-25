@@ -15,18 +15,20 @@ Install with `npm ci`. Optionally copy `.env.example` to `.env`; the Jev key is 
 
 ## Commands
 
-| Command                                   | What it does                                                           |
-| ----------------------------------------- | ---------------------------------------------------------------------- |
-| `npm run dev`                             | API on port 8787 and web app on port 5173 together; `/api` is proxied  |
-| `npm run dev:api` / `npm run dev:web`     | Each one alone                                                         |
-| `npm run build`                           | Build the web app into `web/dist`                                      |
-| `npm start`                               | Serve the API and the built web app on port 8787                       |
-| `npm run typecheck`                       | TypeScript, strict                                                     |
-| `npm run lint`                            | ESLint, including the folder import and no-IO rules                    |
-| `npm run format` / `npm run format:check` | Prettier, write or check                                               |
-| `npm test`                                | Vitest                                                                 |
-| `npm run sim -- --games 100 --seed 1`     | Simulation CLI; prints one JSON line (`npm run -s` hides npm's banner) |
-| `npm run eval:jev -- --offline`           | Jev eval on recorded fixtures; no network, no key                      |
+| Command                                            | What it does                                                           |
+| -------------------------------------------------- | ---------------------------------------------------------------------- |
+| `npm run dev`                                      | API on port 8787 and web app on port 5173 together; `/api` is proxied  |
+| `npm run dev:api` / `npm run dev:web`              | Each one alone                                                         |
+| `npm run build`                                    | Build the web app into `web/dist`                                      |
+| `npm start`                                        | Serve the API and the built web app on port 8787                       |
+| `npm run typecheck`                                | TypeScript, strict                                                     |
+| `npm run lint`                                     | ESLint, including the folder import and no-IO rules                    |
+| `npm run format` / `npm run format:check`          | Prettier, write or check                                               |
+| `npm test`                                         | Vitest                                                                 |
+| `npm run sim -- --games 100 --seed 1`              | Simulation CLI; prints one JSON line (`npm run -s` hides npm's banner) |
+| `npm run eval:jev -- --offline`                    | Jev eval on recorded fixtures; no network, no key                      |
+| `npm run playtest:row -- <log.json> --code <code>` | Draft a playtest sheet row from an exported game log                   |
+| `npm run playtest:check -- <sheet.csv> [...]`      | Check playtest sheets against the template and the privacy rules       |
 
 CI (job `ci`) runs typecheck, lint, format check, tests, the sim and the offline eval on every pull request.
 
@@ -84,16 +86,17 @@ Leave `DEMO_MODE` unset on any server used for real play. The kill switch (§11 
 
 ## Folders
 
-| Folder     | What it is                                |
-| ---------- | ----------------------------------------- |
-| `engine/`  | Pure rules, no IO                         |
-| `content/` | Game data and text                        |
-| `ai/`      | Server only; holds the Jev key (Hono API) |
-| `web/`     | Browser UI (Vite, React, Tailwind CSS)    |
-| `sim/`     | Simulation CLI                            |
-| `eval/`    | Jev evaluation (`eval/jev/`)              |
-| `docs/`    | The spec and team guides                  |
-| `skills/`  | Project skills for coding agents          |
+| Folder      | What it is                                |
+| ----------- | ----------------------------------------- |
+| `engine/`   | Pure rules, no IO                         |
+| `content/`  | Game data and text                        |
+| `ai/`       | Server only; holds the Jev key (Hono API) |
+| `web/`      | Browser UI (Vite, React, Tailwind CSS)    |
+| `sim/`      | Simulation CLI                            |
+| `eval/`     | Jev evaluation (`eval/jev/`)              |
+| `playtest/` | Playtest sheet tools (read files only)    |
+| `docs/`     | The spec and team guides                  |
+| `skills/`   | Project skills for coding agents          |
 
 ## Install scripts
 

@@ -19,8 +19,11 @@
     "test": "vitest run",
     "sim": "tsx sim/cli.ts",
     "experiment": "tsx sim/experiments/cli.ts",
+    "experiment:g2": "tsx sim/experiments/g2-cli.ts",
     "eval:jev": "tsx eval/jev/cli.ts",
     "usage": "tsx ai/jev/usage-cli.ts",
+    "playtest:row": "tsx playtest/row-cli.ts",
+    "playtest:check": "tsx playtest/check-cli.ts",
     "speech:smoke": "tsx --env-file-if-exists=.env ai/speech/smoke-cli.ts"
   },
   "dependencies": {
