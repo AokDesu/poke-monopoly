@@ -32,6 +32,7 @@ import {
   type UsageLine,
   type UsageRecorder,
 } from './jev/spend.ts';
+import { DecisionJournal } from './jev/decision-journal.ts';
 import { isStrategyQuestionAction } from './questions/strategy.ts';
 
 // Server audit follow-ups (#64), findings 4, 6 and 9 (spec §9, §5.6, §8). Offline only: Hono's
@@ -526,5 +527,105 @@ describe('finding 5: a damaged usage log never undercounts spend (spec §9)', ()
     // The next start counts the debris once and every real line once.
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     expect(openUsageLedger(file).spentThb()).toBeCloseTo(goodThb * 3 + estimateThb, 9);
+  });
+});
+
+describe('finding 8: every client string is bounded before it reaches the decision log (spec §9)', () => {
+  const outcome = (over: Record<string, unknown> = {}) => ({
+    gameId: 'game-audit-1',
+    seatIndex: 0,
+    turnKey: '0:1',
+    stateRevision: 1,
+    decisionPoint: 'strategy',
+    source: 'fallback',
+    fallbackReason: 'timeout',
+    choice: 'skip',
+    ...over,
+  });
+  const seen: unknown[] = [];
+  const logApp = () => createApp({ decisionLog: (record) => seen.push(record) });
+
+  beforeEach(() => {
+    seen.length = 0;
+  });
+
+  test('a normal outcome is logged with exactly its explicit fields', async () => {
+    const app = logApp();
+    // No key in this file's environment for the decider: the server falls back, and the browser applies that.
+    vi.stubEnv('TYPESAFE_API_KEY', '');
+    const answered = decisionResponseSchema.parse(await (await decide(app, strategy)).json());
+    const response = await decide(
+      app,
+      outcome({
+        seatIndex: strategy.seatIndex,
+        turnKey: strategy.turnKey,
+        stateRevision: strategy.stateRevision,
+        decisionPoint: strategy.decisionPoint,
+        choice: (answered as { choice: string }).choice,
+        fallbackReason: answered.fallbackReason,
+      }),
+      '/api/ai/outcome',
+    );
+    expect(response.status).toBe(204);
+    expect(seen).toHaveLength(1);
+    expect(Object.keys(seen[0] as object).sort()).toEqual(
+      [
+        'choice',
+        'confidence',
+        'decisionPoint',
+        'fallbackReason',
+        'gameId',
+        'model',
+        'probabilities',
+        'questionId',
+        'requestId',
+        'sampled',
+        'seatIndex',
+        'stateRevision',
+        'time',
+        'turnKey',
+      ].sort(),
+    );
+  });
+
+  test.each([
+    ['a game ID with a newline', { gameId: 'g\n{"forged":true}' }],
+    ['a game ID with spaces', { gameId: 'my game' }],
+    ['a game ID of 65 characters', { gameId: 'g'.repeat(65) }],
+    ['a turn key of 129 characters', { turnKey: 't'.repeat(129) }],
+    ['a turn key with a quote', { turnKey: '0:1"' }],
+    ['a choice with a newline', { choice: 'skip\nnext' }],
+    ['a choice of 513 characters', { choice: 'a'.repeat(513) }],
+    ['a Sell uid with a slash', { choice: undefined, sellUids: ['../etc/passwd'] }],
+  ])('%s is a 400 and writes nothing', async (_name, over) => {
+    const app = logApp();
+    const response = await decide(app, outcome(over), '/api/ai/outcome');
+    expect(response.status).toBe(400);
+    expect(seen).toHaveLength(0);
+  });
+
+  test('the same IDs are refused on every route that takes them', async () => {
+    const app = logApp();
+    for (const path of ['/api/ai/decide', '/api/ai/fallback']) {
+      expect((await decide(app, { ...strategy, gameId: 'bad id' }, path)).status).toBe(400);
+      expect((await decide(app, { ...strategy, turnKey: 'x'.repeat(129) }, path)).status).toBe(400);
+    }
+    expect((await decide(app, { gameId: 'bad id' }, '/api/ai/chat')).status).toBe(400);
+    expect((await decide(app, { gameId: 'bad id' }, '/api/ai/speak')).status).toBe(400);
+  });
+
+  test('the journal itself drops a record with an unsafe string, warning once and never with the text', () => {
+    const records: unknown[] = [];
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const journal = new DecisionJournal((record) => records.push(record));
+    const ids = { gameId: 'g', seatIndex: 0, turnKey: '0:1', stateRevision: 1, decisionPoint: 's' };
+    const answer = { source: 'fallback', fallbackReason: 'timeout' } as const;
+    for (const choice of ['ok-1', 'bad\nchoice', 'bad"choice']) {
+      journal.propose({ ...ids, stateRevision: records.length + 10 }, { ...answer, choice }, []);
+      journal.applied({ ...ids, stateRevision: records.length + 10 }, { ...answer, choice });
+    }
+    expect(records).toHaveLength(1);
+    expect(warn).toHaveBeenCalledOnce();
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('bad');
   });
 });

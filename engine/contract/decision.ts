@@ -1,5 +1,13 @@
 import { z } from 'zod';
-import { dealFactsSchema, legalActionSchema, observationSchema } from './schema.ts';
+import {
+  actionIdSchema,
+  dealFactsSchema,
+  gameIdSchema,
+  instanceIdSchema,
+  legalActionSchema,
+  observationSchema,
+  turnKeySchema,
+} from './schema.ts';
 
 // The AI decision endpoint's wire contract (spec §5.2, §6 item 2, §9): types and schemas only,
 // so web/ and ai/ share it without importing each other.
@@ -155,7 +163,7 @@ function battleDecisionIssue(request: {
 
 export const decisionRequestSchema = z
   .strictObject({
-    gameId: id,
+    gameId: gameIdSchema,
     seatIndex: count,
     decisionPoint: decisionPointSchema,
     stateRevision: count,
@@ -165,7 +173,7 @@ export const decisionRequestSchema = z
     facts: decisionFactsSchema,
     difficulty: difficultySchema,
     personalityId: id,
-    turnKey: id,
+    turnKey: turnKeySchema,
   })
   .superRefine((request, ctx) => {
     const { observation } = request;
@@ -301,9 +309,9 @@ export const decisionResponseSchema = z
  * request's own identifiers and carries the answer and the reason the browser used.
  */
 const outcomeBase = {
-  gameId: id,
+  gameId: gameIdSchema,
   seatIndex: count,
-  turnKey: id,
+  turnKey: turnKeySchema,
   stateRevision: count,
   decisionPoint: outcomeDecisionPointSchema,
   source: z.enum(['jev', 'fallback']),
@@ -311,8 +319,8 @@ const outcomeBase = {
 };
 export const decisionOutcomeSchema = z
   .union([
-    z.strictObject({ choice: id, ...outcomeBase }),
-    z.strictObject({ sellUids: z.array(id), ...outcomeBase }),
+    z.strictObject({ choice: actionIdSchema, ...outcomeBase }),
+    z.strictObject({ sellUids: z.array(instanceIdSchema).max(255), ...outcomeBase }),
   ])
   .refine((outcome) => (outcome.source === 'fallback') === (outcome.fallbackReason !== undefined), {
     message: 'A fallback names its reason; a Jev answer has none',

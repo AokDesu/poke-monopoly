@@ -1,4 +1,5 @@
 import type { DecisionFallbackReason } from '../../engine/contract/decision.ts';
+import { gameIdSchema, turnKeySchema } from '../../engine/contract/schema.ts';
 import type { DecisionEvent, DecisionLog, DecisionRecord } from './decision-log.ts';
 
 /** How many decisions may wait for their other half at once; the oldest is dropped past this. */
@@ -18,6 +19,19 @@ export type JournalAnswer = ({ choice: string } | { sellUids: string[] }) & {
   source: 'jev' | 'fallback';
   fallbackReason?: DecisionFallbackReason;
 };
+
+/**
+ * A string the log may hold (spec §9, #64): the wire already limits the IDs a browser sends, and the
+ * writer checks every string again, so a record built any other way cannot put a newline, a long
+ * text or a key into `logs/jev-decisions.jsonl`. `choice` can be a Sell batch (`sell:a+b`).
+ */
+const LOGGABLE = /^[\w:.+-]{1,8192}$/;
+const loggable = (record: DecisionRecord): boolean =>
+  gameIdSchema.safeParse(record.gameId).success &&
+  turnKeySchema.safeParse(record.turnKey).success &&
+  [record.decisionPoint, record.questionId, record.choice].every((text) => LOGGABLE.test(text)) &&
+  [record.requestId, record.model].every((text) => text === null || LOGGABLE.test(text)) &&
+  Object.keys(record.probabilities ?? {}).every((key) => LOGGABLE.test(key));
 
 const keyOf = (ids: DecisionIds) =>
   JSON.stringify([ids.gameId, ids.seatIndex, ids.turnKey, ids.stateRevision, ids.decisionPoint]);
@@ -62,6 +76,7 @@ export class DecisionJournal {
   readonly #log: DecisionLog | undefined;
   readonly #max: number;
   #warned = false;
+  #warnedUnloggable = false;
 
   constructor(log?: DecisionLog, max: number = MAX_OPEN_DECISIONS) {
     this.#log = log;
@@ -120,6 +135,12 @@ export class DecisionJournal {
         sampled: event.sampled,
         fallbackReason: event.fallbackReason,
       };
+      if (!loggable(line)) {
+        // Never the text: it is what failed the check.
+        if (!this.#warnedUnloggable) console.warn('A decision with an unsafe ID was not logged.');
+        this.#warnedUnloggable = true;
+        continue;
+      }
       try {
         this.#log!(line);
       } catch {

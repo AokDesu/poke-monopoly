@@ -1,18 +1,18 @@
 import { z } from 'zod';
-import { chatTopicSchema, observationSchema } from './schema.ts';
+import { chatTopicSchema, observationSchema, gameIdSchema, turnKeySchema } from './schema.ts';
 
 const id = z.string().min(1);
 const count = z.int().nonnegative();
 
 const requestBase = {
-  gameId: id,
+  gameId: gameIdSchema,
   seatIndex: count,
   stateRevision: count,
   observation: observationSchema,
   /** A line-bank situation (`ai/lines.ts`); the route refuses one the voice file has no topic for. */
   situation: z.string().regex(/^[a-z]+(_[a-z]+)*$/),
   personalityId: id,
-  turnKey: id,
+  turnKey: turnKeySchema,
 };
 
 /** The speaker's seat and revision are the observation's own: a request cannot mix seats. */
@@ -92,12 +92,12 @@ export const chatDecisionSchema = z.enum(['noncommittal', 'refused']);
 export const chatSpeechRequestSchema = z
   .strictObject({
     kind: z.literal('chat_reply'),
-    gameId: id,
+    gameId: gameIdSchema,
     seatIndex: count,
     stateRevision: count,
     observation: observationSchema,
     personalityId: id,
-    turnKey: id,
+    turnKey: turnKeySchema,
     addressedSeat: count,
     topic: chatTopicSchema,
     decision: chatDecisionSchema,
