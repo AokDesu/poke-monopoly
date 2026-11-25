@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
 import {
   CHART_FILES,
+  readFinishedInCap,
   readSheets,
   readSwitch,
   renderResults,
@@ -473,6 +474,57 @@ describe('the charts', () => {
     const zero = renderResults(sessionsOf({}), ['s.csv']).charts[0]!.svg;
     expect(zero).toContain('<title>Dropped off: 0 of 1</title>');
     expect(zero).toContain('width="0"');
+  });
+});
+
+describe('finished_in_cap in the notes', () => {
+  const outcomesOf = (...rows: Row[]) => summarize(sessionsOf(...rows)).outcomes;
+
+  test('reads the tag like the Jev and Voice tags: guessed or contradicted is not stated', () => {
+    expect(readFinishedInCap('jev=live; finished_in_cap=no; x')).toBe('no');
+    expect(readFinishedInCap('FINISHED_IN_CAP=YES')).toBe('yes');
+    expect(readFinishedInCap('finished_in_cap=yes assumed')).toBeNull();
+    expect(readFinishedInCap('finished_in_cap=yes; finished_in_cap=no')).toBeNull();
+    expect(readFinishedInCap('finished_in_cap=maybe; xfinished_in_cap=yes')).toBeNull();
+    expect(readFinishedInCap('nothing to add')).toBeNull();
+  });
+
+  test('a length of 25 with finished_in_cap=no is not within the cap, and the chart agrees', () => {
+    const rows: Row[] = [
+      { participant_code: 'P5-A01', game_length_min: '25', notes: 'finished_in_cap=no' },
+      { participant_code: 'P5-A02', game_length_min: '20', notes: 'finished_in_cap=yes' },
+      { participant_code: 'P5-A03', game_length_min: '24', notes: 'finished_in_cap=yes' },
+    ];
+    const { within, over } = outcomesOf(...rows);
+    expect(within).toEqual(['P5-A02', 'P5-A03']);
+    expect(over).toEqual(['P5-A01']);
+    const { markdown, charts } = renderResults(sessionsOf(...rows), ['s.csv']);
+    expect(charts[0]!.svg).toContain('<title>Finished within the 25-minute cap: 2 of 3</title>');
+    expect(markdown).toContain('Finished within the 25-minute cap');
+  });
+
+  test('the tag wins over the length in both directions, and the length is the fallback', () => {
+    const o = outcomesOf(
+      { participant_code: 'P5-B01', game_length_min: '31', notes: 'finished_in_cap=yes' },
+      { participant_code: 'P5-B02', game_length_min: '12', notes: 'finished_in_cap=no' },
+      { participant_code: 'P5-B03', game_length_min: '25', notes: 'jev=live' },
+      { participant_code: 'P5-B04', game_length_min: '26', notes: 'jev=live' },
+      { participant_code: 'P5-B05', game_length_min: 'n/a', notes: 'finished_in_cap=yes' },
+      { participant_code: 'P5-B06', game_length_min: 'n/a', notes: 'jev=live' },
+    );
+    expect(o.within).toEqual(['P5-B01', 'P5-B03', 'P5-B05']);
+    expect(o.over).toEqual(['P5-B02', 'P5-B04']);
+    expect(o.lengthUnobserved).toEqual(['P5-B06']);
+  });
+
+  test('a dropped session is never counted as finished, whatever its tag says', () => {
+    const o = outcomesOf({
+      drop_off_point: 'lap2',
+      drop_off_reason: 'quit',
+      notes: 'finished_in_cap=yes',
+    });
+    expect(o.dropped).toEqual(['T1-A01']);
+    expect(o.within).toEqual([]);
   });
 });
 

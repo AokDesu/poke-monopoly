@@ -46,6 +46,8 @@ export type Session = {
   /** Read from the tags `jev=live|off` and `voice=on|off` in `notes`; null when not stated. */
   jev: Switch | null;
   voice: Switch | null;
+  /** The tag `finished_in_cap=yes|no` in `notes` (protocol section 8); null when not stated. */
+  finishedInCap: 'yes' | 'no' | null;
 };
 
 export type SheetText = { name: string; text: string };
@@ -67,22 +69,35 @@ const NOT_SEEN = /\b(?:assumed|not observed|unobserved|unknown|not sure)\b/i;
  */
 export function readSwitch(notes: string, setting: 'Jev' | 'Voice'): Switch | null {
   const on = setting === 'Jev' ? 'live' : 'on';
-  const read = (pattern: string) => {
-    const found = new Set<Switch>();
-    for (const match of notes.matchAll(new RegExp(pattern, 'gi'))) {
-      const at = match.index;
-      const start = notes.lastIndexOf(';', at) + 1;
-      const end = notes.indexOf(';', at);
-      if (NOT_SEEN.test(notes.slice(start, end === -1 ? notes.length : end))) continue;
-      found.add(match[1]!.toLowerCase() === 'off' ? 'off' : 'on');
-    }
-    return found;
-  };
   const tag = `\\b${setting}=(${on}|off)\\b`;
-  const found = new RegExp(tag, 'i').test(notes)
-    ? read(tag)
-    : read(`\\b${setting}\\s+(${on}|off)\\b`);
+  const words = new RegExp(tag, 'i').test(notes)
+    ? readStated(notes, tag)
+    : readStated(notes, `\\b${setting}\\s+(${on}|off)\\b`);
+  const found = new Set<Switch>([...words].map((word) => (word === 'off' ? 'off' : 'on')));
   return found.size === 1 ? [...found][0]! : null;
+}
+
+/**
+ * Whether the game finished inside the cap, from the tag `finished_in_cap=yes|no`. Read like the
+ * Jev and Voice tags: a tag in a part that says it was assumed or not observed is ignored, and a
+ * note that states both values is not a statement.
+ */
+export function readFinishedInCap(notes: string): 'yes' | 'no' | null {
+  const found = readStated(notes, '\\bfinished_in_cap=(yes|no)\\b');
+  return found.size === 1 ? ([...found][0] as 'yes' | 'no') : null;
+}
+
+/** The lower-cased words the pattern's group states, skipping a `;` part marked as unseen. */
+function readStated(notes: string, pattern: string): Set<string> {
+  const found = new Set<string>();
+  for (const match of notes.matchAll(new RegExp(pattern, 'gi'))) {
+    const at = match.index;
+    const start = notes.lastIndexOf(';', at) + 1;
+    const end = notes.indexOf(';', at);
+    if (NOT_SEEN.test(notes.slice(start, end === -1 ? notes.length : end))) continue;
+    found.add(match[1]!.toLowerCase());
+  }
+  return found;
 }
 
 type Cells = Record<Column, string>;
@@ -209,6 +224,7 @@ function readRow(
     q4,
     jev: readSwitch(cells.notes, 'Jev'),
     voice: readSwitch(cells.notes, 'Voice'),
+    finishedInCap: readFinishedInCap(cells.notes),
   };
 }
 
@@ -360,13 +376,17 @@ export type Results = {
 
 export function summarize(sessions: readonly Session[]): Results {
   const finished = (s: Session) => s.dropPoint === 'none';
+  /** The facilitator's `finished_in_cap=` tag wins; the length is used only when there is no tag. */
+  const inCap = (s: Session): boolean | null =>
+    s.finishedInCap !== null
+      ? s.finishedInCap === 'yes'
+      : s.lengthMin === null
+        ? null
+        : s.lengthMin <= PLAY_CAP_MIN;
   const outcomes: Results['outcomes'] = {
-    within: codes(
-      sessions,
-      (s) => finished(s) && s.lengthMin !== null && s.lengthMin <= PLAY_CAP_MIN,
-    ),
-    over: codes(sessions, (s) => finished(s) && s.lengthMin !== null && s.lengthMin > PLAY_CAP_MIN),
-    lengthUnobserved: codes(sessions, (s) => finished(s) && s.lengthMin === null),
+    within: codes(sessions, (s) => finished(s) && inCap(s) === true),
+    over: codes(sessions, (s) => finished(s) && inCap(s) === false),
+    lengthUnobserved: codes(sessions, (s) => finished(s) && inCap(s) === null),
     dropped: codes(sessions, (s) => s.dropPoint !== null && !finished(s)),
     unobserved: codes(sessions, (s) => s.dropPoint === null),
   };
@@ -472,8 +492,8 @@ export function renderResults(
 
   const outcomeRows: Array<[string, string[]]> = [
     [`Finished within the ${PLAY_CAP_MIN}-minute cap`, r.outcomes.within],
-    [`Finished, over ${PLAY_CAP_MIN} minutes`, r.outcomes.over],
-    ['Finished, length unobserved', r.outcomes.lengthUnobserved],
+    [`Finished, not within the ${PLAY_CAP_MIN}-minute cap`, r.outcomes.over],
+    ['Finished, cap unobserved (no tag, no length)', r.outcomes.lengthUnobserved],
     ['Dropped off', r.outcomes.dropped],
     ['Unobserved (finished or not is n/a)', r.outcomes.unobserved],
   ];
