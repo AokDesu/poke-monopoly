@@ -112,27 +112,27 @@
   },
   "acceptable": { "reward": ["coins"] },
   "reason": "Opportunist: liquidity 0.7 and aggression 0.5: cash it can use at once beats a slow gain, so it takes the coins.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "e9db46c98c92f8f95272f5c7447c315cf34a727236b5165152394108b2300342",
   "recorded": {
     "ok": true,
     "answers": {
       "reward": {
         "type": "choice",
-        "choice": "evolve_eevee_to_vaporeon",
-        "confidence": 0.309,
+        "choice": "coins",
+        "confidence": 0.91,
         "probabilities": {
-          "coins": 0.122,
-          "evolve_charmander_to_charmeleon": 0.043,
-          "evolve_eevee_to_vaporeon": 0.447,
-          "evolve_eevee_to_jolteon": 0.009,
-          "evolve_eevee_to_flareon": 0.379
+          "coins": 0.93,
+          "evolve_charmander_to_charmeleon": 0.05,
+          "evolve_eevee_to_vaporeon": 0.01,
+          "evolve_eevee_to_jolteon": 0,
+          "evolve_eevee_to_flareon": 0.01
         }
       }
     },
-    "requestId": "synthetic-opportunist-reward-pvp-won",
+    "requestId": "req_01a2133a82557810bdbca4f26c86f536",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 317,
+    "usage": { "inputTokens": 1824, "outputTokens": 86 }
   }
 }

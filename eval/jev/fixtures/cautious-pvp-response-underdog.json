@@ -95,21 +95,21 @@
   },
   "acceptable": { "pvp_response": ["decline"] },
   "reason": "Cautious: risk 0.2 and aggression 0.2: a likely loss costs coins and declining costs none, so it declines.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "0ceb7ab710fdc7eb5df4d4de928590734217290bfcec412fbc6c1621aff4e6b2",
   "recorded": {
     "ok": true,
     "answers": {
       "pvp_response": {
         "type": "choice",
-        "choice": "accept",
-        "confidence": 0.25,
-        "probabilities": { "accept": 0.625, "decline": 0.375 }
+        "choice": "decline",
+        "confidence": 1,
+        "probabilities": { "accept": 0, "decline": 1 }
       }
     },
-    "requestId": "synthetic-cautious-pvp-response-underdog",
+    "requestId": "req_01a2133a694a717ba00d4093d10817e4",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 273,
+    "usage": { "inputTokens": 1648, "outputTokens": 35 }
   }
 }

@@ -100,21 +100,21 @@
   },
   "acceptable": { "ability_window": ["use_blaze_charmander", "none"] },
   "reason": "Cautious: aggression 0.2 and risk 0.2: it holds Abilities back, but a battle it is losing is the moment to use one, so either answer fits.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "aea452f9d8f678449ba430a7e1f821f33491e8a23e9b36b322af4cfb14f84056",
   "recorded": {
     "ok": true,
     "answers": {
       "ability_window": {
         "type": "choice",
-        "choice": "use_blaze_charmander",
-        "confidence": 0.34,
-        "probabilities": { "use_blaze_charmander": 0.67, "none": 0.33 }
+        "choice": "none",
+        "confidence": 0.08,
+        "probabilities": { "use_blaze_charmander": 0.46, "none": 0.54 }
       }
     },
-    "requestId": "synthetic-cautious-window-defender-underdog",
+    "requestId": "req_01a2133a7227764a9ba5381ce1742131",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 372,
+    "usage": { "inputTokens": 1561, "outputTokens": 37 }
   }
 }

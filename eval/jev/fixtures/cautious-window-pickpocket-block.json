@@ -102,7 +102,7 @@
   },
   "acceptable": { "ability_window": ["use_block_snorlax"] },
   "reason": "Cautious: liquidity 0.5 and aggression 0.2: it guards what it holds, and Block does exactly that, so it blocks.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "b410b2944a847aa29192dbe120cf05522b865ca9e23ec0321ef1f014035225ce",
   "recorded": {
     "ok": true,
@@ -110,13 +110,13 @@
       "ability_window": {
         "type": "choice",
         "choice": "use_block_snorlax",
-        "confidence": 0.956,
-        "probabilities": { "use_block_snorlax": 0.978, "none": 0.022 }
+        "confidence": 0.64,
+        "probabilities": { "use_block_snorlax": 0.82, "none": 0.18 }
       }
     },
-    "requestId": "synthetic-cautious-window-pickpocket-block",
+    "requestId": "req_01a2133a7be579e79e80c16e1488f782",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 294,
+    "usage": { "inputTokens": 1585, "outputTokens": 40 }
   }
 }

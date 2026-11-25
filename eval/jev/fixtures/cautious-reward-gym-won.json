@@ -95,21 +95,21 @@
   },
   "acceptable": { "reward": ["coins"] },
   "reason": "Cautious: liquidity 0.5 and aggression 0.2: it takes the safe coins over a stronger fighter it will not use, so it takes the coins.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "819880766ac618a480128ed5ee85f14ca56c9d9ed8ceb3198431bd44eb610858",
   "recorded": {
     "ok": true,
     "answers": {
       "reward": {
         "type": "choice",
-        "choice": "evolve_charmander_to_charmeleon",
-        "confidence": 0.194,
-        "probabilities": { "coins": 0.403, "evolve_charmander_to_charmeleon": 0.597 }
+        "choice": "coins",
+        "confidence": 0.7,
+        "probabilities": { "coins": 0.85, "evolve_charmander_to_charmeleon": 0.15 }
       }
     },
-    "requestId": "synthetic-cautious-reward-gym-won",
+    "requestId": "req_01a2133a85cb7acbac77a0c275239026",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 282,
+    "usage": { "inputTokens": 1507, "outputTokens": 40 }
   }
 }

@@ -102,7 +102,7 @@
   },
   "acceptable": { "ability_window": ["use_block_snorlax"] },
   "reason": "Aggressive: aggression 0.9 and liquidity 0.3: a rival is robbing it and Block costs it nothing else, so it blocks.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "2d777fca07938e7dbb7ad60ca4e817a6c7cc2d58e7bb156bdef0304f45302d66",
   "recorded": {
     "ok": true,
@@ -110,13 +110,13 @@
       "ability_window": {
         "type": "choice",
         "choice": "use_block_snorlax",
-        "confidence": 0.054,
-        "probabilities": { "use_block_snorlax": 0.527, "none": 0.473 }
+        "confidence": 0.46,
+        "probabilities": { "use_block_snorlax": 0.73, "none": 0.27 }
       }
     },
-    "requestId": "synthetic-aggressive-window-pickpocket-block",
+    "requestId": "req_01a2133a7a5a76c89e47f892d100b007",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 358,
+    "usage": { "inputTokens": 1586, "outputTokens": 40 }
   }
 }

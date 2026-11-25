@@ -102,7 +102,7 @@
   },
   "acceptable": { "pvp_response": ["accept"] },
   "reason": "Greedy: risk 0.3 and aggression 0.3: a likely win takes coins from the challenger, and the odds are clearly its way, so it accepts.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "50271395bcc4ea17cc50104d527ed95634b1ed43e874d0db96194a0abe36f03c",
   "recorded": {
     "ok": true,
@@ -110,13 +110,13 @@
       "pvp_response": {
         "type": "choice",
         "choice": "accept",
-        "confidence": 0.844,
-        "probabilities": { "accept": 0.922, "decline": 0.078 }
+        "confidence": 0.82,
+        "probabilities": { "accept": 0.91, "decline": 0.09 }
       }
     },
-    "requestId": "synthetic-greedy-pvp-response-favoured",
+    "requestId": "req_01a2133a6b6a7f23b6500c507defc756",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 278,
+    "usage": { "inputTokens": 1690, "outputTokens": 34 }
   }
 }

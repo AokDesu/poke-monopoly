@@ -102,7 +102,7 @@
   },
   "acceptable": { "pvp_response": ["accept"] },
   "reason": "Opportunist: risk 0.6 and aggression 0.5: a lopsided chance in its favour is the fight it waits for, so it accepts.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "68cbabfec2e82b49bb67017a0256977a42964f7d37983a59f25a9290f0eeb043",
   "recorded": {
     "ok": true,
@@ -110,13 +110,13 @@
       "pvp_response": {
         "type": "choice",
         "choice": "accept",
-        "confidence": 0.876,
-        "probabilities": { "accept": 0.938, "decline": 0.062 }
+        "confidence": 0.98,
+        "probabilities": { "accept": 0.99, "decline": 0.01 }
       }
     },
-    "requestId": "synthetic-opportunist-pvp-response-favoured",
+    "requestId": "req_01a2133a6eb87f0183ea842a22f88bce",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 250,
+    "usage": { "inputTokens": 1694, "outputTokens": 34 }
   }
 }

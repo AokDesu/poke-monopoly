@@ -102,7 +102,7 @@
   },
   "acceptable": { "pvp_response": ["accept"] },
   "reason": "Aggressive: risk 0.8 and aggression 0.9: a clear favourite and a fight it wants, so it accepts.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "73c5f6392d0c8a62e01bc000816665299de85d573c4f8281863e038c606188d8",
   "recorded": {
     "ok": true,
@@ -110,13 +110,13 @@
       "pvp_response": {
         "type": "choice",
         "choice": "accept",
-        "confidence": 0.166,
-        "probabilities": { "accept": 0.583, "decline": 0.417 }
+        "confidence": 1,
+        "probabilities": { "accept": 1, "decline": 0 }
       }
     },
-    "requestId": "synthetic-aggressive-pvp-response-favoured",
+    "requestId": "req_01a2133a6c977a359dbbd684722121e8",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 245,
+    "usage": { "inputTokens": 1696, "outputTokens": 34 }
   }
 }

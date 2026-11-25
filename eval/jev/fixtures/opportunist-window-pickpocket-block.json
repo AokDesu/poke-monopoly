@@ -102,7 +102,7 @@
   },
   "acceptable": { "ability_window": ["use_block_snorlax"] },
   "reason": "Opportunist: liquidity 0.7: a coin loss it can prevent is a loss it prevents, so it blocks.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "b2893b2a90cf51ddb938b53863cc520f172ed88e5fac584cf380938b8f161a7f",
   "recorded": {
     "ok": true,
@@ -110,13 +110,13 @@
       "ability_window": {
         "type": "choice",
         "choice": "use_block_snorlax",
-        "confidence": 0.738,
-        "probabilities": { "use_block_snorlax": 0.869, "none": 0.131 }
+        "confidence": 0.64,
+        "probabilities": { "use_block_snorlax": 0.82, "none": 0.18 }
       }
     },
-    "requestId": "synthetic-opportunist-window-pickpocket-block",
+    "requestId": "req_01a2133a7d097d28b192572b138f11bf",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 260,
+    "usage": { "inputTokens": 1584, "outputTokens": 40 }
   }
 }

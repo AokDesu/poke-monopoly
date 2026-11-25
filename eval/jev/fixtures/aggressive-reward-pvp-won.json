@@ -119,27 +119,27 @@
     ]
   },
   "reason": "Aggressive: aggression 0.9 and liquidity 0.3: a stronger fighter wins more battles than a few coins, so it evolves a Pokémon.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "2c27e524dac19af368db1a7ff40c915d80c01208ec6e9fb229e2bc919fff159f",
   "recorded": {
     "ok": true,
     "answers": {
       "reward": {
         "type": "choice",
-        "choice": "coins",
-        "confidence": 0.211,
+        "choice": "evolve_charmander_to_charmeleon",
+        "confidence": 0.41,
         "probabilities": {
-          "coins": 0.369,
-          "evolve_charmander_to_charmeleon": 0.209,
-          "evolve_eevee_to_vaporeon": 0.05,
-          "evolve_eevee_to_jolteon": 0.292,
-          "evolve_eevee_to_flareon": 0.08
+          "coins": 0.33,
+          "evolve_charmander_to_charmeleon": 0.53,
+          "evolve_eevee_to_vaporeon": 0.03,
+          "evolve_eevee_to_jolteon": 0.02,
+          "evolve_eevee_to_flareon": 0.09
         }
       }
     },
-    "requestId": "synthetic-aggressive-reward-pvp-won",
+    "requestId": "req_01a2133a7f9c7412b98de1d2a4b55419",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 342,
+    "usage": { "inputTokens": 1826, "outputTokens": 95 }
   }
 }
