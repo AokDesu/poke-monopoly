@@ -59,7 +59,7 @@ What must be proven:
 ### Delivery scope
 
 - Local play has 2–4 seats in total, with any mix of human and AI seats and at least one human. Watch mode has 2–4 AIs and no human seat. Quick 2 Laps is core; Standard 3 Laps opens once playtest confirms the session length is acceptable.
-- 6 core classes with passive abilities; Team Rocket and Collector are stretch goals after G2.
+- 6 core classes with passive abilities. Team Rocket and Collector are cut (§10).
 - Content is tiered: core is the starter lines of the 6 classes; the target is 19 base species with evolution lines and Abilities.
 - 3 Ball types, 7 utility items, one board and 6 events. No Market, Buyer or Trend.
 - 4 personality presets. Easy and Normal are core; Hard depends on gate G2.
@@ -636,7 +636,7 @@ Each layer covers what the one below misses.
 
 **Simulation:**
 
-- **Game sets:** 1,000 policy-only games for bug hunting and trends, plus 300 Jev-in-the-loop games.
+- **Game sets:** 1,000 policy-only games for bug hunting and trends, plus 100 Jev-in-the-loop games (the 300-game target was cut on 23 Nov, #183; see §10 C5).
 - **Variation:**
   - 2/3/4 seats, with class, personality and seat balanced across games.
   - Tuning seeds are kept separate from evaluation seeds.
@@ -693,15 +693,13 @@ Each layer covers what the one below misses.
 - The human confirms their own deals.
 - The team owns the spec. Coding agents propose through PRs, and people merge.
 
-## 10. Three-month plan: 6 cycles × 2 weeks
+## 10. Plan to the 15 Dec due date: 4 cycles × 2 weeks, a 10-day evidence cycle and a report week
 
 **Assumptions:**
 
-- **Dates:** start Monday 2026-10-05 and finish 2026-12-27.
-- **Hours:** 12 h/week per the proposal, 144 h in total. **It is unclear whether that is per person or for the whole team**; confirm in C1.
-  - This plan is sized for 144 h across the whole team.
-  - If it is per person, pull stretch items in after G2.
-- **Calendar:** actual course deadline ____ · exam or no-development weeks ____ (team to fill in).
+- **Dates:** start Monday 2026-10-05; code freeze Wednesday 2026-12-09; report and demo assembled 10–14 Dec; the course submission is due 2026-12-15 (repository owner, 2026-11-15).
+- **Hours:** 12 h/week per person (confirmed in C1, `docs/PLAN.md`), about 72 h for the team per cycle.
+- **Calendar:** actual course deadline 2026-12-15 · exam or no-development weeks ____ (team to fill in).
 - **Suggested owner per stream:** A = engine + sim, B = Jev + eval, C = web UI + playtest.
 
 ### C1 · 5–18 Oct · M1 "Spec + engine skeleton + Jev spike"
@@ -749,27 +747,30 @@ Each layer covers what the one below misses.
   - A decision on whether Thai free text works or chat stays button-only.
 - **Cut if late:** keep core-tier content only (starter lines + part of the encounter pool) and move the 19 species to stretch.
 
-### C5 · 30 Nov–13 Dec · M5 "Evidence"
+### C5 · 30 Nov–9 Dec · M5 "Evidence"
 
-- **Gate G2 (6 Dec):** duel Hard against Normal on paired seeds.
+- **Gate G2 (6 Dec):** duel Hard against Normal on paired seeds; the result is due by 6 Dec.
   - If Hard is better with evidence and within the latency budget, keep 3 levels.
   - Otherwise ship 2 levels and report it plainly.
 - **Deliverables:**
-  - 1,000 policy-only games, 300 Jev-in-the-loop games and the exploit policies.
+  - 1,000 policy-only games, 100 Jev-in-the-loop games and the exploit policies.
   - Tune on training seeds and evaluate on held-out seeds.
   - Personality, chat and memory scenarios.
-  - User playtest with 5–8 people.
-- **Exit:** complete §8 result tables with n; playtest issues prioritised.
-- **Cut if late:** Monte Carlo (ship 2 levels); reduce Jev-in-the-loop games to 100.
+  - User playtest with 5–8 people on the build that has the play-screen redesign and the Deal Card screen.
+  - Play-screen redesign (one-screen layout, readable pace), Deal Card screen, setup presets, How to play, prepared-scenario demo mode and the multiplayer screens.
+  - Bug fixes from playtest and sim; clean-install check of the frozen build.
+- **Code freeze on Wed 9 Dec.** After it, only a fix for a failing §11 step may change code, and the report says which.
+- **Exit:** complete §8 result tables with n; playtest issues prioritised; the §11 demo runs end-to-end from a clean install on the frozen build.
+- **Cut if late:** in this order, the multiplayer screens (decided on Fri 27 Nov: if the one-screen play layout, R3 (#281), is not merged by then, they are dropped); Monte Carlo (ship 2 levels). Not planned: stretch classes (Team Rocket, Collector), the chat card rework (#257) and the extra 200 Jev-in-the-loop games.
 
-### C6 · 14–27 Dec · M6 "Release + demo"
+### C6 · 10–14 Dec · M6 "Report + demo" (no new features)
 
 - **Deliverables:**
-  - Bug fixes, setup presets and a tutorial.
-  - Stretch classes (Team Rocket, Collector) only if G2 passed and no bugs remain open.
-  - Code freeze on 20 Dec, demo rehearsal, report.
-- **Exit:** the §11 demo runs end-to-end from a clean install; the report separates policy-only results from Jev results.
-- **Cut if late:** stretch classes, decorative graphs, animation.
+  - Final report assembled from the evidence index in `docs/report/`, with the actual spend from the usage logs.
+  - Demo rehearsal from a clean install of the frozen build.
+  - Runbook and key-handling note.
+- **Exit:** the §11 demo runs end-to-end from a clean install; the report separates policy-only results from Jev results; submitted on 15 Dec.
+- **Cut if late:** decorative graphs, animation.
 
 **Cut order when time runs short:**
 
