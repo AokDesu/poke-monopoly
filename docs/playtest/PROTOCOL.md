@@ -193,6 +193,21 @@ Question 3 counts the participant's own messages (the Social topic buttons) and 
    ```
 
    Use your own stream letter in the file name. One file per facilitator means three people never edit one file at once. For a later round, use a new folder named for the round, write the round's code, seed base and setup in section 2 and section 3 first, and say so in that round's issue.
+
+   **Draft the cells the log can count.** Get the game log as section 6 describes ("After play: get the log"), keep it outside the repository (section 2, rule 7), then run the row command with the participant code:
+
+   ```bash
+   npm run playtest:row -- ~/poke-monopoly-log.json --code P5-A01 >> docs/playtest/p5/session-sheet-A.csv
+   ```
+
+   It reads the file only. It prints one CSV row on standard output, so `>>` appends only the row, and a few lines on standard error:
+
+   - **Filled for you:** `participant_code`; `seed`, from the log header; `meaningful_choices`, counted as section 6 defines it; and `drop_off_point`, which is `none` for a finished game, otherwise a candidate from the saved state: `setup` (the first-player roll was not finished), `final_round` (the Final Table Round was announced), or `lap1` to `lap3`, the Lap being played, one more than the paid Laps the board shows (`0 / 2` is `lap1`). `drop_off_reason` is `none` for a finished game. Confirm the point against what you saw.
+   - **Printed to cross-check your scratch note:** the number of Sell Phase decisions (`sell_keep`) and Ball decisions at encounters (`ball`) the human seat made. The log has no clock and cannot tell a pause from a quick choice, so it never fills `hesitation_count` or `hesitation_decisions`. Shop Ball purchases are not counted here, because section 6 counts them only when the player weighed Balls.
+   - **Warned about:** a log seed that is not the seed the code implies by section 3, step 2 (`P5-A02` implies `5102`; the command knows the rounds `G1` and `P5`, and for another round says it could not check). The row keeps the log's seed, as section 3, step 3 says. Find out why they differ before you keep the row.
+   - **Left as `<<fill: ...>>` for you:** date, build commit, game length, `drop_off_reason` for an unfinished game, both hesitation cells, the four answers and `notes`. The checker refuses every one until you replace it.
+
+   The command refuses, and prints no row, for a file that is not a game log, a log from another engine, content or RNG version, a log whose saved state does not replay, a game with no human seat (a watched game) or with more than one, and a code that is not `<round>-<host><nn>`.
 2. **Destroy the scratch note** once the row is written: shred the paper or delete the file.
 3. **File issues** for bugs or confusion, titled with the code only (for example `P5-A01: ...`), and list the issue numbers in the row's `notes`.
 4. **Check the file** (see the end of section 8), then commit it on a branch and open a pull request that cites spec §8 and §9. A teammate reviews it before merge, as for every pull request (spec §7).
@@ -202,19 +217,21 @@ Question 3 counts the participant's own messages (the Social topic buttons) and 
 
 The file is UTF-8, comma separated, one row per session, one line per row. A cell with a comma or quote is wrapped in double quotes (a quote inside becomes two). Lists inside a cell use `|`. Keep each free-text cell to 200 characters or fewer. A row is complete when no cell is empty. Only `n/a` and `none` stand for "nothing here". No column exists for a name or any contact detail. The only free-text cells are the four answers and `notes`; the code-only rule in section 2 applies to them, and the check at the end of this section screens them.
 
+**`n/a` means unobserved.** In `game_length_min`, `drop_off_point`, `drop_off_reason`, `meaningful_choices`, `hesitation_count` and `hesitation_decisions`, `n/a` says the number or fact was not recorded and cannot be recovered. It is not zero and not `none`: write `0` only when you watched for hesitations and saw none, and `none` only for a game that finished. The cells go together: `drop_off_point` and `drop_off_reason` are both `n/a` or neither, and `hesitation_count` and `hesitation_decisions` are both `n/a` or neither. Any other column takes no `n/a`, except the question cells (below). The report reads an `n/a` cell as unobserved and leaves it out of its counts. The rule lives in one place in code, `playtest/sheet.ts` (`UNOBSERVED`, `isUnobserved`), which the checker and the report both use.
+
 |Column|Fill with|
 |---|---|
 |`participant_code`|The code from section 2, for example `P5-A01`.|
 |`date`|The session day, `YYYY-MM-DD`.|
 |`build_commit`|The 7-character commit from section 3, step 1. It is also the record of which features the participant could meet: the round's build record (`docs/playtest/p5/README.md`) says what that commit had.|
 |`seed`|The integer seed from section 3, step 2, confirmed from the log (section 3, step 3).|
-|`game_length_min`|Whole minutes, as defined in section 6.|
-|`drop_off_point`|`none` if the game finished. Otherwise `setup` (before the first turn started), `lap1`, `lap2`, `lap3` (Standard only) for the Lap shown on screen when it ended, or `final_round` (after the Final Table Round was announced, spec §4.7).|
-|`drop_off_reason`|`none` if the game finished. Otherwise `quit` (the participant stopped), `bug` (the build blocked or crashed), `time_cap` (the 25-minute cap) or `other` (explain in `notes`).|
-|`meaningful_choices`|A whole number, as defined in section 6, or `n/a`.|
-|`hesitation_count`|The number of genuine hesitations (section 6), `0` if none.|
-|`hesitation_decisions`|One code per hesitation, `sell_keep` or `ball`, joined with `\|`, for example `sell_keep\|ball\|sell_keep`. `none` if the count is 0. The number of codes must equal `hesitation_count`.|
-|`q1_hesitated_sell_keep`|Start with `yes`, `no` or `unsure`, then ` - ` and a short paraphrase or quote.|
+|`game_length_min`|Whole minutes, as defined in section 6, or `n/a` (unobserved).|
+|`drop_off_point`|`none` if the game finished. Otherwise `setup` (before the first turn started), `lap1`, `lap2`, `lap3` (Standard only) for the Lap shown on screen when it ended, or `final_round` (after the Final Table Round was announced, spec §4.7). `n/a` if unobserved.|
+|`drop_off_reason`|`none` if the game finished. Otherwise `quit` (the participant stopped), `bug` (the build blocked or crashed), `time_cap` (the 25-minute cap) or `other` (explain in `notes`). `n/a` if unobserved.|
+|`meaningful_choices`|A whole number, as defined in section 6, or `n/a` (unobserved).|
+|`hesitation_count`|The number of genuine hesitations (section 6): `0` if you watched and saw none, `n/a` if hesitations were not recorded.|
+|`hesitation_decisions`|One code per hesitation, `sell_keep` or `ball`, joined with `\|`, for example `sell_keep\|ball\|sell_keep`. `none` if the count is 0. `n/a` if the count is `n/a`. The number of codes must equal `hesitation_count`.|
+|`q1_hesitated_sell_keep`|Start with `yes`, `no` or `unsure`, then ` - ` and a short paraphrase or quote. A bare `yes` is refused. `n/a - <reason>` only if the participant skipped the question.|
 |`q2_opponent_personality`|The same format as question 1, or `n/a` (then ` - ` and the reason).|
 |`q3_conversation_changed_game`|The same format as question 1, or `n/a` (then ` - ` and the reason).|
 |`q4_boring_moment`|`none`, or the moment or screen in a few words, then ` - ` and a short paraphrase or quote.|
@@ -223,10 +240,18 @@ The file is UTF-8, comma separated, one row per session, one line per row. A cel
 Example row, invented to show the format only:
 
 ```csv
-P5-A00,2026-11-30,0000000,5100,17,none,none,31,2,sell_keep|ball,yes - unsure whether to sell at the first Start,yes - one rival kept its coins and one fought more,no,waiting for the AI turn,"jev=live; voice=off; setup=fixed; finished_in_cap=yes; Pause at Shop (items), not counted; Voice off badge seen"
+P5-A00,2026-11-30,0000000,5100,17,none,none,31,2,sell_keep|ball,yes - unsure whether to sell at the first Start,yes - one rival kept its coins and one fought more,no - the topic buttons changed nothing,waiting for the AI turn,"jev=live; voice=off; setup=fixed; finished_in_cap=yes; Pause at Shop (items), not counted; Voice off badge seen"
 ```
 
-Before committing, read every cell yourself and run this check on your file. It catches the obvious (an `@`, a link, a phone-like number) and proves nothing, so the reviewer reads the file again:
+Before committing, run the checker on your file, then read every cell yourself:
+
+```bash
+npm run playtest:check -- docs/playtest/p5/session-sheet-A.csv
+```
+
+It reads each file you name and prints `file:line: column: problem` for every cell that is missing, inconsistent or looks like personal data, then exits with a non-zero status if there was any. It checks that the header equals `docs/playtest/session-sheet.csv`; one line per row; no empty cell and no `<<fill: ...>>` placeholder; the code matches `<round>-<host><nn>`; the date, commit, seed, game length, drop-off cells and counts have the form this section gives, with `n/a` only where the rule above allows it; `hesitation_decisions` holds only `sell_keep` or `ball`, as many as `hesitation_count`, and `none` only when the count is `0`; `drop_off_point` and `drop_off_reason` are both `none`, both `n/a` or neither; each question cell starts with `yes`, `no`, `unsure` or `n/a` and then ` - ` and some text, so a bare `yes` or `n/a` is reported; the four answers and `notes` are 200 characters or fewer; and no cell holds an `@`, a link or a phone-like number. The check proves nothing about names, so the reviewer reads the file again.
+
+The `@`, link and phone-like check alone is this command, which you may run on its own:
 
 ```bash
 grep -nEi '@|https?://|www\.|[0-9]{3}[- .][0-9]{3}[- .][0-9]{4}' docs/playtest/p5/session-sheet-A.csv
