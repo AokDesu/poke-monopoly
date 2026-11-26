@@ -192,13 +192,13 @@ test('a late answer is never applied after the game is replaced or restored', as
   expect(logLength(store)).toBe(0);
 });
 
-/** The playback hook on a watched store, at the instant pace unless a test says otherwise. */
-function watch(store: GameStore, speed: 'normal' | 'instant' = 'instant') {
+/** The playback hook on a watched store, at the Instant pace unless a test says otherwise. */
+function watch(store: GameStore, pace: 'readable' | 'instant' = 'instant') {
   const mounted = renderHook(() => {
     const view = useSyncExternalStore(store.subscribe, store.getSpectatorView);
     return useTurnPlayback(store, view);
   });
-  if (speed === 'instant') act(() => mounted.result.current.setSpeed('instant'));
+  if (pace === 'instant') act(() => mounted.result.current.setPace('instant'));
   return mounted;
 }
 
@@ -240,7 +240,7 @@ test(
 test('a step while running is ignored and says why', async () => {
   fakeServer();
   const store = watchStore(2);
-  const { result } = watch(store, 'normal');
+  const { result } = watch(store, 'readable');
   expect(result.current.stepBlocked).toBe(t('watch.stepWhileRunning'));
   act(() => result.current.step());
   await idle(150);
@@ -281,7 +281,7 @@ test.each(['running', 'paused'] as const)(
   async (state) => {
     fakeServer();
     const store = watchStore(4);
-    const { result } = watch(store, 'normal');
+    const { result } = watch(store, 'readable');
     if (state === 'paused') act(() => result.current.setPaused(true));
     act(() => result.current.skipToEnd());
     await waitFor(() => expect(store.getSession()!.state.phase.kind).toBe('finished'), {

@@ -1,7 +1,7 @@
-import { lazy, Suspense, useState, type ReactNode } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import type { SeatEvent } from '../../../engine/index.ts';
 import { MEADOW_STARTERS } from '../game/models.ts';
-import type { OpponentSettings, SeatFeedEntry } from '../game/store.ts';
+import type { SeatFeedEntry } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { speciesName } from '../i18n/names.ts';
 import { BallIcon } from '../ui/icons.tsx';
@@ -10,7 +10,7 @@ import { hasWebGl } from '../ui/three/support.ts';
 import { EventCard } from './EventCard.tsx';
 import { EventLog } from './EventLog.tsx';
 import { ownSeatOf, phaseLabel, seatLabel, type ViewedObservation } from './labels.ts';
-import { PlayerPanel } from './PlayerPanel.tsx';
+import { SeatRows } from './SeatRows.tsx';
 import { RouteArrow, SpaceIcon } from './SpaceIcon.tsx';
 import './board.css';
 
@@ -22,12 +22,13 @@ export interface BoardProps {
   /** Already filtered for this seat by eventsVisibleTo, never a raw engine log. */
   events?: readonly SeatEvent[];
   feed?: readonly SeatFeedEntry[];
-  /** Each AI's setup, shown on its panel; the watcher's boards pass it. */
-  opponents?: readonly OpponentSettings[];
   /** Live turn controls; omitted by the read-only fixture Board. */
   controls?: ReactNode;
-  /** Current opponent action strip, rendered under the board loop (issue #123). */
-  focus?: ReactNode;
+  /**
+   * The seat rows with each seat's story; a live screen passes them. Without them the board shows
+   * each seat's row with no story, read from the observation's own seat.
+   */
+  seats?: ReactNode;
   /** The Table talk panel, shown beside the field log. */
   talk?: ReactNode;
   /** The Promises and memory panel, shown beside the field log. */
@@ -49,23 +50,17 @@ export function Board({
   observation,
   events = [],
   feed,
-  opponents,
   controls,
-  focus,
+  seats,
   talk,
   promises,
 }: BoardProps) {
   const { public: game } = observation;
-  // One seat's details are open at a time; a local view choice that never reaches the game.
-  const [openSeat, setOpenSeat] = useState<number | null>(null);
   const ownSeat = ownSeatOf(observation);
-  const you = game.players.find((player) => player.seatIndex === ownSeat);
-  // The player's own seat leads the list; the rivals follow in seat order.
-  const seats = [...(you ? [you] : []), ...game.players.filter((player) => player !== you)];
   const activeName = seatLabel(game.activeSeatIndex, ownSeat);
-  // During an opponent's turn the board spotlight follows the acting rival, so the
-  // square and the action text under it always name the same move (issue #123). A watcher
-  // holds no seat, so every turn is a rival's and the spotlight follows each seat in turn.
+  // During an opponent's turn the board spotlight follows the acting rival, so the square and
+  // the beats in its row name the same move (issue #123). A watcher holds no seat, so every turn
+  // is a rival's and the spotlight follows each seat in turn.
   const opponentTurn = game.phase.kind !== 'finished' && game.activeSeatIndex !== ownSeat;
   const focusSeat = opponentTurn ? game.activeSeatIndex : undefined;
   const focusPosition =
@@ -74,20 +69,7 @@ export function Board({
       : game.players.find((player) => player.seatIndex === focusSeat)?.position;
   // A watcher takes no action, so the seats lead the column; a player's turn controls come first.
   const watching = ownSeat === undefined;
-  const players = (
-    <div className="players-area">
-      {seats.map((player) => (
-        <PlayerPanel
-          key={player.seatIndex}
-          player={player}
-          observation={observation}
-          setup={opponents?.find((entry) => entry.seatIndex === player.seatIndex)}
-          open={openSeat === player.seatIndex}
-          onToggle={() => setOpenSeat(openSeat === player.seatIndex ? null : player.seatIndex)}
-        />
-      ))}
-    </div>
-  );
+  const players = seats ?? <SeatRows observation={observation} viewerSeat={ownSeat} />;
   return (
     <div className="game-board-screen">
       <Screen heading={t('play.heading')}>
@@ -204,7 +186,6 @@ export function Board({
                 </div>
               </div>
             </div>
-            {focus}
             {feed && <EventCard observation={observation} feed={feed} />}
             <div className="log-row">
               <EventLog events={events} feed={feed} observation={observation} />

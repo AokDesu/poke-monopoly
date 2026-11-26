@@ -9,7 +9,7 @@ import shopNoCoins from '../../../engine/fixtures/shop-no-coins.json';
 import { stateHash } from '../../../engine/index.ts';
 import { App } from '../App.tsx';
 import { BoardScreen } from '../board/BoardScreen.tsx';
-import { STEP_MS } from '../board/useTurnPlayback.ts';
+import { PACE_TIMING } from '../board/pace.ts';
 import { createScenes, type Scene } from '../gallery/scenes.ts';
 import { META_KEY, SAVE_KEY, writeSave, type SaveStorage } from '../game/save.ts';
 import { content } from '../game/content.ts';
@@ -38,6 +38,9 @@ afterEach(() => {
 
 /** The app runs in StrictMode, which mounts every effect twice. */
 const renderStrict = (ui: ReactElement) => render(<StrictMode>{ui}</StrictMode>);
+/** Long enough at Readable for the longest hold, a speech line and the step after it. */
+const STEP =
+  PACE_TIMING.readable.hold!.maxMs + PACE_TIMING.readable.speechMs + PACE_TIMING.readable.fillerMs;
 const opener = () => screen.getByRole('button', { name: t('howToPlay.open') });
 const guide = () => screen.getByRole('dialog', { name: t('howToPlay.heading') });
 const noGuide = () =>
@@ -246,10 +249,13 @@ test('a watched game is never opened by it, and while it is open the game waits 
   );
   noGuide();
   const length = () => store.getSession()!.log.actions.length;
-  const run = (steps: number) =>
-    act(async () => {
-      await vi.advanceTimersByTimeAsync(STEP_MS.normal * steps);
-    });
+  // Each step is its own act, so the pace engine schedules its next timer in between.
+  const run = async (steps: number) => {
+    for (let step = 0; step < steps; step++)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(STEP);
+      });
+  };
   await run(4);
   expect(length()).toBeGreaterThan(0);
 
@@ -282,7 +288,7 @@ test('a rival’s question in flight when it opens is withdrawn and asked again 
   // Play on until a decision is out to the server and held there.
   for (let step = 0; step < 60 && calls.decide === 0; step++) {
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(STEP_MS.normal);
+      await vi.advanceTimersByTimeAsync(STEP);
     });
   }
   expect(calls.decide).toBe(1);
@@ -291,14 +297,14 @@ test('a rival’s question in flight when it opens is withdrawn and asked again 
   fireEvent.click(opener());
   await act(async () => {
     release();
-    await vi.advanceTimersByTimeAsync(STEP_MS.normal * 10);
+    await vi.advanceTimersByTimeAsync(STEP * 10);
   });
   // The late answer is thrown away: it must not land while the player is reading.
   expect(length()).toBe(heldAt);
 
   fireEvent.click(within(guide()).getByRole('button', { name: t('howToPlay.close') }));
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(STEP_MS.normal * 6);
+    await vi.advanceTimersByTimeAsync(STEP * 6);
   });
   expect(calls.decide).toBeGreaterThan(1);
   expect(length()).toBeGreaterThan(heldAt);

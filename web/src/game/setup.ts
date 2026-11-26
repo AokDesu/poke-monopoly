@@ -199,9 +199,29 @@ export function randomSetup(
   return { mode, human, opponents };
 }
 
-/** Presentation speeds between AI actions (spec §3). Watch setup picks the one a game starts at. */
-export const TURN_SPEEDS = ['normal', 'fast', 'instant'] as const;
-export type TurnSpeed = (typeof TURN_SPEEDS)[number];
+/**
+ * How fast the table tells each turn (spec §3, AI turns). Presentation only: a pace never changes a
+ * decision, a number or a save's log. Readable is the default; Step waits for Next at every outcome.
+ */
+export const PACES = ['step', 'readable', 'fast', 'instant'] as const;
+export type Pace = (typeof PACES)[number];
+export const DEFAULT_PACE: Pace = 'readable';
+
+/** Before paces, a save or a watch setup kept a speed; each old speed reads as the pace it became. */
+const OLD_SPEEDS: Readonly<Record<string, Pace>> = {
+  normal: 'readable',
+  fast: 'fast',
+  instant: 'instant',
+};
+
+/** A saved pace, or a speed saved before paces existed; undefined for anything else. */
+export function readPace(value: unknown): Pace | undefined {
+  if (typeof value !== 'string') return undefined;
+  return (
+    PACES.find((pace) => pace === value) ??
+    (Object.hasOwn(OLD_SPEEDS, value) ? OLD_SPEEDS[value] : undefined)
+  );
+}
 
 /** Spec §3: two to four AIs and no human seat in watch mode. */
 export const WATCH_MIN_AIS = 2;
@@ -211,10 +231,11 @@ export const WATCH_MAX_AIS = 4;
 export interface WatchSettings {
   /** Whether the AIs may speak at the table (spec §5.7). Off asks for no lines at all. */
   readonly talk: boolean;
-  readonly speed: TurnSpeed;
+  /** The pace the watched game starts at. */
+  readonly pace: Pace;
 }
 
-export const DEFAULT_WATCH_SETTINGS: WatchSettings = { talk: true, speed: 'normal' };
+export const DEFAULT_WATCH_SETTINGS: WatchSettings = { talk: true, pace: DEFAULT_PACE };
 
 /** Every seat of a watched game is an AI: seat n is `ais[n]`. */
 export interface WatchSetup {
@@ -294,12 +315,12 @@ export function restoreWatchProgress(
   openModes: readonly ModeId[],
 ): { step: WatchStep; draft: WatchDraft } | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
-  const { step, mode, ais: savedAis, talk, speed } = raw as Record<string, unknown>;
+  const { step, mode, ais: savedAis, talk, pace, speed } = raw as Record<string, unknown>;
   const savedStep = WATCH_STEPS.find((entry) => entry === step);
   if (!savedStep) return undefined;
   const settings: WatchSettings = {
     talk: typeof talk === 'boolean' ? talk : DEFAULT_WATCH_SETTINGS.talk,
-    speed: TURN_SPEEDS.find((entry) => entry === speed) ?? DEFAULT_WATCH_SETTINGS.speed,
+    pace: readPace(pace) ?? readPace(speed) ?? DEFAULT_WATCH_SETTINGS.pace,
   };
   const openMode = openModes.find((entry) => entry === mode);
   const seats: unknown[] = Array.isArray(savedAis) ? savedAis : [];

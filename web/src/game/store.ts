@@ -48,8 +48,16 @@ import {
 import { ChatReplyError, type ChatReplyRequest, type SavedChatWords } from './chat.ts';
 import { reportOutcome, requestOpponent, type AiDecision } from './ai.ts';
 import { demoChoiceOf } from './demoChoice.ts';
+import {
+  DEFAULT_PACE,
+  type DifficultyId,
+  type GameSetup,
+  type Pace,
+  type PersonalityId,
+  type WatchSettings,
+  type WatchSetup,
+} from './setup.ts';
 import { leaderOf } from './tableTalk.ts';
-import type { DifficultyId, GameSetup, PersonalityId, WatchSettings, WatchSetup } from './setup.ts';
 
 /**
  * Rules adapter (spec §6.1). Storage IO lives in `save.ts`; both call the engine only through
@@ -201,10 +209,14 @@ export interface GameStore {
   recordChatWords(words: SavedChatWords): boolean;
   /** Setup saved beside the engine log so a resumed AI decision uses the same personality. */
   getOpponents(): readonly OpponentSettings[];
-  /** A watched game's talk and starting-speed settings, kept with the game; absent otherwise. */
+  /** A watched game's talk and starting-pace settings, kept with the game; absent otherwise. */
   getWatchSettings(): WatchSettings | undefined;
   /** The prepared scenario this game was opened from (`?demo`), or undefined. Never in the log. */
   getScene(): string | undefined;
+  /** The pace the table tells turns at (spec §3). Presentation only, kept with every game. */
+  getPace(): Pace;
+  /** Changes the pace and notifies, so the save is rewritten. Never touches the game or a decision. */
+  setPace(pace: Pace): void;
   /** Identifies this game to the speech route; changes when a game starts or is restored. */
   getGameId(): string;
   /**
@@ -216,6 +228,7 @@ export interface GameStore {
    * Replaces the session with a saved game. Applies nothing: dice stay as logged and the
    * pending decision stays pending (spec §3.1, §6.9). `gameId` is the one saved beside the game,
    * so the server's per-game limits (spec §9) carry on across a reload; without one it is new.
+   * `pace` is the one saved with the game; without it a watched game starts at its setup pace.
    */
   restore(
     session: GameSession,
@@ -224,6 +237,7 @@ export interface GameStore {
     gameId?: string,
     chatWords?: readonly SavedChatWords[],
     scene?: string,
+    pace?: Pace,
   ): void;
   /** Engine winner and coin/badge standings, or null until the game is finished. Stable. */
   getResults(): GameResults | null;
@@ -404,6 +418,7 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
   let opponents: readonly OpponentSettings[] = [];
   let watch: WatchSettings | undefined;
   let scene: string | undefined;
+  let pace: Pace = DEFAULT_PACE;
   let chatWords: readonly SavedChatWords[] = [];
   let gameToken = '';
   const listeners = new Set<() => void>();
@@ -597,6 +612,7 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
       opponents = settings;
       watch = watchSettings;
       scene = sceneId;
+      pace = watchSettings?.pace ?? DEFAULT_PACE;
       chatWords = [];
       shownFeed = [];
       commit({ state, log: createGameLog(state) }, state, []);
@@ -808,6 +824,14 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
     getScene(): string | undefined {
       return scene;
     },
+    getPace(): Pace {
+      return pace;
+    },
+    setPace(next: Pace): void {
+      if (next === pace) return;
+      pace = next;
+      for (const listener of listeners) listener();
+    },
     getGameId(): string {
       return gameToken;
     },
@@ -853,6 +877,7 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
       gameId?: string,
       savedWords: readonly SavedChatWords[] = [],
       sceneId?: string,
+      savedPace?: Pace,
     ): void {
       // A save that lacks a rival's settings plays it as Greedy on Normal, as the save prompt says.
       opponents = [
@@ -871,6 +896,7 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
       ];
       watch = watchSettings;
       scene = sceneId;
+      pace = savedPace ?? watchSettings?.pace ?? DEFAULT_PACE;
       // Only words that fit this game: a save from another one cannot lend it a line.
       chatWords = savedWords.filter((entry) => fitsGame(entry, game.state));
       gameToken = gameId ?? crypto.randomUUID();
@@ -888,6 +914,7 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
       opponents = [];
       watch = undefined;
       scene = undefined;
+      pace = DEFAULT_PACE;
       chatWords = [];
       gameToken = '';
       for (const listener of listeners) listener();

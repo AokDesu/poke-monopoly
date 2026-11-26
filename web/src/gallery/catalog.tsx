@@ -6,6 +6,8 @@ import { EventCard } from '../board/EventCard.tsx';
 import { PromisePanel } from '../board/PromisePanel.tsx';
 import { SellPanel } from '../board/SellPanel.tsx';
 import { TableTalkPanel } from '../board/TableTalk.tsx';
+import { backupSeats } from '../board/AiTurn.tsx';
+import { SeatRows } from '../board/SeatRows.tsx';
 import { TurnPanel } from '../board/TurnPanel.tsx';
 import { WatchPanel } from '../board/WatchPanel.tsx';
 import { HowToPlay } from '../howToPlay/HowToPlay.tsx';
@@ -196,6 +198,22 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
       {...extra}
     />
   );
+  /** A rival's turn as the player sees it: the turn panel and the seat rows with their badges. */
+  const aiTable = (scene: Pick<Scene, 'view'>, status: TurnPlayback['status'] = null) => (
+    <>
+      <TurnPanel
+        view={scene.view}
+        playback={{ ...STATIC_PLAYBACK, status }}
+        actionError={false}
+        onChoose={noop}
+      />
+      <SeatRows
+        observation={scene.view.observation}
+        viewerSeat={scene.view.seatIndex}
+        backup={backupSeats(scene.view, status)}
+      />
+    </>
+  );
 
   const promisePanel = (scene: Pick<Scene, 'view'>) => (
     <PromisePanel observation={scene.view.observation} feed={scene.view.feed} />
@@ -212,6 +230,18 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
       savingOff={false}
       onLeave={noop}
     />
+  );
+  /** A watched turn: the watcher's panel and every AI's seat row with its badge. */
+  const watchTable = (scene: Pick<WatchScene, 'view'>, status: TurnPlayback['status']) => (
+    <>
+      {watchPanel(scene, { status })}
+      <SeatRows
+        observation={scene.view.observation}
+        viewerSeat={undefined}
+        opponents={scene.view.opponents}
+        backup={backupSeats(scene.view, status)}
+      />
+    </>
   );
 
   return [
@@ -304,12 +334,12 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
         {
           id: 'one-of-two',
           caption: 'gallery.example.badgeOneOfTwo',
-          render: () => turnPanel(timeoutOfTwo()),
+          render: () => aiTable(timeoutOfTwo()),
         },
         {
           id: 'rate-limited',
           caption: 'gallery.example.badgeRateLimited',
-          render: () => turnPanel(rateLimited()),
+          render: () => aiTable(rateLimited()),
         },
       ],
     },
@@ -322,12 +352,12 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
         {
           id: 'not-an-option',
           caption: 'gallery.example.notAnOption',
-          render: () => turnPanel(notAnOption()),
+          render: () => aiTable(notAnOption()),
         },
         {
           id: 'revision-mismatch',
           caption: 'gallery.example.revisionMismatch',
-          render: () => turnPanel(revisionMismatch()),
+          render: () => aiTable(revisionMismatch()),
         },
       ],
     },
@@ -340,7 +370,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
         {
           id: 'low-confidence',
           caption: 'gallery.example.lowConfidence',
-          render: () => turnPanel(lowConfidence()),
+          render: () => aiTable(lowConfidence()),
         },
       ],
     },
@@ -353,28 +383,19 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
         {
           id: 'every-rival',
           caption: 'gallery.example.everyRivalBackup',
-          render: () => turnPanel(timeoutOfOne()),
+          render: () => aiTable(timeoutOfOne()),
         },
         {
           id: 'server-backup-only',
           caption: 'gallery.example.serverBackupOnly',
-          render: () => (
-            <TurnPanel
-              view={decisionOpen().view}
-              playback={{
-                ...STATIC_PLAYBACK,
-                status: {
-                  jevEnabled: false,
-                  backupOnly: true,
-                  reason: 'disabled',
-                  speech: { enabled: false, reason: 'disabled' },
-                  demo: false,
-                },
-              }}
-              actionError={false}
-              onChoose={noop}
-            />
-          ),
+          render: () =>
+            aiTable(decisionOpen(), {
+              jevEnabled: false,
+              backupOnly: true,
+              reason: 'disabled',
+              speech: { enabled: false, reason: 'disabled' },
+              demo: false,
+            }),
         },
       ],
     },
@@ -623,14 +644,12 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
           id: 'server-backup-only',
           caption: 'gallery.example.watchAllBackup',
           render: () =>
-            watchPanel(watchOpen(), {
-              status: {
-                jevEnabled: false,
-                backupOnly: true,
-                reason: 'disabled',
-                speech: { enabled: false, reason: 'disabled' },
-                demo: false,
-              },
+            watchTable(watchOpen(), {
+              jevEnabled: false,
+              backupOnly: true,
+              reason: 'disabled',
+              speech: { enabled: false, reason: 'disabled' },
+              demo: false,
             }),
         },
       ],

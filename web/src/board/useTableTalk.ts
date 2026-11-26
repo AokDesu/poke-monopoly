@@ -16,7 +16,7 @@ import {
   sharedFeed,
   speakBody,
   speechEvent,
-  speedAllowsTalk,
+  paceAllowsTalk,
   spokenLines,
   RECENT_LINES,
   voiceOff,
@@ -60,7 +60,7 @@ interface Tracking {
 export function useTableTalk(
   store: GameStore,
   view: SeatView | SpectatorView | null,
-  playback: Pick<TurnPlayback, 'speed' | 'paused' | 'status'>,
+  playback: Pick<TurnPlayback, 'pace' | 'skipping' | 'paused' | 'status'>,
 ): TableTalk {
   const session = useSyncExternalStore(store.subscribe, store.getSession);
   const lines = useMemo(
@@ -73,24 +73,10 @@ export function useTableTalk(
   const off = voiceOff(playback.status);
   // An answer written by Haiku needs Jev for the manipulation check as well as Haiku for the words.
   const answerOn = off === null && playback.status?.backupOnly !== true;
-  const live = useRef({
-    speed: playback.speed,
-    paused: playback.paused,
-    hidden,
-    enabled,
-    off,
-    answerOn,
-    lines,
-  });
-  live.current = {
-    speed: playback.speed,
-    paused: playback.paused,
-    hidden,
-    enabled,
-    off,
-    answerOn,
-    lines,
-  };
+  // Skipping ahead runs the table at Instant, where nobody talks.
+  const pace = playback.skipping ? 'instant' : playback.pace;
+  const live = useRef({ pace, paused: playback.paused, hidden, enabled, off, answerOn, lines });
+  live.current = { pace, paused: playback.paused, hidden, enabled, off, answerOn, lines };
   const tracking = useRef<Tracking | null>(null);
 
   useEffect(() => {
@@ -109,7 +95,7 @@ export function useTableTalk(
         momentKey,
         spoken: now.lines,
         moment,
-        speed: now.speed,
+        pace: now.pace,
         paused: now.paused,
         hidden: now.hidden || !now.enabled,
       });
@@ -123,7 +109,7 @@ export function useTableTalk(
           !controller.signal.aborted &&
           store.getGameId() === gameId &&
           store.getSession()?.state.phase.kind !== 'finished' &&
-          speedAllowsTalk(latest.speed) &&
+          paceAllowsTalk(latest.pace) &&
           !latest.paused &&
           !latest.hidden
         );

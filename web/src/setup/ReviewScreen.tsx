@@ -90,7 +90,7 @@ export function ReviewScreen({ setup, failed, onRoll, onBack }: ReviewScreenProp
               {t(setup.settings.talk ? 'watchReview.on' : 'watchReview.off')}
             </Chip>
             <Chip>
-              {t('watchReview.speed')}: {t(`ai.speed.${setup.settings.speed}`)}
+              {t('watchReview.pace')}: {t(`pace.${setup.settings.pace}`)}
             </Chip>
           </p>
         </>

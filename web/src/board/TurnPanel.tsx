@@ -1,9 +1,10 @@
 import { inSocialWindow, sentThisTurn } from '../game/chat.ts';
 import { answerThisTurn, rivalOwesAnswer } from '../game/promises.ts';
-import type { SeatView, SpectatorView } from '../game/store.ts';
+import type { SeatView } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
+import { className } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
-import { AiTurn } from './AiTurn.tsx';
+import { AiTurn, PaceControls } from './AiTurn.tsx';
 import { BattlePanel } from './BattlePanel.tsx';
 import { BattleResult } from './BattleResult.tsx';
 import { BattleTerms } from './BattleTerms.tsx';
@@ -19,15 +20,6 @@ import { turnMessages } from './turnMessages.ts';
 import type { TurnPlayback } from './useTurnPlayback.ts';
 
 const NO_REPLY: ChatReplyControls = { state: { status: 'none' }, retry: () => {} };
-
-/** The rival's latest announced action, from the accepted records alone. */
-export function opponentMessageOf(view: SeatView | SpectatorView) {
-  const game = view.observation.public;
-  const automatic = view.feed.at(-1);
-  return automatic?.before.activeSeatIndex === game.activeSeatIndex
-    ? turnMessages(automatic, view.seatIndex).find((message) => message.key.startsWith('ai.'))
-    : undefined;
-}
 
 export interface TurnPanelProps {
   view: SeatView;
@@ -104,14 +96,17 @@ export function TurnPanel({
   );
   const you = game.players.find((player) => player.seatIndex === view.seatIndex)!;
   const opponentFailed = playback.failed;
-  const opponentMessage = opponentMessageOf(view);
+  const rival = game.players.find((player) => player.seatIndex === game.activeSeatIndex)!;
+  // The rival's moves are written in its seat row, so the panel only says who is playing.
   let body =
     game.phase.kind === 'finished'
       ? t('turn.finished')
       : battle
         ? battle.body
         : !humanTurn
-          ? (opponentMessage?.text ?? t('ai.playing'))
+          ? playback.paused
+            ? t('pace.paused')
+            : t('ai.playing', { name: className(rival.classId) })
           : game.phase.kind === 'sell'
             ? t('turn.sellBody')
             : game.phase.kind === 'shop'
@@ -147,7 +142,8 @@ export function TurnPanel({
                     : t('turn.opponent')}
         </h2>
         <p role={opponentFailed ? 'alert' : 'status'}>{body}</p>
-        {automaticMessage && !decisionOpen && (
+        {/* A rival's automatic steps are filler: its row tells what mattered. */}
+        {humanTurn && automaticMessage && !decisionOpen && (
           <p className="turn-banner" role="status">
             {automaticMessage.text}
           </p>
@@ -173,6 +169,7 @@ export function TurnPanel({
         )}
       </div>
       <JevChoicePanel view={view} />
+      <PaceControls view={view} playback={playback} />
       <AiTurn view={view} playback={playback} />
       <BattleResult view={view} />
       {receivedRescue && (

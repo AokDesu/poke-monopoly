@@ -46,22 +46,26 @@ export interface WatchScene {
   readonly view: SpectatorView;
 }
 
-/** A frozen playback: nothing is thinking, speaking or failing, and no clock runs. */
+/** A frozen playback: nothing is thinking, holding or failing, and no clock runs. */
 export const STATIC_PLAYBACK: TurnPlayback = {
-  speed: 'normal',
-  setSpeed: () => {},
+  pace: 'readable',
+  setPace: () => {},
+  skipping: false,
   status: null,
   statusUnavailable: false,
   thinking: false,
   failed: false,
-  line: null,
-  skipLine: () => {},
   retry: () => {},
   paused: false,
   setPaused: () => {},
   step: () => {},
   stepBlocked: null,
+  holding: false,
+  next: () => {},
+  nextBlocked: null,
+  skipToMyTurn: () => {},
   skipToEnd: () => {},
+  story: { beats: [], shown: 0, current: null, turns: new Map(), speech: new Map() },
 };
 
 /** A rival seat cloned from seat 1: only what the human seat may see of it. */

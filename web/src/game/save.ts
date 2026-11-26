@@ -9,8 +9,9 @@ import { readSavedChatWords, type SavedChatWords } from './chat.ts';
 import {
   DIFFICULTIES,
   PERSONALITIES,
-  TURN_SPEEDS,
+  readPace,
   type DifficultyId,
+  type Pace,
   type PersonalityId,
   type WatchDraft,
   type WatchSettings,
@@ -34,8 +35,10 @@ export interface SaveMeta {
     readonly personality: PersonalityId;
     readonly difficulty: DifficultyId;
   }[];
-  /** Present only for a watched game: its talk setting and starting speed. */
+  /** Present only for a watched game: its talk setting and starting pace. */
   readonly watch?: WatchSettings;
+  /** The pace the game was last played at, kept with every game (spec §3, AI turns). */
+  readonly pace?: Pace;
   /** The rivals' words for the human's topic messages, so a reload shows the same lines (spec §5.7). */
   readonly chatWords?: readonly SavedChatWords[];
   /**
@@ -80,6 +83,7 @@ export function writeSave(storage: SaveStorage, game: SavedGame, meta: SaveMeta)
     JSON.stringify({
       opponents: meta.opponents,
       watch: meta.watch,
+      pace: meta.pace,
       gameId: meta.gameId,
       scene: meta.scene,
       chatWords: meta.chatWords,
@@ -102,8 +106,12 @@ export function readMeta(storage: SaveStorage): SaveMeta {
     if (!Array.isArray(rows)) return EMPTY_META;
     const watch = 'watch' in parsed ? parsed.watch : undefined;
     const talk = watch && typeof watch === 'object' && 'talk' in watch ? watch.talk : undefined;
-    const speed = watch && typeof watch === 'object' && 'speed' in watch ? watch.speed : undefined;
-    const startSpeed = TURN_SPEEDS.find((item) => item === speed);
+    // A save from before paces kept the watched game's starting speed instead.
+    const startPace =
+      watch && typeof watch === 'object'
+        ? readPace('pace' in watch ? watch.pace : 'speed' in watch ? watch.speed : undefined)
+        : undefined;
+    const pace = 'pace' in parsed ? readPace(parsed.pace) : undefined;
     const gameId = 'gameId' in parsed ? parsed.gameId : undefined;
     const scene = 'scene' in parsed ? parsed.scene : undefined;
     return {
@@ -115,7 +123,8 @@ export function readMeta(storage: SaveStorage): SaveMeta {
         if (typeof row.seatIndex !== 'number' || !personality || !difficulty) return [];
         return [{ seatIndex: row.seatIndex, personality, difficulty }];
       }),
-      ...(typeof talk === 'boolean' && startSpeed && { watch: { talk, speed: startSpeed } }),
+      ...(typeof talk === 'boolean' && startPace && { watch: { talk, pace: startPace } }),
+      ...(pace && { pace }),
       ...(typeof gameId === 'string' && /^[\w-]{1,64}$/.test(gameId) && { gameId }),
       ...(typeof scene === 'string' && /^[\w-]{1,64}$/.test(scene) && { scene }),
       ...('chatWords' in parsed && { chatWords: readSavedChatWords(parsed.chatWords) }),

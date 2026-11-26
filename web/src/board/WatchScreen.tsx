@@ -1,8 +1,8 @@
 import { useRef } from 'react';
 import type { GameStore, SpectatorView } from '../game/store.ts';
-import { t } from '../i18n/en.ts';
+import { backupSeats } from './AiTurn.tsx';
 import { Board } from './Board.tsx';
-import { opponentMessageOf } from './TurnPanel.tsx';
+import { SeatRows } from './SeatRows.tsx';
 import { useTurnPlayback } from './useTurnPlayback.ts';
 import { WatchPanel } from './WatchPanel.tsx';
 
@@ -20,6 +20,7 @@ export interface WatchScreenProps {
 /**
  * The board of a game with no human seat. It reads the public-only spectator view and hands the
  * board nothing else: no `own`, so no Ball pouch, secret item, peek result or "You" can appear.
+ * Each AI's row tells its turns at the same pace as a player's game.
  */
 export function WatchScreen({
   store,
@@ -33,29 +34,20 @@ export function WatchScreen({
   const openedAt = useRef<number | null>(null);
   const game = view.observation.public;
   if (openedAt.current === null) openedAt.current = game.stateRevision;
-  const opponentMessage = opponentMessageOf(view);
-  // The current action, spelled out under the board loop where the spotlight is (issue #123).
-  const focus =
-    game.phase.kind !== 'finished' && opponentMessage ? (
-      <div className="now-strip" data-seat={game.activeSeatIndex}>
-        <span className="seat-disc" data-seat={game.activeSeatIndex}>
-          {game.activeSeatIndex}
-        </span>
-        <p>
-          <strong>{t('ai.now')}</strong>
-          <span aria-hidden="true" className="now-between">
-            {' — '}
-          </span>
-          {opponentMessage.text}
-        </p>
-      </div>
-    ) : undefined;
   return (
     <Board
       observation={{ public: game }}
       feed={view.feed}
-      opponents={view.opponents}
-      focus={focus}
+      seats={
+        <SeatRows
+          observation={{ public: game }}
+          viewerSeat={undefined}
+          story={playback.story}
+          pace={playback.skipping ? 'instant' : playback.pace}
+          opponents={view.opponents}
+          backup={backupSeats(view, playback.status)}
+        />
+      }
       controls={
         <WatchPanel
           view={view}

@@ -1,12 +1,13 @@
-import { TURN_SPEEDS, type TurnSpeed, type WatchSettings } from '../game/setup.ts';
+import { PACES, type Pace, type WatchSettings } from '../game/setup.ts';
 import { t, type MessageKey } from '../i18n/en.ts';
 import { Button } from '../ui/Button.tsx';
 import { ChoiceRadio } from '../ui/Choice.tsx';
 import { Screen } from '../ui/Screen.tsx';
 import { SetupProgress } from './SetupProgress.tsx';
 
-const SPEED_HINT: Record<TurnSpeed, MessageKey> = {
-  normal: 'watchOptions.normalHint',
+const PACE_HINT: Record<Pace, MessageKey> = {
+  step: 'watchOptions.stepHint',
+  readable: 'watchOptions.readableHint',
   fast: 'watchOptions.fastHint',
   instant: 'watchOptions.instantHint',
 };
@@ -20,7 +21,7 @@ interface WatchOptionsScreenProps {
 
 /**
  * The settings of a watched game that belong to no AI (spec §3): whether the AIs talk at the
- * table, and the speed the game starts at. Both are saved with the game.
+ * table, and the pace the game starts at. Both are saved with the game.
  */
 export function WatchOptionsScreen({
   settings,
@@ -62,17 +63,17 @@ export function WatchOptionsScreen({
         </ul>
       </fieldset>
       <fieldset className="mt-10">
-        <legend className="font-display text-2xl font-semibold">{t('watchOptions.speed')}</legend>
-        <ul className="mt-4 grid gap-4 sm:grid-cols-3">
-          {TURN_SPEEDS.map((speed) => (
-            <li key={speed}>
+        <legend className="font-display text-2xl font-semibold">{t('watchOptions.pace')}</legend>
+        <ul className="mt-4 grid gap-4 sm:grid-cols-2">
+          {PACES.map((pace) => (
+            <li key={pace}>
               <ChoiceRadio
-                name="watch-speed"
-                value={speed}
-                checked={settings.speed === speed}
-                title={t(`ai.speed.${speed}`)}
-                description={t(SPEED_HINT[speed])}
-                onSelect={() => onChange({ ...settings, speed })}
+                name="watch-pace"
+                value={pace}
+                checked={settings.pace === pace}
+                title={t(`pace.${pace}`)}
+                description={t(PACE_HINT[pace])}
+                onSelect={() => onChange({ ...settings, pace })}
               />
             </li>
           ))}

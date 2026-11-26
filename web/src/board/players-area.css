@@ -1,74 +1,82 @@
-/* The players area (issue #215): one compact row per seat, every key fact on screen, the full
-   details of one seat opening under its row. Reads like a scoreboard, so numbers are tabular
-   and the seat's colour carries the turn. */
+/* The seat rows (spec §3, AI turns; issue #254): one row per player, the public numbers on one
+   line and the seat's last turn told as beats under it. A playing seat's row is a short list that
+   writes itself; a finished turn folds to one line of beats. The seat's colour carries the turn;
+   the game's reward yellow (ring and fill) says "this touched you". */
 .players-area {
   display: grid;
   gap: 0.5rem;
   min-width: 0;
 }
-.player-panel {
+.seat-rows {
+  display: grid;
+  gap: 0.5rem;
+}
+.seat-row {
   --seat-color: #c92d20;
   --lip: color-mix(in srgb, var(--color-panel-lip), var(--seat-color) 14%);
-  border-radius: 14px;
+  border-radius: 16px;
   box-shadow:
     inset 0 2px 0 rgb(255 255 255 / 0.9),
     0 3px 0 var(--lip),
     0 10px 16px -10px rgb(16 38 84 / 0.38);
 }
-.player-panel[data-seat='1'] {
+.seat-row[data-seat='1'] {
   --seat-color: #205db8;
 }
-.player-panel[data-seat='2'] {
+.seat-row[data-seat='2'] {
   --seat-color: #68439f;
 }
-.player-panel[data-seat='3'] {
+.seat-row[data-seat='3'] {
   --seat-color: #246b36;
 }
 /* Whose turn it is: the seat's colour rings the whole row, and a word says it too. */
-.player-panel[data-active='true'] {
+.seat-row[data-active='true'] {
   outline: 3px solid var(--seat-color);
   outline-offset: 1px;
 }
-/* The disc sits beside two lines: the name line, then the public numbers. */
-.player-summary {
+.seat-row[data-touched='true'] {
+  background: #fff4cc;
+  box-shadow:
+    inset 0 0 0 2px var(--color-reward),
+    0 3px 0 var(--color-reward-lip),
+    0 10px 16px -10px rgb(16 38 84 / 0.38);
+}
+.seat-row-summary {
   position: relative;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  column-gap: 0.6rem;
-  padding: 0.4rem 0.6rem 0.4rem 0.7rem;
-  border-radius: inherit;
-}
-.player-summary > .seat-disc {
-  grid-row: 1 / span 2;
-  width: 1.9rem;
-  height: 1.9rem;
-}
-.player-heading {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  min-width: 0;
+  gap: 0.55rem;
+  padding: 0.45rem 0.6rem 0.45rem 0.7rem;
+  border-radius: inherit;
 }
-.player-identity {
+.seat-row-summary > .seat-disc {
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: 0.85rem;
+}
+/* Name, then its tags (whose turn, Backup bot) on the same line when they fit, under it if not. */
+.seat-row-who {
   flex: 1;
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  column-gap: 0.45rem;
+  align-items: center;
+  gap: 0.15rem 0.4rem;
   min-width: 0;
 }
-.player-identity h2 {
-  font-size: 0.98rem;
+.seat-row-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.35rem;
+  min-width: 0;
+  font-size: 1rem;
   line-height: 1.25;
 }
-.player-identity p {
+.seat-row-tag {
   color: var(--color-ink-soft);
+  font-family: var(--font-sans);
   font-size: 0.75rem;
-}
-.player-identity .player-setup {
-  flex-basis: 100%;
-  font-size: 0.72rem;
+  font-weight: 700;
 }
 .turn-badge {
   flex-shrink: 0;
@@ -76,28 +84,47 @@
   border-radius: 999px;
   background: var(--seat-color);
   color: white;
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 800;
   white-space: nowrap;
 }
-.player-coins {
+.seat-row-backup {
   flex-shrink: 0;
+  padding: 0.05rem 0.5rem;
+  font-size: 0.72rem;
+  white-space: nowrap;
 }
-.player-coins dt {
+.seat-row-facts {
+  flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-variant-numeric: tabular-nums;
+}
+.seat-row-facts dt {
   position: absolute;
   width: 1px;
   height: 1px;
   overflow: hidden;
   clip-path: inset(50%);
 }
-.player-coins dd {
+.seat-row-facts .coin-stat dd {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
   color: #845800;
   font-family: var(--font-display);
   font-size: 1rem;
   font-weight: 600;
   line-height: 1.1;
 }
-/* The button is the whole summary: its overlay catches the click anywhere on the row. */
+.seat-row-facts div:not(.coin-stat) dd {
+  color: var(--color-ink-soft);
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+/* The toggle's overlay catches a click anywhere on the summary line. */
 .player-toggle {
   flex-shrink: 0;
   display: grid;
@@ -112,10 +139,6 @@
   inset: 0;
   border-radius: inherit;
   transition: background-color 140ms ease-out;
-}
-.player-summary:has(.player-toggle[aria-expanded='true']) {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
 }
 .player-toggle:hover::after {
   background: rgb(21 38 74 / 0.05);
@@ -133,14 +156,164 @@
   transition: transform 160ms ease-out;
 }
 .player-toggle[aria-expanded='true'] .player-chevron {
-  transform: rotate(180deg);
+  transform: rotate(90deg);
+}
+/* The story sits under the name, so the beats line up with it. */
+.seat-story {
+  padding: 0 0.75rem 0.55rem 2.95rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.seat-story-empty {
+  color: var(--color-ink-soft);
+}
+.seat-beats {
+  display: grid;
+  gap: 0.2rem;
+}
+.seat-beat {
+  padding: 0.2rem 0.5rem;
+  margin-inline-start: -0.5rem;
+  border-radius: 10px;
+  transition: background-color 200ms var(--ease-out);
+}
+.seat-story:not([data-folded]) .seat-beat {
+  animation: beat-in 320ms var(--ease-out) both;
+}
+.seat-beat[data-current='true'] {
+  background: color-mix(in srgb, var(--seat-color), white 88%);
+  font-weight: 700;
+}
+.seat-beat[data-touched='true'] {
+  background: #fff4cc;
+  box-shadow: inset 0 0 0 1px var(--color-reward);
+}
+.beat-you {
+  display: inline-block;
+  margin-inline-end: 0.35rem;
+  padding: 0 0.4rem;
+  border: 1px solid var(--color-reward-lip);
+  border-radius: 999px;
+  background: white;
+  color: #845800;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.5;
+}
+.beat-more {
+  color: var(--color-ink-soft);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+.beat-more:hover {
+  color: var(--color-ink);
+}
+.beat-more:focus-visible {
+  outline: 3px solid var(--color-action);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+/* Folded: the turn reads as one line of beats, the newest last. */
+.seat-story[data-folded] .seat-beats {
+  display: block;
+}
+.seat-story[data-folded] .seat-beats > li {
+  display: inline;
+}
+.seat-story[data-folded] .seat-beat {
+  padding: 0;
+  margin: 0;
+  background: none;
+  box-shadow: none;
+  font-weight: inherit;
+}
+.seat-story[data-folded] .seat-beat[data-touched='true'] {
+  font-weight: 700;
+}
+.seat-story[data-folded] .seat-beats > li + li::before {
+  content: ' · ';
+  color: var(--color-ink-soft);
+}
+.seat-story[data-folded] .seat-beat-more {
+  margin-inline-end: 0.35rem;
+}
+.seat-story[data-folded] .seat-beat-more + li::before {
+  content: none;
+}
+.seat-speech {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.45rem;
+  margin-top: 0.3rem;
+  font-style: italic;
+}
+.seat-speech .talk-label {
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  background: var(--color-panel-tint);
+  color: var(--color-ink-soft);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 800;
+}
+.seat-speech .beat-you {
+  font-style: normal;
+}
+/* What touched the viewing seat since its last turn, listed first at the start of its turn. */
+.touched-banner {
+  padding: 0.6rem 0.85rem;
+  border-radius: 16px;
+  background: #fff4cc;
+  box-shadow:
+    inset 0 0 0 2px var(--color-reward),
+    0 3px 0 var(--color-reward-lip),
+    0 10px 16px -10px rgb(16 38 84 / 0.38);
+}
+.touched-banner h2 {
+  color: #6b4700;
+  font-size: 0.8rem;
+}
+.touched-banner ul {
+  display: grid;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+}
+.touched-banner li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.touched-banner .seat-disc {
+  width: 1.4rem;
+  height: 1.4rem;
+  font-size: 0.72rem;
+}
+.player-body {
+  padding: 0.1rem 0.9rem 0.9rem;
+  border-top: 1px solid var(--color-line);
+}
+.player-setup {
+  margin-top: 0.6rem;
+  color: var(--color-ink-soft);
+  font-size: 0.8rem;
+}
+.seat-row-reason {
+  margin-top: 0.6rem;
+  font-size: 0.85rem;
 }
 .player-glance {
   display: flex;
   flex-wrap: wrap;
-  gap: 0 0.7rem;
-  font-size: 0.78rem;
-  line-height: 1.3;
+  gap: 0 0.9rem;
+  margin-top: 0.6rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
 }
 .player-glance > div {
   display: flex;
@@ -149,23 +322,24 @@
 }
 .player-glance dt {
   color: var(--color-ink-soft);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
 }
 .player-glance dd {
   font-weight: 800;
 }
-.player-body {
-  padding: 0.1rem 0.9rem 0.9rem;
-  border-top: 1px solid var(--color-line);
+@keyframes beat-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .player-chevron,
-  .player-toggle::after {
+  .player-toggle::after,
+  .seat-beat {
     transition: none;
   }
-}
-.player-coins dd {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
+  .seat-story:not([data-folded]) .seat-beat {
+    animation: none;
+  }
 }

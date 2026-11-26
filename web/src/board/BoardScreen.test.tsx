@@ -3,10 +3,10 @@ import { StrictMode } from 'react';
 import { afterEach, beforeAll, expect, test, vi } from 'vitest';
 import { replay, stateHash } from '../../../engine/index.ts';
 import { engineContent } from '../game/content.ts';
-import { configForSetup, createGameStore } from '../game/store.ts';
+import { configForSetup, createGameStore, type GameStore } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { BoardScreen } from './BoardScreen.tsx';
-import { STEP_MS } from './useTurnPlayback.ts';
+import { PACE_TIMING } from './pace.ts';
 
 // Twenty seeded human turns through the real screen: ~50 s at full parallelism, so a 60 s limit is not a margin (ET-05).
 const LONG_GAME_MS = 240_000;
@@ -64,12 +64,24 @@ function start(seed = 1) {
       <BoardScreen store={store} />
     </StrictMode>,
   );
+  current = store;
   return store;
 }
-const tick = () =>
-  act(async () => {
-    await vi.advanceTimersByTimeAsync(STEP_MS.normal);
-  });
+/**
+ * Plays on in short steps until the game moves, for at most a long Readable hold chain. Each
+ * step is its own `act`, so the pace engine re-renders and schedules its next timer in between.
+ */
+let current: GameStore | null = null;
+const tick = async () => {
+  const revision = current?.getSession()?.state.stateRevision;
+  const { hold, speechMs, fillerMs } = PACE_TIMING.readable;
+  for (let spent = 0; spent < 2 * hold!.maxMs + speechMs + fillerMs; spent += 250) {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+    if (current?.getSession()?.state.stateRevision !== revision) return;
+  }
+};
 function clickDecision() {
   const area =
     screen.queryByRole('dialog') ?? screen.getByRole('region', { name: t('turn.actions') });
@@ -88,7 +100,8 @@ function clickDecision() {
   }
   const buttons = within(area)
     .queryAllByRole('button')
-    .filter((entry) => !entry.hasAttribute('disabled'));
+    // The pace of the table is not a decision.
+    .filter((entry) => !entry.hasAttribute('disabled') && !entry.closest('.pace-controls'));
   if (area.tagName === 'DIALOG' && buttons.length === 1) return;
   if (buttons[0]) fireEvent.click(buttons[0]);
   // A battle reward is selected first and committed by Confirm.

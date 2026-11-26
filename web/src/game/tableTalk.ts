@@ -2,6 +2,7 @@ import type { AiStatus } from '../../../engine/contract/decision.ts';
 import type { AiSpeechEvent, Observation } from '../../../engine/index.ts';
 import { en, t, type MessageKey } from '../i18n/en.ts';
 import { className, speciesName } from '../i18n/names.ts';
+import type { Pace } from './setup.ts';
 import type { SeatFeedEntry, SeatView, SpectatorView } from './store.ts';
 
 /**
@@ -25,8 +26,8 @@ export const TABLE_TALK = {
   /** A die face this high is a big roll, this low a bad one: the die's own ends, never a rule. */
   highRoll: 6,
   lowRoll: 1,
-  /** Comments are asked for only at these speeds. */
-  speeds: ['normal'],
+  /** Comments are asked for only at these paces: the ones that hold each outcome long enough to read. */
+  paces: ['step', 'readable'],
 } as const;
 
 export type TalkSituation =
@@ -53,7 +54,6 @@ export type TalkSituation =
   | 'coins_other'
   | 'sale_other'
   | 'gym_win_other';
-export type TalkSpeed = 'normal' | 'fast' | 'instant';
 export type PublicGame = Observation['public'];
 
 /**
@@ -238,8 +238,8 @@ export function detectMoment(
   return null;
 }
 
-export const speedAllowsTalk = (speed: TalkSpeed): boolean =>
-  (TABLE_TALK.speeds as readonly string[]).includes(speed);
+export const paceAllowsTalk = (pace: Pace): boolean =>
+  (TABLE_TALK.paces as readonly string[]).includes(pace);
 
 /** One turn for every seat, counted from the first turn. */
 export const roundOf = (turn: number, seats: number): number =>
@@ -338,7 +338,7 @@ export interface TalkContext {
   /** Lines already shown, from the saved log: the limits hold across a reload. */
   readonly spoken: readonly AiSpeechEvent[];
   readonly moment: Moment;
-  readonly speed: TalkSpeed;
+  readonly pace: Pace;
   readonly paused: boolean;
   readonly hidden: boolean;
 }
@@ -368,9 +368,9 @@ export interface TalkPlan {
  * the saved lines.
  */
 export function planTableTalk(context: TalkContext): TalkPlan | null {
-  const { view, seed, momentKey, spoken, moment, speed, paused, hidden } = context;
+  const { view, seed, momentKey, spoken, moment, pace, paused, hidden } = context;
   const game = view.observation.public;
-  if (!speedAllowsTalk(speed) || paused || hidden) return null;
+  if (!paceAllowsTalk(pace) || paused || hidden) return null;
   if (game.phase.kind === 'finished') return null;
   const seats = game.players.length;
   const round = roundOf(moment.turn, seats);

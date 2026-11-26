@@ -23,7 +23,7 @@ import {
   type Command,
   type GameStore,
 } from './store.ts';
-import { STEP_MS } from '../board/useTurnPlayback.ts';
+import { PACE_TIMING } from '../board/pace.ts';
 
 // Named per-test budgets (ET-05): these take 2 to 8 s at full parallelism, so the 5 s default is too tight on a loaded machine.
 const SLOW_TEST_MS = 30_000;
@@ -212,7 +212,7 @@ test(
           return new Promise(() => {});
         });
         await act(async () => {
-          await vi.advanceTimersByTimeAsync(STEP_MS.normal);
+          await vi.advanceTimersByTimeAsync(PACE_TIMING.readable.fillerMs);
         });
         expect(body.decisionPoint).toBe('encounter');
         expect(body.stateRevision).toBe(saved.state.stateRevision);

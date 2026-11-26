@@ -97,7 +97,12 @@ test('each rival sends its own personality on every decision and every table-tal
   const store = game();
   renderHook(() => {
     const view = useSyncExternalStore(store.subscribe, () => store.getView());
-    return useTableTalk(store, view, { speed: 'normal', paused: false, status: null });
+    return useTableTalk(store, view, {
+      pace: 'readable',
+      skipping: false,
+      paused: false,
+      status: null,
+    });
   });
   for (let steps = 0; steps < 20_000; steps++) {
     if (store.getSession()!.state.phase.kind === 'finished') break;

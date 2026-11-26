@@ -1,5 +1,13 @@
 import { useSyncExternalStore } from 'react';
-import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  within,
+} from '@testing-library/react';
 import { afterEach, beforeAll, expect, test, vi } from 'vitest';
 import {
   createGame,
@@ -19,8 +27,9 @@ import {
 } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { BoardScreen } from './BoardScreen.tsx';
-import { turnMessages } from './turnMessages.ts';
-import { HUMAN_STEP_MS, STEP_MS, useTurnPlayback } from './useTurnPlayback.ts';
+import { tableBeats } from './beats.ts';
+import { PACE_TIMING } from './pace.ts';
+import { useTurnPlayback } from './useTurnPlayback.ts';
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () {
@@ -191,7 +200,7 @@ test('the server fallback commits at the decision deadline, and a 2s late answer
   );
 });
 
-test('backup-only status marks an AI turn before a decision, with one catalog banner and a skippable bank line', async () => {
+test('backup-only status marks every rival row with the badge and its reason, under one banner; the notice line is not repeated as speech', async () => {
   vi.useFakeTimers();
   const requests = transport();
   const store = game();
@@ -200,113 +209,96 @@ test('backup-only status marks an AI turn before a decision, with one catalog ba
   await act(async () => {
     await vi.advanceTimersByTimeAsync(0);
   });
-  expect(screen.getByText(t('ai.backupBadge'))).toBeTruthy();
+  expect(within(screen.getByTestId('player-1')).getByText(t('ai.backupBadge'))).toBeTruthy();
+  expect(within(screen.getByTestId('player-0')).queryByText(t('ai.backupBadge'))).toBeNull();
   expect(screen.getAllByText(t('ai.allBackupBanner'))).toHaveLength(1);
   expect(screen.getByText(t('ai.reason.disabled'))).toBeTruthy();
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(STEP_MS.normal);
-  });
-  expect(screen.getByText('A backup bot is playing for me right now.')).toBeTruthy();
-  const committed = store.getSession();
-  fireEvent.click(screen.getByRole('button', { name: t('ai.skipLine') }));
+  for (let i = 0; i < 20; i++) {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(PACE_TIMING.readable.hold!.maxMs);
+    });
+  }
+  // The rival answered with the backup bot's notice: the badge already says it, so no speech.
+  expect(store.getView()!.feed.some((entry) => entry.decision?.lineId === noticeId)).toBe(true);
   expect(screen.queryByText('A backup bot is playing for me right now.')).toBeNull();
-  expect(store.getSession()).toBe(committed);
   expect(requests.every((url) => url.startsWith('/api/'))).toBe(true);
 });
 
-test('during an opponent turn the now-strip names the same action as the log and the board points at the rival', async () => {
+test('during an opponent turn the rival’s row writes the beat the feed tells and the board points at the rival', async () => {
   vi.useFakeTimers();
   transport();
   const store = game();
   seekOpponent(store);
   render(<BoardScreen store={store} />);
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(0);
-  });
-  for (let i = 0; i < 6 && !document.querySelector('.now-strip'); i++) {
+  const told = () => document.querySelectorAll('[data-testid="player-1"] .seat-beat');
+  for (let i = 0; i < 20 && told().length === 0; i++) {
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(STEP_MS.normal);
+      await vi.advanceTimersByTimeAsync(PACE_TIMING.readable.fillerMs);
     });
   }
   const view = store.getView()!;
-  const latest = view.feed.at(-1)!;
-  const message = turnMessages(latest, 0).find((entry) => entry.key.startsWith('ai.'));
-  expect(message).toBeTruthy();
-  const seat = latest.before.activeSeatIndex;
-  const strip = document.querySelector('.now-strip');
-  expect(strip).not.toBeNull();
-  expect(strip!.getAttribute('data-seat')).toBe(String(seat));
-  expect(strip!.textContent).toContain(message!.text);
-  const rival = view.observation.public.players.find((player) => player.seatIndex === seat)!;
+  const beats = tableBeats(view.feed, { game: view.observation.public, viewerSeat: 0 });
+  const latest = beats.findLast((beat) => beat.seatIndex === 1)!;
+  expect(latest).toBeTruthy();
+  expect([...told()].at(-1)!.textContent).toContain(latest.text);
+  // The beat being held is marked, and the row it sits in is the playing one.
+  expect([...told()].at(-1)!.getAttribute('data-current')).toBe('true');
+  expect(screen.getByTestId('player-1').getAttribute('data-writing')).toBe('true');
+  const rival = view.observation.public.players.find((player) => player.seatIndex === 1)!;
   const square = document.querySelector('.loop-square[data-focus="ai"]');
   expect(square).not.toBeNull();
   expect(square!.getAttribute('data-position')).toBe(String(rival.position));
-  expect(square!.getAttribute('data-focus-seat')).toBe(String(seat));
+  expect(square!.getAttribute('data-focus-seat')).toBe('1');
   const pawn = document.querySelector('.trainer-pawn[data-focus="ai"]');
-  expect(pawn?.getAttribute('data-seat')).toBe(String(seat));
+  expect(pawn?.getAttribute('data-seat')).toBe('1');
 });
 
-test('during a rival movement die the now-strip stays visible, truthful and aligned with the spotlight', async () => {
+test('a rival’s move beat names the die the engine rolled and the square the spotlight shows', async () => {
   vi.useFakeTimers();
   transport();
   const store = game();
   seekOpponent(store);
   render(<BoardScreen store={store} />);
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(0);
-  });
   let seen = false;
-  for (let i = 0; i < 60 && !seen; i++) {
-    const view = store.getView()!;
-    if (view.observation.public.activeSeatIndex === 0) {
-      const enabled = view.legalActions.enabled;
-      const choice =
-        enabled.find(
-          (entry) =>
-            ['skip', 'release', 'skip_shop'].includes(entry.kind) || entry.id === 'finish-sell',
-        ) ?? enabled.at(-1);
-      if (enabled.length > 1 && choice) store.choose(choice.id);
-    }
+  for (let i = 0; i < 120 && !seen; i++) {
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(STEP_MS.normal);
+      pass(store);
+      await vi.advanceTimersByTimeAsync(PACE_TIMING.readable.fillerMs);
     });
-    const latest = store.getView()!.feed.at(-1)!;
-    const movesDie =
-      latest.before.activeSeatIndex !== 0 &&
-      latest.record.action.kind === 'dice_result' &&
-      latest.before.phase.kind === 'move';
-    if (!movesDie) continue;
-    const message = turnMessages(latest, 0).find((entry) => entry.key.startsWith('ai.'));
-    expect(message).toBeTruthy();
-    expect(message!.text).toContain(
-      String(latest.record.events.find((event) => event.kind === 'random_result')?.result),
+    const view = store.getView()!;
+    if (view.observation.public.activeSeatIndex !== 1) continue;
+    const row = screen.getByTestId('player-1');
+    const move = row.querySelector('.seat-beat[data-message-key="beat.move"]');
+    if (!move) continue;
+    const roll = view.feed
+      .filter((entry) => entry.before.activeSeatIndex === 1)
+      .flatMap((entry) => entry.record.events)
+      .findLast((event) => event.kind === 'random_result' && event.purpose.startsWith('move:'));
+    const rival = view.observation.public.players.find((player) => player.seatIndex === 1)!;
+    const kind = view.observation.public.board.find(
+      (space) => space.position === rival.position,
+    )!.kind;
+    expect(move.textContent).toBe(
+      t('beat.move', {
+        roll: roll?.kind === 'random_result' ? Number(roll.result) : -1,
+        square: t('beat.square', { kind: t(`board.kind.${kind}`), position: rival.position }),
+      }),
     );
-    const strip = document.querySelector('.now-strip');
-    expect(strip).not.toBeNull();
-    expect(strip!.getAttribute('data-seat')).toBe(String(latest.before.activeSeatIndex));
-    expect(strip!.textContent).toContain(message!.text);
-    const rival = store
-      .getView()!
-      .observation.public.players.find(
-        (player) => player.seatIndex === latest.before.activeSeatIndex,
-      )!;
     const square = document.querySelector('.loop-square[data-focus="ai"]');
-    expect(square).not.toBeNull();
     expect(square!.getAttribute('data-position')).toBe(String(rival.position));
-    expect(square!.getAttribute('data-focus-seat')).toBe(String(latest.before.activeSeatIndex));
     seen = true;
   }
   expect(seen).toBe(true);
 });
 
-test('a human automatic step commits on the human pause, not the slower AI normal pace', async () => {
+test('a step that tells nothing waits the filler time, not an outcome’s hold', async () => {
   vi.useFakeTimers();
   transport();
   const store = game();
   render(<BoardScreen store={store} />);
   const before = store.getSession()!;
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(HUMAN_STEP_MS.normal - 1);
+    await vi.advanceTimersByTimeAsync(PACE_TIMING.readable.fillerMs - 1);
   });
   // A greeting may be saved beside the game meanwhile; the game itself has not moved.
   expect(store.getSession()!.state).toBe(before.state);
@@ -317,7 +309,7 @@ test('a human automatic step commits on the human pause, not the slower AI norma
   const after = store.getSession()!;
   expect(after.log.actions).toHaveLength(before.log.actions.length + 1);
   expect(after.log.actions.at(-1)!).toMatchObject({ auto: true, action: { kind: 'roll' } });
-  expect(HUMAN_STEP_MS.normal).toBeLessThan(STEP_MS.normal);
+  expect(PACE_TIMING.readable.fillerMs).toBeLessThan(PACE_TIMING.readable.hold!.minMs);
 });
 
 test('a pending decision always resolves to the fallback or a visible retry error', async () => {
@@ -327,7 +319,7 @@ test('a pending decision always resolves to the fallback or a visible retry erro
   seekOpponent(store);
   render(<BoardScreen store={store} />);
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(STEP_MS.normal);
+    await vi.advanceTimersByTimeAsync(PACE_TIMING.readable.fillerMs);
   });
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1500);
@@ -337,14 +329,14 @@ test('a pending decision always resolves to the fallback or a visible retry erro
   expect(screen.queryByText(t('ai.thinking'))).toBeNull();
 });
 
-test('normal and instant playback finish with identical accepted actions and gameplay state', async () => {
+test('readable and instant playback finish with identical accepted actions and gameplay state', async () => {
   vi.useFakeTimers();
   transport();
   async function finish(instant: boolean) {
     const store = game();
     const mounted = render(<BoardScreen store={store} />);
     if (instant)
-      fireEvent.change(screen.getByRole('combobox', { name: t('ai.speed') }), {
+      fireEvent.change(screen.getByRole('combobox', { name: t('pace.label') }), {
         target: { value: 'instant' },
       });
     for (
@@ -354,7 +346,7 @@ test('normal and instant playback finish with identical accepted actions and gam
     ) {
       await act(async () => {
         pass(store);
-        await vi.advanceTimersByTimeAsync(STEP_MS.normal);
+        await vi.advanceTimersByTimeAsync(PACE_TIMING.readable.hold!.maxMs);
       });
     }
     const session = store.getSession()!;
@@ -363,13 +355,13 @@ test('normal and instant playback finish with identical accepted actions and gam
     mounted.unmount();
     return session;
   }
-  const normal = await finish(false);
+  const readable = await finish(false);
   const instant = await finish(true);
-  expect(instant.log.actions).toEqual(normal.log.actions);
-  expect(stateHash(instant.state)).toBe(stateHash(normal.state));
-}, 60000);
+  expect(instant.log.actions).toEqual(readable.log.actions);
+  expect(stateHash(instant.state)).toBe(stateHash(readable.state));
+}, 120_000);
 
-test('changing speed while thinking neither restarts the decision nor changes its deadline', async () => {
+test('changing the pace while thinking neither restarts the decision nor changes its deadline', async () => {
   vi.useFakeTimers();
   const requests = transport({ backupOnly: false, delay: 2000 });
   const store = game();
@@ -377,15 +369,15 @@ test('changing speed while thinking neither restarts the decision nor changes it
   const revision = store.getView()!.observation.public.stateRevision;
   render(<BoardScreen store={store} />);
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(STEP_MS.normal);
+    await vi.advanceTimersByTimeAsync(PACE_TIMING.readable.fillerMs);
   });
   expect(screen.getByText(t('ai.thinking'))).toBeTruthy();
-  fireEvent.change(screen.getByRole('combobox', { name: t('ai.speed') }), {
-    target: { value: 'fast' },
-  });
-  fireEvent.change(screen.getByRole('combobox', { name: t('ai.speed') }), {
-    target: { value: 'instant' },
-  });
+  for (const pace of ['fast', 'instant', 'step']) {
+    fireEvent.change(screen.getByRole('combobox', { name: t('pace.label') }), {
+      target: { value: pace },
+    });
+  }
+  fireEvent.click(screen.getByRole('button', { name: t('pace.pause') }));
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1499);
   });
@@ -408,18 +400,24 @@ test('a decision-specific fallback belongs only to that AI and a later Jev decis
   seekOpponent(store);
   render(<BoardScreen store={store} />);
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(STEP_MS.normal);
+    await vi.advanceTimersByTimeAsync(PACE_TIMING.readable.fillerMs);
   });
-  expect(document.querySelector('[data-ai-seat="1"]')?.textContent).toContain(t('ai.backupBadge'));
-  expect(document.querySelector('[data-ai-seat="0"]')).toBeNull();
+  expect(within(screen.getByTestId('player-1')).getByText(t('ai.backupBadge'))).toBeTruthy();
+  expect(within(screen.getByTestId('player-0')).queryByText(t('ai.backupBadge'))).toBeNull();
   expect(screen.getByText(t('ai.reason.rate_limited'))).toBeTruthy();
   transport({ backupOnly: false });
   act(() => {
     seekOpponent(store);
   });
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(STEP_MS.normal);
-  });
+  // The beats the jump told are held first; the rival's next decision follows them.
+  const decided = () =>
+    store.getView()!.feed.findLast((entry) => entry.decision)?.decision?.source === 'jev';
+  for (let i = 0; i < 400 && !decided(); i++) {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+  }
+  expect(decided()).toBe(true);
   expect(screen.queryByText(t('ai.backupBadge'))).toBeNull();
   expect(screen.queryByText(t('ai.allBackupBanner'))).toBeNull();
 });
@@ -439,7 +437,7 @@ test.each([
     seekOpponent(store);
     render(<BoardScreen store={store} />);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(STEP_MS.normal);
+      await vi.advanceTimersByTimeAsync(PACE_TIMING.readable.fillerMs);
     });
     expect(
       store.getView()!.feed.some((entry) => entry.decision?.fallbackReason === fallbackReason),
@@ -561,7 +559,7 @@ test('playback answers an AI defender’s Ability window during the human turn (
     const view = useSyncExternalStore(store.subscribe, store.getView);
     return useTurnPlayback(store, view);
   });
-  act(() => mounted.result.current.setSpeed('instant'));
+  act(() => mounted.result.current.setPace('instant'));
   for (let step = 0; step < 10; step++) {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1);
