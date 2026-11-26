@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Observation } from '../../../engine/index.ts';
 import { ballItemId, currentForm, speciesType } from '../game/content.ts';
+import { personName } from '../game/people.ts';
 import { pendingOffer, promiseRows } from '../game/promises.ts';
 import type { Pace } from '../game/setup.ts';
 import type { OpponentSettings } from '../game/store.ts';
@@ -83,6 +84,7 @@ export function SeatRows({
   const lastTurn = (seat: number) =>
     told.filter((beat) => beat.seatIndex === seat && beat.turn === story?.turns.get(seat));
   const nameOf = (seat: number) =>
+    personName(seat) ??
     className(game.players.find((player) => player.seatIndex === seat)?.classId ?? '');
   const touched = seats
     .filter((player) => player.seatIndex !== viewerSeat)
@@ -176,7 +178,8 @@ function SeatRow({
       ? observation.own
       : undefined;
   const active = seat === game.activeSeatIndex && game.phase.kind !== 'finished';
-  const name = own ? t('seat.you') : className(player.classId);
+  // Another person at the table is named as they named themselves, with their class beside it.
+  const name = own ? t('seat.you') : (personName(seat) ?? className(player.classId));
   // "+N more" opens one turn in place; the seat's next turn starts at its last few beats again.
   const [openTurn, setOpenTurn] = useState<number | null>(null);
   const row = useRef<HTMLLIElement>(null);
@@ -212,8 +215,10 @@ function SeatRow({
   const bodyId = `player-body-${seat}`;
   const storyId = `player-story-${seat}`;
   const lead = player.team[0];
+  // Chat and promises are with AIs only: a person's row has no promises (spec §4.8).
+  const person = personName(seat) !== undefined;
   const promises =
-    !own && viewerSeat !== undefined && 'own' in observation
+    !own && !person && viewerSeat !== undefined && 'own' in observation
       ? promiseRows(observation).filter(
           (entry) => entry.promiserSeatIndex === seat || entry.recipientSeatIndex === seat,
         )
@@ -247,7 +252,9 @@ function SeatRow({
         <div className="seat-row-who">
           <h2 id={`player-heading-${seat}`} className="seat-row-name">
             {name}{' '}
-            <span className="seat-row-tag">{own ? className(player.classId) : t('row.ai')}</span>
+            <span className="seat-row-tag">
+              {own || person ? className(player.classId) : t('row.ai')}
+            </span>
           </h2>
           {active && (
             <span className="turn-badge">{own ? t('row.yourTurn') : t('row.playing')}</span>

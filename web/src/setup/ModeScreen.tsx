@@ -15,8 +15,8 @@ const MODE_TEXT: Record<ModeId, { name: MessageKey; hint: MessageKey; closed?: M
 interface ModeScreenProps {
   onChoose: (mode: ModeId) => void;
   onBack: () => void;
-  /** The watch path has its own progress steps (spec §3). */
-  flow?: 'watch';
+  /** The watch path and the people path have their own progress steps (spec §3). */
+  flow?: 'watch' | 'people';
 }
 
 /** Quick or Standard (spec §1, §4.1): the engine's presets say which are open and how long. */
@@ -27,6 +27,8 @@ export function ModeScreen({ onChoose, onBack, flow }: ModeScreenProps) {
       before={
         flow === 'watch' ? (
           <SetupProgress flow="watch" step="mode" />
+        ) : flow === 'people' ? (
+          <SetupProgress flow="people" step="mode" />
         ) : (
           <SetupProgress step="mode" />
         )

@@ -200,6 +200,7 @@ export function TurnPanel({
         reply={social}
         heading={phaseLabel('social')}
         lead={t(rivalOwesAnswer(view) ? 'turn.promiseBody' : 'turn.socialBody')}
+        aiSeats={view.opponents.map((opponent) => opponent.seatIndex)}
         onChoose={onChoose}
       />
     );

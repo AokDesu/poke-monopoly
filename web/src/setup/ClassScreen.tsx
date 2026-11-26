@@ -23,6 +23,19 @@ interface ClassScreenProps {
   chosen?: SeatChoice;
   /** The rivals already set up: one with the chosen class is flagged here, not changed. */
   rivals?: readonly OpponentChoice[];
+  /**
+   * The people path (spec §3): the class is one person's of several. The screen says whose, shows
+   * the people-path progress, greys out a class another seat holds with the reason, and offers
+   * "Review the table" once the last person has chosen.
+   */
+  person?: {
+    name: string;
+    seatIndex: number;
+    step: number;
+    total: number;
+    /** Who holds a class, as a label, or undefined when it is free. */
+    holderOf: (classId: string) => string | undefined;
+  };
   onSelect: (choice: SeatChoice) => void;
   onNext: () => void;
   onBack: () => void;
@@ -37,6 +50,7 @@ export function ClassScreen({
   classes,
   chosen,
   rivals = [],
+  person,
   onSelect,
   onNext,
   onBack,
@@ -68,9 +82,22 @@ export function ClassScreen({
 
   return (
     <Screen
-      before={<SetupProgress step="class" />}
-      heading={t('class.heading')}
-      body={t('class.body')}
+      before={
+        person ? (
+          <>
+            <SetupProgress flow="people" step="class" />
+            <p className="-mt-4 mb-6 font-bold text-ink-soft">
+              {t('people.classProgress', { step: person.step, total: person.total })}
+            </p>
+          </>
+        ) : (
+          <SetupProgress step="class" />
+        )
+      }
+      heading={person ? t('people.classHeading', { name: person.name }) : t('class.heading')}
+      body={
+        person ? t('people.classBody', { name: person.name, n: person.seatIndex }) : t('class.body')
+      }
       actions={
         <>
           <Button variant="secondary" onClick={onBack}>
@@ -83,7 +110,7 @@ export function ClassScreen({
             aria-describedby={chosenClass ? undefined : reasonId}
             onClick={onNext}
           >
-            {t('nav.next')}
+            {person && person.step === person.total ? t('people.classLast') : t('nav.next')}
           </Button>
           {!chosenClass && (
             <span className="basis-full text-end">
@@ -110,6 +137,11 @@ export function ClassScreen({
                 }
                 title={className(option.id)}
                 description={describe(option)}
+                disabledReason={
+                  person?.holderOf(option.id) === undefined
+                    ? undefined
+                    : t('opponents.classTaken', { holder: person.holderOf(option.id)! })
+                }
                 onSelect={() =>
                   onSelect({
                     classId: option.id,
@@ -122,7 +154,7 @@ export function ClassScreen({
         </ul>
       </fieldset>
 
-      {chosenClass && repeatedBy !== -1 && (
+      {!person && chosenClass && repeatedBy !== -1 && (
         <p role="status" className="panel mt-6 p-5 font-bold text-pretty">
           {t('class.rivalHas', {
             rival: seatLabel(repeatedBy + 1, 0),

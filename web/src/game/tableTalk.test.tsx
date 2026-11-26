@@ -2161,10 +2161,10 @@ describe("a Deal Card between two other seats, in a bystander's table talk (§4.
         await settle();
         await act1(store, 'skip', {}, 'player-2');
       });
-      // The payment really changed the lead; the bystander's feed holds the skip alone.
+      // The payment really changed the lead, and the skip is the last thing the log holds.
       const players = store.getSession()!.state.players;
       expect(players.map((player) => player.coins)).toEqual([12, 4, 16]);
-      expect(store.getView()!.feed.at(-1)!.record.action.kind).toBe('skip');
+      expect(store.getSession()!.log.actions.at(-1)!.action.kind).toBe('skip');
       return spoken(store).map((line) => line.lineId);
     };
     const apart = await run(false);

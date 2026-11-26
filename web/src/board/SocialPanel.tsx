@@ -31,6 +31,11 @@ export interface SocialPanelProps {
   /** The card's heading and its one line; the window's own words when absent. */
   heading?: string;
   lead?: string;
+  /**
+   * The AI seats: chat and promises are with AIs only, and people talk at the table (spec §4.8).
+   * Every other seat is left out. Absent, every other seat is listed, as in a one-person game.
+   */
+  aiSeats?: readonly number[];
   onChoose: (id: string) => void;
 }
 
@@ -52,6 +57,7 @@ export function SocialPanel({
   answer = null,
   heading = t('social.panel'),
   lead,
+  aiSeats,
   onChoose,
 }: SocialPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -143,6 +149,7 @@ export function SocialPanel({
           chats={chats}
           offers={offers}
           rivalName={rivalName}
+          aiSeats={aiSeats}
           notices={notices}
           onSend={onChoose}
         />
@@ -210,7 +217,10 @@ function summaryOf(message: ChatMessage): string {
   switch (message.topic) {
     case 'point_leader':
       return t('social.summary.point_leader', {
-        leader: t('board.rivalLabel', { seat: message.leaderSeatIndex ?? '' }),
+        leader:
+          message.leaderSeatIndex === undefined
+            ? t('board.rivalLabel', { seat: '' })
+            : seatLabel(message.leaderSeatIndex, undefined),
       });
     case 'use_item':
     case 'hold_item':
@@ -225,6 +235,7 @@ function OpenWindow({
   chats,
   offers,
   rivalName,
+  aiSeats,
   notices,
   onSend,
 }: {
@@ -232,6 +243,7 @@ function OpenWindow({
   chats: ChatChoice[];
   offers: PromiseOffer[];
   rivalName: (seatIndex: number) => string;
+  aiSeats?: readonly number[];
   notices: (topic?: ChatTopic) => ReactNode;
   onSend: (id: string) => void;
 }) {
@@ -422,6 +434,7 @@ function OpenWindow({
         observation={observation}
         offers={offers}
         rivalName={rivalName}
+        aiSeats={aiSeats}
         onSend={onSend}
       />
     </div>
@@ -440,18 +453,20 @@ function PromiseOffers({
   observation,
   offers,
   rivalName,
+  aiSeats,
   onSend,
 }: {
   observation: Observation;
   offers: PromiseOffer[];
   rivalName: (seatIndex: number) => string;
+  aiSeats?: readonly number[];
   onSend: (id: string) => void;
 }) {
   const ownSeat = observation.own.seatIndex;
   const [pick, setPick] = useState<string>();
   const rivals = observation.public.players
     .map((player) => player.seatIndex)
-    .filter((seat) => seat !== ownSeat)
+    .filter((seat) => seat !== ownSeat && (aiSeats === undefined || aiSeats.includes(seat)))
     .toSorted((a, b) => a - b);
   const chosen = offers.find((offer) => offer.id === pick);
   return (

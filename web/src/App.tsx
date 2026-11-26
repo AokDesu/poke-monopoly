@@ -16,6 +16,7 @@ import {
   readWatchSetup,
   writeWatchSetup,
   clearWatchSetup,
+  savedPeople,
   savedRivals,
   type SavedRival,
   type SaveMeta,
@@ -25,29 +26,38 @@ import {
 import {
   canWatch,
   completeSetup,
+  completeTable,
   completeWatchSetup,
   DEFAULT_WATCH_SETTINGS,
   freshSeed,
   randomAis,
   restoreWatchProgress,
+  tableClassHolder,
   withRivalCount,
   randomSetup,
   WATCH_MIN_AIS,
   type ModeId,
   type SetupDraft,
+  type TableDraft,
+  type TableSeatDraft,
   type WatchDraft,
 } from './game/setup.ts';
 import {
   configForSetup,
+  configForTable,
   configForWatch,
   createGameStore,
   MODES,
   opponentSettings,
   rematchConfig,
+  tableOpponentSettings,
+  tablePeople,
   watchOpponentSettings,
   type GameSession,
   type GameStore,
 } from './game/store.ts';
+import type { Person } from './game/people.ts';
+import { seatLabel } from './board/labels.ts';
 import { t } from './i18n/en.ts';
 import {
   buildScene,
@@ -66,6 +76,7 @@ import { FirstPlayerScreen } from './setup/FirstPlayerScreen.tsx';
 import { HomeScreen } from './setup/HomeScreen.tsx';
 import { ModeScreen } from './setup/ModeScreen.tsx';
 import { OpponentScreen } from './setup/OpponentScreen.tsx';
+import { PeopleScreen } from './setup/PeopleScreen.tsx';
 import { PresetScreen } from './setup/PresetScreen.tsx';
 import { ReviewScreen } from './setup/ReviewScreen.tsx';
 import { WatchOptionsScreen } from './setup/WatchOptionsScreen.tsx';
@@ -92,6 +103,24 @@ export interface AppProps {
 const OPEN_MODES = (Object.keys(MODES) as ModeId[]).filter((mode) => MODES[mode].enabled);
 const HOME: Route = { screen: 'home' };
 
+/** Two people to start with (spec §3, people path); "Add a seat" brings in AIs. */
+const freshTable = (): TableDraft => ({
+  seats: [0, 1].map((index): TableSeatDraft => ({
+    kind: 'person',
+    name: t('people.defaultName', { n: index + 1 }),
+  })),
+});
+
+/** A person's class is dropped when an AI has since taken it, so they choose again. */
+const withoutConflicts = (seats: readonly TableSeatDraft[]): TableSeatDraft[] =>
+  seats.map((seat, index) => {
+    if (seat.kind !== 'person' || !seat.choice) return seat;
+    const holder = tableClassHolder(seats, seat.choice.classId, index);
+    return holder !== undefined && seats[holder]?.kind === 'ai'
+      ? { kind: 'person', name: seat.name }
+      : seat;
+  });
+
 type SaveOffer =
   | {
       kind: 'continue';
@@ -102,6 +131,7 @@ type SaveOffer =
       chatWords: SaveMeta['chatWords'];
       gameId: SaveMeta['gameId'];
       scene: SaveMeta['scene'];
+      people: Person[];
       rivals: SavedRival[];
       summary: SaveSummary;
     }
@@ -146,6 +176,7 @@ function inspect(
       chatWords: meta.chatWords,
       gameId: meta.gameId,
       scene: meta.scene,
+      people: savedPeople(loaded.game, meta),
       rivals: savedRivals(loaded.game, meta),
       summary: summarize(loaded.game, loaded.resumed),
     },
@@ -190,6 +221,7 @@ export function App({
   );
   const [creditsFrom, setCreditsFrom] = useState<Route>(HOME);
   const [draft, setDraft] = useState<SetupDraft>({});
+  const [table, setTable] = useState<TableDraft>(freshTable);
   const [watch, setWatch] = useState<WatchDraft>(
     () => restored?.draft ?? { settings: DEFAULT_WATCH_SETTINGS },
   );
@@ -215,6 +247,7 @@ export function App({
               chatWords: store.getChatWords(),
               gameId: store.getGameId(),
               scene: store.getScene(),
+              people: store.getPeople(),
             });
           } else clearSave(storage);
           setSavingOff(false);
@@ -253,6 +286,7 @@ export function App({
   const canStart = randomSetup(classOptions, OPEN_MODES, () => 0) !== undefined;
   const setup = completeSetup(draft, classOptions);
   const watchSetup = completeWatchSetup(watch, classOptions);
+  const tableSetup = completeTable(table, classOptions);
   const continueSaved = () => {
     if (offer?.kind !== 'continue') return;
     try {
@@ -264,6 +298,7 @@ export function App({
         offer.chatWords,
         offer.scene,
         offer.pace,
+        offer.people,
       );
     } catch {
       setOffer({ kind: 'unreadable' });
@@ -279,7 +314,7 @@ export function App({
     go(
       phase === 'finished'
         ? { screen: 'results' }
-        : phase === 'first_player_roll' && offer.summary.humanSeat !== undefined
+        : phase === 'first_player_roll' && offer.summary.humanSeats.length > 0
           ? { screen: 'setup', step: 'firstPlayer' }
           : { screen: 'play' },
     );
@@ -360,8 +395,14 @@ export function App({
     ? offer.kind === 'continue'
       ? {
           kind: 'continue',
-          pending: pendingLine(offer.summary),
+          pending: pendingLine(offer.summary, offer.people),
           rivals: offer.rivals,
+          people: offer.people.map((person) => ({
+            name: person.name,
+            classId:
+              offer.session.state.config.seats.find((seat) => seat.seatIndex === person.seatIndex)
+                ?.classId ?? '',
+          })),
           onContinue: continueSaved,
           onNewGame: discardSave,
         }
@@ -387,6 +428,11 @@ export function App({
           canWatch={canWatch(classOptions)}
           onNewGame={() => go({ screen: 'setup', step: 'mode' })}
           onWatch={() => go({ screen: 'watch', step: 'mode' })}
+          canPeople={canWatch(classOptions)}
+          onPeople={() => {
+            setTable(freshTable());
+            go({ screen: 'people', step: 'mode' });
+          }}
           onDemo={
             demo
               ? () => {
@@ -584,6 +630,126 @@ export function App({
           break;
       }
       break;
+    case 'people': {
+      // The people path (spec §3): the seats' kinds and names, each person's class, then the review.
+      const personSeats = table.seats.flatMap((seat, index) =>
+        seat.kind === 'person' ? [index] : [],
+      );
+      const toClass = (seat: number | undefined): Route =>
+        seat === undefined
+          ? { screen: 'people', step: 'review' }
+          : { screen: 'people', step: 'class', seat };
+      switch (route.step) {
+        case 'mode':
+          screen = (
+            <ModeScreen
+              flow="people"
+              onChoose={(mode) => {
+                setTable({ ...table, mode });
+                go({ screen: 'people', step: 'seats' });
+              }}
+              onBack={() => go(HOME)}
+            />
+          );
+          break;
+        case 'seats':
+          screen = table.mode ? (
+            <PeopleScreen
+              mode={table.mode}
+              classes={classOptions}
+              seats={table.seats}
+              onChange={(seats) => setTable({ ...table, seats })}
+              onNext={() => {
+                const seats = withoutConflicts(table.seats);
+                setTable({ ...table, seats });
+                go(toClass(seats.findIndex((seat) => seat.kind === 'person')));
+              }}
+              onBack={() => go({ screen: 'people', step: 'mode' })}
+            />
+          ) : (
+            <MissingStep onHome={() => go(HOME)} />
+          );
+          break;
+        case 'class': {
+          const seatIndex = route.seat ?? personSeats[0];
+          const seat = seatIndex === undefined ? undefined : table.seats[seatIndex];
+          const at = personSeats.indexOf(seatIndex ?? -1);
+          screen =
+            seat?.kind === 'person' && seatIndex !== undefined ? (
+              <ClassScreen
+                classes={classOptions}
+                chosen={seat.choice}
+                person={{
+                  name: seat.name.trim(),
+                  seatIndex,
+                  step: at + 1,
+                  total: personSeats.length,
+                  holderOf: (classId) => {
+                    const holder = tableClassHolder(table.seats, classId, seatIndex);
+                    const other = holder === undefined ? undefined : table.seats[holder];
+                    return other === undefined || holder === undefined
+                      ? undefined
+                      : other.kind === 'person'
+                        ? other.name.trim()
+                        : seatLabel(holder, undefined);
+                  },
+                }}
+                onSelect={(choice) =>
+                  setTable({
+                    ...table,
+                    seats: table.seats.map((entry, index) =>
+                      index === seatIndex && entry.kind === 'person' ? { ...entry, choice } : entry,
+                    ),
+                  })
+                }
+                onNext={() => go(toClass(personSeats[at + 1]))}
+                onBack={() =>
+                  go(
+                    at <= 0
+                      ? { screen: 'people', step: 'seats' }
+                      : { screen: 'people', step: 'class', seat: personSeats[at - 1] },
+                  )
+                }
+              />
+            ) : (
+              <MissingStep onHome={() => go(HOME)} />
+            );
+          break;
+        }
+        case 'review':
+          screen = tableSetup ? (
+            <ReviewScreen
+              setup={tableSetup}
+              failed={startFailed}
+              onBack={() => go(toClass(personSeats.at(-1)))}
+              onRoll={() => {
+                try {
+                  store.start(
+                    configForTable(tableSetup, seed ?? freshSeed()),
+                    engineContent,
+                    tableOpponentSettings(tableSetup),
+                    undefined,
+                    undefined,
+                    tablePeople(tableSetup),
+                  );
+                  rollForFirstPlayer(store);
+                  go({ screen: 'setup', step: 'firstPlayer' });
+                } catch {
+                  // The engine re-checks every setup (createGame); say so instead of going blank.
+                  store.clear();
+                  setStartFailed(true);
+                }
+              }}
+            />
+          ) : (
+            <MissingStep onHome={() => go(HOME)} />
+          );
+          break;
+        default:
+          screen = <MissingStep onHome={() => go(HOME)} />;
+      }
+      break;
+    }
     case 'play':
       screen = (
         <BoardScreen
@@ -646,7 +812,9 @@ export function App({
                   ? route.step
                   : route.screen === 'watch'
                     ? `watch-${route.step}`
-                    : route.screen
+                    : route.screen === 'people'
+                      ? `people-${route.step}-${route.seat ?? ''}`
+                      : route.screen
               }
             >
               {screen}

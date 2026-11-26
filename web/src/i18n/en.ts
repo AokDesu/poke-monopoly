@@ -95,6 +95,11 @@ export const en = {
     'Watching needs at least two playable classes, one for each AI. Ask the team to check the class file.',
   'home.presets': 'Quick-start presets',
   'home.presetsHint': 'Fill every seat in one tap, then check and change it before you start.',
+  'home.people': 'Play with people',
+  'home.peopleNotEnough':
+    'Playing with people needs at least two playable classes, one for each seat. Ask the team to check the class file.',
+  'home.peopleHint':
+    'Two to four seats on this computer, each a person or an AI. People take turns and pass the device.',
   'home.boardCaption': 'Spaces on the board',
 
   'board.kind.start': 'Start',
@@ -230,6 +235,7 @@ export const en = {
   'setup.step.firstPlayer': 'First roll',
   'setup.step.ais': 'AIs',
   'setup.step.options': 'Table',
+  'setup.step.seats': 'Players',
 
   'presets.heading': 'Quick-start presets',
   'presets.body':
@@ -317,6 +323,49 @@ export const en = {
     'No class is left for a rival. Go back and choose a different class for yourself.',
   'opponents.next': 'Review setup',
 
+  // Setup with several people (spec §3, local multiplayer): one row per seat, a person or an AI.
+  'people.heading': 'Who is playing?',
+  'people.body':
+    'Choose two to four seats. Each seat is a person or an AI. People share this computer and take turns in seat order; an AI plays its own turn.',
+  'people.seats': 'Seats',
+  'people.kind': 'Seat {n} is played by',
+  'people.person': 'Person',
+  'people.ai': 'AI',
+  'people.name': 'Name for seat {n}',
+  'people.defaultName': 'Player {n}',
+  'people.change': 'Change',
+  'people.changeFor': 'Change AI in seat {n}',
+  'people.done': 'Done',
+  'people.editing': 'Seat {n}: set up the AI',
+  'people.addSeat': 'Add a seat',
+  'people.addSeatClosed':
+    'A game has at most four seats, and every seat needs a different class from the open ones.',
+  'people.removeSeat': 'Remove seat {n}',
+  'people.footer': '{people} · {ais} · {mode}, {laps} Laps',
+  'people.countPerson': '{n} person',
+  'people.countPeople': '{n} people',
+  'people.countAi': '{n} AI',
+  'people.countAis': '{n} AIs',
+  'people.rule': 'Chat and promises are with AIs only. People talk at the table.',
+  'people.next': 'Choose classes',
+  'people.needPeople':
+    'This path is for two or more people. For one person, go back and choose New game.',
+  'people.nameEmpty': 'Seat {n} needs a name.',
+  'people.nameLong': 'The name for seat {n} is longer than {max} characters.',
+  'people.nameTaken': 'The name for seat {n} is the same as another person’s. Names must differ.',
+  'people.noFreeClass':
+    'No class is left for another AI. Remove a seat, or go back and change a class.',
+  'people.classHeading': '{name}: choose your class',
+  'people.classBody':
+    'Seat {n}. Pick a class and a Starter for {name}. Classes are public and cannot repeat in one game.',
+  'people.classLast': 'Review the table',
+  'people.classProgress': 'Class {step} of {total}',
+  'peopleReview.heading': 'Review the table',
+  'peopleReview.body':
+    'Seats follow this list. Everyone rolls a die; the highest roll goes first, then play follows seat order. People take the computer in turn, and a pass screen hides everything private between them.',
+  'peopleReview.person': 'Person',
+  'peopleReview.roll': 'Roll for first player',
+
   'personality.greedy': 'Greedy',
   'personality.aggressive': 'Aggressive',
   'personality.cautious': 'Cautious',
@@ -328,6 +377,17 @@ export const en = {
   'difficulty.normalHint': 'Gets more game information and always picks its top option.',
 
   'seat.you': 'You',
+
+  // The pass-the-device screen (spec §3): nothing private is ever on it.
+  'pass.region': 'Pass the computer',
+  'pass.heading': 'Pass to {name}',
+  'pass.headingAnswer': 'Pass to {name} · {reason}',
+  'pass.reason.challenge': '{who} challenges you',
+  'pass.look':
+    '{others}, please look away. {name}’s Balls, items and chats appear only after {name} presses the button.',
+  'pass.lookAlone':
+    'Everyone else, please look away. {name}’s Balls, items and chats appear only after {name} presses the button.',
+  'pass.button': "I'm {name} · show my turn",
 
   'review.heading': 'Review your setup',
   'review.body':
@@ -461,6 +521,10 @@ export const en = {
   'save.pendingRoll': 'A die result is still waiting. It was not rolled before the save.',
   'save.pendingFinished': 'This game has already finished.',
   'save.pendingWatched': 'A watched game is in progress, turn {turn}.',
+  'save.pendingTable':
+    'Open decision: {phase}. Waiting on {name}. It opens on the pass screen for {name}.',
+  'save.people': 'People at the table',
+  'save.personRow': '{name}: {class}.',
   'save.rivals': 'AI rivals in this game',
   'save.rivalRow': '{name}: {class}, {personality}, {difficulty}.',
   'save.rivalSettingsMissing':
@@ -1197,6 +1261,15 @@ export const en = {
     'Abilities that are ready, and Abilities that cannot be used, with the reason',
   'gallery.specDemo': 'Spec §3, Demo mode, and §11',
   'gallery.specBoard': 'Spec §3, Board screen',
+  'gallery.specPeople': 'Spec §3, Setup with several people',
+  'gallery.row.people':
+    'Several people on one computer: one row per seat, and the pass-the-device screen before each person acts',
+  'gallery.example.peopleSeats':
+    'Setup: two people and two AIs, each seat a Person or an AI, with the footer count and the chat rule',
+  'gallery.example.peopleReview': 'Review: every seat in order, people by name',
+  'gallery.example.passTurn': 'Pass screen before a person’s turn: nothing private on it',
+  'gallery.example.passAnswer':
+    'Pass screen before a person answers during another player’s turn, with the public reason',
   'gallery.row.playScreen':
     'One decision card at a time: its primary action and alternative always in view, greyed options folded with their reasons',
   'gallery.example.hand': 'The hand under the board: your Balls, secret items and team',

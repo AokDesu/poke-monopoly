@@ -150,14 +150,19 @@ test('a seat outside a Deal Card sees the same decision owner as with no questio
   ) => {
     const store = createGameStore();
     store.restore({ state, log });
+    // With two people the device is the proposing person's: the other person reads nothing until their own turn.
+    store.confirmPass();
     return store.getView()!.decision;
   };
 
-  // Seat 0 is outside the deal between seat 2 and AI seat 1: its decision is what it is with nothing pending,
-  // the active seat's, not the AI's.
+  // Human seat 0 is outside the deal between human seat 2 and AI seat 1: nothing of the game is readable for
+  // it until the device reaches it, and the proposing person sees that the AI owes the answer.
   const outside = deal(2);
-  expect(decisionOf(outside.state, outside.log)).toEqual(decisionOf(outside.quiet, outside.log));
-  expect(decisionOf(outside.state, outside.log)?.seatIndex).toBe(2);
+  const bystander = createGameStore();
+  bystander.restore({ state: outside.state, log: outside.log });
+  expect(bystander.getPass()).toEqual({ seatIndex: 2, kind: 'turn' });
+  expect(bystander.getView()).toBeNull();
+  expect(decisionOf(outside.state, outside.log)?.seatIndex).toBe(1);
   // Seat 0 is the proposer to AI seat 1: it sees that the AI owes the answer.
   const party = deal(0);
   expect(decisionOf(party.state, party.log)?.seatIndex).toBe(1);

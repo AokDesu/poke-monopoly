@@ -4,6 +4,7 @@ import { t } from '../i18n/en.ts';
 import { Screen } from '../ui/Screen.tsx';
 import { AllBackupBanner, backupSeats, PaceSelect } from './AiTurn.tsx';
 import { Board } from './Board.tsx';
+import { PassScreen } from './PassScreen.tsx';
 import { PromisePanel } from './PromisePanel.tsx';
 import { TableTalkPanel } from './TableTalk.tsx';
 import { useChatReply } from './useChatReply.ts';
@@ -44,8 +45,9 @@ export function BoardScreen({ savingOff, onLeave, ...props }: BoardScreenProps) 
 
 /**
  * The play screen read from one seat (the view's `seatIndex`): the board, that seat's hand and
- * rows, and its decision card. Nothing here reads which seat is "the human" another way, so a
- * game with several people can hand the same screen another seat's view.
+ * rows, and its decision card. Nothing here reads which seat is "the human" another way, so at a
+ * table of several people the same screen is handed each person's view in turn, and only after
+ * the pass screen (spec §3, §4.1): while a hand-over is owed nothing but that screen is drawn.
  */
 function PlayerBoardScreen({
   store,
@@ -53,6 +55,8 @@ function PlayerBoardScreen({
   onFinished,
 }: Pick<BoardScreenProps, 'store' | 'notice' | 'onFinished'>) {
   const view = useSyncExternalStore(store.subscribe, store.getView);
+  // At a table of several people the board waits for the next person to take the device.
+  const pass = useSyncExternalStore(store.subscribe, store.getPass);
   const openedAt = useRef<number | null>(null);
   const playback = useTurnPlayback(store, view);
   const talk = useTableTalk(store, view, playback);
@@ -60,6 +64,16 @@ function PlayerBoardScreen({
   const [actionError, setActionError] = useState<number | null>(null);
   if (view && openedAt.current === null) openedAt.current = view.observation.public.stateRevision;
 
+  if (pass) {
+    return (
+      <PassScreen
+        pass={pass}
+        people={store.getPeople()}
+        game={store.sharedPublic()}
+        onConfirm={store.confirmPass}
+      />
+    );
+  }
   if (!view) return <Screen heading={t('play.heading')} body={t('board.noGame')} />;
   const { public: game } = view.observation;
   const choose = (id: string) => {

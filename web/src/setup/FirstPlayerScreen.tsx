@@ -22,7 +22,16 @@ interface FirstPlayerScreenProps {
  * and AI seats all roll automatically (§3.1). Every number is an engine dice result.
  */
 export function FirstPlayerScreen({ store, onToBoard, onQuit }: FirstPlayerScreenProps) {
-  const view = useSyncExternalStore(store.subscribe, store.getView);
+  // At a table of several people no seat holds the device yet; the rolls are public, so the table's own view reads them.
+  const seatView = useSyncExternalStore(store.subscribe, store.getView);
+  const tableView = useSyncExternalStore(store.subscribe, store.getTableView);
+  const view = seatView ?? tableView;
+  const people = store.getPeople().length > 0;
+  const progress = people ? (
+    <SetupProgress flow="people" step="firstPlayer" />
+  ) : (
+    <SetupProgress step="firstPlayer" />
+  );
   useEffect(() => {
     if (!view || view.observation.public.phase.kind !== 'first_player_roll') return;
     // Deferred so Continue can show the saved rolls before the next automatic step.
@@ -39,7 +48,7 @@ export function FirstPlayerScreen({ store, onToBoard, onQuit }: FirstPlayerScree
   if (!view) {
     return (
       <Screen
-        before={<SetupProgress step="firstPlayer" />}
+        before={progress}
         heading={t('firstPlayer.heading')}
         body={t('firstPlayer.noGame')}
         actions={quit}
@@ -54,7 +63,7 @@ export function FirstPlayerScreen({ store, onToBoard, onQuit }: FirstPlayerScree
 
   return (
     <Screen
-      before={<SetupProgress step="firstPlayer" />}
+      before={progress}
       heading={t('firstPlayer.heading')}
       body={t('firstPlayer.body')}
       actions={

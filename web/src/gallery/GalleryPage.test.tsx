@@ -230,6 +230,25 @@ const SHOWN = [
       'pace.skipToMyTurn',
     ],
   },
+  {
+    id: 'people-table',
+    specRow: 'people',
+    keys: [
+      'people.heading',
+      'people.person',
+      'people.change',
+      'people.addSeat',
+      'people.footer',
+      'people.rule',
+      'peopleReview.heading',
+      'peopleReview.person',
+      'pass.heading',
+      'pass.headingAnswer',
+      'pass.reason.challenge',
+      'pass.look',
+      'pass.button',
+    ],
+  },
 ] as const satisfies readonly { id: string; specRow: string; keys: readonly MessageKey[] }[];
 
 /** Rows with nothing for a player to see in this build (no free-text chat or deals screen, engine-only). */
@@ -288,7 +307,9 @@ test(
                       ? t('gallery.specDemo')
                       : row.specRow === 'board'
                         ? t('gallery.specBoard')
-                        : t('gallery.specRow', { row: row.specRow });
+                        : row.specRow === 'people'
+                          ? t('gallery.specPeople')
+                          : t('gallery.specRow', { row: row.specRow });
       expect(within(el).getByText(label), row.id).toBeTruthy();
     }
   },

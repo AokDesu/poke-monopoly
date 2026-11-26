@@ -5,7 +5,9 @@ import {
   type Resumed,
   type SavedGame,
 } from '../../../engine/index.ts';
+import { t } from '../i18n/en.ts';
 import { readSavedChatWords, type SavedChatWords } from './chat.ts';
+import { cleanName, MAX_NAME_LENGTH, type Person } from './people.ts';
 import {
   DIFFICULTIES,
   PERSONALITIES,
@@ -51,6 +53,8 @@ export interface SaveMeta {
    * prepared so a reload keeps announcing it. Never part of the exported log.
    */
   readonly scene?: string;
+  /** The people at a table of several people, named; never part of the exported log. */
+  readonly people?: readonly Person[];
 }
 
 export type LoadResult =
@@ -87,6 +91,7 @@ export function writeSave(storage: SaveStorage, game: SavedGame, meta: SaveMeta)
       gameId: meta.gameId,
       scene: meta.scene,
       chatWords: meta.chatWords,
+      people: meta.people && meta.people.length > 0 ? meta.people : undefined,
     }),
   );
 }
@@ -128,10 +133,41 @@ export function readMeta(storage: SaveStorage): SaveMeta {
       ...(typeof gameId === 'string' && /^[\w-]{1,64}$/.test(gameId) && { gameId }),
       ...(typeof scene === 'string' && /^[\w-]{1,64}$/.test(scene) && { scene }),
       ...('chatWords' in parsed && { chatWords: readSavedChatWords(parsed.chatWords) }),
+      ...('people' in parsed && { people: readSavedPeople(parsed.people) }),
     };
   } catch {
     return EMPTY_META;
   }
+}
+
+/** The saved names as plain data: whatever is not a seat number with a usable name is dropped. */
+function readSavedPeople(value: unknown): Person[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry): Person[] => {
+    if (!entry || typeof entry !== 'object') return [];
+    const { seatIndex, name } = entry as Record<string, unknown>;
+    if (typeof seatIndex !== 'number' || !Number.isInteger(seatIndex) || typeof name !== 'string') {
+      return [];
+    }
+    const clean = cleanName(name);
+    return clean.length > 0 && clean.length <= MAX_NAME_LENGTH ? [{ seatIndex, name: clean }] : [];
+  });
+}
+
+/**
+ * The people of a saved game: every human seat when two or more are human, named as the save kept
+ * them, or "Player n" when it kept none (a save written by the engine alone). A game with one human
+ * seat, and a watched game, has no people.
+ */
+export function savedPeople(game: SavedGame, meta: SaveMeta): Person[] {
+  const humans = game.state.config.seats.filter((seat) => seat.controller === 'human');
+  if (humans.length < 2) return [];
+  return humans.map(({ seatIndex }) => ({
+    seatIndex,
+    name:
+      meta.people?.find((person) => person.seatIndex === seatIndex)?.name ??
+      t('people.defaultName', { n: seatIndex + 1 }),
+  }));
 }
 
 /** Where an unfinished watch setup waits across a reload; gone once the game starts or setup is left. */
@@ -196,16 +232,25 @@ export interface SaveSummary {
   readonly phase: string;
   readonly waiting: 'finished' | 'engine_result' | 'decision';
   readonly seatIndex: number;
-  /** Absent in a watched game, where no seat is human. */
+  /** Absent in a watched game, where no seat is human, and at a table of several people. */
   readonly humanSeat?: number;
+  /** Every human seat, in seat order. */
+  readonly humanSeats: readonly number[];
   readonly turn: number;
   /** Multi-choice AI decision: the page must ask again and must not start a turn. */
   readonly aiDecision: boolean;
 }
 
 export function summarize(game: SavedGame, resumed: Resumed): SaveSummary {
-  const humanSeat = game.state.config.seats.find((seat) => seat.controller === 'human')?.seatIndex;
-  const shared = { turn: game.state.globalTurnNo, ...(humanSeat !== undefined && { humanSeat }) };
+  const humanSeats = game.state.config.seats
+    .filter((seat) => seat.controller === 'human')
+    .map((seat) => seat.seatIndex);
+  const humanSeat = humanSeats.length === 1 ? humanSeats[0] : undefined;
+  const shared = {
+    turn: game.state.globalTurnNo,
+    humanSeats,
+    ...(humanSeat !== undefined && { humanSeat }),
+  };
   const waiting = resumed.waitingFor;
   if (waiting.kind === 'decision') {
     const seat = game.state.config.seats.find((entry) => entry.seatIndex === waiting.seatIndex);

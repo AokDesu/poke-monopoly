@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import { engineContent } from './game/content.ts';
-import { configForSetup, createGameStore, type GameStore } from './game/store.ts';
+import { configForSetup, configForTable, createGameStore, type GameStore } from './game/store.ts';
 import { t } from './i18n/en.ts';
 import { ResultsScreen } from './ResultsScreen.tsx';
 
@@ -85,4 +85,100 @@ test('more badges and a larger team do not beat more coins (§4.7)', () => {
   expect(screen.getByRole('status').textContent).not.toMatch(/badge/i);
   expect(document.body.textContent).not.toContain('14');
   expect(document.body.textContent).not.toContain('16');
+});
+
+// ------------------------------------------------------------ a table of several people (#258)
+
+/** Ton (seat 0) and Mai (seat 1) are people; seat 2 is an AI. */
+function tableFinished(rows: { coins: number; badges: number }[]): GameStore {
+  const store = createGameStore();
+  store.start(
+    configForTable(
+      {
+        mode: 'quick',
+        seats: [
+          {
+            kind: 'person',
+            name: 'Ton',
+            choice: { classId: 'main-character', starterSpeciesId: 'bulbasaur' },
+          },
+          {
+            kind: 'person',
+            name: 'Mai',
+            choice: { classId: 'researcher', starterSpeciesId: 'porygon' },
+          },
+          {
+            kind: 'ai',
+            choice: {
+              classId: 'fisherman',
+              starterSpeciesId: 'magikarp',
+              personality: 'greedy',
+              difficulty: 'normal',
+            },
+          },
+        ],
+      },
+      1,
+    ),
+    engineContent,
+    [{ seatIndex: 2, personality: 'greedy', difficulty: 'normal' }],
+    undefined,
+    undefined,
+    [
+      { seatIndex: 0, name: 'Ton' },
+      { seatIndex: 1, name: 'Mai' },
+    ],
+  );
+  const session = store.getSession()!;
+  const state = structuredClone(session.state);
+  state.phase = { kind: 'finished' };
+  for (const [index, player] of state.players.entries()) {
+    player.coins = rows[index]!.coins;
+    player.badges = rows[index]!.badges;
+  }
+  store.restore(
+    { state, log: session.log },
+    [],
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    [
+      { seatIndex: 0, name: 'Ton' },
+      { seatIndex: 1, name: 'Mai' },
+    ],
+  );
+  return store;
+}
+
+test('results at a table of people name each person and the winner, with no "You" (§3, #258)', () => {
+  const store = tableFinished([
+    { coins: 20, badges: 0 },
+    { coins: 31, badges: 1 },
+    { coins: 12, badges: 0 },
+  ]);
+  render(<ResultsScreen store={store} onPlayAgain={() => {}} />);
+  expect(screen.getByRole('status').textContent).toBe(t('results.winCoins', { name: 'Mai' }));
+  expect(screen.getByRole('row', { name: /^Ton/ })).toBeTruthy();
+  expect(screen.getByRole('row', { name: /^Mai/ }).textContent).toContain(t('results.winnerMark'));
+  expect(
+    screen.getByRole('row', { name: new RegExp(t('board.rivalLabel', { seat: 2 })) }),
+  ).toBeTruthy();
+  expect(document.body.textContent).not.toContain(t('seat.you'));
+  // A shared table is not a watched game: Play again and Export log stay, Watch again does not.
+  expect(screen.getByRole('button', { name: t('results.export') })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: t('results.watchAgain') })).toBeNull();
+});
+
+test('two people tied on coins and badges are named as co-winners (§4.7)', () => {
+  const store = tableFinished([
+    { coins: 25, badges: 1 },
+    { coins: 25, badges: 1 },
+    { coins: 3, badges: 0 },
+  ]);
+  render(<ResultsScreen store={store} onPlayAgain={() => {}} />);
+  expect(screen.getByRole('status').textContent).toBe(
+    t('results.coWinners', { names: t('results.nameJoin', { left: 'Ton', right: 'Mai' }) }),
+  );
 });

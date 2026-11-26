@@ -3,11 +3,9 @@ import { seatLabel } from '../board/labels.ts';
 import {
   classConflicts,
   classHolder,
-  DIFFICULTIES,
   MAX_RIVALS,
   maxRivals,
   maxWatchAis,
-  PERSONALITIES,
   WATCH_MAX_AIS,
   WATCH_MIN_AIS,
   withRivalCount,
@@ -15,18 +13,15 @@ import {
   type OpponentChoice,
   type SeatChoice,
 } from '../game/setup.ts';
-import { personalityDescriptions } from '../game/content.ts';
-import { className, classPassive } from '../i18n/names.ts';
+import { className } from '../i18n/names.ts';
 import { t } from '../i18n/en.ts';
 import { Button } from '../ui/Button.tsx';
 import { ChoiceRadio } from '../ui/Choice.tsx';
 import { DisabledReason } from '../ui/DisabledReason.tsx';
 import { DieIcon } from '../ui/icons.tsx';
 import { Screen } from '../ui/Screen.tsx';
-import { SpeciesArt } from '../ui/SpeciesArt.tsx';
+import { RivalEditor, Section } from './RivalEditor.tsx';
 import { SetupProgress } from './SetupProgress.tsx';
-import { StarterFacts } from './StarterFacts.tsx';
-import { StarterPicker } from './StarterPicker.tsx';
 
 interface OpponentScreenProps {
   classes: readonly ClassOption[];
@@ -57,25 +52,6 @@ const WATCH_TEXT = {
   noFreeClass: 'watchSetup.noFreeClass',
 } as const;
 
-function Section({
-  title,
-  small = false,
-  children,
-}: {
-  title: string;
-  small?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <fieldset className="mt-10 first:mt-0">
-      <legend className={`font-display font-semibold ${small ? 'text-xl' : 'text-2xl'}`}>
-        {title}
-      </legend>
-      <div className="mt-4">{children}</div>
-    </fieldset>
-  );
-}
-
 /**
  * The AI rivals (spec §1, §3): how many (one to three), then each rival's class, Starter,
  * personality and difficulty, one rival at a time. Rival n is seat n and a choice changes only
@@ -105,7 +81,6 @@ export function OpponentScreen({
   const most = watch ? maxWatchAis(classes) : maxRivals(classes);
   const at = Math.min(editing, rivals.length - 1);
   const rival = rivals[at];
-  const rivalClass = playable.find((option) => option.id === rival?.classId);
   const conflicts = classConflicts(human, rivals);
   const blocked =
     rivals.length < (watch ? WATCH_MIN_AIS : 1)
@@ -232,91 +207,22 @@ export function OpponentScreen({
           )}
           <h2 className="text-2xl">{label(at)}</h2>
 
-          <div className="mt-6">
-            <Section title={t(text.class)} small>
-              <ul className="grid gap-6 lg:grid-cols-2">
-                {playable.map((option) => {
-                  const holder = classHolder(human, rivals, option.id, at);
-                  return (
-                    <li key={option.id}>
-                      <ChoiceRadio
-                        name={`rival-${at}-class`}
-                        value={option.id}
-                        checked={rival.classId === option.id}
-                        art={
-                          <SpeciesArt
-                            speciesIds={option.starterSpeciesIds}
-                            spin={rival.classId === option.id}
-                          />
-                        }
-                        title={className(option.id)}
-                        description={classPassive(option.id)}
-                        disabledReason={
-                          holder === undefined
-                            ? undefined
-                            : t('opponents.classTaken', {
-                                holder: holder === 'human' ? t('seat.you') : label(holder),
-                              })
-                        }
-                        onSelect={() =>
-                          update({
-                            classId: option.id,
-                            starterSpeciesId: option.starterSpeciesIds[0]!,
-                          })
-                        }
-                      />
-                    </li>
-                  );
-                })}
-              </ul>
-              {rivalClass && rivalClass.starterSpeciesIds.length > 1 && (
-                <StarterPicker
-                  name={`rival-${at}-starter`}
-                  legend={t(text.starter)}
-                  speciesIds={rivalClass.starterSpeciesIds}
-                  chosen={rival.starterSpeciesId}
-                  onChoose={(starterSpeciesId) => update({ starterSpeciesId })}
-                />
-              )}
-              {rivalClass && <StarterFacts speciesId={rival.starterSpeciesId} rival />}
-            </Section>
-
-            <Section title={t('opponents.personality')} small>
-              <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {PERSONALITIES.map((entry) => (
-                  <li key={entry.id}>
-                    <ChoiceRadio
-                      name={`rival-${at}-personality`}
-                      value={entry.id}
-                      checked={rival.personality === entry.id}
-                      title={t(`personality.${entry.id}`)}
-                      description={personalityDescriptions[entry.id]}
-                      disabledReason={entry.enabled ? undefined : t('opponents.personalityClosed')}
-                      onSelect={() => update({ personality: entry.id })}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </Section>
-
-            <Section title={t('opponents.difficulty')} small>
-              <p className="-mt-2 mb-4 text-ink-soft">{t('opponents.difficultyHint')}</p>
-              <ul className="grid gap-4 sm:grid-cols-2">
-                {DIFFICULTIES.map((difficulty) => (
-                  <li key={difficulty}>
-                    <ChoiceRadio
-                      name={`rival-${at}-difficulty`}
-                      value={difficulty}
-                      checked={rival.difficulty === difficulty}
-                      title={t(`difficulty.${difficulty}`)}
-                      description={t(`difficulty.${difficulty}Hint`)}
-                      onSelect={() => update({ difficulty })}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          </div>
+          <RivalEditor
+            name={`rival-${at}`}
+            rival={rival}
+            classes={classes}
+            holderOf={(classId) => {
+              const holder = classHolder(human, rivals, classId, at);
+              return holder === undefined
+                ? undefined
+                : holder === 'human'
+                  ? t('seat.you')
+                  : label(holder);
+            }}
+            classTitle={t(text.class)}
+            starterTitle={t(text.starter)}
+            onChange={update}
+          />
         </div>
       )}
     </Screen>

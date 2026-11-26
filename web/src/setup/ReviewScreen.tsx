@@ -1,5 +1,5 @@
 import { seatLabel } from '../board/labels.ts';
-import type { GameSetup, WatchSetup } from '../game/setup.ts';
+import type { GameSetup, TableSetup, WatchSetup } from '../game/setup.ts';
 import { MODES } from '../game/store.ts';
 import { className, speciesName } from '../i18n/names.ts';
 import { t } from '../i18n/en.ts';
@@ -10,8 +10,8 @@ import { SpeciesArt } from '../ui/SpeciesArt.tsx';
 import { SetupProgress } from './SetupProgress.tsx';
 
 interface ReviewScreenProps {
-  /** A watched game has `ais` and no human seat (spec §3). */
-  setup: GameSetup | WatchSetup;
+  /** A watched game has `ais` and no human seat; a table of people has `seats` (spec §3). */
+  setup: GameSetup | WatchSetup | TableSetup;
   /** Set when the engine refused to create a game from this setup. */
   failed: boolean;
   onRoll: () => void;
@@ -33,27 +33,43 @@ function Chip({ children }: { children: React.ReactNode }) {
  */
 export function ReviewScreen({ setup, failed, onRoll, onBack }: ReviewScreenProps) {
   const watch = 'ais' in setup;
-  const seats = watch
-    ? setup.ais.map((opponent, index) => ({
-        label: seatLabel(index, undefined),
-        choice: opponent,
-        opponent,
+  const table = 'seats' in setup;
+  const seats = table
+    ? setup.seats.map((seat, index) => ({
+        label: seat.kind === 'person' ? seat.name : seatLabel(index, undefined),
+        choice: seat.choice,
+        opponent: seat.kind === 'ai' ? seat.choice : undefined,
+        person: seat.kind === 'person',
       }))
-    : [
-        { label: t('seat.you'), choice: setup.human, opponent: undefined },
-        ...setup.opponents.map((opponent, index) => ({
-          label: seatLabel(index + 1, 0),
+    : watch
+      ? setup.ais.map((opponent, index) => ({
+          label: seatLabel(index, undefined),
           choice: opponent,
           opponent,
-        })),
-      ];
+          person: false,
+        }))
+      : [
+          { label: t('seat.you'), choice: setup.human, opponent: undefined, person: false },
+          ...setup.opponents.map((opponent, index) => ({
+            label: seatLabel(index + 1, 0),
+            choice: opponent,
+            opponent,
+            person: false,
+          })),
+        ];
   return (
     <Screen
       before={
-        watch ? <SetupProgress flow="watch" step="review" /> : <SetupProgress step="review" />
+        table ? (
+          <SetupProgress flow="people" step="review" />
+        ) : watch ? (
+          <SetupProgress flow="watch" step="review" />
+        ) : (
+          <SetupProgress step="review" />
+        )
       }
-      heading={t(watch ? 'watchReview.heading' : 'review.heading')}
-      body={t(watch ? 'watchReview.body' : 'review.body')}
+      heading={t(table ? 'peopleReview.heading' : watch ? 'watchReview.heading' : 'review.heading')}
+      body={t(table ? 'peopleReview.body' : watch ? 'watchReview.body' : 'review.body')}
       actions={
         <>
           <Button variant="secondary" onClick={onBack}>
@@ -61,7 +77,7 @@ export function ReviewScreen({ setup, failed, onRoll, onBack }: ReviewScreenProp
           </Button>
           <Button variant="primary" className="ms-auto" onClick={onRoll}>
             <DieIcon className="size-6" />
-            {t(watch ? 'watchReview.start' : 'review.roll')}
+            {t(table ? 'peopleReview.roll' : watch ? 'watchReview.start' : 'review.roll')}
           </Button>
         </>
       }
@@ -97,7 +113,7 @@ export function ReviewScreen({ setup, failed, onRoll, onBack }: ReviewScreenProp
       )}
       <h2 className="mt-10 text-2xl">{t(watch ? 'watchReview.seats' : 'review.seats')}</h2>
       <ol className="mt-4 grid gap-6 lg:grid-cols-2">
-        {seats.map(({ label, choice, opponent }) => (
+        {seats.map(({ label, choice, opponent, person }) => (
           <li key={label + choice.classId} className="panel flex flex-wrap items-center gap-4 p-5">
             <SpeciesArt speciesIds={[choice.starterSpeciesId]} />
             <span className="flex min-w-[12rem] flex-1 flex-col gap-1">
@@ -108,6 +124,11 @@ export function ReviewScreen({ setup, failed, onRoll, onBack }: ReviewScreenProp
               <span>
                 {t('class.starter')}: {speciesName(choice.starterSpeciesId)}
               </span>
+              {person && (
+                <span className="mt-1 flex flex-wrap gap-2">
+                  <Chip>{t('peopleReview.person')}</Chip>
+                </span>
+              )}
               {opponent && (
                 <span className="mt-1 flex flex-wrap gap-2">
                   <Chip>

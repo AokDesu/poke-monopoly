@@ -4,6 +4,7 @@ import type { PublicGame, VoiceReason } from '../game/tableTalk.ts';
 import { EncounterCard } from '../board/EncounterCard.tsx';
 import { EventCard } from '../board/EventCard.tsx';
 import { HandStrip } from '../board/HandStrip.tsx';
+import { PassScreen } from '../board/PassScreen.tsx';
 import { PromisePanel } from '../board/PromisePanel.tsx';
 import { SellPanel } from '../board/SellPanel.tsx';
 import { TableTalkPanel } from '../board/TableTalk.tsx';
@@ -19,6 +20,10 @@ import { pendingLine, SavePrompt } from '../SavePrompt.tsx';
 import { DemoBanner } from '../DemoBanner.tsx';
 import { openScenes } from '../game/demoScenes.ts';
 import { DemoScreen } from '../setup/DemoScreen.tsx';
+import { PeopleScreen } from '../setup/PeopleScreen.tsx';
+import { ReviewScreen } from '../setup/ReviewScreen.tsx';
+import { classOptions } from '../game/content.ts';
+import type { TableSeatDraft, TableSetup } from '../game/setup.ts';
 import type { TurnPlayback } from '../board/useTurnPlayback.ts';
 import type { ChatReplyControls, ChatReplyState } from '../board/useChatReply.ts';
 import type { ChatReply } from '../game/chat.ts';
@@ -438,6 +443,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
                 waiting: 'decision',
                 seatIndex: decisionOpen().view.observation.public.activeSeatIndex,
                 humanSeat: decisionOpen().view.seatIndex,
+                humanSeats: [decisionOpen().view.seatIndex],
                 turn: decisionOpen().view.observation.public.globalTurnNo,
                 aiDecision: true,
               })}
@@ -641,6 +647,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
                 phase: watchOpen().view.observation.public.phase.kind,
                 waiting: 'decision',
                 seatIndex: watchOpen().view.observation.public.activeSeatIndex,
+                humanSeats: [],
                 turn: watchOpen().view.observation.public.globalTurnNo,
                 aiDecision: true,
               })}
@@ -1024,6 +1031,7 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
                   waiting: 'decision',
                   seatIndex: decisionOpen().view.observation.public.activeSeatIndex,
                   humanSeat: decisionOpen().view.seatIndex,
+                  humanSeats: [decisionOpen().view.seatIndex],
                   turn: decisionOpen().view.observation.public.globalTurnNo,
                   aiDecision: false,
                 })}
@@ -1122,8 +1130,109 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
         },
       ],
     },
+    {
+      id: 'people-table',
+      specRow: null,
+      spec: { id: 'people', label: 'gallery.specPeople' },
+      label: 'gallery.row.people',
+      keys: [
+        'people.heading',
+        'people.person',
+        'people.change',
+        'people.addSeat',
+        'people.footer',
+        'people.rule',
+        'peopleReview.heading',
+        'peopleReview.person',
+        'pass.heading',
+        'pass.headingAnswer',
+        'pass.reason.challenge',
+        'pass.look',
+        'pass.button',
+      ],
+      examples: [
+        {
+          id: 'seats',
+          caption: 'gallery.example.peopleSeats',
+          render: () => (
+            <PeopleScreen
+              mode="quick"
+              classes={classOptions}
+              seats={TABLE_SEATS}
+              onChange={noop}
+              onNext={noop}
+              onBack={noop}
+            />
+          ),
+        },
+        {
+          id: 'review',
+          caption: 'gallery.example.peopleReview',
+          render: () => (
+            <ReviewScreen setup={TABLE_SETUP} failed={false} onRoll={noop} onBack={noop} />
+          ),
+        },
+        {
+          id: 'pass-turn',
+          caption: 'gallery.example.passTurn',
+          render: () => (
+            <PassScreen
+              pass={{ seatIndex: 0, kind: 'turn' }}
+              people={PEOPLE}
+              game={null}
+              onConfirm={noop}
+            />
+          ),
+        },
+        {
+          id: 'pass-answer',
+          caption: 'gallery.example.passAnswer',
+          render: () => {
+            const game = defender().view.observation.public;
+            return (
+              <PassScreen
+                pass={{ seatIndex: 1, kind: 'answer', fromSeatIndex: game.activeSeatIndex }}
+                people={PEOPLE}
+                game={game}
+                onConfirm={noop}
+              />
+            );
+          },
+        },
+      ],
+    },
   ];
 }
+
+/** Two people (Ton and Mai) and two AIs, the table the people-path examples show. */
+const PEOPLE = [
+  { seatIndex: 0, name: 'Ton' },
+  { seatIndex: 1, name: 'Mai' },
+];
+const choice = (classId: string) => ({
+  classId,
+  starterSpeciesId: classOptions.find((option) => option.id === classId)!.starterSpeciesIds[0]!,
+});
+const aiChoice = (classId: string) => ({
+  ...choice(classId),
+  personality: 'greedy' as const,
+  difficulty: 'easy' as const,
+});
+const TABLE_SEATS: readonly TableSeatDraft[] = [
+  { kind: 'person', name: 'Ton' },
+  { kind: 'person', name: 'Mai' },
+  { kind: 'ai', choice: aiChoice('fisherman') },
+  { kind: 'ai', choice: aiChoice('bug-catcher') },
+];
+const TABLE_SETUP: TableSetup = {
+  mode: 'quick',
+  seats: [
+    { kind: 'person', name: 'Ton', choice: choice('main-character') },
+    { kind: 'person', name: 'Mai', choice: choice('researcher') },
+    { kind: 'ai', choice: aiChoice('fisherman') },
+    { kind: 'ai', choice: aiChoice('bug-catcher') },
+  ],
+};
 /** Every §3.1 row not in `GALLERY_ROWS`. The test holds both lists to the spec's table. */
 export const PENDING_ROWS: readonly PendingRow[] = [
   { specRow: 2, label: 'gallery.row.shortlistEmpty', reason: 'gallery.pending.engine' },
