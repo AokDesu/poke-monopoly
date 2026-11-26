@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { CONTENT_VERSION, ENGINE_VERSION } from '../../engine/index.ts';
 import type { CliIo } from '../main.ts';
@@ -26,8 +27,8 @@ import {
   type G2Row,
 } from './g2.ts';
 
-export const DEFAULT_G2_PLAN = new URL('./g2-plan.json', import.meta.url).pathname;
-const C5_PLAN = new URL('./c5-plan.json', import.meta.url).pathname;
+export const DEFAULT_G2_PLAN = fileURLToPath(new URL('./g2-plan.json', import.meta.url));
+const C5_PLAN = fileURLToPath(new URL('./c5-plan.json', import.meta.url));
 
 /** The rows file of a run unless `--out` says otherwise; `logs/` is git-ignored. */
 export const DEFAULT_G2_ROWS = 'logs/g2-hard-vs-normal.rows.jsonl';
