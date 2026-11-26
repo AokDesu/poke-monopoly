@@ -1,0 +1,35 @@
+/* The hand-over screen (spec §3): open sky, one disc, one line and one button; nothing private. */
+.pass-screen {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  min-height: 70dvh;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+.pass-disc {
+  width: 6rem;
+  height: 6rem;
+  font-size: 3rem;
+}
+.pass-heading {
+  max-width: 24ch;
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.15;
+  text-wrap: balance;
+}
+.pass-look {
+  max-width: 46ch;
+  color: var(--color-ink);
+  font-size: 1.15rem;
+  text-wrap: pretty;
+}
+.pass-button {
+  min-height: 4rem;
+  margin-top: 0.5rem;
+  padding-inline: 2rem;
+  font-size: 1.4rem;
+}

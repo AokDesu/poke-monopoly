@@ -72,6 +72,8 @@ test('with fewer than two open classes Watch is greyed with its reason (§3.1)',
       board={[]}
       canStart={false}
       canWatch={false}
+      canPeople={false}
+      onPeople={() => {}}
       onNewGame={() => {}}
       onRandomAll={() => {}}
       onPresets={() => {}}

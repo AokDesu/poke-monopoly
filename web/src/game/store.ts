@@ -54,10 +54,14 @@ import {
   type GameSetup,
   type Pace,
   type PersonalityId,
+  type TableSetup,
   type WatchSettings,
   type WatchSetup,
 } from './setup.ts';
+import { setPeople, type Person } from './people.ts';
 import { leaderOf } from './tableTalk.ts';
+
+export type { Person } from './people.ts';
 
 /**
  * Rules adapter (spec §6.1). Storage IO lives in `save.ts`; both call the engine only through
@@ -138,8 +142,10 @@ export interface SpectatorView {
 
 /** Finished standings. Coins, badges and the engine's winner only — never a team size. */
 export interface GameResults {
-  /** Absent when no seat is human. */
+  /** The one human seat of a one-person game; absent for a watched game and for a table of several people. */
   readonly humanSeat?: number;
+  /** Every human seat, in seat order: empty only for a watched game. */
+  readonly humanSeats: readonly number[];
   readonly standings: readonly {
     readonly actorId: string;
     readonly seatIndex: number;
@@ -156,13 +162,37 @@ export interface GameResults {
   readonly reason: 'coins' | 'badges' | 'co_winners';
 }
 
+/**
+ * The hand-over a table of several people owes before any board is drawn (spec §3): who must take
+ * the device, and why. It holds public facts only: the seat, and for an answer the seat whose turn
+ * it is, so the pass screen can say "Fisherman challenges you" and nothing private.
+ */
+export type PassNotice =
+  | { readonly seatIndex: number; readonly kind: 'turn' }
+  | { readonly seatIndex: number; readonly kind: 'answer'; readonly fromSeatIndex: number };
+
 export interface GameStore {
   /** Compatible with React's `useSyncExternalStore`. */
   subscribe(listener: () => void): () => void;
   /** Full engine data for replay and audit; screens read `getView()` instead. */
   getSession(): GameSession | null;
-  /** The human seat's view, or null without a game or a human seat. Stable between changes. */
+  /**
+   * The viewing seat's view: the one human seat of a one-person game, or at a table of several people
+   * the person who has taken the device. Null without a game or a human seat, and while a pass is
+   * owed, so no screen can read a hand before its owner has pressed the button. Stable between changes.
+   */
   getView(): SeatView | null;
+  /**
+   * The public table, read by no seat: what a spectator sees, for any game with a session. Setup
+   * screens that hold no private information (the first-player roll) read this. Stable between changes.
+   */
+  getTableView(): SpectatorView | null;
+  /** The people at the table, in seat order; empty for a one-person game and a watched game. */
+  getPeople(): readonly Person[];
+  /** The hand-over owed before the board shows again; null with one human, or when the right person holds the device. */
+  getPass(): PassNotice | null;
+  /** The person named by `getPass()` takes the device: from now on the views are theirs. */
+  confirmPass(): void;
   /** The watcher's view, or null without a game or when a seat is human. Stable between changes. */
   getSpectatorView(): SpectatorView | null;
   /**
@@ -179,6 +209,8 @@ export interface GameStore {
     watch?: WatchSettings,
     /** The prepared scenario the game is opened from; kept beside the game, never in its log. */
     scene?: string,
+    /** The people at the table (two or more human seats), named; kept beside the game, never in its log. */
+    people?: readonly Person[],
   ): void;
   /** Rejected commands change nothing and notify no one. */
   submit(command: Command): ApplyActionResult;
@@ -238,6 +270,7 @@ export interface GameStore {
     chatWords?: readonly SavedChatWords[],
     scene?: string,
     pace?: Pace,
+    people?: readonly Person[],
   ): void;
   /** Engine winner and coin/badge standings, or null until the game is finished. Stable. */
   getResults(): GameResults | null;
@@ -271,6 +304,43 @@ export function opponentSettings(setup: GameSetup): OpponentSettings[] {
     personality,
     difficulty,
   }));
+}
+
+/**
+ * Seats in the order setup listed them, each a person or an AI (spec §3, local multiplayer). Every
+ * person is a human seat and the Social window is open for them all (§4.2); chat and promises
+ * reach AI seats only, which the engine enforces.
+ */
+export function configForTable(setup: TableSetup, seed: GameConfig['seed']): GameConfig {
+  const seats = setup.seats.map((seat, seatIndex) => ({
+    actorId: `${seat.kind === 'person' ? 'person' : 'ai'}-${seatIndex}`,
+    seatIndex,
+    classId: seat.choice.classId,
+    starterSpeciesId: seat.choice.starterSpeciesId,
+    controller: seat.kind === 'person' ? ('human' as const) : ('ai' as const),
+  }));
+  return createGameConfig({
+    seats,
+    seed,
+    lapTarget: MODES[setup.mode].lapTarget,
+    socialWindow: true,
+  });
+}
+
+/** The AI seats' personality and difficulty, by seat. */
+export function tableOpponentSettings(setup: TableSetup): OpponentSettings[] {
+  return setup.seats.flatMap((seat, seatIndex) =>
+    seat.kind === 'ai'
+      ? [{ seatIndex, personality: seat.choice.personality, difficulty: seat.choice.difficulty }]
+      : [],
+  );
+}
+
+/** The people at the table, named, by seat. */
+export function tablePeople(setup: TableSetup): Person[] {
+  return setup.seats.flatMap((seat, seatIndex) =>
+    seat.kind === 'person' ? [{ seatIndex, name: seat.name }] : [],
+  );
 }
 
 /** Every seat of a watched game is an AI, so no seat is 'human' and seat n is `ais[n]` (spec §3). */
@@ -308,15 +378,14 @@ export function rematchConfig(config: GameConfig, seed: GameConfig['seed']): Gam
  * on the turn it was sent, one short line. Anything else is dropped, never shown.
  */
 function fitsGame(words: SavedChatWords, state: GameState): boolean {
-  const human = humanSeat(state);
+  const person = state.config.seats.find((seat) => seat.seatIndex === words.fromSeatIndex);
   const rival = state.config.seats.find((seat) => seat.seatIndex === words.toSeatIndex);
   return (
-    human !== undefined &&
-    words.fromSeatIndex === human &&
+    person?.controller === 'human' &&
     rival?.controller === 'ai' &&
     words.text.length > 0 &&
     words.text.length <= 280 &&
-    (observe(state, human).own.chats ?? []).some(
+    (observe(state, words.fromSeatIndex).own.chats ?? []).some(
       (message) =>
         message.fromSeatIndex === words.fromSeatIndex &&
         message.toSeatIndex === words.toSeatIndex &&
@@ -325,8 +394,40 @@ function fitsGame(words: SavedChatWords, state: GameState): boolean {
   );
 }
 
-function humanSeat(state: GameState): number | undefined {
-  return state.config.seats.find((seat) => seat.controller === 'human')?.seatIndex;
+/** Every human seat, in seat order. */
+function humanSeats(state: GameState): number[] {
+  return state.config.seats
+    .filter((seat) => seat.controller === 'human')
+    .map((seat) => seat.seatIndex);
+}
+
+/** The one human seat of a one-person game; undefined for a watched game and for a table of people. */
+function soleHuman(state: GameState): number | undefined {
+  const humans = humanSeats(state);
+  return humans.length === 1 ? humans[0] : undefined;
+}
+
+/**
+ * The hand-over the engine's next step owes (spec §3), given who holds the device. A person acts or
+ * answers when the engine's pending decision is theirs, or when it is their turn between decisions;
+ * while an AI plays, whoever holds the device keeps it, and before anyone does the first person in
+ * seat order takes it. The first-player roll and the results hold nothing private and need none.
+ */
+function passFor(state: GameState, viewing: number | undefined): PassNotice | null {
+  const humans = humanSeats(state);
+  if (humans.length < 2) return null;
+  if (state.phase.kind === 'first_player_roll' || state.phase.kind === 'finished') return null;
+  const owner = pendingDecision(state)?.seatIndex;
+  const active = state.activeSeatIndex;
+  let notice: PassNotice;
+  if (owner !== undefined && humans.includes(owner)) {
+    notice =
+      owner === active
+        ? { seatIndex: owner, kind: 'turn' }
+        : { seatIndex: owner, kind: 'answer', fromSeatIndex: active };
+  } else if (humans.includes(active)) notice = { seatIndex: active, kind: 'turn' };
+  else notice = { seatIndex: viewing ?? humans[0]!, kind: 'turn' };
+  return notice.seatIndex === viewing ? null : notice;
 }
 
 /** The public state this viewer sees: the human seat's, or the spectator's when no seat is human. */
@@ -368,7 +469,8 @@ function resultsOf(state: GameState): GameResults | null {
   if (state.phase.kind !== 'finished') return null;
   const outcome = winner(state);
   return {
-    ...(humanSeat(state) !== undefined && { humanSeat: humanSeat(state) }),
+    ...(soleHuman(state) !== undefined && { humanSeat: soleHuman(state) }),
+    humanSeats: humanSeats(state),
     standings: [...state.players]
       .sort((a, b) => a.seatIndex - b.seatIndex)
       .map((player) => ({
@@ -421,14 +523,24 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
   let pace: Pace = DEFAULT_PACE;
   let chatWords: readonly SavedChatWords[] = [];
   let gameToken = '';
+  let people: readonly Person[] = [];
+  // The person holding the device at a table of several people; set only by `confirmPass`.
+  let viewing: number | undefined;
+  let pass: PassNotice | null = null;
+  let tableView: { readonly game: GameSession; readonly view: SpectatorView } | null = null;
   const listeners = new Set<() => void>();
+
+  /** The seat the views are read from: the one human, or the person who took the device. */
+  const viewerOf = (state: GameState): number | undefined => soleHuman(state) ?? viewing;
 
   const publish = (next: GameSession, feed: readonly SeatFeedEntry[]) => {
     session = next;
     shownFeed = feed;
-    view = viewOf(next.state, feed);
+    pass = passFor(next.state, viewing);
+    // A pass owed means nobody may read a seat's view until its owner presses the button.
+    view = pass ? null : viewOf(next.state, feed);
     spectatorView =
-      humanSeat(next.state) === undefined
+      humanSeats(next.state).length === 0
         ? { observation: observeSpectator(next.state), feed, opponents }
         : null;
     results = resultsOf(next.state);
@@ -436,7 +548,7 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
   };
 
   const viewOf = (state: GameState, feed: readonly SeatFeedEntry[]): SeatView | null => {
-    const seatIndex = humanSeat(state);
+    const seatIndex = viewerOf(state);
     if (seatIndex === undefined) return null;
     // A question between two seats (a promise, a Deal Card) is theirs alone (§4.8): the decision owner a seat
     // outside it sees is the one it would see with no question pending, or the owner would tell it one exists.
@@ -490,7 +602,7 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
     records: readonly ActionRecord[],
     decision?: AiDecision,
   ) => {
-    const seatIndex = humanSeat(before);
+    const seatIndex = viewerOf(before);
     let feed = shownFeed;
     if (records.length > 0) {
       const game = publicOf(before, seatIndex);
@@ -597,6 +709,32 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
     getView(): SeatView | null {
       return view;
     },
+    getTableView(): SpectatorView | null {
+      if (!session) return null;
+      if (tableView?.game !== session) {
+        tableView = {
+          game: session,
+          view: {
+            observation: observeSpectator(session.state),
+            feed: feedFrom(session.log, undefined),
+            opponents,
+          },
+        };
+      }
+      return tableView.view;
+    },
+    getPeople(): readonly Person[] {
+      return people;
+    },
+    getPass(): PassNotice | null {
+      return pass;
+    },
+    confirmPass(): void {
+      if (!session || !pass) return;
+      viewing = pass.seatIndex;
+      // The feed is each seat's own reading of the log, so a new holder gets theirs.
+      publish(session, feedFrom(session.log, viewing));
+    },
     getSpectatorView(): SpectatorView | null {
       return spectatorView;
     },
@@ -606,9 +744,13 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
       settings: readonly OpponentSettings[] = [],
       watchSettings?: WatchSettings,
       sceneId?: string,
+      table: readonly Person[] = [],
     ): void {
       const state = createGame(config, content);
       gameToken = crypto.randomUUID();
+      people = table;
+      viewing = undefined;
+      setPeople(table);
       opponents = settings;
       watch = watchSettings;
       scene = sceneId;
@@ -620,7 +762,8 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
     submit,
     choose(choiceId: string): ApplyActionResult {
       const { state } = current();
-      const seatIndex = humanSeat(state);
+      // A command is the person's who holds the device; none is taken while a hand-over is owed.
+      const seatIndex = pass ? undefined : viewerOf(state);
       const choice =
         seatIndex === undefined
           ? undefined
@@ -631,7 +774,7 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
     },
     quoteSale(pokemonInstanceIds: string[]): SaleQuote {
       const { state } = current();
-      const seatIndex = humanSeat(state);
+      const seatIndex = pass ? undefined : viewerOf(state);
       if (seatIndex === undefined) throw new RangeError('No human seat');
       return saleQuote(state, seatIndex, pokemonInstanceIds);
     },
@@ -658,7 +801,7 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
     },
     chatReplyRequest(): ChatReplyRequest | null {
       const { state } = current();
-      const seatIndex = humanSeat(state);
+      const seatIndex = pass ? undefined : viewerOf(state);
       if (seatIndex === undefined || state.phase.kind !== 'social') return null;
       if (state.activeSeatIndex !== seatIndex) return null;
       const message = observe(state, seatIndex).own.chats?.findLast(
@@ -725,7 +868,7 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
       };
       // Demo mode shows a rival's private options, so only a game with a human seat to show them
       // to keeps anything: a watched game never does (spec §1, issue #220).
-      const viewerSeat = humanSeat(state);
+      const viewerSeat = soleHuman(state);
       const keepDemo = demo() && viewerSeat !== undefined;
       const answer = await requestOpponent(
         JSON.stringify({
@@ -878,6 +1021,7 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
       savedWords: readonly SavedChatWords[] = [],
       sceneId?: string,
       savedPace?: Pace,
+      table: readonly Person[] = [],
     ): void {
       // A save that lacks a rival's settings plays it as Greedy on Normal, as the save prompt says.
       opponents = [
@@ -894,13 +1038,16 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
             difficulty: 'normal',
           })),
       ];
+      people = table;
+      viewing = undefined;
+      setPeople(table);
       watch = watchSettings;
       scene = sceneId;
       pace = savedPace ?? watchSettings?.pace ?? DEFAULT_PACE;
       // Only words that fit this game: a save from another one cannot lend it a line.
       chatWords = savedWords.filter((entry) => fitsGame(entry, game.state));
       gameToken = gameId ?? crypto.randomUUID();
-      publish(game, feedFrom(game.log, humanSeat(game.state)));
+      publish(game, feedFrom(game.log, viewerOf(game.state)));
     },
     getResults(): GameResults | null {
       return results;
@@ -908,6 +1055,11 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
     clear(): void {
       session = null;
       view = null;
+      pass = null;
+      viewing = undefined;
+      people = [];
+      setPeople([]);
+      tableView = null;
       spectatorView = null;
       shownFeed = [];
       results = null;

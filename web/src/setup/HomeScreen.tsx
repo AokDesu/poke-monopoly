@@ -17,6 +17,10 @@ interface HomeScreenProps {
   onRandomAll: () => void;
   onPresets: () => void;
   onWatch: () => void;
+  /** False when fewer than two classes are playable, so two seats cannot each have their own. */
+  canPeople: boolean;
+  /** Setup with several people on this computer (spec §3). */
+  onPeople: () => void;
   /** Present only in demo mode (`?demo`): opens the prepared scenarios. Absent, nothing mentions them. */
   onDemo?: () => void;
 }
@@ -29,12 +33,15 @@ export function HomeScreen({
   onRandomAll,
   onPresets,
   onWatch,
+  canPeople,
+  onPeople,
   onDemo,
 }: HomeScreenProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const focusHeading = useContext(FocusHeadingContext);
   const reasonId = useId();
   const watchReasonId = useId();
+  const peopleReasonId = useId();
   const describedBy = canStart ? undefined : reasonId;
 
   useEffect(() => {
@@ -102,6 +109,18 @@ export function HomeScreen({
             <Button
               variant="secondary"
               className="w-full"
+              disabled={!canPeople}
+              aria-describedby={canPeople ? undefined : peopleReasonId}
+              onClick={onPeople}
+            >
+              {t('home.people')}
+            </Button>
+            <p className="mt-2 ps-2 text-sm text-ink-soft">{t('home.peopleHint')}</p>
+          </div>
+          <div>
+            <Button
+              variant="secondary"
+              className="w-full"
               disabled={!canWatch}
               aria-describedby={canWatch ? undefined : watchReasonId}
               onClick={onWatch}
@@ -122,6 +141,9 @@ export function HomeScreen({
             <HowToPlayButton />
           </div>
           {!canStart && <DisabledReason id={reasonId}>{t('home.notEnoughClasses')}</DisabledReason>}
+          {!canPeople && (
+            <DisabledReason id={peopleReasonId}>{t('home.peopleNotEnough')}</DisabledReason>
+          )}
           {!canWatch && (
             <DisabledReason id={watchReasonId}>{t('home.watchNotEnough')}</DisabledReason>
           )}

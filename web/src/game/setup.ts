@@ -1,4 +1,5 @@
 import type { GAME_PRESETS } from '../../../engine/index.ts';
+import { nameProblem } from './people.ts';
 
 /**
  * The setup choices of spec §3, before any game exists. Plain data: the engine checks the
@@ -197,6 +198,134 @@ export function randomSetup(
   };
   const opponents = randomSeats(left, count, random);
   return { mode, human, opponents };
+}
+
+/**
+ * Setup with several people (spec §3, local multiplayer): two to four fixed seats, each a person or
+ * an AI, with at least two people (one person plays the ordinary game). A person has a name and,
+ * once the class step is reached, a class and Starter; an AI has its class, Starter, personality and
+ * difficulty from the start. Plain data: the engine checks the finished setup again in `createGame`.
+ */
+export const MIN_SEATS = 2;
+export const MAX_SEATS = 4;
+
+export type TableSeatDraft =
+  | { readonly kind: 'person'; readonly name: string; readonly choice?: SeatChoice }
+  | { readonly kind: 'ai'; readonly choice: OpponentChoice };
+
+/** The people-path screens fill this in step by step; Back keeps every earlier answer. */
+export interface TableDraft {
+  readonly mode?: ModeId;
+  readonly seats: readonly TableSeatDraft[];
+}
+
+export type TableSeat =
+  | { readonly kind: 'person'; readonly name: string; readonly choice: SeatChoice }
+  | { readonly kind: 'ai'; readonly choice: OpponentChoice };
+
+export interface TableSetup {
+  readonly mode: ModeId;
+  readonly seats: readonly TableSeat[];
+}
+
+/** The people path, from the mode choice to the review; the first-player roll and the board follow. */
+export const PEOPLE_STEPS = ['mode', 'seats', 'class', 'review', 'firstPlayer'] as const;
+export type PeopleStep = (typeof PEOPLE_STEPS)[number];
+
+/** How many seats are people and how many are AIs. */
+export function seatCounts(seats: readonly { readonly kind: 'person' | 'ai' }[]): {
+  people: number;
+  ais: number;
+} {
+  const people = seats.filter((seat) => seat.kind === 'person').length;
+  return { people, ais: seats.length - people };
+}
+
+/** The seat that holds a class, other than `except`; undefined when the class is free. */
+export function tableClassHolder(
+  seats: readonly TableSeatDraft[],
+  classId: string,
+  except?: number,
+): number | undefined {
+  const index = seats.findIndex((seat, at) => at !== except && seat.choice?.classId === classId);
+  return index === -1 ? undefined : index;
+}
+
+/** The seats that repeat an earlier seat's class: setup cannot go on until each is changed. */
+export function tableClassConflicts(seats: readonly TableSeatDraft[]): number[] {
+  return seats.flatMap((seat, index) =>
+    seat.choice !== undefined &&
+    tableClassHolder(seats.slice(0, index), seat.choice.classId) !== undefined
+      ? [index]
+      : [],
+  );
+}
+
+/** A new AI seat: the first free class with its first Starter, the first open personality, Easy. */
+export function newTableAi(
+  classes: readonly ClassOption[],
+  seats: readonly TableSeatDraft[],
+): OpponentChoice | undefined {
+  const free = playableClasses(classes).find(
+    (option) => tableClassHolder(seats, option.id) === undefined,
+  );
+  if (!free) return undefined;
+  return {
+    classId: free.id,
+    starterSpeciesId: free.starterSpeciesIds[0]!,
+    personality: firstEnabledPersonality,
+    difficulty: 'easy',
+  };
+}
+
+/** The first problem that keeps the seat list from going on, in the order a person would fix it. */
+export type TableProblem =
+  | { readonly kind: 'people' }
+  | { readonly kind: 'name'; readonly seat: number; readonly why: 'empty' | 'long' | 'taken' };
+
+/** What stops the seat list (before classes are chosen): too few people, or a name that cannot be used. */
+export function seatsProblem(seats: readonly TableSeatDraft[]): TableProblem | undefined {
+  if (seats.length < MIN_SEATS || seats.length > MAX_SEATS || seatCounts(seats).people < 2) {
+    return { kind: 'people' };
+  }
+  const names = seats.map((seat) => (seat.kind === 'person' ? seat.name : undefined));
+  for (const [seat, name] of names.entries()) {
+    if (name === undefined) continue;
+    // A repeated name is flagged on the later seat, so the first one keeps what it typed.
+    const others = names.slice(0, seat).filter((other): other is string => other !== undefined);
+    const why = nameProblem(name, others);
+    if (why) return { kind: 'name', seat, why };
+  }
+  return undefined;
+}
+
+/**
+ * Complete only with a mode, two to four seats, at least two people with usable names, every seat on
+ * an open class of its own and every AI on an open personality.
+ */
+export function completeTable(
+  draft: TableDraft,
+  classes: readonly ClassOption[],
+): TableSetup | undefined {
+  const { mode, seats } = draft;
+  if (!mode || seatsProblem(seats) || tableClassConflicts(seats).length > 0) return undefined;
+  const open = new Set(playableClasses(classes).map((option) => option.id));
+  const openPersonalities = PERSONALITIES.filter((entry) => entry.enabled).map((entry) => entry.id);
+  const complete: TableSeat[] = [];
+  for (const seat of seats) {
+    if (!seat.choice || !open.has(seat.choice.classId)) return undefined;
+    if (seat.kind === 'ai') {
+      if (!openPersonalities.some((id) => id === seat.choice.personality)) return undefined;
+      complete.push({ kind: 'ai', choice: seat.choice });
+    } else {
+      complete.push({
+        kind: 'person',
+        name: seat.name.trim().replace(/\s+/g, ' '),
+        choice: seat.choice,
+      });
+    }
+  }
+  return { mode, seats: complete };
 }
 
 /**

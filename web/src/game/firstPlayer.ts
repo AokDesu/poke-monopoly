@@ -1,4 +1,4 @@
-import type { GameStore, SeatView } from './store.ts';
+import type { GameStore, SeatView, SpectatorView } from './store.ts';
 
 export interface RollAttempt {
   /** The seats the engine asked to roll in this attempt: everyone first, then only tied seats. */
@@ -15,10 +15,11 @@ export interface FirstPlayerRoll {
 }
 
 /**
- * Reads the first-player roll (spec §3) from the human seat's view: every die result in the
- * seat's feed grouped by the attempt the engine was running. Applies no rule of its own.
+ * Reads the first-player roll (spec §3) from the human seat's view, or from the public table at a
+ * table of several people (no seat holds the device yet): every die result in the feed grouped by
+ * the attempt the engine was running. Applies no rule of its own.
  */
-export function firstPlayerRoll(view: SeatView): FirstPlayerRoll {
+export function firstPlayerRoll(view: SeatView | SpectatorView): FirstPlayerRoll {
   const attempts: { contenders: readonly number[]; rolls: RollAttempt['rolls'][number][] }[] = [];
   for (const { before, record } of view.feed) {
     const { action } = record;
@@ -35,7 +36,9 @@ export function firstPlayerRoll(view: SeatView): FirstPlayerRoll {
     if (phase.rolls.length === 0) attempts.push({ contenders: phase.contenders, rolls: [] });
     return {
       attempts,
-      humanToRoll: view.legalActions.enabled.some((choice) => choice.kind === 'roll'),
+      humanToRoll:
+        'legalActions' in view &&
+        view.legalActions.enabled.some((choice) => choice.kind === 'roll'),
     };
   }
   return { attempts, firstSeat: activeSeatIndex, humanToRoll: false };
@@ -43,13 +46,12 @@ export function firstPlayerRoll(view: SeatView): FirstPlayerRoll {
 
 /**
  * Apply every sole roll and engine result, including tied re-rolls, automatically (§3.1). The
- * phase is read from the human seat's view, or the watcher's when every seat is an AI (§3).
+ * phase is read from the public table: every seat's roll is public (§3).
  * Stop once the engine picks the first player: the first turn belongs to the board.
  */
 export function rollForFirstPlayer(store: GameStore): void {
   while (
-    (store.getView() ?? store.getSpectatorView())?.observation.public.phase.kind ===
-      'first_player_roll' &&
+    store.getTableView()?.observation.public.phase.kind === 'first_player_roll' &&
     store.advance({ human: true })
   );
 }

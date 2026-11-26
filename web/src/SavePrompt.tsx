@@ -1,16 +1,27 @@
 import { phaseLabel, seatLabel } from './board/labels.ts';
 import { classOptions } from './game/content.ts';
 import { PERSONALITIES } from './game/setup.ts';
+import type { Person } from './game/people.ts';
 import type { SavedRival, SaveSummary } from './game/save.ts';
 import { className } from './i18n/names.ts';
 import { t } from './i18n/en.ts';
 import { Button } from './ui/Button.tsx';
 import { Screen } from './ui/Screen.tsx';
 
-/** What the saved game is waiting for, in the catalog's words. */
-export function pendingLine(summary: SaveSummary): string {
+/**
+ * What the saved game is waiting for, in the catalog's words. At a table of several people it names
+ * the person the game opens on, by the name the save kept, and says the pass screen comes first.
+ */
+export function pendingLine(summary: SaveSummary, people: readonly Person[] = []): string {
   if (summary.waiting === 'finished') return t('save.pendingFinished');
-  if (summary.humanSeat === undefined) return t('save.pendingWatched', { turn: summary.turn });
+  if (summary.humanSeats.length === 0) return t('save.pendingWatched', { turn: summary.turn });
+  if (summary.humanSeats.length > 1) {
+    const name =
+      people.find((person) => person.seatIndex === summary.seatIndex)?.name ??
+      people.find((person) => summary.humanSeats.includes(person.seatIndex))?.name ??
+      seatLabel(summary.seatIndex, undefined);
+    return t('save.pendingTable', { name, phase: phaseLabel(summary.phase) });
+  }
   if (summary.waiting === 'engine_result') return t('save.pendingRoll');
   const name =
     summary.seatIndex === summary.humanSeat
@@ -52,6 +63,8 @@ export type SavePromptProps =
       pending: string;
       /** The AI seats of the saved game, with what the save kept for each. */
       rivals?: readonly SavedRival[];
+      /** The people at a table of several people, with their classes. */
+      people?: readonly { readonly name: string; readonly classId: string }[];
       onContinue: () => void;
       onNewGame: () => void;
     }
@@ -97,6 +110,20 @@ export function SavePrompt(props: SavePromptProps) {
         <p role="status" className="panel p-5 font-bold text-pretty">
           {props.pending}
         </p>
+        {props.people && props.people.length > 0 && (
+          <section aria-labelledby="saved-people" className="panel p-5">
+            <h2 id="saved-people" className="text-xl">
+              {t('save.people')}
+            </h2>
+            <ul className="mt-3 grid gap-2 text-pretty">
+              {props.people.map((person) => (
+                <li key={person.name}>
+                  {t('save.personRow', { name: person.name, class: className(person.classId) })}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         {props.rivals && props.rivals.length > 0 && (
           <section aria-labelledby="saved-rivals" className="panel p-5">
             <h2 id="saved-rivals" className="text-xl">

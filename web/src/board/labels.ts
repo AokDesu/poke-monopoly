@@ -1,4 +1,5 @@
 import type { Observation, SpectatorObservation } from '../../../engine/index.ts';
+import { personName } from '../game/people.ts';
 import { en, t, type MessageKey } from '../i18n/en.ts';
 
 /** What a screen reads: a seat's observation, or the watcher's public-only view. */
@@ -8,8 +9,13 @@ export type ViewedObservation = Observation | SpectatorObservation;
 export const ownSeatOf = (observation: ViewedObservation): number | undefined =>
   'own' in observation ? observation.own.seatIndex : undefined;
 
+/**
+ * "You" for the reader's own seat, a person's name for another person at a shared table (spec §3),
+ * and "AI rival · seat N" for an AI.
+ */
 export function seatLabel(seatIndex: number, ownSeatIndex: number | undefined): string {
-  return seatIndex === ownSeatIndex ? t('seat.you') : t('board.rivalLabel', { seat: seatIndex });
+  if (seatIndex === ownSeatIndex) return t('seat.you');
+  return personName(seatIndex) ?? t('board.rivalLabel', { seat: seatIndex });
 }
 
 function catalogLabel(
