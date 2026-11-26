@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { CONTENT_VERSION, ENGINE_VERSION } from '../../engine/index.ts';
 import type { CliIo } from '../main.ts';
@@ -19,7 +20,7 @@ import {
   type Provenance,
 } from './run.ts';
 
-export const DEFAULT_MANIFEST = new URL('./c5-plan.json', import.meta.url).pathname;
+export const DEFAULT_MANIFEST = fileURLToPath(new URL('./c5-plan.json', import.meta.url));
 /** The plan's tuning range (seed ledger `tune`): smoke runs outside the 1,008 stay in it. */
 const TUNE_FIRST = 100_000;
 const TUNE_LAST = 199_999;
