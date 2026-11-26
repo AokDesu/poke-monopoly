@@ -11,6 +11,10 @@ The protocol is [`../PROTOCOL.md`](../PROTOCOL.md). This folder holds only what 
 | Setup | One human, Greedy and Cautious rivals, Quick, Normal (protocol section 3, step 4; needs issue #226 merged) |
 | Sheets | `session-sheet-A.csv`, `session-sheet-B.csv`, `session-sheet-C.csv`, one per facilitator |
 
+## Game length is not comparable with G1
+
+`game_length_min` in the `P5` sheets starts when the participant clicks "Go to the board" (protocol section 6, "Game length"). The `G1` sheets in `docs/playtest/g1/` were timed under the earlier protocol, from the start of the first-player roll, so they include the setup and the roll that a `P5` length leaves out. A `P5` length and a `G1` length therefore **are not comparable**: do not set them side by side, average them together or read one as a change from the other. The 25-minute cap and `finished_in_cap` also count from "Go to the board" in `P5`.
+
 ## Sheets
 
 Each facilitator makes their own copy of the empty template on their first session, and adds one row per session the same day (protocol section 7):

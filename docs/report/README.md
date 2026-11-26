@@ -290,7 +290,7 @@ These are neither policy-only nor Jev-only, so they have their own tables. Spend
 
 |Figure the report will quote|Source file and place|Produced by|Status|
 |---|---|---|---|
-|Game length, drop-off, meaningful choices, hesitation counts and the four answers, per participant code|`docs/playtest/p5/session-sheet-<host>.csv`|Facilitators, following `docs/playtest/PROTOCOL.md`|pending|
+|Game length, drop-off, meaningful choices, hesitation counts and the four answers, per participant code. `P5` game length starts at "Go to the board", `G1` at the first-player roll, so the two are not comparable: quote them apart, never pooled (`docs/playtest/p5/README.md`)|`docs/playtest/p5/session-sheet-<host>.csv`|Facilitators, following `docs/playtest/PROTOCOL.md`|pending|
 |The build each session ran on|`docs/playtest/p5/README.md`, "Build record"|The build check|pending (the row is blank)|
 |Gate G1 sheets and latency|`docs/playtest/g1/`|The G1 round|have, with no verdict ([L1](#part-f-limitations))|
 
