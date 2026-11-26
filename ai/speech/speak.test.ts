@@ -3,6 +3,7 @@ import { toEngineContent } from '../../content/schema.ts';
 import { speakResponseSchema } from '../../engine/contract/speech.ts';
 import { createGame, createGameConfig, observe } from '../../engine/index.ts';
 import { createApp, MAX_SPEAK_BODY_BYTES } from '../app.ts';
+import { RequestWindow } from '../jev/window.ts';
 import { createFakeHaikuClient } from '../haiku/fake.ts';
 import {
   createHaikuClient,
@@ -82,6 +83,8 @@ function setup(
   const logs: string[] = [];
   const app = createApp({
     usage: () => noCap,
+    // These tests count the per-game limits; the server-wide window has its own tests (#64).
+    limits: { haikuWindow: new RequestWindow(Infinity) },
     ...speech,
     speech: { client, env: ON, log: (line) => logs.push(line), ...speech.speech },
   });

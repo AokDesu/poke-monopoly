@@ -17,6 +17,7 @@ import {
   replyRequestSchema,
   speakRequestSchema,
 } from '../engine/contract/speech.ts';
+import { JevAdmission, QuotaBook } from './admission.ts';
 import {
   fallbackAnswer,
   policyAnswer,
@@ -31,6 +32,7 @@ import { createSdkJevClient, type JevClient } from './jev/client.ts';
 import { DecisionJournal } from './jev/decision-journal.ts';
 import { fileDecisionLog, type DecisionLog } from './jev/decision-log.ts';
 import { defaultUsageLedger, errorClass, type UsageRecorder } from './jev/spend.ts';
+import { RequestWindow, SERVER_LIMITS } from './jev/window.ts';
 import { createHaikuClient } from './haiku/client.ts';
 import { speechStatus } from './haiku/status.ts';
 import { presentationHeaders } from './presentation.ts';
@@ -63,6 +65,11 @@ export interface AppOptions {
    * manipulation gate for replies (over `jevClient` and `usage` by default); fakes in tests.
    */
   speech?: Partial<SpeakerOptions>;
+  /**
+   * The limits the ID-keyed counts cannot give (spec §9, #64), shared by every route: the games'
+   * quotas and the server-wide Jev and Haiku windows. Fresh ones with `SERVER_LIMITS` by default.
+   */
+  limits?: { quotas?: QuotaBook; jevWindow?: RequestWindow; haikuWindow?: RequestWindow };
 }
 
 /** Copies only IDs and telemetry, so nothing else a decider returns can reach the browser. */
@@ -88,12 +95,29 @@ export const createApp = ({
   jevClient,
   decisionLog,
   speech,
-  chatReplier = createChatReplier({ usage, ...(jevClient && { client: jevClient }) }),
-  decider = createOrchestratorDecider({
-    usage,
-    ...(jevClient && { client: jevClient }),
-  }),
+  limits,
+  chatReplier,
+  decider,
 }: AppOptions = {}) => {
+  const quotas = limits?.quotas ?? new QuotaBook();
+  const jevWindow =
+    limits?.jevWindow ??
+    new RequestWindow(SERVER_LIMITS.jevRequestsPerWindow, SERVER_LIMITS.windowMs, Date.now, 'Jev');
+  const haikuWindow =
+    limits?.haikuWindow ??
+    new RequestWindow(SERVER_LIMITS.haikuCallsPerWindow, SERVER_LIMITS.windowMs, Date.now, 'Haiku');
+  const admission = new JevAdmission({ usage, quotas, window: jevWindow });
+  chatReplier ??= createChatReplier({
+    usage,
+    admission,
+    ...(jevClient && { client: jevClient }),
+  });
+  decider ??= createOrchestratorDecider({
+    usage,
+    quotas,
+    window: jevWindow,
+    ...(jevClient && { client: jevClient }),
+  });
   const app = new Hono();
   const journal = new DecisionJournal(decisionLog);
   const chats = new ChatLedger();
@@ -101,7 +125,8 @@ export const createApp = ({
     client: createHaikuClient({ usage, ...(speech?.env && { env: speech.env }) }),
     usage,
     // Spec §5.7: an AI line is checked by the same Jev question as the player's chat before another AI quotes it.
-    gate: createManipulationGate({ client: jevClient ?? createSdkJevClient, usage }),
+    gate: createManipulationGate({ client: jevClient ?? createSdkJevClient, usage, admission }),
+    window: haikuWindow,
     ...speech,
   });
 

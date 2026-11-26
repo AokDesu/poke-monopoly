@@ -5,6 +5,7 @@ import { createRng } from '../engine/index.ts';
 import type { ChatReply, ChatReplyFallbackReason } from '../engine/contract/chat-reply.ts';
 import type { ChatReplyRequest } from '../engine/contract/chat-reply.ts';
 import type { JevStatus } from '../engine/contract/decision.ts';
+import { JevAdmission } from './admission.ts';
 import { CHAT_TUNING } from './chat.ts';
 import { personalityFor } from './decider.ts';
 import {
@@ -156,6 +157,12 @@ export interface ChatReplierOptions {
   /** Made on first use, only with Jev enabled and a key; defaults to the real SDK client. */
   client?: () => JevClient;
   usage?: () => UsageRecorder | undefined;
+  /**
+   * The caps a Jev decision has (spec §9): the turn's request limit, the game's token budget, the
+   * spend reservation and the server-wide window. One shared with the decider and the gate in the
+   * app, so a game has one count; a private one over `usage` by default.
+   */
+  admission?: JevAdmission;
   /** The deadline; defaults to the decision deadline of 1,500 ms (spec §5.6). */
   decisionMs?: number;
 }
@@ -170,6 +177,7 @@ export interface ChatReplierOptions {
 export const createChatReplier = ({
   client = createSdkJevClient,
   usage = defaultUsageLedger,
+  admission = new JevAdmission({ usage }),
   decisionMs = DECISION_DEADLINE_MS,
 }: ChatReplierOptions = {}): ChatReplier => {
   let jev: JevClient | undefined;
@@ -211,11 +219,24 @@ export const createChatReplier = ({
     );
     try {
       const state = personalState(observation, personality, {});
-      jev ??= client();
+      // The same caps as a decision (§9). The wire has no reason for the turn limit or the window
+      // beyond `rate_limited`, and none for the token budget beyond `budget_exceeded`.
+      const admitted = admission.admit(request.gameId, request.turnKey);
+      if ('reason' in admitted) {
+        return fallback(admitted.reason === 'request_limit' ? 'rate_limited' : 'budget_exceeded');
+      }
       const started = performance.now();
-      const call = jev.ask({ state, questions }, { decisionSignal: deadline.signal });
+      let call: ReturnType<JevClient['ask']>;
+      try {
+        jev ??= client();
+        call = jev.ask({ state, questions }, { decisionSignal: deadline.signal });
+      } catch (error) {
+        admitted.release();
+        throw error;
+      }
       void call
         .then((result) => {
+          admitted.quota.meter.record(result);
           const billed = billedUsage(result);
           const recorder = usage();
           if (!billed || !recorder) return;
@@ -238,7 +259,8 @@ export const createChatReplier = ({
             warnLedgerFailed('Could not write the Jev usage log', error);
           }
         })
-        .catch(warnJevRejected);
+        .catch(warnJevRejected)
+        .finally(() => admitted.release());
       const result = await Promise.race([call, expired]);
       // §5.6: a late answer is never applied, even a valid one.
       if (result === undefined || deadline.signal.aborted) return fallback('timeout');
