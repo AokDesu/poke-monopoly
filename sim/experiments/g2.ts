@@ -103,8 +103,16 @@ const planSchema = z.object({
       budgetExceededFallbacks: z.literal(0),
       maxAbortedPairShare: z.number().min(0).max(1),
       everyRowLive: z.boolean(),
-      /** Floor on decisions that Jev answered itself (no fallback) over all Jev decisions, per difficulty. */
+      /**
+       * Floor on the share of decisions sent to Jev that got a valid answer, per difficulty (plan v2):
+       * valid = applied (no fallback) or one of `jevAnsweredValidCauses`; the denominator is every
+       * decision counted by `decisions` less those with a cause in `jevAnsweredNotSentCauses`.
+       */
       minJevAnsweredShare: z.number().min(0).max(1),
+      /** Fallback causes where Jev answered validly and the fallback decided (counted as answered). Absent in a v1 plan: empty, which is the v1 definition. */
+      jevAnsweredValidCauses: z.array(z.string()).default([]),
+      /** Fallback causes where no request went to Jev (left out of the answered share's denominator). */
+      jevAnsweredNotSentCauses: z.array(z.string()).default([]),
       /** Fallback causes that mean the service, the network or the key failed rather than Jev answering badly. */
       infrastructureCauses: z.array(z.string()).min(1),
       /** Ceiling on the share of decisions that fell back on one of those causes, per difficulty. */
@@ -608,6 +616,8 @@ export type DifficultyStats = {
   /** Seats of this difficulty over every game of the rows. */
   seatGames: number;
   rates: DecisionRates;
+  /** `DecisionStats` counts summed over this difficulty's seats and games (rates are rounded from these). */
+  counts: Record<string, number>;
   /** Fallback share of decisions caused by a timeout. */
   timeoutRate: number;
   decisionMs: Spread;
@@ -770,6 +780,7 @@ export function analyzeG2(rows: readonly G2Row[], plan: G2Plan, options: Analyze
     return {
       seatGames: seats.length,
       rates,
+      counts,
       timeoutRate: rates.fallbackRate.byCause.timeout ?? 0,
       decisionMs: spread(seats.flatMap((seat) => seat.decisionMs)),
       turnMs: spread(seats.flatMap((seat) => seat.turnMs)),
@@ -1035,8 +1046,9 @@ export function decideVerdict(plan: G2Plan, input: VerdictInput): G2Verdict {
 /**
  * Did Jev actually answer? Without this an outage (a dead service, a refused key, timeouts)
  * makes every decision fall back for both difficulties, the arms look alike and the rule would
- * read it as "Hard is no better". Two pre-registered checks per difficulty: the share of Jev
- * decisions answered without a fallback has a floor, and the share lost to infrastructure causes
+ * read it as "Hard is no better". Two pre-registered checks per difficulty: the share of decisions
+ * sent to Jev that got a valid answer (plan v2: applied, or below the confidence threshold, with
+ * `missing_facts` out of the denominator) has a floor, and the share lost to infrastructure causes
  * has a ceiling. Either one failing means no verdict.
  */
 function jevAnsweredChecks(
@@ -1051,11 +1063,33 @@ function jevAnsweredChecks(
       ? integrity.infrastructureCauses.filter((cause) => cause !== 'timeout')
       : integrity.infrastructureCauses;
   const shares = (which: G2Difficulty) => {
-    const { rates } = stats[which];
+    const { rates, counts } = stats[which];
+    const count = (cause: string) => counts[`fallback:${cause}`] ?? 0;
+    // Plan v2: over the decisions sent to Jev. missing_facts never reached Jev, so it is out of the
+    // denominator; a valid answer is one applied (no fallback) or a low-confidence one the
+    // fallback decided. Every other cause (service, invalid answer, limits) stays in as unanswered.
+    const notSent = integrity.jevAnsweredNotSentCauses.reduce(
+      (sum, cause) => sum + count(cause),
+      0,
+    );
+    const sent = rates.decisions - notSent;
+    const unanswered =
+      rates.decisions === 0
+        ? 0
+        : Object.keys(counts)
+            .filter((key) => key.startsWith('fallback:'))
+            .map((key) => key.slice('fallback:'.length))
+            .filter(
+              (cause) =>
+                !integrity.jevAnsweredNotSentCauses.includes(cause) &&
+                !integrity.jevAnsweredValidCauses.includes(cause),
+            )
+            .reduce((sum, cause) => sum + count(cause), 0);
     return {
       which,
       decisions: rates.decisions,
-      answered: rates.decisions === 0 ? 0 : 1 - rates.fallbackRate.total,
+      sent,
+      answered: sent <= 0 ? 0 : (sent - unanswered) / sent,
       infrastructure: causesOf(which).reduce(
         (sum, cause) => sum + (rates.fallbackRate.byCause[cause] ?? 0),
         0,
@@ -1064,7 +1098,7 @@ function jevAnsweredChecks(
   };
   const both = [shares('hard'), shares('normal')];
   const named = (share: ReturnType<typeof shares>) =>
-    `${share.which} ${fmt(share.answered)} of ${share.decisions} decisions`;
+    `${share.which} ${fmt(share.answered)} of ${share.sent} decisions sent to Jev (${share.decisions - share.sent} not sent, left out)`;
   const infraDetail = (share: ReturnType<typeof shares>) => {
     const byCause = causesOf(share.which)
       .map((cause) => `${cause} ${fmt(stats[share.which].rates.fallbackRate.byCause[cause] ?? 0)}`)
@@ -1075,9 +1109,9 @@ function jevAnsweredChecks(
     {
       id: 'jev-answered',
       pass: both.every(
-        (share) => share.decisions > 0 && share.answered >= integrity.minJevAnsweredShare,
+        (share) => share.sent > 0 && share.answered >= integrity.minJevAnsweredShare,
       ),
-      detail: `Jev answered without a fallback: ${both.map(named).join('; ')}; each must be at least ${integrity.minJevAnsweredShare}`,
+      detail: `Jev returned a valid answer (applied, or below the confidence threshold): ${both.map(named).join('; ')}; each must be at least ${integrity.minJevAnsweredShare}`,
     },
     {
       id: 'infrastructure-fallbacks',

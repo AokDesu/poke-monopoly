@@ -1,6 +1,6 @@
 {
   "id": "g2-hard-vs-normal",
-  "version": 1,
+  "version": 2,
   "status": "frozen-before-run",
   "note": "G2 duel plan. The pre-registered rule below was written before any live game; change it only by a new version, never after a result. Thresholds marked captainToConfirm are proposed defaults.",
   "spec": ["§5.6 Difficulty", "§8 Simulation: Difficulty", "§10 C5 gate G2"],
@@ -73,7 +73,9 @@
       "budgetExceededFallbacks": 0,
       "maxAbortedPairShare": 0.02,
       "everyRowLive": true,
-      "minJevAnsweredShare": 0.3,
+      "minJevAnsweredShare": 0.8,
+      "jevAnsweredValidCauses": ["low_confidence"],
+      "jevAnsweredNotSentCauses": ["missing_facts"],
       "infrastructureCauses": [
         "timeout",
         "network",
@@ -83,8 +85,8 @@
         "disabled"
       ],
       "maxInfrastructureFallbackShare": 0.05,
-      "jevAnsweredNote": "Jev answered = a decision that reached Jev and applied its answer with no fallback, over all decisions that reached Jev (not auto), for Hard and for Normal each. Fallbacks that are Jev's own judgement (low_confidence, invalid_choice, revision_mismatch) and the Sell Phase decisions the sim never asks (missing_facts) are ordinary and stay out of the infrastructure share. Hard's own timeouts are not counted in Hard's infrastructure share: Hard's rollouts spend part of the deadline, so Hard's timeout excess over Normal's is the latency rule's job (latency-timeouts); Normal has no rollout, so all its listed causes count. Spend-guard fallbacks (budget_exceeded) are held at zero above. A dead service, a refused key or a run of timeouts fails these checks, so an outage can never be read as 'Hard is no better'.",
-      "captainToConfirm": "minJevAnsweredShare (0.30) and maxInfrastructureFallbackShare (0.05). The floor is deliberately low: it exists to catch an outage, not to judge Jev. The live smoke run on tuning seeds shows the real share first; if 0.30 is far from it, change the plan before the held-out run.",
+      "jevAnsweredNote": "Plan v2. Jev answered = of the decisions sent to Jev, the share where Jev returned a valid answer, for Hard and for Normal each: applied (no fallback) or below the confidence threshold (low_confidence, where Jev answered validly and the fallback decided). The denominator is every counted decision (not auto) less missing_facts, which never reached Jev (the Sell Phase questions the sim never asks, and facts a question needs). invalid_choice, schema_mismatch, revision_mismatch, request_limit, token_budget, budget_exceeded and the infrastructure causes stay in the denominator and out of the numerator. Fallbacks that are Jev's own judgement (low_confidence, invalid_choice, revision_mismatch) and missing_facts stay out of the infrastructure share. Hard's own timeouts are not counted in Hard's infrastructure share: Hard's rollouts spend part of the deadline, so Hard's timeout excess over Normal's is the latency rule's job (latency-timeouts); Normal has no rollout, so all its listed causes count. Spend-guard fallbacks (budget_exceeded) are held at zero above. A dead service, a refused key or a run of timeouts fails these checks, so an outage can never be read as 'Hard is no better'.",
+      "captainToConfirm": "maxInfrastructureFallbackShare (0.05). minJevAnsweredShare was 0.30 in v1 (decisions with no fallback over all decisions not auto) and is 0.80 in v2: see docs/experiments/g2-hard-vs-normal.md, Plan v2. The smoke run on tuning seeds 100200-100205 showed v1 counted our own low_confidence fallback and the Sell decisions the sim never sends (hard 0.364 of 165, normal 0.244 of 464).",
       "onFailure": "no verdict: fix the cause and play the plan again on fresh seeds"
     },
     "evidence": {

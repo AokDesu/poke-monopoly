@@ -22,7 +22,7 @@ Does Hard (the engine's Monte Carlo rollouts add expected-outcome buckets to eac
 
 Written before any live game, and held in `g2-plan.json` (`rule`), which the analysis code reads. Changing it means a new plan version, never a change after a result. Thresholds marked **captain to confirm** are proposed defaults.
 
-1. **Integrity (else no verdict).** Every row is from the live service. Every planned block has both rows. `illegalAppliedActionCount = 0`, invariant failures 0, replay failures 0, no decision fell back on a spent budget, and aborted pairs are at most 2% of planned blocks. **Jev must have answered:** for Hard and for Normal each, decisions that reached Jev and applied its answer with no fallback are at least **0.30** of all decisions that reached Jev (*captain to confirm*), and decisions lost to the service, network or key (`timeout`, `network`, `auth`, `rate_limited`, `server_error`, `disabled`) are at most **0.05** (*captain to confirm*). Hard's own `timeout` is left out of Hard's share, because Hard's rollouts spend part of the deadline and the latency rule (3) judges that against Normal's; Normal has no rollout, so all its listed causes count. The report prints both numbers by difficulty and cause in the check detail. Without these checks an outage (service down, key refused, every request timing out) makes every decision fall back for both difficulties, the arms look alike, and the rule would read it as "Hard is no better". Anything else: no G2 verdict; fix the cause and play again on fresh seeds.
+1. **Integrity (else no verdict).** Every row is from the live service. Every planned block has both rows. `illegalAppliedActionCount = 0`, invariant failures 0, replay failures 0, no decision fell back on a spent budget, and aborted pairs are at most 2% of planned blocks. **Jev must have answered (plan v2, see [Plan v2](#plan-v2-decided-from-the-smoke-runs-integrity-check-not-its-effect-estimate)):** for Hard and for Normal each, decisions where Jev returned a valid answer (applied, or below the confidence threshold) are at least **0.80** of the decisions sent to Jev, with `missing_facts` decisions left out of the denominator, and decisions lost to the service, network or key (`timeout`, `network`, `auth`, `rate_limited`, `server_error`, `disabled`) are at most **0.05** (*captain to confirm*). Hard's own `timeout` is left out of Hard's share, because Hard's rollouts spend part of the deadline and the latency rule (3) judges that against Normal's; Normal has no rollout, so all its listed causes count. The report prints both numbers by difficulty and cause in the check detail. Without these checks an outage (service down, key refused, every request timing out) makes every decision fall back for both difficulties, the arms look alike, and the rule would read it as "Hard is no better". Anything else: no G2 verdict; fix the cause and play again on fresh seeds.
 2. **Evidence.** The 95% interval of the paired score difference (Hard minus Normal) has its lower bound above 0, **and** the point estimate is at least **0.05** (*captain to confirm*: half of the 0.10 gap the run is sized for).
 3. **Latency** (Hard, over decisions that involved Jev): decision p95 at most **1,500 ms** (§5.6), AI turn p95 at most **2,000 ms** (§1 target), and Hard's share of decisions that fall back on a timeout exceeds Normal's by at most **0.02** (*captain to confirm*).
 4. **Verdict.** Integrity, evidence and latency all hold: **keep three levels**. Integrity holds and evidence or latency fails: **ship two levels** (Easy and Normal; cut Monte Carlo per §10 "Cut if late"), and the report says which part failed. A failure to show evidence at this n is reported as "not shown", not as "Hard is worse".
@@ -48,7 +48,7 @@ Requests and THB per game are **from the offline dry run, not from live**: 24.5 
 ## Run order
 
 1. **Merge this PR** with the thresholds above confirmed (or changed in the plan before merge): the plan is frozen on merge, and a change after it is a new plan version.
-2. **Live smoke run on tuning seeds (not held-out)**, below. It spends about THB 3 (24 games at about THB 0.11), shows that Jev answers (the answered share and the infrastructure share of the check detail), what the real latency is on this machine, and the real requests and THB per game from `logs/jev-usage.jsonl`. Its output is labelled `not-evidence: tuning seeds` and carries no verdict. If the answered share is far from the 0.30 floor, or the latency is far from what the plan assumes, change the plan (new version) **before** step 3: the held-out seeds are still unopened.
+2. **Live smoke run on tuning seeds (not held-out)**, below. It spends about THB 3 (24 games at about THB 0.11), shows that Jev answers (the answered share and the infrastructure share of the check detail), what the real latency is on this machine, and the real requests and THB per game from `logs/jev-usage.jsonl`. Its output is labelled `not-evidence: tuning seeds` and carries no verdict. If the answered share is far from the floor (0.80 since plan v2), or the latency is far from what the plan assumes, change the plan (new version) **before** step 3: the held-out seeds are still unopened.
 3. **The held-out run**, below, played once.
 
 Smoke run (tuning seeds 100,200 to 100,205, 6 seeds, 24 games):
@@ -57,6 +57,38 @@ Smoke run (tuning seeds 100,200 to 100,205, 6 seeds, 24 games):
 npx tsx --require $NoPqTls --env-file=.env sim/experiments/g2-cli.ts --seed-base 100200 --seeds 6 --max-thb 10 --out logs/g2-smoke.rows.jsonl
 npx tsx --env-file=.env sim/experiments/g2-cli.ts --seed-base 100200 --seeds 6 --analyze --out logs/g2-smoke.rows.jsonl
 ```
+
+## Plan v2, decided from the smoke run's integrity check, not its effect estimate
+
+Spec: v1.0 §8, §10 (C5). Part of [#62](https://github.com/AokDesu/poke-monopoly/issues/62). The captain released plan version 2 after the live smoke run, before the held-out run (the held-out seeds, 1,300,002 to 1,300,199, are still unopened, which this plan allows: a new version before any held-out game). `g2-plan.json` `version` goes from 1 to 2. The decision rests on the smoke run's integrity check only; no effect estimate of the smoke run was used.
+
+**Reason.** The smoke run (tuning seeds 100,200 to 100,205, 24 games, live) failed the v1 `jev-answered` check: hard **0.364 of 165** decisions, normal **0.244 of 464**, against the floor of 0.30. The infrastructure fallbacks were 0.000. The misses were `low_confidence` (hard 0.545, normal 0.664) and `missing_facts` (hard 0.091, normal 0.093). The check was meant to catch outages, but v1 counted our own low-confidence fallback and the Sell decisions the sim never sends to Jev as if Jev had not answered.
+
+**What changes (only this).**
+
+- `jev-answered` = decisions where Jev returned a valid answer (applied, or below the confidence threshold), over decisions actually sent to Jev. `missing_facts` decisions are left out of the denominator.
+- Floor **0.80** per difficulty (v1: 0.30).
+- The plan carries the two cause lists the check reads: `jevAnsweredValidCauses` (`low_confidence`) and `jevAnsweredNotSentCauses` (`missing_facts`).
+
+**Cause by cause (from the `DecisionStats` counts recorded in each row's `seatStats`).** `decisions` counts every decision that is not `auto`; each fallback adds `fallback:<cause>`.
+
+| Recorded as | In the denominator | In the numerator |
+|---|---|---|
+| no fallback (Jev answered, its choice was applied) | yes | yes |
+| `fallback:low_confidence` (Jev answered validly, below the threshold, the fallback decided) | yes | yes |
+| `fallback:missing_facts` (no facts for the question, e.g. the Sell Phase the sim never asks; no request went to Jev) | **no** | no |
+| `fallback:invalid_choice`, `schema_mismatch`, `revision_mismatch` (Jev answered, not usably) | yes | no |
+| `fallback:timeout`, `network`, `auth`, `rate_limited`, `server_error`, `disabled` (infrastructure) | yes | no |
+| `fallback:request_limit`, `token_budget`, `budget_exceeded` (our own limits) | yes | no |
+| `auto` (one legal action, or no question) | not counted | not counted |
+
+The rows record causes per decision as counts, not whether a request left the process for each decision, so "sent to Jev" is read from the cause. `request_limit`, `token_budget` and `budget_exceeded` are kept in the denominator: the counts cannot tell a decision that never sent a request from one that sent some and then hit the limit, and keeping them in can only make the check stricter. `budget_exceeded` is held at zero by its own check anyway. Hard's rollouts count the same way: Hard's own timeouts stay in Hard's denominator and out of its numerator, and stay out of Hard's infrastructure share as in v1.
+
+**Unchanged:** the 0.10 gap and n (198 seeds), the seeds, the 0.05 evidence floor (`minPointEstimate`) and its 95% interval rule, the latency rule (1,500 ms, 2,000 ms, 0.02 timeout excess), the infrastructure check (`timeout`, `network`, `auth`, `rate_limited`, `server_error`, `disabled`, at most 0.05), and the low-confidence threshold (not touched: it lives in `ai/`).
+
+**Rows written under v1.** The plan's SHA-256 is stored in every row, and the runner and `--analyze` refuse rows of another plan version ("the rows were played under another version of the plan"). So v1 rows, including `logs/g2-smoke.rows.jsonl`, are never analysed under the v2 rules by accident, and a v1 rows file is not continued: use a new `--out` for any run under v2. The v1 plan file still parses and reads as v1 (the two cause lists default to empty, which is the v1 definition), so v1 rows can be re-read under their own rules with `--plan <v1 plan file>` (`git show 44b02db:sim/experiments/g2-plan.json`); they cannot be read under v2 without playing the games again. The held-out run is the first to be played under v2.
+
+**Tests.** A 100% `fallback:timeout` run still gives no verdict under v2 (it fails `jev-answered` and `infrastructure-fallbacks`). A synthetic row set shaped like the smoke run (hard 165 decisions, normal 464, with its `low_confidence` and `missing_facts` shares; synthetic, not the smoke rows) passes under v2, where v1 read 0.364 and 0.244.
 
 ## Live command (captain, Windows PowerShell, with the key)
 
@@ -124,6 +156,16 @@ Decision latency and fallbacks (Hard's rollouts limited to 400 ms inside the 1,5
 
 Jev requests and THB (from the usage log): _empty_.
 
+**Notes for reading the results (from the tuning-seed smoke run, not evidence, plan v1 numbers).** Fallback share by cause, of each difficulty's decisions:
+
+| Cause | Hard | Normal |
+|---|---|---|
+| `low_confidence` | 0.545 | 0.664 |
+| `missing_facts` | 0.091 | 0.093 |
+| infrastructure (`timeout`, `network`, `auth`, `rate_limited`, `server_error`, `disabled`) | 0.000 | 0.000 |
+
+The low-confidence fallback is the largest share on both difficulties. A high fallback share that both difficulties have in common dilutes any Hard effect: on those decisions Hard and Normal play the same fallback policy, so Hard can differ from Normal only on the decisions where Jev's answer is used. Read a small or absent Hard effect with that in mind, and read the live run's `low_confidence` share beside the score difference.
+
 ## Dry run (plumbing only, not evidence)
 
 Fake-client output. It proves the plan loads, the seat rotation, per-game rows, resume after an interruption, the analysis and the held-out guard. It says nothing about Hard or Normal: the fake client answers at random, invalid, late and failing, so 89% of decisions fall back, and any win or loss it shows for Hard is noise. Its rows are not committed.
@@ -139,10 +181,10 @@ Setup: no key (`TYPESAFE_API_KEY` and `ANTHROPIC_API_KEY` unset), `JEV_ENABLED` 
 
 Re-run after the integrity-check change (same setup, killed by a 60 s timeout after 7 games, resumed with 17 to play, 0 failing): 24 of 24 games finished, `illegalAppliedActionCount` 0, 0 invariant failures, 0 replay failures, and the 24.5 requests per game are unchanged. This re-run overlapped with the test suite on the same machine, so its Hard decision p95 (1,743 ms, max 2,574 ms) is load, not Hard; the idle figures above stand. It does show why latency is read on a quiet machine, and that the latency rule would then fail (decision p95 above 1,500 ms) if the live run were this loaded.
 
-Analysis output of that dry run (the banner is what the tool prints on fake rows). The fake client answers 11% of decisions without a fallback and loses 45% of Normal's decisions to timeouts and rate limits, so both new integrity checks (`jev-answered`, `infrastructure-fallbacks`) fail here as they should, besides `live`:
+Analysis output of that dry run (the banner is what the tool prints on fake rows). The fake client answers 11% of decisions without a fallback and loses 45% of Normal's decisions to timeouts and rate limits, so both new integrity checks (`jev-answered`, `infrastructure-fallbacks`) fail here as they should, besides `live` (plan v1 numbers; under v2 `jev-answered` is the share of valid answers over decisions sent, floor 0.80, and still fails on this fake run):
 
 > **Source: not-evidence: fake-client. This output checks plumbing, latency, fallbacks and cost only. It is not evidence about Hard or Normal, and it carries no verdict.**
-> **Verdict: no-verdict.** `live`, `jev-answered` (hard 0.093, normal 0.109, each at least 0.3) and `infrastructure-fallbacks` fail; a fake run can never produce a verdict.
+> **Verdict: no-verdict.** `live`, `jev-answered` (hard 0.093, normal 0.109, each at least 0.3 under v1) and `infrastructure-fallbacks` fail; a fake run can never produce a verdict.
 
 ## Limits of this study
 
