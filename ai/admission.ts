@@ -2,17 +2,33 @@ import { GameQuota, ORCHESTRATOR_CONFIG, type OrchestratorConfig } from './orche
 import { warnLedgerFailed, type UsageRecorder } from './jev/spend.ts';
 import type { RequestWindow } from './jev/window.ts';
 
-/** How many games keep their own quota; the same bound as the orchestrator cache (spec §9, #64). */
-export const MAX_TRACKED_GAMES = 64;
+/**
+ * How many games the book tracks. A game past it is refused (never shared with another game, never
+ * given a fresh budget) until the server restarts. A tracked game costs a few hundred bytes until
+ * a request for it is admitted, and admissions are bounded by the server-wide window, so the book
+ * only reaches this in a long run of invented IDs; no honest session comes near it (spec §9, #64).
+ */
+export const MAX_TRACKED_GAMES = 10_000;
+
+/** The quota of a game the book has no room for: every turn is at its limit, so the request falls back. */
+class ClosedQuota extends GameQuota {
+  override requests(): number {
+    return Infinity;
+  }
+  override reserve(): void {}
+}
 
 /**
- * The games' lifetime accounting (§9), bounded and never evicted, so a game cannot reset its own
- * limits. The IDs are the browser's to choose: a game past `max` is given no fresh quota but
- * shares one overflow quota, so inventing IDs buys no more than that one game's limits.
+ * The games' lifetime accounting (§9): one `GameQuota` per game ID, kept for as long as the server
+ * runs and never evicted, so a game cannot reset its own limits, and no game shares another's
+ * (turn keys such as `5:1` are the same in every game). The IDs are the browser's to choose, so the
+ * memory is bounded by the server-wide `RequestWindow` and the spend cap, which bound how many
+ * requests, and so how many turn counts, any client can add; and by `max` games, past which a new
+ * ID gets a closed quota instead of a fresh or a shared one.
  */
 export class QuotaBook {
   readonly #games = new Map<string, GameQuota>();
-  readonly #overflow = new GameQuota();
+  readonly #closed = new ClosedQuota();
   readonly #max: number;
 
   constructor(max: number = MAX_TRACKED_GAMES) {
@@ -22,7 +38,7 @@ export class QuotaBook {
   for(gameId: string): GameQuota {
     const found = this.#games.get(gameId);
     if (found) return found;
-    if (this.#games.size >= this.#max) return this.#overflow;
+    if (this.#games.size >= this.#max) return this.#closed;
     const quota = new GameQuota();
     this.#games.set(gameId, quota);
     return quota;

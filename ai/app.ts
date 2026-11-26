@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import {
   aiStatusSchema,
@@ -106,10 +106,21 @@ export const createApp = ({
   decider,
 }: AppOptions = {}) => {
   const quotas = limits?.quotas ?? new QuotaBook();
-  const jevWindow = limits?.jevWindow ?? new RequestWindow(SERVER_LIMITS.jevRequestsPerWindow);
-  const haikuWindow = limits?.haikuWindow ?? new RequestWindow(SERVER_LIMITS.haikuCallsPerWindow);
+  const jevWindow =
+    limits?.jevWindow ??
+    new RequestWindow(SERVER_LIMITS.jevRequestsPerWindow, SERVER_LIMITS.windowMs, Date.now, 'Jev');
+  const haikuWindow =
+    limits?.haikuWindow ??
+    new RequestWindow(SERVER_LIMITS.haikuCallsPerWindow, SERVER_LIMITS.windowMs, Date.now, 'Haiku');
+  const unmetered: MiddlewareHandler = (_c, next) => next();
   const limited = apiRateLimit(
-    limits?.apiWindow ?? new RequestWindow(SERVER_LIMITS.apiRequestsPerWindow),
+    limits?.apiWindow ??
+      new RequestWindow(
+        SERVER_LIMITS.apiRequestsPerWindow,
+        SERVER_LIMITS.windowMs,
+        Date.now,
+        'API',
+      ),
   );
   const admission = new JevAdmission({ usage, quotas, window: jevWindow });
   chatReplier ??= createChatReplier({
@@ -158,7 +169,6 @@ export const createApp = ({
   app.post(
     '/api/ai/outcome',
     sameOriginJson,
-    limited,
     bodyLimit({
       maxSize: MAX_BODY_BYTES,
       onError: (c) => c.json({ error: 'payload_too_large' }, 413),
@@ -273,7 +283,9 @@ export const createApp = ({
     app.post(
       path,
       sameOriginJson,
-      limited,
+      // /fallback asks no provider and /outcome (above) only logs, so the browser can always say
+      // what it applied and get the backup answer, even while decisions are being refused.
+      path === '/api/ai/fallback' ? unmetered : limited,
       bodyLimit({
         maxSize: MAX_BODY_BYTES,
         onError: (c) => c.json({ error: 'payload_too_large' }, 413),

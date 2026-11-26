@@ -2,6 +2,9 @@ import { readFileSync } from 'node:fs';
 import { connect, type AddressInfo } from 'node:net';
 import { serve } from '@hono/node-server';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { decisionResponseSchema, type DecisionRequest } from '../engine/contract/decision.ts';
+import strategyFixture from '../engine/fixtures/strategy-with-items.json';
+import { fixtureSchema } from '../engine/index.ts';
 import { createApp } from './app.ts';
 import { RequestWindow, SERVER_LIMITS } from './jev/window.ts';
 import { CONTENT_SECURITY_POLICY, HTTP_SERVER_OPTIONS } from './security.ts';
@@ -19,6 +22,22 @@ beforeEach(() => {
   vi.stubEnv('HAIKU_ENABLED', 'false');
 });
 afterEach(() => vi.unstubAllEnvs());
+
+const fixture = fixtureSchema.parse(strategyFixture);
+const seat = fixture.state.activeSeatIndex;
+const observation = fixture.observation[String(seat)]!;
+const strategy: DecisionRequest = {
+  gameId: 'game-security-1',
+  seatIndex: seat,
+  decisionPoint: 'strategy',
+  stateRevision: observation.public.stateRevision,
+  observation,
+  enabledActions: fixture.legalActions[String(seat)]!.enabled,
+  facts: {},
+  difficulty: 'normal',
+  personalityId: 'greedy',
+  turnKey: 'turn-1',
+};
 
 const status = (app: ReturnType<typeof createApp>, headers: Record<string, string> = {}) =>
   app.request('/api/ai/status', { headers: { host: 'localhost:5173', ...headers } });
@@ -111,16 +130,33 @@ describe('the rate limit', () => {
     expect((await status(app)).status).toBe(200);
   });
 
-  test('the routes are limited alike: decide, chat, speak and outcome answer 429 past the window', async () => {
+  test('decide, chat and speak answer 429 past the window; fallback and outcome never do', async () => {
     const app = createApp({ decisionLog: () => {}, limits: { apiWindow: new RequestWindow(0) } });
-    for (const path of ['decide', 'fallback', 'chat', 'speak', 'outcome']) {
-      const response = await app.request(`/api/ai/${path}`, {
+    const send = (path: string, body: string) =>
+      app.request(`/api/ai/${path}`, { method: 'POST', headers: SAME_ORIGIN, body });
+    for (const path of ['decide', 'chat', 'speak']) {
+      expect((await send(path, '{}')).status, path).toBe(429);
+    }
+    // The browser's own backup answer and its outcome report are not metered: an empty body is
+    // refused as invalid, never as rate limited.
+    expect((await send('fallback', '{}')).status).toBe(400);
+    expect((await send('outcome', '{}')).status).toBe(400);
+  });
+
+  test('/fallback answers 200 while /decide is 429', async () => {
+    const app = createApp({ decisionLog: () => {}, limits: { apiWindow: new RequestWindow(1) } });
+    const request = { ...strategy };
+    const post = (path: string) =>
+      app.request(`/api/ai/${path}`, {
         method: 'POST',
         headers: SAME_ORIGIN,
-        body: '{}',
+        body: JSON.stringify(request),
       });
-      expect(response.status, path).toBe(429);
-    }
+    expect((await status(app)).status).toBe(200); // uses the window's one slot
+    expect((await post('decide')).status).toBe(429);
+    const fallback = await post('fallback');
+    expect(fallback.status).toBe(200);
+    expect(decisionResponseSchema.parse(await fallback.json()).source).toBe('fallback');
   });
 });
 

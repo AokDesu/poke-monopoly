@@ -1,5 +1,12 @@
 export { actionIdFor, type AskDecision, type Decision } from './decision.ts';
 export {
+  buildDealQuestion,
+  DEAL_CRITERIA,
+  DEAL_INSTRUCTIONS,
+  pendingDeal,
+  type DealState,
+} from './deal.ts';
+export {
   ballCountWords,
   bucketCatchChance,
   buildEncounterQuestion,
