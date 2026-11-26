@@ -43,15 +43,16 @@ export function presentationHeaders(
       .some((line) => line.id === answer.lineId && line.personality === request.personalityId)
   ) {
     headers['x-ai-line-id'] = answer.lineId;
-    const situation = Object.entries(LINES).find(([, lines]) =>
-      lines.some((line) => line.id === answer.lineId),
-    )![0];
+    const [situation, lines] = Object.entries(LINES).find(([, entries]) =>
+      entries.some((line) => line.id === answer.lineId),
+    )!;
+    const picked = lines.find((line) => line.id === answer.lineId)!;
     headers['x-ai-dialogue-events'] = JSON.stringify([
       {
         kind: 'line_selected',
         situation,
         personalityId: request.personalityId,
-        trustBucket: 'neutral',
+        trustBucket: picked.trust,
         lineId: answer.lineId,
       },
     ]);

@@ -1358,7 +1358,7 @@ describe('responder decisions (spec §4.8, §5.3, §6 item 2; S06)', () => {
     // The initiator is the active seat but owes nothing; seat 2 never sees the question.
     expect((await decide(responderRequest(state, 0))).status).toBe(400);
     expect((await decide(responderRequest(state, 2))).status).toBe(400);
-    // The point must name the question the seat is asked: no deal is pending in the contract yet.
+    // The point must name the question the seat is asked: a promise is pending, not a Deal Card.
     expect((await decide(responderRequest(state, 1, 'deal_response'))).status).toBe(400);
     // A responder point with a non-respond action list is refused.
     const mixed = responderRequest(state, 1);
@@ -1372,7 +1372,7 @@ describe('responder decisions (spec §4.8, §5.3, §6 item 2; S06)', () => {
     ).toBe(400);
   });
 
-  test('the orchestrator asks Jev the promise question and keeps the deal response on the auto policy', async () => {
+  test('the orchestrator asks Jev the promise question and asks nothing for a deal point with no Deal Card pending', async () => {
     const state = pendingGame();
     const request = responderRequest(state, 1);
     const ask = vi.fn(async () => ({ ok: false as const, fallbackReason: 'network' as const }));
@@ -1388,7 +1388,7 @@ describe('responder decisions (spec §4.8, §5.3, §6 item 2; S06)', () => {
         decisionPoint,
         rng: createPolicyRng('r'),
       });
-    // No deal question exists yet (S10): the deal response is applied without asking Jev.
+    // A deal point with no Deal Card pending has nothing to ask: it is applied without asking Jev.
     const deal = await decide('deal_response');
     expect(deal).toMatchObject({ source: 'auto', requests: 0 });
     expect(deal.events[0]!.questionId).toBe('deal_response');

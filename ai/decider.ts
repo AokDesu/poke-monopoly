@@ -4,14 +4,16 @@ import type {
   DecisionFallbackReason,
   DecisionRequest,
 } from '../engine/contract/decision.ts';
+import { createRng } from '../engine/index.ts';
 import { createPolicyRng, type PolicyChoice, type PolicyFacts } from '../sim/policy.ts';
 import { ownBattle } from './battle.ts';
+import { LINES, selectLine, type Situation } from './lines.ts';
 import { FallbackPolicy, PERSONALITIES } from './fallback/index.ts';
 import { HARD_ROLLOUT_MS } from './hard.ts';
 import { createSdkJevClient, jevEnabled, type JevClient } from './jev/client.ts';
 import type { DecisionEvent } from './jev/decision-log.ts';
 import { defaultUsageLedger, warnLedgerFailed, type UsageRecorder } from './jev/spend.ts';
-import type { SellFacts } from './questions/index.ts';
+import { pendingDeal, type SellFacts } from './questions/index.ts';
 import {
   GameQuota,
   Orchestrator,
@@ -67,7 +69,14 @@ export const fallbackAnswer = (
   request: DecisionRequest,
   fallbackReason: DecisionFallbackReason,
 ): DeciderAnswer => {
-  const first = request.enabledActions[0]!;
+  // A Deal Card is never accepted by a last resort: the safe answer is the refusal (§3 fallback table).
+  const refusal =
+    request.decisionPoint === 'deal_response'
+      ? request.enabledActions.find(
+          (action) => action.kind === 'respond_deal' && action.payload.answer === 'reject',
+        )
+      : undefined;
+  const first = refusal ?? request.enabledActions[0]!;
   if (request.decisionPoint === 'sell') {
     const sellUids = first.kind === 'sell' ? first.payload.pokemonInstanceIds : [];
     return { sellUids, source: 'fallback', fallbackReason };
@@ -158,6 +167,13 @@ const sellFactsOf = (
  * the Sell Phase's prices for the Sell Nouls and the policy's sale values.
  */
 const toFacts = (request: DecisionRequest): DecideFacts => {
+  if (request.decisionPoint === 'deal_response') {
+    // The engine's buckets for the AI's own pending deal: its own observation first, the wire's only
+    // when the observation carries none (§5.4).
+    const pending = request.observation.own.pendingResponse;
+    const deal = (pending?.kind === 'deal' ? pending.facts : undefined) ?? request.facts.deal;
+    return deal ? { deal } : {};
+  }
   const facts = numberFacts(request);
   // A battle's chances, read for the asked seat's own side (spec §4.4, §5.3): the engine's own
   // numbers, for the question's buckets and the fallback policy's scores.
@@ -199,6 +215,39 @@ export const personalityFor = (id: string) =>
     ? PERSONALITIES[id as keyof typeof PERSONALITIES]
     : PERSONALITIES.greedy;
 
+/**
+ * Spec §5.7: the line a seat says with its answer to a Deal Card, from `deal_accept` or `deal_reject`. It is a
+ * seeded pick by the proposer's trust bucket (the engine's `proposerTrust`), not a choice Jev makes, so it
+ * costs no request. A bucket with no authored lines for this personality (today only `neutral` is authored) uses
+ * `neutral`. Picked by a seeded draw on a presentation RNG apart from the game's, so a retried decision says the
+ * same line. A counter has no line, by decision: the Deal Card shows its new terms as an engine record, not as speech.
+ */
+const lineFor = (request: DecisionRequest, choice: string): { lineId?: string } => {
+  if (request.decisionPoint !== 'deal_response') return {};
+  const action = request.enabledActions.find((entry) => entry.id === choice);
+  const situation: Situation | undefined =
+    action?.kind !== 'respond_deal'
+      ? undefined
+      : action.payload.answer === 'accept'
+        ? 'deal_accept'
+        : 'deal_reject';
+  if (!situation) return {};
+  const personalityId = personalityFor(request.personalityId).id;
+  // The engine's own bucket for the proposer's trust (§5.4), from the observation first.
+  const bucket =
+    (pendingDeal(request.observation)?.facts ?? request.facts?.deal)?.proposerTrust ?? 'neutral';
+  const authored = LINES[situation].some(
+    (line) => line.personality === personalityId && line.trust === bucket,
+  );
+  const { lineId } = selectLine(
+    situation,
+    personalityId,
+    authored ? bucket : 'neutral',
+    createRng(`${request.gameId}:${request.turnKey}:${request.stateRevision}:deal-line`),
+  );
+  return { lineId };
+};
+
 /** A wire answer from a policy choice; the Sell Phase answers in Pokémon, never an action ID. */
 const answerFor = (
   request: DecisionRequest,
@@ -208,7 +257,7 @@ const answerFor = (
   if (request.decisionPoint !== 'sell') {
     // Only the Sell Phase has batches; the app turns this into a `decider_error` fallback.
     if (typeof choice !== 'string') throw new Error('A Sell batch outside the Sell Phase');
-    return { choice, ...meta };
+    return { choice, ...lineFor(request, choice), ...meta };
   }
   if (typeof choice !== 'string') return { sellUids: [...choice.sellUids], ...meta };
   const action = request.enabledActions.find((entry) => entry.id === choice);
@@ -234,8 +283,12 @@ const fromDecision = (request: DecisionRequest, decision: OrchestratorDecision):
     ? answerFor(request, decision.choice, { source: 'jev' })
     : answerFor(request, decision.choice, {
         source: 'fallback',
-        // The wire has no `auto` source: a decision with no Jev question reports it as a reason.
-        fallbackReason: decision.fallbackReason ?? 'auto',
+        // The wire has no `auto` source: a decision with no Jev question reports it as a reason. The
+        // logged-only `over_budget` (code's refusal of a deal the AI cannot afford) is `auto` here too.
+        fallbackReason:
+          decision.source === 'auto' || decision.fallbackReason === 'over_budget'
+            ? 'auto'
+            : (decision.fallbackReason ?? 'auto'),
       });
 
 /** An event for a decision the fallback policy made without the orchestrator (spec §6.8). */
