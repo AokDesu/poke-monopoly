@@ -100,8 +100,12 @@ export const createApp = ({
   decider,
 }: AppOptions = {}) => {
   const quotas = limits?.quotas ?? new QuotaBook();
-  const jevWindow = limits?.jevWindow ?? new RequestWindow(SERVER_LIMITS.jevRequestsPerWindow);
-  const haikuWindow = limits?.haikuWindow ?? new RequestWindow(SERVER_LIMITS.haikuCallsPerWindow);
+  const jevWindow =
+    limits?.jevWindow ??
+    new RequestWindow(SERVER_LIMITS.jevRequestsPerWindow, SERVER_LIMITS.windowMs, Date.now, 'Jev');
+  const haikuWindow =
+    limits?.haikuWindow ??
+    new RequestWindow(SERVER_LIMITS.haikuCallsPerWindow, SERVER_LIMITS.windowMs, Date.now, 'Haiku');
   const admission = new JevAdmission({ usage, quotas, window: jevWindow });
   chatReplier ??= createChatReplier({
     usage,

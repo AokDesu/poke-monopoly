@@ -219,7 +219,6 @@ export const createChatReplier = ({
     );
     try {
       const state = personalState(observation, personality, {});
-      jev ??= client();
       // The same caps as a decision (§9). The wire has no reason for the turn limit or the window
       // beyond `rate_limited`, and none for the token budget beyond `budget_exceeded`.
       const admitted = admission.admit(request.gameId, request.turnKey);
@@ -229,6 +228,7 @@ export const createChatReplier = ({
       const started = performance.now();
       let call: ReturnType<JevClient['ask']>;
       try {
+        jev ??= client();
         call = jev.ask({ state, questions }, { decisionSignal: deadline.signal });
       } catch (error) {
         admitted.release();

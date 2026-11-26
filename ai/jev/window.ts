@@ -20,18 +20,37 @@ export class RequestWindow {
   readonly #max: number;
   readonly #windowMs: number;
   readonly #now: () => number;
+  readonly #label: string;
+  #refusing = false;
 
-  constructor(max: number, windowMs: number = SERVER_LIMITS.windowMs, now = Date.now) {
+  constructor(
+    max: number,
+    windowMs: number = SERVER_LIMITS.windowMs,
+    now = Date.now,
+    label = 'server',
+  ) {
     this.#max = max;
     this.#windowMs = windowMs;
     this.#now = now;
+    this.#label = label;
   }
 
   /** Counts one request now; `false` (and nothing counted) when the window already holds `max`. */
   take(): boolean {
     const now = this.#now();
     while (this.#times.length > 0 && this.#times[0]! <= now - this.#windowMs) this.#times.shift();
-    if (this.#times.length >= this.#max) return false;
+    if (this.#times.length >= this.#max) {
+      // Once per episode, so an operator can tell a window that filled from a stream of refusals;
+      // no ID, state or request text, and never counted.
+      if (!this.#refusing) {
+        this.#refusing = true;
+        console.warn(
+          `The ${this.#label} request window is full; requests fall back until it clears.`,
+        );
+      }
+      return false;
+    }
+    this.#refusing = false;
     this.#times.push(now);
     return true;
   }

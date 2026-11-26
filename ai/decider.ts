@@ -319,8 +319,7 @@ const touch = <V>(cache: Map<string, V>, key: string, make: () => V, max: number
 
 /**
  * Spec §5.2, §5.6, §9: one `Orchestrator` per game, from a bounded cache, over a game's `GameQuota`
- * from a `QuotaBook` that never evicts (bounded: past its size new IDs share one overflow quota,
- * so an invented ID gets no fresh budget), so the per-turn
+ * from a `QuotaBook` that never evicts and shares nothing between games, so the per-turn
  * request limit, the per-game token budget and the decision numbers hold across requests and
  * across evictions. The real client is made only when Jev is enabled with a key and the spend
  * guard is not tripped; otherwise, and when the client cannot be made, the fallback policy decides.

@@ -114,7 +114,55 @@ describe('a fresh ID on every request gets no fresh budget', () => {
     expect(refused.every((body) => body.fallbackReason === 'request_limit')).toBe(true);
   });
 
-  test('past the tracked games, new IDs share one overflow quota: the turn limit holds across them', async () => {
+  test('every game has its own quota: with 64 earlier IDs used, the 65th and 66th get a full 3 requests for turn 5:1', async () => {
+    const client = createFakeJevClient((request) => confident(request));
+    const app = createApp({
+      usage: () => new SpendLedger(),
+      jevClient: () => client,
+      decisionLog: () => {},
+    });
+    // Turn keys such as `5:1` are the same string in every game.
+    for (let game = 0; game < 66; game++) {
+      for (let call = 0; call < 3; call++) {
+        const body = await decide(app, { gameId: `game-${game}`, turnKey: '5:1' });
+        expect(body.source).toBe('jev');
+      }
+    }
+    expect(client.requests).toHaveLength(66 * 3);
+    // A game's own fourth request for the turn is still refused.
+    const fourth = await decide(app, { gameId: 'game-65', turnKey: '5:1' });
+    expect(fourth).toMatchObject({ source: 'fallback', fallbackReason: 'request_limit' });
+  });
+
+  test('the book gives each game its own turn counts and token budget, and keeps them', () => {
+    const book = new QuotaBook();
+    const first = book.for('a');
+    const second = book.for('b');
+    expect(second).not.toBe(first);
+    first.reserve('5:1');
+    first.reserve('5:1');
+    first.reserve('5:1');
+    expect(first.requests('5:1')).toBe(3);
+    expect(second.requests('5:1')).toBe(0);
+    expect(second.meter).not.toBe(first.meter);
+    // The same quota whatever came after: nothing is evicted, so nothing restarts.
+    for (let i = 0; i < 200; i++) book.for(`later-${i}`);
+    expect(book.for('a')).toBe(first);
+    expect(book.for('a').requests('5:1')).toBe(3);
+  });
+
+  test('past the tracked games a new ID is refused, never given a fresh or a shared quota', async () => {
+    const book = new QuotaBook(2);
+    const first = book.for('a');
+    book.for('b');
+    const closed = book.for('c');
+    expect(closed).not.toBe(first);
+    expect(closed.requests('any-turn')).toBe(Infinity);
+    closed.reserve('any-turn');
+    expect(closed.requests('any-turn')).toBe(Infinity);
+    expect(book.for('a')).toBe(first);
+    expect(MAX_TRACKED_GAMES).toBe(10_000);
+
     const client = createFakeJevClient((request) => confident(request));
     const app = createApp({
       usage: () => new SpendLedger(),
@@ -123,21 +171,11 @@ describe('a fresh ID on every request gets no fresh budget', () => {
       limits: { quotas: new QuotaBook(1), jevWindow: new RequestWindow(Infinity) },
     });
     await decide(app, { gameId: 'tracked', turnKey: 'turn-x' });
-    // Six invented games, all naming one turn key: they share the overflow's 3 requests per turn.
-    for (let i = 0; i < 6; i++) await decide(app, { gameId: `invented-${i}`, turnKey: 'turn-y' });
-    expect(client.requests).toHaveLength(1 + 3);
-  });
-
-  test('the book keeps a tracked game and shares one overflow quota past its size', () => {
-    const book = new QuotaBook(2);
-    const first = book.for('a');
-    expect(book.for('b')).not.toBe(first);
-    const overflow = book.for('c');
-    expect(book.for('d')).toBe(overflow);
-    expect(overflow).not.toBe(first);
-    // Tracked games are never replaced: the same quota, however many IDs came after.
-    expect(book.for('a')).toBe(first);
-    expect(MAX_TRACKED_GAMES).toBe(64);
+    for (let i = 0; i < 4; i++) {
+      const body = await decide(app, { gameId: `invented-${i}`, turnKey: 'turn-y' });
+      expect(body).toMatchObject({ source: 'fallback', fallbackReason: 'request_limit' });
+    }
+    expect(client.requests).toHaveLength(1);
   });
 
   test("dropping a game's orchestrator never resets its turn count (spec §9, #295)", async () => {
@@ -219,6 +257,34 @@ describe('chat has the caps a Jev decision has', () => {
   });
   const reply = async (app: App, over?: Record<string, unknown>) =>
     chatReplySchema.parse(await (await post(app, '/api/ai/chat', chatBody(over))).json());
+
+  test('a refused chat reply never makes the client, and a client that cannot be made releases its reservation', async () => {
+    let made = 0;
+    const refusing = createApp({
+      usage: () => new SpendLedger(),
+      jevClient: () => {
+        made++;
+        return createFakeJevClient((request) => confident(request));
+      },
+      decisionLog: () => {},
+      limits: { jevWindow: new RequestWindow(0) },
+    });
+    const refused = await reply(refusing);
+    expect(refused).toMatchObject({ source: 'fallback', fallbackReason: 'rate_limited' });
+    expect(made).toBe(0);
+
+    const ledger = new SpendLedger();
+    const broken = createApp({
+      usage: () => ledger,
+      jevClient: () => {
+        throw new Error('pin missing');
+      },
+      decisionLog: () => {},
+    });
+    const failed = await reply(broken);
+    expect(failed).toMatchObject({ source: 'fallback', fallbackReason: 'decider_error' });
+    expect(ledger.reservedThb('jev')).toBe(0);
+  });
 
   test('fresh game IDs cannot send more chat requests than the server-wide window', async () => {
     const client = createFakeJevClient((request) => confident(request));
@@ -382,5 +448,21 @@ describe('the request window', () => {
     expect(window.take()).toBe(false);
     now = 1_000;
     expect([window.take(), window.take(), window.take()]).toEqual([true, true, false]);
+  });
+
+  test('logs once when it first refuses after a quiet period, by class only', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let now = 0;
+    const window = new RequestWindow(1, 1_000, () => now, 'Jev');
+    window.take();
+    for (let i = 0; i < 5; i++) window.take();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]!.join(' ')).toBe(
+      'The Jev request window is full; requests fall back until it clears.',
+    );
+    now = 2_000; // quiet: the window clears and a request goes through
+    expect(window.take()).toBe(true);
+    window.take();
+    expect(warn).toHaveBeenCalledTimes(2);
   });
 });
