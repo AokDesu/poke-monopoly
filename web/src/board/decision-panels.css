@@ -1,99 +1,274 @@
-.decision-panel {
-  margin-top: 1rem;
+/* The decision card (spec §3, Board screen; issue #256): heading and one line, a body that scrolls
+   in place, and a footer whose primary action and alternative never scroll out of view. */
+.decision-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 100%;
+  padding: 1rem 1.1rem 0.9rem;
+  border-radius: var(--radius-card, 22px);
 }
-.decision-panel ul {
+.decision-card:focus-visible {
+  outline-offset: 4px;
+}
+.decision-head {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+.decision-art {
+  flex-shrink: 0;
+}
+/* A Pokémon's model or orb sits at the card's scale, not a full Starter card's. */
+.decision-art > span {
+  width: 4.25rem;
+  height: 4.25rem;
+}
+.decision-titles {
+  min-width: 0;
+}
+.decision-card h2 {
+  font-size: var(--fs-lg, 1.25rem);
+  line-height: 1.25;
+  text-wrap: balance;
+}
+.decision-lead {
+  margin-top: 0.15rem;
+  font-size: var(--fs-sm, 0.875rem);
+  line-height: 1.45;
+  color: var(--color-ink-soft);
+  text-wrap: pretty;
+}
+/* The body scrolls in place. While there is more above or below, that edge fades out, so a cut-off
+   line reads as "scroll for more"; a body that fits does not fade (its scroll timeline is
+   inactive). */
+@property --fade-top {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+@property --fade-bottom {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+.decision-body {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+  min-height: 0;
+  margin-top: 0.75rem;
+  padding: 0.1rem 0.35rem 0.25rem 0.1rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-panel-lip) transparent;
+  mask-image: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / calc(1 - var(--fade-top))),
+    #000 1.5rem,
+    #000 calc(100% - 1.5rem),
+    rgb(0 0 0 / calc(1 - var(--fade-bottom)))
+  );
+  font-size: var(--fs-sm, 0.875rem);
+  line-height: 1.45;
+}
+@supports (animation-timeline: scroll()) {
+  .decision-body {
+    animation: body-fade linear both;
+    animation-timeline: scroll(self);
+  }
+}
+@keyframes body-fade {
+  0% {
+    --fade-top: 0;
+    --fade-bottom: 0.85;
+  }
+  4%,
+  96% {
+    --fade-top: 0.85;
+    --fade-bottom: 0.85;
+  }
+  100% {
+    --fade-top: 0.85;
+    --fade-bottom: 0;
+  }
+}
+.decision-body:empty {
+  display: none;
+}
+/* A preview's Confirm, scrolled into view, stops clear of the faded edge. */
+.decision-body [data-primary] {
+  scroll-margin-block: 1.75rem;
+}
+.decision-actions:empty {
+  display: none;
+}
+.decision-actions {
+  display: grid;
+  flex: none;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-line);
+}
+.decision-actions .action-control {
+  margin-top: 0;
+}
+.decision-actions .btn {
+  width: 100%;
+}
+.decision-actions ul {
+  display: grid;
+  gap: 0.5rem;
   list-style: none;
   padding: 0;
 }
-.decision-balance {
-  color: #735400;
-  font-weight: 900;
-  margin-bottom: 0.75rem;
-}
-.shop-offers,
-.strategy-items {
+.card-pair {
   display: grid;
-  gap: 0.85rem;
-}
-.shop-offers > li {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-}
-.shop-offers .action-control {
-  flex: 1;
-  min-width: 0;
-}
-.turn-panel .decision-panel .action-control {
-  margin-top: 0;
-}
-.shop-offers .btn {
-  font-size: 1rem;
-  min-height: 2.75rem;
-}
-.offer-art {
-  display: grid;
-  place-items: center;
-  width: 2.4rem;
-  flex-shrink: 0;
-}
-.offer-art .item-capsule {
-  width: 21px;
-  height: 30px;
-}
-.shop-offers [data-unavailable='true'] .offer-art {
-  filter: grayscale(1);
-}
-.turn-panel .decision-panel > .action-control {
-  margin-top: 1rem;
-}
-.strategy-items {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.strategy-items .btn {
-  min-height: 3rem;
-  font-size: 1rem;
-  padding-inline: 0.65rem;
-}
-.item-targets {
-  display: grid;
   gap: 0.6rem;
-  margin-top: 0.9rem;
+  align-items: start;
 }
-.item-targets .btn {
-  overflow-wrap: anywhere;
+.card-note,
+.card-copy {
+  font-size: var(--fs-sm, 0.875rem);
+  color: var(--color-ink-soft);
 }
-.item-targets h3,
-.item-preview h3 {
-  font-size: 1rem;
-  margin-bottom: 0.25rem;
+.card-alert {
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  background: #fde6e2;
+  color: #8f1a10;
+  font-weight: 800;
 }
-.item-targets [aria-pressed='true'] {
-  outline: 3px solid var(--color-reward-lip);
-  outline-offset: 3px;
+.card-help {
+  display: flex;
+  justify-content: flex-start;
 }
-.item-preview {
-  margin-top: 0.8rem;
-  padding-top: 0.7rem;
+.card-section {
+  display: grid;
+  gap: 0.5rem;
+}
+.card-section + .card-section {
+  padding-top: 0.75rem;
   border-top: 1px solid var(--color-line);
 }
-.item-preview > p {
-  margin-top: 0.3rem;
-  font-size: 0.9rem;
+.card-section h3,
+.item-targets h3,
+.item-preview h3,
+.ability-options h4,
+.ability-preview h4,
+.battle-terms h3,
+.battle-result h3,
+.reward-group h3 {
+  font-size: var(--fs-md, 1rem);
 }
-.item-preview .action-control {
-  padding-top: 0.7rem;
-}
-.target-prompt {
+
+/* Greyed-out options, folded into one line that opens in place to the engine's reasons. */
+.folded-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 2rem;
+  padding: 0.15rem 0.1rem;
+  border-radius: 8px;
   color: var(--color-ink-soft);
-  margin-top: 1rem;
+  font-size: var(--fs-sm, 0.875rem);
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-color: var(--color-panel-lip);
+  text-underline-offset: 4px;
+}
+.folded-toggle:hover {
+  color: var(--color-ink);
+  text-decoration-color: currentColor;
+}
+.folded-chevron {
+  width: 0.9rem;
+  height: 0.9rem;
+  transition: transform 160ms var(--ease-out);
+}
+.folded-toggle[aria-expanded='true'] .folded-chevron {
+  transform: rotate(90deg);
+}
+.folded-body {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .folded-chevron {
+    transition: none;
+  }
+}
+
+/* --- Encounter --- */
+.encounter-source {
+  font-weight: 800;
+}
+.ball-choice {
+  justify-content: flex-start;
+}
+.ball-choice-label {
+  flex: 1;
+  text-align: center;
+}
+.ball-left {
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm, 0.875rem);
+  font-weight: 800;
+  opacity: 0.85;
+}
+.ball-choice.pouch-great svg {
+  color: #9fc4ff;
+}
+.ball-choice.pouch-ultra svg {
+  color: #ffd84a;
+}
+.decision-body .species-facts {
+  margin-top: 0;
+}
+
+/* --- Sell --- */
+.start-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: var(--radius-row, 16px);
+  background: #e3f6d8;
+  box-shadow: inset 0 0 0 2px #a9dc8c;
+  color: #1f4f22;
+  font-size: var(--fs-sm, 0.875rem);
+  font-weight: 800;
+  line-height: 1.35;
+}
+.start-banner[data-last-lap='true'] {
+  background: #fff4cc;
+  box-shadow: inset 0 0 0 2px var(--color-reward);
+  color: #634312;
+}
+.start-flag {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+}
+.sale-team {
+  display: grid;
+  gap: 0.5rem;
+}
+.sale-team > li {
+  border-radius: var(--radius-row, 16px);
+  box-shadow: inset 0 0 0 2px var(--color-line);
 }
 .sale-choice {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  padding: 0.7rem 0.55rem;
-  border-radius: 12px;
+  gap: 0.65rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: var(--radius-row, 16px);
   cursor: pointer;
 }
 .sale-choice:hover,
@@ -101,14 +276,14 @@
   background: #e1ecff;
 }
 .sale-choice[data-selected='true'] {
-  background: #fff1ba;
-  box-shadow: inset 0 0 0 2px var(--color-reward-lip);
+  background: #fff4cc;
+  box-shadow: inset 0 0 0 2px var(--color-reward);
 }
 .sale-choice input {
   width: 1.2rem;
   height: 1.2rem;
   flex-shrink: 0;
-  accent-color: var(--color-action);
+  accent-color: var(--color-ink);
   cursor: pointer;
 }
 .sale-detail {
@@ -116,11 +291,28 @@
   flex: 1;
   min-width: 0;
   gap: 0.1rem;
-  font-size: 0.9rem;
 }
-.sale-detail small {
+.sale-detail strong {
+  font-family: var(--font-display);
+  font-size: var(--fs-md, 1rem);
+  font-weight: 600;
+}
+.sale-detail small,
+.sale-price small {
   color: var(--color-ink-soft);
-  font-size: 0.75rem;
+  font-size: var(--fs-xs, 0.75rem);
+}
+.sale-price {
+  display: grid;
+  justify-items: end;
+  text-align: right;
+}
+.sale-price strong {
+  font-size: var(--fs-sm, 0.875rem);
+  font-weight: 900;
+}
+.sale-team .team-details {
+  padding: 0 0.7rem 0.5rem;
 }
 .sale-total {
   display: flex;
@@ -128,70 +320,185 @@
   justify-content: space-between;
   align-items: baseline;
   gap: 0.3rem 0.8rem;
-  margin-top: 1rem;
-  padding-top: 0.85rem;
+  padding-top: 0.6rem;
   border-top: 1px solid var(--color-line);
   font-weight: 800;
 }
 .sale-total output {
   font-family: var(--font-display);
-  font-size: 1.5rem;
+  font-size: var(--fs-lg, 1.25rem);
   color: #735400;
 }
+.sell-copy {
+  color: var(--color-ink-soft);
+}
 .rescue-preview {
-  margin-top: 0.9rem;
-  font-size: 0.85rem;
   font-weight: 800;
   color: #634312;
 }
-@media (min-width: 1024px) {
-  .board-layout:has(.decision-panel) {
-    grid-template-columns: minmax(0, 1fr) minmax(20rem, 25rem);
-  }
-}
-@media (max-width: 600px) {
-  .strategy-items {
-    grid-template-columns: minmax(0, 1fr);
-  }
+
+/* --- Shop --- */
+.shop-offers,
+.strategy-items {
+  display: grid;
+  gap: 0.75rem;
 }
 .shop-offers > li {
+  display: flex;
   align-items: flex-start;
+  gap: 0.6rem;
+}
+.offer-art {
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  flex-shrink: 0;
+  padding-top: 0.5rem;
+}
+.offer-art .item-capsule {
+  width: 18px;
+  height: 26px;
+}
+.shop-offers [data-unavailable='true'] .offer-art {
+  filter: grayscale(1);
 }
 .offer-body {
   display: grid;
   flex: 1;
-  gap: 0.45rem;
+  gap: 0.35rem;
   min-width: 0;
 }
-.shop-offers .offer-body .action-control {
-  flex: none;
+
+/* --- Strategy: items, targets and previews --- */
+.strategy-items {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .strategy-items > li {
   display: grid;
   align-content: start;
-  gap: 0.4rem;
+  gap: 0.35rem;
 }
-.shop-offers {
-  gap: 1.1rem;
+.strategy-items .btn,
+.ability-list .btn,
+.ability-options .btn,
+.item-targets .btn {
+  padding-inline: 0.65rem;
+  overflow-wrap: anywhere;
+}
+.item-targets {
+  display: grid;
+  gap: 0.5rem;
+}
+.item-targets [aria-pressed='true'],
+.ability-options [aria-pressed='true'],
+.reward-chooser [aria-pressed='true'],
+.challenge-panel [aria-pressed='true'] {
+  outline: 3px solid var(--color-reward-lip);
+  outline-offset: 3px;
+}
+.item-preview,
+.ability-preview {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: var(--radius-row, 16px);
+  background: #fffbea;
+  box-shadow: inset 0 0 0 2px var(--color-reward);
+}
+.item-preview .action-control,
+.ability-confirm {
+  padding-top: 0.4rem;
+}
+.ability-confirm {
+  display: grid;
+  gap: 0.5rem;
+}
+.target-prompt {
+  color: var(--color-ink-soft);
+}
+
+/* --- Abilities and challenges --- */
+.ability-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.ability-list > li {
+  display: grid;
+  align-content: start;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.ability-source {
+  color: var(--color-ink-soft);
+  font-size: var(--fs-xs, 0.75rem);
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.ability-text {
+  font-size: var(--fs-xs, 0.75rem);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.ability-options {
+  display: grid;
+  gap: 0.5rem;
+}
+.ability-peek {
+  padding: 0.5rem 0.7rem;
+  border-radius: 12px;
+  background: var(--color-panel-tint);
+  box-shadow: inset 0 0 0 2px var(--color-line);
+  font-weight: 800;
+}
+.challenge-targets {
+  display: grid;
+  gap: 0.75rem;
+}
+.challenge-target {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.1rem 0.6rem;
+}
+.challenge-target span {
+  color: var(--color-ink-soft);
+}
+.challenge-actions {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+/* --- Battles: the terms that are not zero, the chances, the dice, the options --- */
+.battle-panel {
+  display: grid;
+  gap: 0.75rem;
 }
 .battle-terms {
-  margin-top: 0.9rem;
-  padding: 0.75rem;
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.7rem 0.8rem;
   border-radius: 12px;
   background: #e8f0fc;
 }
-.battle-terms h3,
-.challenge-panel h3,
-.battle-result h3,
-.reward-group h3 {
-  font-size: 1rem;
-  margin-bottom: 0.4rem;
+.terms-summary {
+  display: grid;
+  gap: 0.25rem;
+}
+.terms-summary li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.1rem 0.4rem;
+}
+.terms-figures {
+  color: var(--color-ink-soft);
 }
 .battle-terms table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  font-size: 0.88rem;
 }
 .battle-terms thead td,
 .battle-terms tbody th {
@@ -199,7 +506,7 @@
 }
 .battle-terms th,
 .battle-terms td {
-  padding: 0.25rem 0.35rem;
+  padding: 0.2rem 0.35rem;
   text-align: left;
   overflow-wrap: break-word;
   vertical-align: top;
@@ -217,13 +524,7 @@
   font-weight: 800;
 }
 .battle-chances {
-  margin-top: 0.6rem;
-  font-size: 0.95rem;
-}
-.battle-terms .panel-note,
-.battle-forced {
-  margin-top: 0.4rem;
-  font-size: 0.82rem;
+  font-size: var(--fs-md, 1rem);
 }
 .battle-forced {
   font-weight: 800;
@@ -231,24 +532,28 @@
 }
 .battle-options {
   display: grid;
-  gap: 0.85rem;
-  margin-top: 1rem;
+  gap: 0.5rem;
+}
+/* Two plain choices (accept or decline, challenge or skip, keep or one Ability) sit side by
+   side in the footer, the way Sell and Keep all do, so the card keeps room for what it shows. */
+.decision-actions .battle-options:has(> li:nth-child(2):last-child),
+.decision-actions .choice-list:has(> li:nth-child(2):last-child) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
 }
 .battle-note {
-  margin-top: 0.35rem;
-  font-size: 0.82rem;
+  margin-top: 0.25rem;
+  font-size: var(--fs-xs, 0.75rem);
   color: var(--color-ink-soft);
 }
 .battle-stale {
-  margin-top: 0.8rem;
   font-weight: 800;
   color: #8b350c;
 }
 .battle-dice {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.9rem 1.4rem;
-  margin-top: 1rem;
+  gap: 0.75rem 1.25rem;
 }
 .battle-dice li {
   display: flex;
@@ -256,158 +561,69 @@
   gap: 0.6rem;
   font-weight: 800;
 }
+.reroll-die {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 800;
+}
 .reward-chooser {
   display: grid;
-  gap: 1rem;
-  margin-top: 1rem;
+  gap: 0.75rem;
 }
 .reward-group {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 .reward-pokemon {
   display: grid;
-  gap: 0.4rem;
+  gap: 0.35rem;
 }
 .reward-pokemon > p {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 0.2rem 0.5rem;
-  font-size: 0.9rem;
 }
 .reward-branches {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: 0.6rem;
-}
-.reward-chooser [aria-pressed='true'],
-.challenge-panel [aria-pressed='true'] {
-  outline: 3px solid var(--color-reward-lip);
-  outline-offset: 3px;
-}
-.ability-panel,
-.challenge-panel {
-  margin-top: 1.1rem;
-  padding-top: 0.9rem;
-  border-top: 1px solid var(--color-line);
-}
-.ability-panel {
-  display: grid;
-  gap: 0.6rem;
-}
-.challenge-targets {
-  display: grid;
-  gap: 0.9rem;
-  margin-top: 0.7rem;
-}
-.challenge-target {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.1rem 0.6rem;
-  font-size: 0.9rem;
-}
-.challenge-target span {
-  color: var(--color-ink-soft);
-}
-.challenge-actions {
-  display: grid;
-  gap: 0.6rem;
-  margin-top: 0.4rem;
-}
-.challenge-panel .item-preview .battle-terms {
-  margin-top: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.5rem;
 }
 .battle-result {
-  margin-top: 0.9rem;
-  padding-top: 0.7rem;
+  display: grid;
+  gap: 0.35rem;
+  padding-top: 0.6rem;
   border-top: 1px solid var(--color-line);
 }
 .battle-result ol {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.3rem;
   padding: 0;
   list-style: none;
-  font-size: 0.9rem;
 }
 .battle-result li {
-  padding-left: 0.7rem;
-  border-left: 3px solid var(--color-reward-lip);
+  padding-left: 0.6rem;
+  box-shadow: inset 1px 0 0 var(--color-reward-lip);
 }
-.encounter-dialog .ability-panel {
-  margin-top: 1.4rem;
-}
-.ability-panel h3,
-.ability-options h4,
-.ability-preview h4 {
-  font-size: 1rem;
-  margin-bottom: 0.25rem;
-}
-.ability-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem;
-}
-.ability-list > li {
-  display: grid;
-  align-content: start;
-  gap: 0.3rem;
-  min-width: 0;
-}
-.ability-list .btn,
-.ability-options .btn {
-  min-height: 3rem;
-  font-size: 1rem;
-  padding-inline: 0.65rem;
-  overflow-wrap: anywhere;
-}
-.ability-source {
-  color: var(--color-ink-soft);
-  font-size: 0.75rem;
+
+/* --- The player's own steps between decisions --- */
+.move-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   font-weight: 800;
-  overflow-wrap: anywhere;
 }
-.ability-text {
-  font-size: 0.8rem;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-}
-.ability-options {
-  display: grid;
-  gap: 0.6rem;
-  margin-top: 0.3rem;
-}
-.ability-options [aria-pressed='true'] {
-  outline: 3px solid var(--color-reward-lip);
-  outline-offset: 3px;
-}
-.ability-preview {
-  padding-top: 0.7rem;
-  border-top: 1px solid var(--color-line);
-}
-.ability-preview > p {
-  margin-top: 0.3rem;
-  font-size: 0.9rem;
-}
-.ability-confirm {
-  display: grid;
-  gap: 0.6rem;
-  padding-top: 0.7rem;
-}
-.ability-confirm .action-control {
-  padding-top: 0;
-}
-.ability-peek {
-  padding: 0.6rem 0.8rem;
-  border-radius: 12px;
-  background: var(--color-panel-tint);
-  box-shadow: inset 0 0 0 2px var(--color-line);
-  font-size: 0.9rem;
+.catch-result {
   font-weight: 800;
+}
+.catch-result[data-message-key='encounter.caught'] {
+  color: #236131;
 }
 @media (max-width: 600px) {
-  .ability-list {
+  .strategy-items,
+  .ability-list,
+  .card-pair {
     grid-template-columns: minmax(0, 1fr);
   }
 }

@@ -95,13 +95,3 @@
 .talk-notice {
   margin-top: 0.6rem;
 }
-.log-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
-  gap: 1.5rem 1rem;
-  margin-top: 1.5rem;
-  align-items: start;
-}
-.log-row > .panel {
-  margin-top: 0;
-}

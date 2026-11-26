@@ -5,6 +5,7 @@ import { memoryEntries, promiseRows } from '../game/promises.ts';
 import { loadSave } from '../game/save.ts';
 import { createGameStore, type GameStore } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
+import { openRecord } from '../test/record.ts';
 import { className } from '../i18n/names.ts';
 import {
   atHumanSocial,
@@ -54,8 +55,11 @@ async function settle(ms = 10, step = 250) {
     });
   }
 }
-const panel = () => screen.getByRole('group', { name: t('social.panel') });
-const memory = () => screen.getByTestId('promise-panel');
+/** The Social card in the decision slot: its window and its Skip or Continue footer. */
+const panel = () => document.querySelector<HTMLElement>('[data-card="social"]')!;
+/** The Promises and memory panel, in the Game record. */
+const memory = () =>
+  screen.queryByTestId('promise-panel') ?? within(openRecord()).getByTestId('promise-panel');
 const rivalGroup = () => within(panel()).getByRole('group', { name: rivalOne });
 const press = (root: HTMLElement, name: string) =>
   fireEvent.click(within(root).getByRole('button', { name }));
@@ -118,7 +122,7 @@ test(
     // Offered, not active: the window waits, nothing is recorded, and there is no way to skip past it.
     expect(promisesOf(store)).toEqual([]);
     expect(store.getSession()!.state.pendingResponse).toBeDefined();
-    expect(panel().getAttribute('data-promise')).toBe('pending');
+    expect(panel().querySelector('[data-promise]')!.getAttribute('data-promise')).toBe('pending');
     expect(panel().textContent).toContain(t('promise.pending.offer', { rival: rivalOne }));
     expect(within(panel()).queryByRole('button')).toBeNull();
     expect(memory().textContent).toContain(t('promise.offeredRow', { rival: rivalSeat }));

@@ -17,7 +17,7 @@ import { createGameStore } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { Root } from '../Root.tsx';
 import { fakeServer, watchStore } from '../test/watchGame.ts';
-import { HowToPlayButton, HowToPlayProvider } from './HowToPlay.tsx';
+import { HowToPlayProvider } from './HowToPlay.tsx';
 import { buildSteps } from './steps.ts';
 
 beforeAll(() => {
@@ -182,7 +182,7 @@ async function openSavedGame(storage: MemoryStorage, scene: Scene) {
   return store;
 }
 
-test('at a Sell Phase it opens from the Sell dialog and from the board, and a game stays exactly as it was', async () => {
+test('at a Sell Phase it opens from the Sell card and from the board, and a game stays exactly as it was', async () => {
   const user = userEvent.setup();
   const storage = memoryStorage();
   const store = await openSavedGame(storage, scenes().sellPhaseFullTeam());
@@ -198,9 +198,9 @@ test('at a Sell Phase it opens from the Sell dialog and from the board, and a ga
     save: [storage.data.get(SAVE_KEY), storage.data.get(META_KEY)],
   });
   const before = snapshot();
-  const sell = screen.getByRole('dialog', { name: t('turn.sellHeading') });
+  const sell = screen.getByRole('region', { name: t('turn.sellHeading') });
 
-  // The page behind a Sell dialog is inert, so the walkthrough opens from inside that dialog.
+  // Sell keeps focus in its card until it is answered, so the walkthrough opens from inside it.
   const from = within(sell).getByRole('button', { name: t('howToPlay.open') });
   await user.click(from);
   const dialog = guide();
@@ -226,7 +226,7 @@ test('the board offers it in its header at a Shop decision, and closing changes 
   expect(store.getView()!.observation.public.phase.kind).toBe('shop');
   const hash = stateHash(store.getSession()!.state);
   const saved = [...storage.data];
-  // The app header is the first banner; the board has headers of its own below it.
+  // The board's top bar is the first banner; the cards have headers of their own below it.
   const header = screen.getAllByRole('banner')[0]!;
   const from = within(header).getByRole('button', { name: t('howToPlay.open') });
   await user.click(from);
@@ -241,9 +241,9 @@ test('a watched game is never opened by it, and while it is open the game waits 
   vi.useFakeTimers({ shouldAdvanceTime: false });
   fakeServer();
   const store = watchStore(2);
+  // The board carries the opener in its top bar.
   renderStrict(
     <HowToPlayProvider gameWaits>
-      <HowToPlayButton />
       <BoardScreen store={store} />
     </HowToPlayProvider>,
   );
@@ -280,7 +280,6 @@ test('a rival’s question in flight when it opens is withdrawn and asked again 
   const store = watchStore(2);
   renderStrict(
     <HowToPlayProvider gameWaits>
-      <HowToPlayButton />
       <BoardScreen store={store} />
     </HowToPlayProvider>,
   );

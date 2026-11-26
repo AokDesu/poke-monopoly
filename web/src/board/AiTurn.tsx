@@ -153,25 +153,23 @@ export function usePaceKeys(playback: TurnPlayback, keys: { next: boolean; pause
 }
 
 /**
- * The pace of a player's game: the pace choice always; while a rival plays, Pause (P), Next
- * (Space) and Skip to my turn. On the player's own turn Space ends the hold on their result; at
- * Step pace Next stays on screen, and reads "End turn" when it passes the turn.
+ * The pace buttons of a player's game, in the card's footer: while a rival plays, Pause (P), Next
+ * (Space) and Skip to my turn; on the player's own turn at Step pace, Next, which reads "End turn"
+ * when it passes the turn. The pace choice itself sits in the top bar (`PaceSelect`). The keys are
+ * the card router's (`usePaceKeys`), so they work whichever card is showing.
  */
-export function PaceControls({ view, playback }: { view: SeatView; playback: TurnPlayback }) {
+export function PaceButtons({ view, playback }: { view: SeatView; playback: TurnPlayback }) {
   const game = view.observation.public;
   const finished = game.phase.kind === 'finished';
   const rivalTurn = !finished && game.activeSeatIndex !== view.seatIndex;
-  // Space is Next during a rival's turn and while the player's own result is held; otherwise it
-  // is left to the page.
-  usePaceKeys(playback, { next: rivalTurn || playback.holding, pause: rivalTurn });
   const showNext = rivalTurn || (!finished && playback.pace === 'step');
+  if (!rivalTurn && !showNext) return null;
   // On the player's own turn Next only ends a hold; while they decide there is nothing to end.
   const nextBlocked =
     !rivalTurn && !playback.holding ? t('pace.nothingToHold') : playback.nextBlocked;
   const endTurn = !rivalTurn && playback.holding && game.phase.kind === 'end';
   return (
     <div className="pace-controls" role="group" aria-label={t('pace.controls')}>
-      <PaceSelect playback={playback} />
       {rivalTurn && (
         <ActionButton
           enabled
@@ -185,12 +183,18 @@ export function PaceControls({ view, playback }: { view: SeatView; playback: Tur
       )}
       {showNext &&
         (nextBlocked === null ? (
-          <ActionButton enabled aria-keyshortcuts="Space" onClick={playback.next}>
+          <ActionButton
+            enabled
+            variant="reward"
+            aria-keyshortcuts="Space"
+            data-primary=""
+            onClick={playback.next}
+          >
             {endTurn ? t('pace.endTurn') : t('pace.next')}
             <KeyHint>{t('pace.keyNext')}</KeyHint>
           </ActionButton>
         ) : (
-          <ActionButton enabled={false} reasonText={nextBlocked}>
+          <ActionButton enabled={false} variant="reward" reasonText={nextBlocked}>
             {t('pace.next')}
             <KeyHint>{t('pace.keyNext')}</KeyHint>
           </ActionButton>
@@ -210,9 +214,36 @@ export function PaceControls({ view, playback }: { view: SeatView; playback: Tur
 }
 
 /**
- * What the AI side of the table needs said beside the turn: the single "every AI on the backup
- * bot" banner, a fallback note on this turn, whether the status could be read and whether an AI
- * is thinking. Each seat's own Backup bot badge sits on its seat row.
+ * The single "every AI on the backup bot" banner (spec §3, §3.1), once, above the seat rows: while
+ * the server says Jev is off for every AI, or every AI's latest decision fell back for lack of it.
+ * Each seat's own Backup bot badge sits on its row.
+ */
+export function AllBackupBanner({
+  view,
+  playback,
+}: {
+  view: SeatView | SpectatorView;
+  playback: TurnPlayback;
+}) {
+  const latest = latestDecisions(view);
+  const opponents = view.observation.public.players.filter(
+    (player) => player.seatIndex !== view.seatIndex,
+  );
+  const allBackup =
+    playback.status?.backupOnly ||
+    (opponents.length > 0 && opponents.every((player) => isBackup(latest.get(player.seatIndex))));
+  if (!allBackup) return null;
+  return (
+    <p className="ai-backup-banner" role="status">
+      {t('ai.allBackupBanner')}
+    </p>
+  );
+}
+
+/**
+ * What the AI side of the table needs said beside the turn: a fallback note on this turn, whether
+ * the status could be read, whether an AI is thinking and whether the table is skipping. The single
+ * backup banner sits above the rows (`AllBackupBanner`), each seat's badge on its row.
  */
 export function AiTurn({
   view,
@@ -222,25 +253,16 @@ export function AiTurn({
   playback: TurnPlayback;
 }) {
   const game = view.observation.public;
-  const latest = latestDecisions(view);
-  const opponents = game.players.filter((player) => player.seatIndex !== view.seatIndex);
-  const allBackup =
-    playback.status?.backupOnly ||
-    (opponents.length > 0 && opponents.every((player) => isBackup(latest.get(player.seatIndex))));
-  const decision = latest.get(game.activeSeatIndex);
+  const decision = latestDecisions(view).get(game.activeSeatIndex);
   const note =
     game.activeSeatIndex !== view.seatIndex &&
     !playback.status?.backupOnly &&
     !isBackup(decision) &&
     decision?.source === 'fallback' &&
     NOTES[decision.fallbackReason ?? ''];
+  if (!note && !playback.statusUnavailable && !playback.thinking && !playback.skipping) return null;
   return (
     <div className="ai-playback">
-      {allBackup && (
-        <p className="ai-backup-banner" role="status">
-          {t('ai.allBackupBanner')}
-        </p>
-      )}
       {note && (
         <p className="ai-turn-note" data-ai-seat={game.activeSeatIndex}>
           {t(note)}

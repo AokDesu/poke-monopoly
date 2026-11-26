@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { t } from '../i18n/en.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
 import { Button } from '../ui/Button.tsx';
-import { KeyHint, PaceSelect, usePaceKeys } from './AiTurn.tsx';
+import { KeyHint, usePaceKeys } from './AiTurn.tsx';
 import type { TurnPlayback } from './useTurnPlayback.ts';
 
 /** An enabled button, or a greyed one that says why (spec §3.1). */
@@ -67,7 +67,10 @@ export interface WatchControlsProps {
   onLeave?: (how: 'save' | 'end') => void;
 }
 
-/** Pause, Next, Step, Pace, Skip to results and Leave: every disabled control says why. */
+/**
+ * Pause, Next, Step, Skip to results and Leave: every disabled control says why. The pace choice
+ * sits in the top bar.
+ */
 export function WatchControls({ playback, finished, savingOff, onLeave }: WatchControlsProps) {
   usePaceKeys(playback, { next: !finished, pause: !finished });
   const [asking, setAsking] = useState<'skip' | 'leave' | null>(null);
@@ -105,7 +108,6 @@ export function WatchControls({ playback, finished, savingOff, onLeave }: WatchC
           </Control>
         )}
       </div>
-      <PaceSelect playback={playback} />
       {asking === 'skip' && (
         <Ask question={t('watch.skipAsk')} onCancel={close}>
           <Button

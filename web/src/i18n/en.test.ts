@@ -130,7 +130,6 @@ test('turn decisions, results, handoffs and every disabled reason have English c
     'turn.actionError',
     'turn.automatic',
     'turn.moving',
-    'turn.encounterBody',
     'turn.lastMove',
     'turn.end',
     'turn.finished',

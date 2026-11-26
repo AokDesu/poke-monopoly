@@ -16,6 +16,7 @@ import {
 import { content, engineContent } from '../game/content.ts';
 import { configForSetup, createGameStore, type GameSession } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
+import { openFolds } from '../test/folds.ts';
 import { AbilityPanel } from './AbilityPanel.tsx';
 import { BoardScreen } from './BoardScreen.tsx';
 
@@ -88,6 +89,8 @@ function open(state: GameState, log = createGameLog(state)) {
 }
 
 const disabledReason = (name: string) => {
+  // Greyed-out Abilities fold into one line; the player opens it to read why.
+  openFolds();
   const button = screen.getByRole('button', { name });
   expect(button.hasAttribute('disabled')).toBe(true);
   return document.getElementById(button.getAttribute('aria-describedby')!)!.textContent;
@@ -292,7 +295,9 @@ test('a human defender reaches the Ability window outside their own turn, sees w
   expect(pendingDecision(state)!.seatIndex).toBe(0);
   const store = open(state, initial);
   expect(screen.getByRole('heading', { name: t('battle.heading.window') })).toBeTruthy();
-  // Calculate cannot be used in this window: it stays listed, disabled, with the engine's reason.
+  // Calculate cannot be used in this window: it stays listed, disabled, with the engine's reason,
+  // in the folded line of options that cannot be used now.
+  openFolds();
   const blocked = screen.getByRole('button', { name: /Calculate/ });
   expect(blocked.hasAttribute('disabled')).toBe(true);
   expect(blocked.closest('li')!.textContent).toContain('Calculate');
@@ -404,7 +409,7 @@ test('Track shows the peeked Event card to its owner alone: another seat’s pan
   expect(panel.container.querySelector('.ability-peek')).toBeNull();
 });
 
-test('Start credit makes every Ability ready again and the field log says so (§4.5, §4.7)', () => {
+test('Start credit makes every Ability ready again; the Sell card and the field log say so (§4.5, §4.7)', () => {
   const state = strategy([{ ...member('bulbasaur'), abilityReady: false }]);
   state.phase = { kind: 'move' };
   state.players[0]!.routeProgress = 22;
@@ -416,8 +421,12 @@ test('Start credit makes every Ability ready again and the field log says so (§
     }
   });
   expect(store.getSession()!.state.players[0]!.team[0]!.abilityReady).toBe(true);
+  expect(document.querySelector('.start-banner')!.textContent).toContain(t('sell.start.abilities'));
+  fireEvent.click(screen.getByRole('button', { name: t('record.open') }));
   expect(
-    screen.getAllByText(t('board.event.abilitiesReset', { name: t('seat.you') })).length,
+    within(screen.getByRole('dialog', { name: t('record.heading') })).getAllByText(
+      t('board.event.abilitiesReset', { name: t('seat.you') }),
+    ).length,
   ).toBeGreaterThan(0);
 });
 
@@ -429,7 +438,8 @@ test('in the catch window Adaptability boosts catch rolls from the Encounter dia
   const percents = () =>
     screen.getAllByRole('button', { name: new RegExp(`^${t('board.ball.poke')} · \\d+%`) });
   const before = percents()[0]!.textContent;
-  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Adaptability' }));
+  const card = document.querySelector<HTMLElement>('[data-card="encounter"]')!;
+  fireEvent.click(within(card).getByRole('button', { name: 'Adaptability' }));
   fireEvent.click(screen.getByRole('button', { name: t('ability.scope.catch') }));
   expect(screen.getByLabelText(t('ability.preview')).textContent).toContain(
     t('ability.previewScope', { scope: t('ability.scope.catch') }),

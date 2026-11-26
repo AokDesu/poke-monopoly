@@ -2,6 +2,7 @@ import type { SpectatorView } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
 import { AiTurn } from './AiTurn.tsx';
+import { DecisionCard } from './DecisionCard.tsx';
 import { WatchControls } from './WatchControls.tsx';
 import type { TurnPlayback } from './useTurnPlayback.ts';
 
@@ -15,7 +16,10 @@ export interface WatchPanelProps {
   onFinished?: () => void;
 }
 
-/** What the watcher may do now and what just happened, from the public view alone. */
+/**
+ * The watcher's card in the decision slot, from the public view alone: what the table is doing,
+ * and the watch controls (Pause, Next, Step, Skip to results, Leave) in its footer.
+ */
 export function WatchPanel({
   view,
   playback,
@@ -34,33 +38,38 @@ export function WatchPanel({
         ? t('watch.paused')
         : t('watch.playing');
   return (
-    <section className="turn-panel panel watch-panel" aria-label={t('watch.controls')}>
-      <div className="turn-panel-copy">
-        <h2>{finished ? t('board.finished') : t('watch.heading')}</h2>
-        <p role={playback.failed ? 'alert' : 'status'}>{body}</p>
-        {notice && (
-          <p className="turn-banner" role="status">
-            {notice}
-          </p>
-        )}
-      </div>
+    <DecisionCard
+      kind="watch"
+      heading={finished ? t('board.finished') : t('watch.heading')}
+      lead={body}
+      alert={playback.failed}
+      actions={
+        <div className="watch-panel">
+          {playback.failed && (
+            <ActionButton enabled onClick={playback.retry}>
+              {t('turn.retry')}
+            </ActionButton>
+          )}
+          {finished && onFinished && (
+            <ActionButton enabled onClick={onFinished}>
+              {t('nav.results')}
+            </ActionButton>
+          )}
+          <WatchControls
+            playback={playback}
+            finished={finished}
+            savingOff={savingOff}
+            onLeave={onLeave}
+          />
+        </div>
+      }
+    >
+      {notice && (
+        <p className="turn-banner" role="status">
+          {notice}
+        </p>
+      )}
       <AiTurn view={view} playback={playback} />
-      {playback.failed && (
-        <ActionButton enabled onClick={playback.retry}>
-          {t('turn.retry')}
-        </ActionButton>
-      )}
-      {finished && onFinished && (
-        <ActionButton enabled onClick={onFinished}>
-          {t('nav.results')}
-        </ActionButton>
-      )}
-      <WatchControls
-        playback={playback}
-        finished={finished}
-        savingOff={savingOff}
-        onLeave={onLeave}
-      />
-    </section>
+    </DecisionCard>
   );
 }

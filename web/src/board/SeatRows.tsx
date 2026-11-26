@@ -193,6 +193,21 @@ function SeatRow({
   const all = turn !== null && openTurn === turn;
   const extra = Math.max(0, told.length - MAX_BEATS);
   const visible = all ? told : told.slice(extra);
+  useEffect(() => {
+    // Where the rows scroll in their own box (the one-screen layout), the row that is writing
+    // itself is kept in view as its beats arrive. The page itself is never scrolled for it.
+    const element = row.current;
+    const box = element?.closest('.play-rows');
+    if (!writing || !element || !(box instanceof HTMLElement)) return;
+    if (box.scrollHeight <= box.clientHeight) return;
+    const shown = element.getBoundingClientRect();
+    const area = box.getBoundingClientRect();
+    if (shown.bottom > area.bottom) {
+      box.scrollTop += Math.min(shown.bottom - area.bottom, shown.top - area.top);
+    } else if (shown.top < area.top) {
+      box.scrollTop -= area.top - shown.top;
+    }
+  }, [writing, visible.length, speech]);
   const lit = !own && told.some((beat) => beat.touchedYou);
   const bodyId = `player-body-${seat}`;
   const storyId = `player-story-${seat}`;

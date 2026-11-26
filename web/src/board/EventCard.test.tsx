@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, render, within } from '@testing-library/react';
 import { afterEach, beforeAll, expect, test, vi } from 'vitest';
 import { deserialize, serialize, type GameState } from '../../../engine/index.ts';
 import encounterNoBall from '../../../engine/fixtures/encounter-no-ball.json';
@@ -9,6 +9,7 @@ import { content, engineContent } from '../game/content.ts';
 import { createFixtureStore, createGameStore, type GameStore } from '../game/store.ts';
 import { createScenes } from '../gallery/scenes.ts';
 import { t } from '../i18n/en.ts';
+import { openRecord } from '../test/record.ts';
 import { itemName, speciesName } from '../i18n/names.ts';
 import { Board } from './Board.tsx';
 import { BoardScreen } from './BoardScreen.tsx';
@@ -55,6 +56,7 @@ function land(
   return store;
 }
 
+/** The board for the store's seat (or a watcher), with its Game record open as a player opens it. */
 function showBoard(store: GameStore) {
   const spectator = store.getSpectatorView();
   const view = store.getView();
@@ -65,9 +67,10 @@ function showBoard(store: GameStore) {
       <Board observation={view!.observation} feed={view!.feed} />
     ),
   );
+  const record = openRecord();
   return {
-    card: screen.getByRole('region', { name: t('event.card.heading') }),
-    log: screen.getByRole('log', { name: t('board.log') }),
+    card: within(record).getByRole('region', { name: t('event.card.heading') }),
+    log: within(record).getByRole('log', { name: t('board.log') }),
   };
 }
 const result = (card: HTMLElement) => card.querySelector('.event-card-result')?.textContent;
@@ -175,8 +178,9 @@ test('an e5 row keeps the Pokémon it tired after that Pokémon is sold or evolv
 
   for (const later of [sold, evolved]) {
     render(<Board observation={later} feed={feed} />);
-    const card = screen.getByRole('region', { name: t('event.card.heading') });
-    const log = screen.getByRole('log', { name: t('board.log') });
+    const record = openRecord();
+    const card = within(record).getByRole('region', { name: t('event.card.heading') });
+    const log = within(record).getByRole('log', { name: t('board.log') });
     expect(result(card)).toBe(asDrawn);
     expect(rows(log)).toContain(asDrawn);
     expect(rows(log).join('\n')).not.toContain(
@@ -186,18 +190,20 @@ test('an e5 row keeps the Pokémon it tired after that Pokémon is sold or evolv
   }
 });
 
-test('e1 opens the encounter, and the dialog says the Event card started it', () => {
+/** The encounter card in the decision slot. */
+const encounterCard = () => document.querySelector<HTMLElement>('[data-card="encounter"]')!;
+
+test('e1 opens the encounter, and the encounter card says the Event card started it', () => {
   offline();
   const store = land(['e1']);
   render(<BoardScreen store={store} />);
   const phase = store.getView()!.observation.public.phase;
   if (phase.kind !== 'encounter') throw new Error('e1 did not open an encounter');
-  const dialog = screen.getByRole('dialog');
   expect(
-    within(dialog).getByText(t('event.card.fromEncounter', { text: eventCardText('e1') })),
+    within(encounterCard()).getByText(t('event.card.fromEncounter', { text: eventCardText('e1') })),
   ).toBeTruthy();
   expect(
-    within(screen.getByRole('region', { name: t('event.card.heading') })).getByText(
+    within(within(openRecord()).getByRole('region', { name: t('event.card.heading') })).getByText(
       t('event.result.encounter', {
         name: t('seat.you'),
         pokemon: speciesName(phase.pokemon.speciesId),
@@ -221,7 +227,7 @@ test('a card other than e1 drawn on an encounter turn is not named as the encoun
   }));
   const redrawn = { ...view, feed };
   render(<BoardScreen store={{ ...store, getView: () => redrawn }} />);
-  const dialog = screen.getByRole('dialog');
+  const dialog = encounterCard();
   expect(
     within(dialog).queryByText(t('event.card.fromEncounter', { text: eventCardText('e2') })),
   ).toBeNull();
@@ -248,8 +254,9 @@ test('the first fill of the deck is not announced as the deck running out; a lat
     'shop-no-coins': shopNoCoins,
   }).eventAfterReshuffle();
   render(<Board observation={scene.view.observation} feed={scene.view.feed} />);
-  const card = screen.getByRole('region', { name: t('event.card.heading') });
-  const log = screen.getByRole('log', { name: t('board.log') });
+  const record = openRecord();
+  const card = within(record).getByRole('region', { name: t('event.card.heading') });
+  const log = within(record).getByRole('log', { name: t('board.log') });
   expect(within(card).getByText(t('event.deckReshuffled'))).toBeTruthy();
   expect(rows(log).filter((row) => row === t('event.deckReshuffled'))).toHaveLength(1);
   expect(rows(log).filter((row) => row === t('board.event.deckShuffled'))).toHaveLength(1);
@@ -281,13 +288,11 @@ test('a save made mid-event resumes at the same event: same card, same encounter
   resumed.restore(deserialize(serialize(session)));
   render(<BoardScreen store={resumed} />);
   expect(
-    within(screen.getByRole('region', { name: t('event.card.heading') })).getByText(
-      eventCardText('e1'),
-    ),
+    within(encounterCard()).getByText(t('event.card.fromEncounter', { text: eventCardText('e1') })),
   ).toBeTruthy();
   expect(
-    within(screen.getByRole('dialog')).getByText(
-      t('event.card.fromEncounter', { text: eventCardText('e1') }),
+    within(within(openRecord()).getByRole('region', { name: t('event.card.heading') })).getByText(
+      eventCardText('e1'),
     ),
   ).toBeTruthy();
   expect(resumed.getSession()!.log.actions).toHaveLength(session.log.actions.length);

@@ -4,6 +4,7 @@ import { abilityFacts, content, currentForm } from '../game/content.ts';
 import { t } from '../i18n/en.ts';
 import { memberName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
+import { Folded, foldLabel, useInView } from './DecisionCard.tsx';
 import { seatLabel } from './labels.ts';
 
 type Enabled = LegalActions['enabled'][number] & { kind: 'activate_ability' };
@@ -42,6 +43,7 @@ export function AbilityPanel({
   }>();
   // A preview belongs to one offered action list, never to a later revision.
   const current = selection?.actions === legalActions ? selection : undefined;
+  const preview = useInView<HTMLElement>(current?.choiceId);
   const ownSeat = observation.own.seatIndex;
   const team = observation.public.players.find((player) => player.seatIndex === ownSeat)!.team;
   const enabled = legalActions.enabled.filter(isEnabled);
@@ -102,48 +104,59 @@ export function AbilityPanel({
       : t('ability.scopes');
   const effect = selected?.ability.effect;
   const facts = effect ? abilityFacts(effect) : undefined;
+  const memberRow = ({
+    pokemon,
+    ability,
+    enabled: usable,
+    disabled: blocked,
+  }: (typeof members)[number]) => {
+    const reasons = [...new Set(blocked.map((action) => action.reasonText))];
+    const availability =
+      usable.length > 0
+        ? { enabled: true as const }
+        : {
+            enabled: false as const,
+            reasonText: ability.effect
+              ? t('action.engineReason', { reason: reasons.join(' · ') })
+              : t('ability.planned'),
+          };
+    return (
+      <li key={pokemon.instanceId} data-ability={ability.effect ?? 'planned'}>
+        <ActionButton
+          {...availability}
+          variant={pokemon.instanceId === current?.instanceId ? 'reward' : 'secondary'}
+          aria-pressed={pokemon.instanceId === current?.instanceId}
+          onClick={() => {
+            const sole = usable.length === 1 && !hasOption(usable[0]!) ? usable[0] : undefined;
+            setSelection({
+              actions: legalActions,
+              instanceId: pokemon.instanceId,
+              choiceId: sole?.id,
+            });
+          }}
+        >
+          {ability.name}
+        </ActionButton>
+        <p className="ability-source">
+          {t('ability.source', { pokemon: memberName(team, pokemon.instanceId) })}
+        </p>
+        <p className="ability-text">{ability.text}</p>
+      </li>
+    );
+  };
+  // The Abilities that can be used now come first; the rest fold into one line with their reasons.
+  const ready = members.filter((member) => member.enabled.length > 0);
+  const shut = members.filter((member) => member.enabled.length === 0);
   return (
-    <section className="ability-panel" aria-label={t('ability.heading')}>
+    <section className="ability-panel card-section" aria-label={t('ability.heading')}>
       <h3>{t('ability.heading')}</h3>
       {selection && !current && <p role="alert">{t('ability.stale')}</p>}
-      <ul className="ability-list">
-        {members.map(({ pokemon, ability, enabled: usable, disabled: blocked }) => {
-          const reasons = [...new Set(blocked.map((action) => action.reasonText))];
-          const availability =
-            usable.length > 0
-              ? { enabled: true as const }
-              : {
-                  enabled: false as const,
-                  reasonText: ability.effect
-                    ? t('action.engineReason', { reason: reasons.join(' · ') })
-                    : t('ability.planned'),
-                };
-          return (
-            <li key={pokemon.instanceId} data-ability={ability.effect ?? 'planned'}>
-              <ActionButton
-                {...availability}
-                variant={pokemon.instanceId === current?.instanceId ? 'reward' : 'secondary'}
-                aria-pressed={pokemon.instanceId === current?.instanceId}
-                onClick={() => {
-                  const sole =
-                    usable.length === 1 && !hasOption(usable[0]!) ? usable[0] : undefined;
-                  setSelection({
-                    actions: legalActions,
-                    instanceId: pokemon.instanceId,
-                    choiceId: sole?.id,
-                  });
-                }}
-              >
-                {ability.name}
-              </ActionButton>
-              <p className="ability-source">
-                {t('ability.source', { pokemon: memberName(team, pokemon.instanceId) })}
-              </p>
-              <p className="ability-text">{ability.text}</p>
-            </li>
-          );
-        })}
-      </ul>
+      {ready.length > 0 && <ul className="ability-list">{ready.map(memberRow)}</ul>}
+      {shut.length > 0 && (
+        <Folded label={foldLabel(shut.length, 'abilities')}>
+          <ul className="ability-list">{shut.map(memberRow)}</ul>
+        </Folded>
+      )}
       {selected && options.length > 0 && (
         <div className="ability-options" role="group" aria-label={optionHeading}>
           <h4>{optionHeading}</h4>
@@ -166,7 +179,12 @@ export function AbilityPanel({
         </div>
       )}
       {selected && choice && effect && facts ? (
-        <section className="ability-preview" aria-label={t('ability.preview')} aria-live="polite">
+        <section
+          ref={preview}
+          className="ability-preview"
+          aria-label={t('ability.preview')}
+          aria-live="polite"
+        >
           <h4>{t('ability.preview')}</h4>
           <p>
             {t('ability.previewSource', {
@@ -199,7 +217,7 @@ export function AbilityPanel({
           {facts.tacticalAction && <p className="panel-note">{t('ability.costTactical')}</p>}
           {facts.hostile && <p className="panel-note">{t('ability.hostile')}</p>}
           <div className="ability-confirm">
-            <ActionButton enabled onClick={() => onChoose(choice.id)}>
+            <ActionButton enabled data-primary="" onClick={() => onChoose(choice.id)}>
               {t('ability.confirm', { ability: selected.ability.name })}
             </ActionButton>
             <ActionButton enabled variant="secondary" onClick={() => setSelection(undefined)}>

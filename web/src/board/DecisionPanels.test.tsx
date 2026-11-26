@@ -1,8 +1,10 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import { beforeAll, expect, test } from 'vitest';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { useSyncExternalStore } from 'react';
+import { expect, test } from 'vitest';
 import {
   applyAction,
   createGameConfig,
+  createGameLog,
   createRng,
   fixtureSchema,
   legalActions,
@@ -13,19 +15,14 @@ import {
 import lowCoins from '../../../engine/fixtures/shop-low-coins.json';
 import sellFixture from '../../../engine/fixtures/sell-phase-three-pokemon.json';
 import { content, engineContent } from '../game/content.ts';
+import { createGameStore, type GameStore } from '../game/store.ts';
+import { STATIC_PLAYBACK } from '../gallery/scenes.ts';
 import { t } from '../i18n/en.ts';
+import { openFolds } from '../test/folds.ts';
 import { ShopPanel } from './ShopPanel.tsx';
 import { StrategyPanel } from './StrategyPanel.tsx';
 import { SellPanel } from './SellPanel.tsx';
-
-beforeAll(() => {
-  HTMLDialogElement.prototype.showModal = function () {
-    this.open = true;
-  };
-  HTMLDialogElement.prototype.close = function () {
-    this.open = false;
-  };
-});
+import { TurnPanel } from './TurnPanel.tsx';
 
 function scenario(input: unknown): GameState {
   const state = fixtureSchema.parse(input).state;
@@ -67,6 +64,8 @@ test('one-coin Shop fixture shows engine prices and reasons for all offers, and 
   const state = scenario(lowCoins);
   const current = shop(state);
   if (state.phase.kind !== 'shop') throw new Error('Expected Shop');
+  // Offers that cannot be bought are folded into one line; open it to read each reason.
+  openFolds();
   for (const offer of state.phase.offers) {
     const name = content.items.find((entry) => entry.id === offer.itemId)!.name;
     const button = screen.getByRole('button', {
@@ -95,6 +94,7 @@ test('four held utility items disable item offers but not Balls; buying closes t
   }));
   const current = shop(state);
   if (state.phase.kind !== 'shop') throw new Error('Expected Shop');
+  openFolds();
   for (const offer of state.phase.offers) {
     const name = content.items.find((entry) => entry.id === offer.itemId)!.name;
     const button = screen.getByRole('button', {
@@ -184,6 +184,8 @@ test('Potion and invalid hostile targets show precise engine reasons and cannot 
       }}
     />,
   );
+  // Items that cannot be used now are folded into one line; open it to read each reason.
+  openFolds();
   for (const id of ['potion', 'pickpocket', 'repel']) {
     const name = content.items.find((item) => item.id === id)!.name;
     const button = screen.getByRole('button', { name });
@@ -214,6 +216,9 @@ function sellPanel(state: GameState) {
   return { current: () => current, unmount };
 }
 
+/** The Sell button: it names what is ticked and the engine's total ("Sell Caterpie for 7 coins"). */
+const sellButton = () => screen.getByRole('button', { name: /^Sell / });
+
 test('sale selection shows engine price parts and total, reallocating the class bonus for each batch', () => {
   const state = scenario(sellFixture);
   state.players[0]!.classId = 'researcher';
@@ -239,7 +244,7 @@ test('sale selection shows engine price parts and total, reallocating the class 
   expect(screen.getByTestId('sale-pokemon-3').textContent).toContain(
     t('sell.price', quote.rows[1]!),
   );
-  fireEvent.click(screen.getByRole('button', { name: t('sell.confirm') }));
+  fireEvent.click(sellButton());
   expect(current().players[0]!.team.map((pokemon) => pokemon.instanceId)).toEqual(['pokemon-2']);
   expect(current().players[0]!.coins - state.players[0]!.coins).toBe(quote.total);
   expect(current().phase.kind).toBe('resolve');
@@ -260,7 +265,7 @@ test('selling all previews a zero-value Rescue Starter and the committed observa
       }),
     ),
   ).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: t('sell.confirm') }));
+  fireEvent.click(sellButton());
   const after = observe(current(), 0);
   expect(after.public.players[0]!.team).toMatchObject([
     { origin: 'rescue_starter', speciesId: 'bulbasaur' },
@@ -282,7 +287,11 @@ test('several selected Pokémon show the engine batch total and their price part
   const state = scenario(sellFixture);
   const { current } = sellPanel(state);
   const all = state.players[0]!.team.map((pokemon) => pokemon.instanceId);
-  expect(screen.queryByRole('button', { name: t('sell.confirm') })).toBeNull();
+  // Nothing ticked: Sell is greyed out and says what to do.
+  expect(sellButton()).toHaveProperty('disabled', true);
+  expect(document.getElementById(sellButton().getAttribute('aria-describedby')!)!.textContent).toBe(
+    t('sell.chooseFirst'),
+  );
   for (const checkbox of screen.getAllByRole('checkbox')) fireEvent.click(checkbox);
   const quote = saleQuote(state, 0, all);
   expect(screen.getByLabelText(t('sell.total')).textContent).toBe(
@@ -293,31 +302,61 @@ test('several selected Pokémon show the engine batch total and their price part
       t(row.classBonus === 0 ? 'sell.price' : 'sell.priceBonus', row),
     );
   }
-  fireEvent.click(screen.getByRole('button', { name: t('sell.confirm') }));
+  expect(sellButton().textContent).toBe(
+    t('sell.confirmMany', { count: all.length, amount: quote.total }),
+  );
+  fireEvent.click(sellButton());
   expect(current().players[0]!.team).toMatchObject([{ origin: 'rescue_starter' }]);
   expect(current().phase.kind).toBe('resolve');
 });
 
-test('the Sell modal takes focus into the team and returns it on close', () => {
+/** The live Sell card, from a store, as the play screen routes it. */
+function SellHarness({ store }: { store: GameStore }) {
+  const view = useSyncExternalStore(store.subscribe, store.getView)!;
+  return (
+    <TurnPanel
+      view={view}
+      playback={STATIC_PLAYBACK}
+      actionError={false}
+      onChoose={(id) => store.choose(id)}
+      quoteSale={store.quoteSale}
+      onSell={(ids) =>
+        store.submit({ actorId: 'player-0', kind: 'sell', payload: { pokemonInstanceIds: ids } })
+      }
+    />
+  );
+}
+
+function liveSell() {
   const state = scenario(sellFixture);
+  const store = createGameStore();
+  store.restore({ state, log: createGameLog(state) });
+  render(<SellHarness store={store} />);
+  return store;
+}
+
+test('the Sell card takes focus into the team, and once answered leaves focus on the next card', async () => {
   const outside = document.createElement('button');
   outside.textContent = 'outside';
   document.body.appendChild(outside);
   outside.focus();
-  const { unmount } = sellPanel(state);
-  const dialog = screen.getByRole('dialog');
-  expect(document.activeElement).toBe(within(dialog).getAllByRole('checkbox')[0]);
-  unmount();
-  expect(document.activeElement).toBe(outside);
+  const store = liveSell();
+  const sell = document.querySelector<HTMLElement>('[data-card="sell"]')!;
+  // Nothing is ticked yet, so the first control in the card takes focus: the first Pokémon.
+  expect(document.activeElement).toBe(within(sell).getAllByRole('checkbox')[0]);
+  fireEvent.click(within(sell).getByRole('button', { name: t('sell.keep') }));
+  expect(store.getSession()!.state.phase.kind).not.toBe('sell');
+  await act(async () => {});
+  // The page body never takes it: focus is on the card that replaced Sell.
+  expect(document.activeElement).toBe(document.querySelector('.decision-card'));
   outside.remove();
 });
 
 test('Escape does not leave the Sell Phase: keeping is an explicit choice (§3.1)', () => {
-  const state = scenario(sellFixture);
-  const { current } = sellPanel(state);
-  const dialog = screen.getByRole('dialog');
-  fireEvent(dialog, new Event('cancel', { cancelable: true, bubbles: true }));
-  expect(current().phase.kind).toBe('sell');
-  expect(screen.getByRole('dialog')).toBe(dialog);
-  expect(screen.getByRole('button', { name: t('sell.keep') })).toBeTruthy();
+  const store = liveSell();
+  const sell = document.querySelector<HTMLElement>('[data-card="sell"]')!;
+  fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+  expect(store.getSession()!.state.phase.kind).toBe('sell');
+  expect(document.querySelector('[data-card="sell"]')).toBe(sell);
+  expect(within(sell).getByRole('button', { name: t('sell.keep') })).toBeTruthy();
 });

@@ -5,6 +5,7 @@ import { t } from '../i18n/en.ts';
 import { className } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
 import { BattleTerms } from './BattleTerms.tsx';
+import { Folded, foldLabel, useInView } from './DecisionCard.tsx';
 import { seatLabel } from './labels.ts';
 
 type Declare = Extract<LegalAction, { kind: 'declare_pvp' }>;
@@ -26,34 +27,30 @@ export function ChallengePanel({
   onChoose: (id: string) => void;
 }) {
   const [picked, setPicked] = useState<{ actions: LegalActions; id: string }>();
+  // A preview belongs to one offered action list, never to a later revision.
+  const current = picked?.actions === legalActions ? picked.id : undefined;
+  const preview = useInView<HTMLElement>(current);
   const own = observation.own.seatIndex;
   const options = [
     ...legalActions.enabled.map((action) => ({ action, reason: undefined })),
     ...legalActions.disabled.map((action) => ({ action, reason: action.reasonText })),
   ].flatMap(({ action, reason }) => (action.kind === 'declare_pvp' ? [{ action, reason }] : []));
   if (options.length === 0) return null;
-  // A preview belongs to one offered action list, never to a later revision.
-  const current = picked?.actions === legalActions ? picked.id : undefined;
   const chosen = legalActions.enabled.find(
     (action): action is Declare => action.kind === 'declare_pvp' && action.id === current,
   );
-  const targets = [...new Set(options.map(({ action }) => action.payload.targetSeatIndex))];
   const terms =
     chosen && challenges.find((entry) => entry.seatIndex === chosen.payload.targetSeatIndex);
   const target =
     chosen &&
     observation.public.players.find((p) => p.seatIndex === chosen.payload.targetSeatIndex);
-  return (
-    <section className="challenge-panel" aria-labelledby="challenge-heading">
-      <h3 id="challenge-heading">{t('challenge.heading')}</h3>
-      <p className="panel-note">{t('challenge.intro')}</p>
-      {picked && !current && (
-        <p role="alert" className="battle-stale">
-          {t('challenge.stale')}
-        </p>
-      )}
-      <ul className="challenge-targets">
-        {targets.map((seatIndex) => {
+  // The challenges that can be made now come first; the greyed ones fold into one line.
+  const open = options.filter(({ reason }) => reason === undefined);
+  const shut = options.filter(({ reason }) => reason !== undefined);
+  const targetList = (entries: typeof options) => (
+    <ul className="challenge-targets">
+      {[...new Set(entries.map(({ action }) => action.payload.targetSeatIndex))].map(
+        (seatIndex) => {
           const player = observation.public.players.find((entry) => entry.seatIndex === seatIndex);
           return (
             <li key={seatIndex}>
@@ -69,7 +66,7 @@ export function ChallengePanel({
                 )}
               </p>
               <div className="challenge-actions">
-                {options
+                {entries
                   .filter(({ action }) => action.payload.targetSeatIndex === seatIndex)
                   .map(({ action, reason }) => {
                     const forced = action.payload.force === 'rival';
@@ -100,10 +97,30 @@ export function ChallengePanel({
               </div>
             </li>
           );
-        })}
-      </ul>
+        },
+      )}
+    </ul>
+  );
+  return (
+    <section className="challenge-panel card-section" aria-labelledby="challenge-heading">
+      <h3 id="challenge-heading">{t('challenge.heading')}</h3>
+      <p className="panel-note">{t('challenge.intro')}</p>
+      {picked && !current && (
+        <p role="alert" className="battle-stale">
+          {t('challenge.stale')}
+        </p>
+      )}
+      {open.length > 0 && targetList(open)}
+      {shut.length > 0 && (
+        <Folded label={foldLabel(shut.length, 'challenges')}>{targetList(shut)}</Folded>
+      )}
       {chosen && target && (
-        <section className="item-preview" aria-label={t('challenge.preview')} aria-live="polite">
+        <section
+          ref={preview}
+          className="item-preview"
+          aria-label={t('challenge.preview')}
+          aria-live="polite"
+        >
           <h3>{t('challenge.preview')}</h3>
           <p>
             {t(
@@ -115,7 +132,7 @@ export function ChallengePanel({
           </p>
           {terms && <BattleTerms terms={terms} viewerSeat={own} frozen={false} />}
           <p className="panel-note">{t('challenge.cost')}</p>
-          <ActionButton enabled onClick={() => onChoose(chosen.id)}>
+          <ActionButton enabled data-primary="" onClick={() => onChoose(chosen.id)}>
             {t('challenge.confirm', { name: seatLabel(target.seatIndex, own) })}
           </ActionButton>
         </section>

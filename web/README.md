@@ -4,18 +4,18 @@ Browser UI: one Vite + React + Tailwind CSS single-page app. Must not import fro
 
 Run with `npm run dev:web` (port 5173). Spec: §3, §3.1, §6.1. Skill: `skills/ui-rules`.
 
-| Path                    | What it holds                                                                                                                                    |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/screens.ts`        | The screen state: `home`, `setup` (mode, class, AI rivals, review, first roll), `play`, `results`, `credits`. A plain value in `App`, no router. |
-| `src/setup/`            | The setup screens, spec §3: Home to the first-player roll.                                                                                       |
-| `src/board/`            | Observation-only Board, human turn controls, native Encounter dialog and seat-filtered field log (§3, §3.1, §4.2, §4.3).                         |
-| `src/gallery/`          | Developer-only gallery of every spec §3.1 row that has a screen (below). Absent from the production build.                                       |
-| `src/ui/three/`         | Three.js scenes (lazy chunk); `public/models/` holds the licensed GLB models.                                                                    |
-| `src/i18n/en.ts`        | Every player-facing string (English, spec §3), read with `t(key)`. `src/i18n/inline-text.test.ts` fails on UI text typed elsewhere.              |
-| `src/game/store.ts`     | Rules adapter: state and action log. Calls engine functions only from `engine/index.ts`.                                                         |
-| `src/game/save.ts`      | Browser storage adapter: engine `serialize` / `loadGame`, Continue, and log export.                                                              |
-| `src/ErrorBoundary.tsx` | No blank screens: a render error shows what to do next and a retry button.                                                                       |
-| `src/ui/`               | Shared controls.                                                                                                                                 |
+| Path                    | What it holds                                                                                                                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/screens.ts`        | The screen state: `home`, `setup` (mode, class, AI rivals, review, first roll), `play`, `results`, `credits`. A plain value in `App`, no router.                                            |
+| `src/setup/`            | The setup screens, spec §3: Home to the first-player roll.                                                                                                                                  |
+| `src/board/`            | The one-screen play layout: top bar, Board with the hand under it, seat rows and the decision card router (`TurnPanel`); seat-filtered field log in the Game record (§3, §3.1, §4.2, §4.3). |
+| `src/gallery/`          | Developer-only gallery of every spec §3.1 row that has a screen (below). Absent from the production build.                                                                                  |
+| `src/ui/three/`         | Three.js scenes (lazy chunk); `public/models/` holds the licensed GLB models.                                                                                                               |
+| `src/i18n/en.ts`        | Every player-facing string (English, spec §3), read with `t(key)`. `src/i18n/inline-text.test.ts` fails on UI text typed elsewhere.                                                         |
+| `src/game/store.ts`     | Rules adapter: state and action log. Calls engine functions only from `engine/index.ts`.                                                                                                    |
+| `src/game/save.ts`      | Browser storage adapter: engine `serialize` / `loadGame`, Continue, and log export.                                                                                                         |
+| `src/ErrorBoundary.tsx` | No blank screens: a render error shows what to do next and a retry button.                                                                                                                  |
+| `src/ui/`               | Shared controls.                                                                                                                                                                            |
 
 Fredoka (display) and Nunito (body) are self-hosted through `@fontsource`; the page loads nothing from another host. The Home board and class art use Three.js (`@react-three/fiber`, lazily loaded where WebGL exists); the 3D models and their licences are in `public/models/CREDITS.md`. Lint enforces the import rules: no `ai/`, and engine values only through the adapters `src/game/store.ts`, `src/game/save.ts` and `src/game/content.ts` (type imports from the engine are allowed elsewhere in `web/`; adapters use only `engine/index.ts`, and test files may import the engine directly).
 

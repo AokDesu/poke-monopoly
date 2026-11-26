@@ -18,6 +18,7 @@ import {
 import { engineContent } from '../game/content.ts';
 import { createGameStore, type GameStore } from '../game/store.ts';
 import { t } from '../i18n/en.ts';
+import { openFolds } from '../test/folds.ts';
 import { chancesText } from './BattleTerms.tsx';
 import { TurnPanel } from './TurnPanel.tsx';
 import { STATIC_PLAYBACK } from '../gallery/scenes.ts';
@@ -149,6 +150,7 @@ test('an unavailable target is greyed out with the engine reason, and no confirm
   const state = game(['main-character', 'researcher']);
   for (const member of state.players[1]!.team) member.tired = true;
   const store = show(state);
+  openFolds();
   const button = screen.getByRole('button', { name: t('challenge.voluntary', { name: RIVAL_1 }) });
   expect(button.hasAttribute('disabled')).toBe(true);
   expect(document.getElementById(button.getAttribute('aria-describedby')!)!.textContent).toBe(
@@ -322,6 +324,7 @@ test('an all-Tired team cannot challenge: the control is greyed out with the eng
   for (const member of state.players[0]!.team) member.tired = true;
   const store = show(state);
   act(() => store.choose('skip'));
+  openFolds();
   const challenge = screen.getByRole('button', { name: t('choice.challengeGym') });
   expect(challenge.hasAttribute('disabled')).toBe(true);
   expect(document.getElementById(challenge.getAttribute('aria-describedby')!)!.textContent).toBe(
