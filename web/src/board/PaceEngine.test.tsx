@@ -235,6 +235,36 @@ test('Pause (P) holds the game for as long as it stays paused, and P again resum
   expect(logLength(store)).toBeGreaterThan(paused);
 }, 120_000);
 
+test('a pause stepped through with Next ends when the turn reaches the player: the game never locks (§3)', async () => {
+  vi.useFakeTimers();
+  server();
+  const store = humanGame();
+  render(<BoardScreen store={store} />);
+  await playUntil(store, () => activeSeat(store) !== 0);
+  fireEvent.keyDown(document.body, { key: 'p' });
+  expect(screen.getByRole('button', { name: t('pace.resume') })).toBeTruthy();
+  const next = () =>
+    screen.queryByRole('button', {
+      name: new RegExp(`^${t('pace.next')}`),
+    }) as HTMLButtonElement | null;
+  // Next and nothing else, until the turn passes to the player.
+  for (let presses = 0; presses < 400 && activeSeat(store) !== 0; presses++) {
+    await run(50);
+    const button = next();
+    if (button && !button.disabled) fireEvent.click(button);
+  }
+  expect(activeSeat(store)).toBe(0);
+  await run(50);
+  expect(screen.queryByRole('button', { name: t('pace.resume') })).toBeNull();
+  // The player plays their turn, and the rivals' next turn plays by itself: nothing is still paused.
+  await playUntil(store, () => activeSeat(store) !== 0);
+  const before = logLength(store);
+  await run(READABLE.hold!.maxMs + READABLE.speechMs + 2 * READABLE.fillerMs);
+  expect(screen.queryByRole('button', { name: t('pace.resume') })).toBeNull();
+  expect(screen.getByRole('button', { name: t('pace.pause') })).toBeTruthy();
+  expect(logLength(store)).toBeGreaterThan(before);
+}, 300_000);
+
 test('a key meant for what has focus is left to it: P in the pace list is typing, Space on a button presses it', async () => {
   vi.useFakeTimers();
   server();

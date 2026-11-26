@@ -216,6 +216,29 @@ test('without a battle-ready Pokémon only skip is legal and is applied automati
   expect(advanceAutomatically(entry).state.phase.kind).toBe('end');
 });
 
+test.each([
+  ['an empty team', (team: GameState['players'][number]['team']) => team.splice(0)],
+  [
+    'a team that is all tired',
+    (team: GameState['players'][number]['team']) =>
+      team.forEach((pokemon) => (pokemon.tired = true)),
+  ],
+] as const)(
+  'an open Gym window whose challenger has %s is left cleanly, never an exception (§8, §4.4, D5)',
+  (_name, strip) => {
+    const landed = accept(atGym(12, 'eevee', 'rival'), 'skip').state;
+    const window = accept(landed, 'challenge_gym').state;
+    expect(window.phase).toMatchObject({ kind: 'gym', battle: { step: 'window' } });
+    const stripped = structuredClone(window);
+    strip(stripped.players[0]!.team);
+    const pass = legalActions(stripped, 0).enabled.find((choice) => choice.id === 'pass-window');
+    expect(pass).toBeDefined();
+    const result = accept(stripped, pass!.kind, pass!.payload);
+    expect(result.state.phase).toEqual({ kind: 'end' });
+    expect(kinds(result.events)).not.toContain('gym_confirmed');
+  },
+);
+
 test('a Gym can be re-challenged on a later landing; there is no cleared-Gym state (§4.4)', () => {
   const won = accept(challenge(atGym(6, 'magikarp'), 6).state, 'choose_reward', { kind: 'coins' });
   const again = structuredClone(won.state);

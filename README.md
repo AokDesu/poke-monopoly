@@ -15,18 +15,20 @@ Install with `npm ci`. Optionally copy `.env.example` to `.env`; the Jev key is 
 
 ## Commands
 
-| Command                                   | What it does                                                           |
-| ----------------------------------------- | ---------------------------------------------------------------------- |
-| `npm run dev`                             | API on port 8787 and web app on port 5173 together; `/api` is proxied  |
-| `npm run dev:api` / `npm run dev:web`     | Each one alone                                                         |
-| `npm run build`                           | Build the web app into `web/dist`                                      |
-| `npm start`                               | Serve the API and the built web app on port 8787                       |
-| `npm run typecheck`                       | TypeScript, strict                                                     |
-| `npm run lint`                            | ESLint, including the folder import and no-IO rules                    |
-| `npm run format` / `npm run format:check` | Prettier, write or check                                               |
-| `npm test`                                | Vitest                                                                 |
-| `npm run sim -- --games 100 --seed 1`     | Simulation CLI; prints one JSON line (`npm run -s` hides npm's banner) |
-| `npm run eval:jev -- --offline`           | Jev eval on recorded fixtures; no network, no key                      |
+| Command                                            | What it does                                                           |
+| -------------------------------------------------- | ---------------------------------------------------------------------- |
+| `npm run dev`                                      | API on port 8787 and web app on port 5173 together; `/api` is proxied  |
+| `npm run dev:api` / `npm run dev:web`              | Each one alone                                                         |
+| `npm run build`                                    | Build the web app into `web/dist`                                      |
+| `npm start`                                        | Serve the API and the built web app on port 8787                       |
+| `npm run typecheck`                                | TypeScript, strict                                                     |
+| `npm run lint`                                     | ESLint, including the folder import and no-IO rules                    |
+| `npm run format` / `npm run format:check`          | Prettier, write or check                                               |
+| `npm test`                                         | Vitest                                                                 |
+| `npm run sim -- --games 100 --seed 1`              | Simulation CLI; prints one JSON line (`npm run -s` hides npm's banner) |
+| `npm run eval:jev -- --offline`                    | Jev eval on recorded fixtures; no network, no key                      |
+| `npm run playtest:row -- <log.json> --code <code>` | Draft a playtest sheet row from an exported game log                   |
+| `npm run playtest:check -- <sheet.csv> [...]`      | Check playtest sheets against the template and the privacy rules       |
 
 CI (job `ci`) runs typecheck, lint, format check, tests, the sim and the offline eval on every pull request.
 
@@ -71,20 +73,30 @@ npm run build
 DEMO_MODE=1 npm start     # then open http://127.0.0.1:8787/?demo
 ```
 
-Leave `DEMO_MODE` unset on any server used for real play. The kill switch (§11 step 7) is `JEV_ENABLED=false`, read when the server starts: stop the server and start it again with the variable set. `GET /api/ai/status` shows the result (`"jevEnabled":false,"reason":"disabled"`). `docs/pr-evidence/64-demo-rehearsal/` holds the last walk of steps 1 to 8 with what each one needs.
+In PowerShell the variable is set on its own line first:
+
+```powershell
+$env:DEMO_MODE='1'; npm start     # then open http://127.0.0.1:8787/?demo
+Remove-Item Env:DEMO_MODE         # after stopping the server
+```
+
+Clear it afterwards rather than put it in `.env`, so a later real-play server does not start in demo mode.
+
+Leave `DEMO_MODE` unset on any server used for real play. The kill switch (§11 step 7) is `JEV_ENABLED=false`; it fails closed, so only an unset, empty or `true` value leaves Jev on and `0`, `off` or a typo turns it off. The server reads it on every call, but a running process cannot have its environment changed from outside, so stop the server and start it again with the variable set. `GET /api/ai/status` shows the result (`"jevEnabled":false,"reason":"disabled"`). `docs/pr-evidence/64-demo-rehearsal/` holds the last walk of steps 1 to 8 with what each one needs.
 
 ## Folders
 
-| Folder     | What it is                                |
-| ---------- | ----------------------------------------- |
-| `engine/`  | Pure rules, no IO                         |
-| `content/` | Game data and text                        |
-| `ai/`      | Server only; holds the Jev key (Hono API) |
-| `web/`     | Browser UI (Vite, React, Tailwind CSS)    |
-| `sim/`     | Simulation CLI                            |
-| `eval/`    | Jev evaluation (`eval/jev/`)              |
-| `docs/`    | The spec and team guides                  |
-| `skills/`  | Project skills for coding agents          |
+| Folder      | What it is                                |
+| ----------- | ----------------------------------------- |
+| `engine/`   | Pure rules, no IO                         |
+| `content/`  | Game data and text                        |
+| `ai/`       | Server only; holds the Jev key (Hono API) |
+| `web/`      | Browser UI (Vite, React, Tailwind CSS)    |
+| `sim/`      | Simulation CLI                            |
+| `eval/`     | Jev evaluation (`eval/jev/`)              |
+| `playtest/` | Playtest sheet tools (read files only)    |
+| `docs/`     | The spec and team guides                  |
+| `skills/`   | Project skills for coding agents          |
 
 ## Install scripts
 

@@ -36,6 +36,7 @@ export { checkInvariants, INVARIANTS } from './invariants.ts';
 export type { InvariantDefinition, InvariantId, Violation } from './invariants.ts';
 export {
   deserialize,
+  loadGame,
   resume,
   saveSchema,
   serialize,
@@ -106,6 +107,7 @@ export {
   ROLLOUT_CONFIG,
   rolloutFacts,
   rolloutOptions,
+  rolloutSteps,
   type ExpectedCoins,
   type LeadChance,
   type OptionOutcome,

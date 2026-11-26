@@ -7,6 +7,9 @@ import { writeSave, type SaveStorage } from './game/save.ts';
 import { t } from './i18n/en.ts';
 import { demoGame, seekOpponent } from './test/demoGame.ts';
 
+// Named per-test budgets (ET-05): these take 2 to 8 s at full parallelism, so the 5 s default is too tight on a loaded machine.
+const SLOW_TEST_MS = 30_000;
+
 // The "What Jev chose" panel needs two things at once: the page asks for it (`?demo`) and the
 // server's status says its demo setting is on. These tests open a saved game at a rival's decision
 // and resume it, the path where a player could add `?demo` to a normal game (issue #247).
@@ -125,6 +128,7 @@ test.each([
     // Jev's answer was asked for and applied exactly as in any game.
     expect(wire.paths.filter((path) => path === '/api/ai/decide')).toHaveLength(1);
   },
+  SLOW_TEST_MS,
 );
 
 test.each(['?demo=0', '?demo=false', 'no parameter'])(
@@ -137,23 +141,28 @@ test.each(['?demo=0', '?demo=false', 'no parameter'])(
     expect(screen.queryByText(t('demo.banner'))).toBeNull();
     expect(document.body.textContent).not.toMatch(/0\.83|0\.62/);
   },
+  SLOW_TEST_MS,
 );
 
-test('with ?demo and the server’s setting on, a resumed save shows the panel, banner, rounded numbers and the model-output note', async () => {
-  const wire = server(() => Response.json({ ...base, demo: true }));
-  await resume(true, savedAtRivalDecision());
-  await decided(wire);
-  const panel = await waitFor(() => {
-    const found = document.querySelector<HTMLElement>('.jev-panel');
-    expect(found).toBeTruthy();
-    return found!;
-  });
-  expect(panel.textContent).toContain(t('demo.banner'));
-  expect(panel.textContent).toContain('0.83');
-  expect(panel.textContent).not.toMatch(/0\.8299999|0\.6200000001/);
-  expect(panel.textContent).toContain(t('demo.confidence', { value: '0.62' }));
-  expect(panel.textContent).toContain(t('demo.modelNote'));
-});
+test(
+  'with ?demo and the server’s setting on, a resumed save shows the panel, banner, rounded numbers and the model-output note',
+  async () => {
+    const wire = server(() => Response.json({ ...base, demo: true }));
+    await resume(true, savedAtRivalDecision());
+    await decided(wire);
+    const panel = await waitFor(() => {
+      const found = document.querySelector<HTMLElement>('.jev-panel');
+      expect(found).toBeTruthy();
+      return found!;
+    });
+    expect(panel.textContent).toContain(t('demo.banner'));
+    expect(panel.textContent).toContain('0.83');
+    expect(panel.textContent).not.toMatch(/0\.8299999|0\.6200000001/);
+    expect(panel.textContent).toContain(t('demo.confidence', { value: '0.62' }));
+    expect(panel.textContent).toContain(t('demo.modelNote'));
+  },
+  SLOW_TEST_MS,
+);
 
 test('the setting is read only for a page that asks for demo mode', async () => {
   // On the Home screen no game, and so no badge, is asking: any status request here is the gate's.

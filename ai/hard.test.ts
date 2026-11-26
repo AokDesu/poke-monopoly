@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import {
   legalActions,
   observe,
@@ -8,7 +8,7 @@ import {
 } from '../engine/index.ts';
 import { decisionStates } from '../engine/rollout-testing.ts';
 import { createPolicyRng } from '../sim/policy.ts';
-import { hardOutcomes } from './hard.ts';
+import { hardOutcomes, hardOutcomesYielding } from './hard.ts';
 import { PERSONALITIES } from './fallback/index.ts';
 import type { JevAnswer, JevRequest, JevResult } from './jev/client.ts';
 import { createFakeJevClient } from './jev/fake.ts';
@@ -22,6 +22,10 @@ import { outcomeSentence } from './questions/index.ts';
 import { isStrategyQuestionAction } from './questions/strategy.ts';
 
 const greedy = PERSONALITIES.greedy;
+
+// An exported JEV_ENABLED=false (the §9 kill switch) must not turn these fake-transport tests into fallback runs: pin the switch on; tests of the switch stub it off themselves (#64).
+beforeEach(() => vi.stubEnv('JEV_ENABLED', 'true'));
+afterEach(() => vi.unstubAllEnvs());
 
 /** Real, randomly played decision states, searched until one of each kind Jev is asked about. */
 function findState(match: (state: GameState) => boolean): GameState {
@@ -239,5 +243,42 @@ describe('hardOutcomes', () => {
         deadlineMs: 0,
       }),
     ).toBeUndefined();
+  });
+
+  test(
+    'the yielding version gives the same buckets, pausing after each option rollout (#64)',
+    { timeout: 30_000 },
+    async () => {
+      const seat = seatOf(strategyState);
+      const request = {
+        observation: observe(strategyState, seat),
+        legalActions: legalActions(strategyState, seat),
+        personality: greedy,
+        seed: 9,
+      };
+      let pauses = 0;
+      const yielded = await hardOutcomesYielding(request, async () => {
+        pauses++;
+      });
+      expect(yielded).toEqual(hardOutcomes(request));
+      // 16 sampled worlds, each playing every enabled option.
+      expect(pauses).toBe(16 * request.legalActions.enabled.length);
+    },
+  );
+
+  test('a deadline that passes while paused stops the rollout at the worlds drawn so far', async () => {
+    const seat = seatOf(strategyState);
+    const outcomes = await hardOutcomesYielding(
+      {
+        observation: observe(strategyState, seat),
+        legalActions: legalActions(strategyState, seat),
+        personality: greedy,
+        seed: 9,
+        deadlineMs: 5,
+      },
+      () => new Promise((resolve) => setTimeout(resolve, 20)),
+    );
+    // Each pause outlasts the 5 ms deadline: one world is drawn, under the 4 needed, so no buckets.
+    expect(outcomes).toBeUndefined();
   });
 });

@@ -31,6 +31,9 @@ import { SellPanel } from './SellPanel.tsx';
 import { ShopPanel } from './ShopPanel.tsx';
 import { StrategyPanel } from './StrategyPanel.tsx';
 
+// Named per-test budgets (ET-05): these take 2 to 8 s at full parallelism, so the 5 s default is too tight on a loaded machine.
+const SLOW_TEST_MS = 30_000;
+
 afterEach(cleanup);
 
 beforeAll(() => {
@@ -142,63 +145,67 @@ test.each(SPECIES_IDS)(
   },
 );
 
-test('team cards, details and Sell cards render every species and form from the engine lookup, with no raw IDs', () => {
-  const state = scenario(encounterFixture);
-  const seed = state.players[0]!.team[0]!;
-  state.players[0]!.team = ALL_IDS.map((speciesId, index) => ({
-    ...seed,
-    instanceId: `uid-${index}`,
-    speciesId,
-    origin: 'caught' as const,
-    evolutionStage: 0,
-    tired: false,
-  }));
-  state.phase = { kind: 'sell', destinationPosition: 0 };
-  const observation = observe(state, 0);
-  const board = render(<Board observation={observation} />);
-  const sell = render(
-    <SellPanel
-      observation={observation}
-      quoteSale={(ids) => saleQuote(state, 0, ids)}
-      onSell={() => {}}
-    />,
-  );
-  const cards = [
-    ...ALL_IDS.map((id, index) => ({ id, card: board.getByTestId(`uid-${index}`) })),
-    ...ALL_IDS.map((id, index) => ({ id, card: sell.getByTestId(`sale-uid-${index}`) })),
-  ];
-  expect(cards).toHaveLength(ALL_IDS.length * 2);
-  for (const { id, card } of cards) {
-    const form = effectiveForm(engineContent, id);
-    expect(within(card).getAllByText(form.name).length, id).toBeGreaterThan(0);
-    for (const tag of form.tags) expect(within(card).getAllByText(tagLabel(tag)).length).toBe(1);
-    expect(within(card).getByLabelText(t('board.battle')).textContent).toBe(String(form.battle));
-    const details = card.querySelector('details')!;
-    expect(fact(details, t('team.baseValue'))).toContain(String(form.base));
-    expect(within(details).getByText(form.ability!.name)).toBeTruthy();
-    expect(details.textContent).toContain(form.ability!.text);
-    const next = nextEvolutionForms(engineContent, id);
-    if (next.length === 0) {
-      expect(within(details).getByText(t('team.finalForm'))).toBeTruthy();
-      expect(details.querySelector('ul')).toBeNull();
-    } else {
-      const entries = [...details.querySelectorAll('ul > li')];
-      expect(entries.map((entry) => entry.querySelector('strong')!.textContent)).toEqual(
-        next.map((nextId) => effectiveForm(engineContent, nextId).name),
-      );
-      next.forEach((nextId, index) => {
-        const nextForm = effectiveForm(engineContent, nextId);
-        expect(entries[index]!.textContent).toContain(
-          t('team.nextFormStats', { battle: nextForm.battle, base: nextForm.base }),
+test(
+  'team cards, details and Sell cards render every species and form from the engine lookup, with no raw IDs',
+  () => {
+    const state = scenario(encounterFixture);
+    const seed = state.players[0]!.team[0]!;
+    state.players[0]!.team = ALL_IDS.map((speciesId, index) => ({
+      ...seed,
+      instanceId: `uid-${index}`,
+      speciesId,
+      origin: 'caught' as const,
+      evolutionStage: 0,
+      tired: false,
+    }));
+    state.phase = { kind: 'sell', destinationPosition: 0 };
+    const observation = observe(state, 0);
+    const board = render(<Board observation={observation} />);
+    const sell = render(
+      <SellPanel
+        observation={observation}
+        quoteSale={(ids) => saleQuote(state, 0, ids)}
+        onSell={() => {}}
+      />,
+    );
+    const cards = [
+      ...ALL_IDS.map((id, index) => ({ id, card: board.getByTestId(`uid-${index}`) })),
+      ...ALL_IDS.map((id, index) => ({ id, card: sell.getByTestId(`sale-uid-${index}`) })),
+    ];
+    expect(cards).toHaveLength(ALL_IDS.length * 2);
+    for (const { id, card } of cards) {
+      const form = effectiveForm(engineContent, id);
+      expect(within(card).getAllByText(form.name).length, id).toBeGreaterThan(0);
+      for (const tag of form.tags) expect(within(card).getAllByText(tagLabel(tag)).length).toBe(1);
+      expect(within(card).getByLabelText(t('board.battle')).textContent).toBe(String(form.battle));
+      const details = card.querySelector('details')!;
+      expect(fact(details, t('team.baseValue'))).toContain(String(form.base));
+      expect(within(details).getByText(form.ability!.name)).toBeTruthy();
+      expect(details.textContent).toContain(form.ability!.text);
+      const next = nextEvolutionForms(engineContent, id);
+      if (next.length === 0) {
+        expect(within(details).getByText(t('team.finalForm'))).toBeTruthy();
+        expect(details.querySelector('ul')).toBeNull();
+      } else {
+        const entries = [...details.querySelectorAll('ul > li')];
+        expect(entries.map((entry) => entry.querySelector('strong')!.textContent)).toEqual(
+          next.map((nextId) => effectiveForm(engineContent, nextId).name),
         );
-        expect(entries[index]!.textContent).toContain(nextForm.ability!.name);
-      });
-      expect(!!within(details).queryByText(t('team.branchChoice'))).toBe(next.length > 1);
+        next.forEach((nextId, index) => {
+          const nextForm = effectiveForm(engineContent, nextId);
+          expect(entries[index]!.textContent).toContain(
+            t('team.nextFormStats', { battle: nextForm.battle, base: nextForm.base }),
+          );
+          expect(entries[index]!.textContent).toContain(nextForm.ability!.name);
+        });
+        expect(!!within(details).queryByText(t('team.branchChoice'))).toBe(next.length > 1);
+      }
+      // The only text that may carry an ID is nothing: instance IDs here are neutral.
+      expectNoRawIds(card, ALL_IDS);
     }
-    // The only text that may carry an ID is nothing: instance IDs here are neutral.
-    expectNoRawIds(card, ALL_IDS);
-  }
-});
+  },
+  SLOW_TEST_MS,
+);
 
 test('a rare final form, a branching line and a base-form Starter each show their own rows', () => {
   const eevee = nextEvolutionForms(engineContent, 'eevee');

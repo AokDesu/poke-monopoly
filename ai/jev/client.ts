@@ -120,8 +120,26 @@ const notSent = (fallbackReason: FallbackReason): JevFailure => ({
 
 export const disabledJevClient: JevClient = { ask: async () => fail('disabled') };
 
-/** Spec §9 kill switch: `JEV_ENABLED=false` puts every AI on the fallback policy. */
-export const jevEnabled = (): boolean => process.env.JEV_ENABLED?.trim().toLowerCase() !== 'false';
+/**
+ * Spec §9 kill switch: `JEV_ENABLED=false` puts every AI on the fallback policy. It fails closed:
+ * Jev is on only when the variable is unset, empty or `true` (any case, spaces ignored), so a
+ * misspelt switch such as `0`, `off` or `no` turns Jev off rather than leaving the spend running.
+ * Read at every call, so a test (or a restart) sees the current value.
+ */
+export const jevEnabled = (): boolean => {
+  const value = process.env.JEV_ENABLED?.trim().toLowerCase();
+  return value === undefined || value === '' || value === 'true';
+};
+
+/**
+ * `JevClient.ask` never rejects, but a client that does must not become an unhandled rejection,
+ * which exits Node. Logs the error's class only: a message could carry request or key material.
+ */
+export const warnJevRejected = (error: unknown): void => {
+  console.warn(
+    `A Jev request failed unexpectedly (${error instanceof Error ? error.name : typeof error}); the fallback decides.`,
+  );
+};
 
 /** `JEV_MODEL` may override the pinned model, but only with a pinned `jev-1.*` release. */
 export const resolveJevModel = (): string => {

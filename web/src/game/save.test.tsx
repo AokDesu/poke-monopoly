@@ -25,6 +25,9 @@ import {
 } from './store.ts';
 import { PACE_TIMING } from '../board/pace.ts';
 
+// Named per-test budgets (ET-05): these take 2 to 8 s at full parallelism, so the 5 s default is too tight on a loaded machine.
+const SLOW_TEST_MS = 30_000;
+
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
@@ -132,101 +135,105 @@ const checkpoints: {
   },
 ];
 
-test('Continue restores five saved points, including an AI decision, without a new roll or turn (§3.1, §6.7, §6.9)', async () => {
-  vi.useFakeTimers();
-  const box = memory();
-  const store = createGameStore();
-  render(
-    <StrictMode>
-      <App store={store} storage={box} seed={1} />
-    </StrictMode>,
-  );
-  act(() => startStore(store));
-  const found: { name: string; text: string; meta: string | null }[] = [];
-  for (let step = 0; step < 800 && found.length < checkpoints.length; step++) {
-    const session = store.getSession()!;
-    for (const point of checkpoints) {
-      if (found.some((entry) => entry.name === point.name)) continue;
-      if (!point.test(session.state, session.log)) continue;
-      const text = box.getItem(SAVE_KEY);
-      expect(text, point.name).toBeTruthy();
-      expect(text).not.toContain('TYPESAFE');
-      expect(text).not.toContain('apiKey');
-      expect(Object.keys(JSON.parse(text!)).sort()).toEqual(
-        ['contentVersion', 'engineVersion', 'log', 'rngVersion', 'saveVersion', 'state'].sort(),
-      );
-      found.push({ name: point.name, text: text!, meta: box.getItem(META_KEY) });
-    }
-    if (found.length === checkpoints.length) break;
-    expect(driveOne(store), `drive ${step}`).toBe(true);
-  }
-  expect(found.map((entry) => entry.name).sort()).toEqual(
-    checkpoints.map((point) => point.name).sort(),
-  );
-  cleanup();
-
-  for (const point of found) {
-    const saved = deserialize(point.text);
-    const expected = resume(saved);
-    const next = createGameStore();
+test(
+  'Continue restores five saved points, including an AI decision, without a new roll or turn (§3.1, §6.7, §6.9)',
+  async () => {
+    vi.useFakeTimers();
+    const box = memory();
+    const store = createGameStore();
     render(
       <StrictMode>
-        <App
-          store={next}
-          storage={memory({
-            [SAVE_KEY]: point.text,
-            ...(point.meta ? { [META_KEY]: point.meta } : {}),
-          })}
-        />
+        <App store={store} storage={box} seed={1} />
       </StrictMode>,
     );
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(t('save.continueHeading'));
-    fireEvent.click(screen.getByRole('button', { name: t('save.continue') }));
-    const live = next.getSession();
-    expect(live, point.name).not.toBeNull();
-    expect(stateHash(live!.state), point.name).toBe(stateHash(saved.state));
-    expect(resume(live!).waitingFor, point.name).toEqual(expected.waitingFor);
-    expect(live!.state.rng, point.name).toEqual(saved.state.rng);
-    expect(live!.state.globalTurnNo, point.name).toBe(saved.state.globalTurnNo);
-    expect(live!.log.actions.length, point.name).toBe(saved.log.actions.length);
-    if (point.name === 'committed first die') {
-      const die = saved.log.actions.find((record) => record.action.kind === 'dice_result');
-      const value = die?.action.kind === 'dice_result' ? die.action.payload.value : undefined;
-      expect(document.body.textContent).toContain(`${t('firstPlayer.rolled')} ${value}`);
-    }
-    if (point.name === 'AI encounter decision') {
-      let body: {
-        decisionPoint?: string;
-        stateRevision?: number;
-        personalityId?: string;
-        difficulty?: string;
-        enabledActions?: { id: string }[];
-      } = {};
-      vi.stubGlobal('fetch', (_url: RequestInfo | URL, init?: RequestInit) => {
-        body = JSON.parse(String(init?.body));
-        return new Promise(() => {});
-      });
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(PACE_TIMING.readable.fillerMs);
-      });
-      expect(body.decisionPoint).toBe('encounter');
-      expect(body.stateRevision).toBe(saved.state.stateRevision);
-      expect(body.personalityId).toBe('cautious');
-      expect(body.difficulty).toBe('easy');
-      const waiting = expected.waitingFor;
-      expect(waiting.kind).toBe('decision');
-      if (waiting.kind === 'decision') {
-        expect(body.enabledActions?.map((entry) => entry.id)).toEqual(
-          waiting.legalActions.enabled.map((entry) => entry.id),
+    act(() => startStore(store));
+    const found: { name: string; text: string; meta: string | null }[] = [];
+    for (let step = 0; step < 800 && found.length < checkpoints.length; step++) {
+      const session = store.getSession()!;
+      for (const point of checkpoints) {
+        if (found.some((entry) => entry.name === point.name)) continue;
+        if (!point.test(session.state, session.log)) continue;
+        const text = box.getItem(SAVE_KEY);
+        expect(text, point.name).toBeTruthy();
+        expect(text).not.toContain('TYPESAFE');
+        expect(text).not.toContain('apiKey');
+        expect(Object.keys(JSON.parse(text!)).sort()).toEqual(
+          ['contentVersion', 'engineVersion', 'log', 'rngVersion', 'saveVersion', 'state'].sort(),
         );
+        found.push({ name: point.name, text: text!, meta: box.getItem(META_KEY) });
       }
-      expect(next.getSession()!.state.stateRevision).toBe(saved.state.stateRevision);
-      expect(next.getSession()!.state.globalTurnNo).toBe(saved.state.globalTurnNo);
-      expect(screen.getByText(t('game.resumedAiTurn'))).toBeTruthy();
+      if (found.length === checkpoints.length) break;
+      expect(driveOne(store), `drive ${step}`).toBe(true);
     }
+    expect(found.map((entry) => entry.name).sort()).toEqual(
+      checkpoints.map((point) => point.name).sort(),
+    );
     cleanup();
-  }
-});
+
+    for (const point of found) {
+      const saved = deserialize(point.text);
+      const expected = resume(saved);
+      const next = createGameStore();
+      render(
+        <StrictMode>
+          <App
+            store={next}
+            storage={memory({
+              [SAVE_KEY]: point.text,
+              ...(point.meta ? { [META_KEY]: point.meta } : {}),
+            })}
+          />
+        </StrictMode>,
+      );
+      expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(t('save.continueHeading'));
+      fireEvent.click(screen.getByRole('button', { name: t('save.continue') }));
+      const live = next.getSession();
+      expect(live, point.name).not.toBeNull();
+      expect(stateHash(live!.state), point.name).toBe(stateHash(saved.state));
+      expect(resume(live!).waitingFor, point.name).toEqual(expected.waitingFor);
+      expect(live!.state.rng, point.name).toEqual(saved.state.rng);
+      expect(live!.state.globalTurnNo, point.name).toBe(saved.state.globalTurnNo);
+      expect(live!.log.actions.length, point.name).toBe(saved.log.actions.length);
+      if (point.name === 'committed first die') {
+        const die = saved.log.actions.find((record) => record.action.kind === 'dice_result');
+        const value = die?.action.kind === 'dice_result' ? die.action.payload.value : undefined;
+        expect(document.body.textContent).toContain(`${t('firstPlayer.rolled')} ${value}`);
+      }
+      if (point.name === 'AI encounter decision') {
+        let body: {
+          decisionPoint?: string;
+          stateRevision?: number;
+          personalityId?: string;
+          difficulty?: string;
+          enabledActions?: { id: string }[];
+        } = {};
+        vi.stubGlobal('fetch', (_url: RequestInfo | URL, init?: RequestInit) => {
+          body = JSON.parse(String(init?.body));
+          return new Promise(() => {});
+        });
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(PACE_TIMING.readable.fillerMs);
+        });
+        expect(body.decisionPoint).toBe('encounter');
+        expect(body.stateRevision).toBe(saved.state.stateRevision);
+        expect(body.personalityId).toBe('cautious');
+        expect(body.difficulty).toBe('easy');
+        const waiting = expected.waitingFor;
+        expect(waiting.kind).toBe('decision');
+        if (waiting.kind === 'decision') {
+          expect(body.enabledActions?.map((entry) => entry.id)).toEqual(
+            waiting.legalActions.enabled.map((entry) => entry.id),
+          );
+        }
+        expect(next.getSession()!.state.stateRevision).toBe(saved.state.stateRevision);
+        expect(next.getSession()!.state.globalTurnNo).toBe(saved.state.globalTurnNo);
+        expect(screen.getByText(t('game.resumedAiTurn'))).toBeTruthy();
+      }
+      cleanup();
+    }
+  },
+  SLOW_TEST_MS,
+);
 
 test('a different engine or content version shows the engine mismatch message (§6.9)', () => {
   const store = createGameStore();

@@ -16,6 +16,9 @@ import {
 } from './index.ts';
 import fixture from './fixtures/start-of-game-2p.json';
 
+// 1,000 random item actions, full size: ~1.4 s alone but over the default 5 s at load 10 (ET-05).
+const ITEMS_SWEEP_MS = 30_000;
+
 /** Seat 0 in Strategy holding one secret item; seat 1 (Rival) holds its public Lucky Egg. */
 function strategy(itemId: string, seed = 4): GameState {
   const scenario = fixtureSchema.parse(fixture).state;
@@ -307,108 +310,112 @@ test("Lucky Egg adds exactly 1 to that turn's catch roll, not to movement or the
   throw new Error('No seed landed seat 0 on a Wild square');
 });
 
-test('1,000 random legal actions with items keep coins nonnegative, transfers balanced and replay exact (§8)', () => {
-  fc.assert(
-    fc.property(
-      fc.integer({ min: 0, max: 100_000 }),
-      fc.tuple(fc.integer({ min: 0, max: 6 }), fc.integer({ min: 0, max: 6 })),
-      fc.array(fc.nat(), { minLength: 1000, maxLength: 1000 }),
-      (seed, coins, selections) => {
-        const start = (gameSeed: number) => {
-          const game = strategy('repel', gameSeed);
-          // Low balances put Pickpocket at its 0-coin and partial-take boundaries.
-          game.players[0]!.coins = coins[0];
-          game.players[1]!.coins = coins[1];
-          game.players[0]!.items.push(
-            {
-              instanceId: 'bought:0:2',
-              itemId: 'pickpocket',
-              name: 'Pickpocket',
-              visibility: 'secret',
-            },
-            {
-              instanceId: 'bought:0:3',
-              itemId: 'lucky-egg',
-              name: 'Lucky Egg',
-              visibility: 'secret',
-            },
-          );
-          game.players[1]!.items.push(
-            {
-              instanceId: 'bought:1:4',
-              itemId: 'pickpocket',
-              name: 'Pickpocket',
-              visibility: 'secret',
-            },
-            { instanceId: 'bought:1:5', itemId: 'repel', name: 'Repel', visibility: 'secret' },
-          );
-          return game;
-        };
-        let games = 0;
-        let state = start(seed);
-        let log = createGameLog(state);
-        let used = 0;
-        let checked = 0;
-        for (const selection of selections) {
-          // A finished game (§4.7 step 3) has no further actions: replay it, then start a fresh one.
-          if (state.phase.kind === 'finished') {
-            expect(replay(JSON.parse(JSON.stringify(log)))).toEqual(state);
-            state = start(seed + ++games);
-            log = createGameLog(state);
-          }
-          const choices = legalActions(
-            state,
-            pendingDecision(state)?.seatIndex ?? state.activeSeatIndex,
-          ).enabled;
-          // A sole choice or pending roll advances automatically; otherwise pick at random.
-          const step =
-            choices.length > 1
-              ? accepted(state, choices[selection % choices.length]!.kind, {
-                  ...choices[selection % choices.length]!.payload,
-                })
-              : advanceAutomatically(state);
-          const records = 'record' in step ? [step.record] : step.records;
-          if (records.length !== 1) throw new Error('No legal progress');
-          const next = step.state;
-          const total = (game: GameState) =>
-            game.players.reduce((sum, player) => sum + player.coins, 0);
-          const bank = step.events
-            .filter((event) => event.kind === 'coin_transfer')
-            .reduce(
-              (sum, event) =>
-                sum +
-                (event.source.kind === 'bank' ? event.amount : 0) -
-                (event.destination.kind === 'bank' ? event.amount : 0),
-              0,
+test(
+  '1,000 random legal actions with items keep coins nonnegative, transfers balanced and replay exact (§8)',
+  () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 0, max: 100_000 }),
+        fc.tuple(fc.integer({ min: 0, max: 6 }), fc.integer({ min: 0, max: 6 })),
+        fc.array(fc.nat(), { minLength: 1000, maxLength: 1000 }),
+        (seed, coins, selections) => {
+          const start = (gameSeed: number) => {
+            const game = strategy('repel', gameSeed);
+            // Low balances put Pickpocket at its 0-coin and partial-take boundaries.
+            game.players[0]!.coins = coins[0];
+            game.players[1]!.coins = coins[1];
+            game.players[0]!.items.push(
+              {
+                instanceId: 'bought:0:2',
+                itemId: 'pickpocket',
+                name: 'Pickpocket',
+                visibility: 'secret',
+              },
+              {
+                instanceId: 'bought:0:3',
+                itemId: 'lucky-egg',
+                name: 'Lucky Egg',
+                visibility: 'secret',
+              },
             );
-          // Player-to-player transfers (Pickpocket) conserve coins; only bank transfers change the total.
-          expect(total(next)).toBe(total(state) + bank);
-          for (const event of step.events) {
-            if (event.kind === 'uid_destroyed' && event.entity === 'item') {
-              used++;
-              expect(
-                next.players.flatMap((player) => player.items.map((item) => item.instanceId)),
-              ).not.toContain(event.instanceId);
+            game.players[1]!.items.push(
+              {
+                instanceId: 'bought:1:4',
+                itemId: 'pickpocket',
+                name: 'Pickpocket',
+                visibility: 'secret',
+              },
+              { instanceId: 'bought:1:5', itemId: 'repel', name: 'Repel', visibility: 'secret' },
+            );
+            return game;
+          };
+          let games = 0;
+          let state = start(seed);
+          let log = createGameLog(state);
+          let used = 0;
+          let checked = 0;
+          for (const selection of selections) {
+            // A finished game (§4.7 step 3) has no further actions: replay it, then start a fresh one.
+            if (state.phase.kind === 'finished') {
+              expect(replay(JSON.parse(JSON.stringify(log)))).toEqual(state);
+              state = start(seed + ++games);
+              log = createGameLog(state);
             }
+            const choices = legalActions(
+              state,
+              pendingDecision(state)?.seatIndex ?? state.activeSeatIndex,
+            ).enabled;
+            // A sole choice or pending roll advances automatically; otherwise pick at random.
+            const step =
+              choices.length > 1
+                ? accepted(state, choices[selection % choices.length]!.kind, {
+                    ...choices[selection % choices.length]!.payload,
+                  })
+                : advanceAutomatically(state);
+            const records = 'record' in step ? [step.record] : step.records;
+            if (records.length !== 1) throw new Error('No legal progress');
+            const next = step.state;
+            const total = (game: GameState) =>
+              game.players.reduce((sum, player) => sum + player.coins, 0);
+            const bank = step.events
+              .filter((event) => event.kind === 'coin_transfer')
+              .reduce(
+                (sum, event) =>
+                  sum +
+                  (event.source.kind === 'bank' ? event.amount : 0) -
+                  (event.destination.kind === 'bank' ? event.amount : 0),
+                0,
+              );
+            // Player-to-player transfers (Pickpocket) conserve coins; only bank transfers change the total.
+            expect(total(next)).toBe(total(state) + bank);
+            for (const event of step.events) {
+              if (event.kind === 'uid_destroyed' && event.entity === 'item') {
+                used++;
+                expect(
+                  next.players.flatMap((player) => player.items.map((item) => item.instanceId)),
+                ).not.toContain(event.instanceId);
+              }
+            }
+            for (const player of next.players) expect(player.coins).toBeGreaterThanOrEqual(0);
+            const uids = next.players.flatMap((player) => [
+              ...player.items.map((item) => item.instanceId),
+              ...player.team.map((pokemon) => pokemon.instanceId),
+            ]);
+            expect(new Set(uids).size).toBe(uids.length);
+            state = next;
+            log.actions.push(...records);
+            checked++;
           }
-          for (const player of next.players) expect(player.coins).toBeGreaterThanOrEqual(0);
-          const uids = next.players.flatMap((player) => [
-            ...player.items.map((item) => item.instanceId),
-            ...player.team.map((pokemon) => pokemon.instanceId),
-          ]);
-          expect(new Set(uids).size).toBe(uids.length);
-          state = next;
-          log.actions.push(...records);
-          checked++;
-        }
-        expect(checked).toBe(selections.length);
-        expect(used).toBeGreaterThan(0);
-        expect(replay(JSON.parse(JSON.stringify(log)))).toEqual(state);
-      },
-    ),
-    { numRuns: 2, seed: 31 },
-  );
-});
+          expect(checked).toBe(selections.length);
+          expect(used).toBeGreaterThan(0);
+          expect(replay(JSON.parse(JSON.stringify(log)))).toEqual(state);
+        },
+      ),
+      { numRuns: 2, seed: 31 },
+    );
+  },
+  ITEMS_SWEEP_MS,
+);
 
 test.each([
   ['lucky-egg', 'active'],

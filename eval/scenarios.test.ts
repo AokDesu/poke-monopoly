@@ -6,6 +6,7 @@ import type { JevAnswer, JevResult } from '../ai/jev/client.ts';
 import { createFakeJevClient } from '../ai/jev/fake.ts';
 import { SpendLedger, type UsageLine } from '../ai/jev/spend.ts';
 import { CONTENT } from '../ai/questions/content.ts';
+import { pendingDecision } from '../engine/index.ts';
 import {
   DEFAULT_FIXTURES,
   parseFixture,
@@ -38,9 +39,10 @@ const fixtures = async () =>
 
 test('spec §10 C2: 8 Strategy, 6 Encounter and 6 Sell Greedy scenarios, each one committed fixture', async () => {
   const saved = await fixtures();
-  // The promise response placeholders (S09/S11) are a separate decision point.
+  // The promise response (S09/S11) and battle decision (#56 C3) fixtures are separate decision points.
+  const separate = ['promise_response', 'pvp_response', 'ability_window', 'reward'];
   const greedy = saved.filter(
-    (f) => f.tags.personality === 'Greedy' && f.tags.decisionPoint !== 'promise_response',
+    (f) => f.tags.personality === 'Greedy' && !separate.includes(f.tags.decisionPoint),
   );
   const count = (point: string) => greedy.filter((f) => f.tags.decisionPoint === point).length;
   expect([count('strategy'), count('encounter'), count('sell')]).toEqual([8, 6, 6]);
@@ -56,8 +58,8 @@ test('spec §10 C2: 8 Strategy, 6 Encounter and 6 Sell Greedy scenarios, each on
 test('every scenario has its seat 0 to act and asks exactly one Jev request', async () => {
   for (const scenario of SCENARIOS) {
     const { state, request } = decideRequest(scenario);
-    // A responder scenario has the human asking and seat 0, the AI, owing the answer.
-    const owes = state.pendingResponse?.responderSeatIndex ?? state.activeSeatIndex;
+    // A responder or battle scenario has the human acting and seat 0, the AI, owing the answer.
+    const owes = pendingDecision(state)?.seatIndex ?? state.activeSeatIndex;
     expect(owes).toBe(0);
     expect(request.decisionPoint === 'promise_response').toBe(state.pendingResponse !== undefined);
     await expect(scenarioRequest(scenario)).resolves.toBeDefined();

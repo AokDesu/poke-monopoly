@@ -30,13 +30,13 @@ import { ChatLedger, createChatReplier, incomingMessage, type ChatReplier } from
 import { createSdkJevClient, type JevClient } from './jev/client.ts';
 import { DecisionJournal } from './jev/decision-journal.ts';
 import { fileDecisionLog, type DecisionLog } from './jev/decision-log.ts';
-import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
+import { defaultUsageLedger, errorClass, type UsageRecorder } from './jev/spend.ts';
 import { createHaikuClient } from './haiku/client.ts';
 import { speechStatus } from './haiku/status.ts';
 import { presentationHeaders } from './presentation.ts';
 import { decideShop, shopRequestSchema } from './shop.ts';
 import { createManipulationGate } from './speech/gate.ts';
-import { sameOriginJson } from './speech/guard.ts';
+import { loopbackHost, sameOriginJson } from './speech/guard.ts';
 import { createSpeaker, InvalidSpeakRequest, type SpeakerOptions } from './speech/speak.ts';
 
 /** Spec §6 item 2: the endpoint validates payload size before it reads the body. */
@@ -105,10 +105,14 @@ export const createApp = ({
     ...speech,
   });
 
-  // Never a stack trace or an error message: either could carry request or key material.
-  app.onError((_error, c) => c.json({ error: 'internal_error' }, 500));
+  // Never a stack trace or an error message: either could carry request or key material. The
+  // class is logged, so a 500 is never silent (spec §9).
+  app.onError((error, c) => {
+    console.warn(`A request failed unexpectedly (${errorClass(error)}) on ${c.req.path}.`);
+    return c.json({ error: 'internal_error' }, 500);
+  });
 
-  app.get('/api/ai/status', (c) =>
+  app.get('/api/ai/status', loopbackHost, (c) =>
     c.json(
       aiStatusSchema.parse({
         ...jevStatus(usage),
@@ -122,6 +126,7 @@ export const createApp = ({
   // deadline. Only then is the decision logged (spec §6.8); the speculative fallback never is.
   app.post(
     '/api/ai/outcome',
+    sameOriginJson,
     bodyLimit({
       maxSize: MAX_BODY_BYTES,
       onError: (c) => c.json({ error: 'payload_too_large' }, 413),
@@ -150,6 +155,7 @@ export const createApp = ({
   // is removed from every later decision request below.
   app.post(
     '/api/ai/chat',
+    sameOriginJson,
     bodyLimit({
       maxSize: MAX_BODY_BYTES,
       onError: (c) => c.json({ error: 'payload_too_large' }, 413),
@@ -232,6 +238,7 @@ export const createApp = ({
   for (const path of ['/api/ai/decide', '/api/ai/fallback'])
     app.post(
       path,
+      sameOriginJson,
       bodyLimit({
         maxSize: MAX_BODY_BYTES,
         onError: (c) => c.json({ error: 'payload_too_large' }, 413),
@@ -285,7 +292,10 @@ export const createApp = ({
             answer = fallbackAnswer(request, 'not_an_option');
             events = undefined;
           }
-        } catch {
+        } catch (error) {
+          console.warn(
+            `A decider failed unexpectedly (${errorClass(error)}); the first option stands.`,
+          );
           answer = fallbackAnswer(request, 'decider_error');
         }
         journal.propose(request, answer, events ?? []);

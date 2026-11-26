@@ -42,7 +42,7 @@ Install these before the tools in §3.
 |---|---|---|---|
 | git | any current release | everyone | Required by no-mistakes and treehouse. |
 | GitHub CLI `gh` | any current release; **2.99.0** only for `--attach` on issues and PRs | everyone | Run `gh auth login`, then `gh auth status`. gh-axi, no-mistakes (PRs and CI) and firstmate all use it. |
-| Node.js | **22.19 or newer** | everyone | The highest minimum among the tools: quota-axi needs 22.19, lavish-axi 22, chrome-devtools-axi 20, gh-axi 20, tasks-axi 20. The project itself uses Node 24 (`.node-version`; see the README); use that one for project work. |
+| Node.js | **22.19 or newer** | everyone | The highest minimum among the tools: quota-axi needs 22.19, lavish-axi 22, chrome-devtools-axi 20, gh-axi 20, tasks-axi 20. The project itself uses Node 24 (`.node-version`; see the README); use that one for project work: `npm test` needs Node `^24.15.0` (`engines` in `package.json`). On a shared or loaded machine run the suite with `npm test -- --maxWorkers=2`; the heavy sim and property tests are budgeted per test, but they are slower when many jobs compete for the CPU. |
 | npm | the one shipped with Node | everyone | Used for `npm install -g` and `npx`. Set up a user-level prefix or a version manager (mise, nvm, fnm) so you never need `sudo`. |
 | A coding agent | Claude Code or Codex at minimum | everyone | no-mistakes needs at least one runnable agent; `agent: auto` in `~/.no-mistakes/config.yaml` picks one it finds. |
 | Chrome | stable channel | stream C; others if they check the UI | chrome-devtools-axi drives a local Chrome. Its default is the stable channel (`CHROME_DEVTOOLS_AXI_CHANNEL` selects another). |
@@ -200,7 +200,7 @@ Add the Haiku key the same way, and only on the machine that runs the live game 
 
 The live speech check is `npm run speech:smoke` (`-- --rounds <n>`, default 4, so 12 requests): it sends three fixed briefs to the real service one at a time and prints each line, its tokens, its baht cost and its latency, then p50 and p95 latency and tokens and baht per call. It spends real credit and is run by the repository owner only, never by an agent.
 
-`JEV_ENABLED=false` is the kill switch from spec §9: every AI falls back to the policy. `HAIKU_ENABLED=false` (or no Haiku key) is the second kill switch: generated speech is off and the line bank speaks. Haiku is also held to its own limits (THB 150 in total, 150 calls and 200,000 input tokens per game, spec §9); past a limit the line bank speaks.
+`JEV_ENABLED=false` is the kill switch from spec §9: every AI falls back to the policy. It fails closed: only an unset, empty or `true` value leaves Jev on. `HAIKU_ENABLED=false` (or no Haiku key) is the second kill switch: generated speech is off and the line bank speaks. Haiku is also held to its own limits (THB 150 in total, 150 calls and 200,000 input tokens per game, spec §9); past a limit the line bank speaks.
 
 Every live Jev request is logged to the git-ignored `logs/jev-usage.jsonl` (IDs, tokens and timings only, never state or the key). `npm run usage` prints the spend so far in USD and THB, its share of the THB 1,500 cap and the AI decision time per turn (p50, p95). The server warns once at 80% of the cap; at the cap, or once today's spend reaches an optional `JEV_DAILY_BUDGET_THB` in `.env`, every AI falls back with reason `budget_exceeded`.
 

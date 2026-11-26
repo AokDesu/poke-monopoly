@@ -25,6 +25,9 @@ import { BoardScreen } from './BoardScreen.tsx';
 import { seatLabel } from './labels.ts';
 import { PromisePanel } from './PromisePanel.tsx';
 
+// Named per-test budgets (ET-05): these take 2 to 8 s at full parallelism, so the 5 s default is too tight on a loaded machine.
+const SLOW_TEST_MS = 30_000;
+
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () {
     this.open = true;
@@ -93,66 +96,72 @@ async function openWindow(decide: Parameters<typeof fakeServer>[2] = accept, riv
   return { server, store };
 }
 
-test('an offer is only a question: nothing is active until the rival accepts, and acceptance makes the exact directed promise without spending the move', async () => {
-  let release: () => void = () => {};
-  const gate = new Promise<void>((resolve) => (release = resolve));
-  const { server, store } = await openWindow((path, body) =>
-    path === '/api/ai/decide' && body.decisionPoint === 'promise_response'
-      ? gate.then(() => reply('respond:accept'))
-      : accept(path, body),
-  );
-  const tactical = store.getSession()!.state.turnBudgets.tacticalAction;
-  render(<BoardScreen store={store} />);
-  // The engine lists the offers; nothing is sent until one is chosen and confirmed.
-  expect(
-    within(panel())
-      .getByRole('button', { name: t('promise.sendNone') })
-      .hasAttribute('disabled'),
-  ).toBe(true);
-  press(rivalGroup(), offerLabel);
-  expect(panel().textContent).toContain(t('promise.preview.offer', { rival: rivalOne }));
-  press(panel(), t('promise.send', { rival: rivalOne }));
-  await settle(1000);
+test(
+  'an offer is only a question: nothing is active until the rival accepts, and acceptance makes the exact directed promise without spending the move',
+  async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const { server, store } = await openWindow((path, body) =>
+      path === '/api/ai/decide' && body.decisionPoint === 'promise_response'
+        ? gate.then(() => reply('respond:accept'))
+        : accept(path, body),
+    );
+    const tactical = store.getSession()!.state.turnBudgets.tacticalAction;
+    render(<BoardScreen store={store} />);
+    // The engine lists the offers; nothing is sent until one is chosen and confirmed.
+    expect(
+      within(panel())
+        .getByRole('button', { name: t('promise.sendNone') })
+        .hasAttribute('disabled'),
+    ).toBe(true);
+    press(rivalGroup(), offerLabel);
+    expect(panel().textContent).toContain(t('promise.preview.offer', { rival: rivalOne }));
+    press(panel(), t('promise.send', { rival: rivalOne }));
+    await settle(1000);
 
-  // Offered, not active: the window waits, nothing is recorded, and there is no way to skip past it.
-  expect(promisesOf(store)).toEqual([]);
-  expect(store.getSession()!.state.pendingResponse).toBeDefined();
-  expect(panel().querySelector('[data-promise]')!.getAttribute('data-promise')).toBe('pending');
-  expect(panel().textContent).toContain(t('promise.pending.offer', { rival: rivalOne }));
-  expect(within(panel()).queryByRole('button')).toBeNull();
-  expect(memory().textContent).toContain(t('promise.offeredRow', { rival: rivalSeat }));
-  expect(memory().querySelector('[data-promise-status="active"]')).toBeNull();
-  expect(memory().textContent).toContain(t('promise.memory.empty'));
-  const questions = server.calls.decide.filter((call) => call.decisionPoint === 'promise_response');
-  expect(questions).toHaveLength(1);
-  const asked = questions[0]!;
-  expect(asked).toMatchObject({ decisionPoint: 'promise_response', seatIndex: 1 });
-  expect(asked.enabledActions.map((a) => a.id)).toEqual(['respond:accept', 'respond:reject']);
-  expect(asked.observation.own.seatIndex).toBe(1);
+    // Offered, not active: the window waits, nothing is recorded, and there is no way to skip past it.
+    expect(promisesOf(store)).toEqual([]);
+    expect(store.getSession()!.state.pendingResponse).toBeDefined();
+    expect(panel().querySelector('[data-promise]')!.getAttribute('data-promise')).toBe('pending');
+    expect(panel().textContent).toContain(t('promise.pending.offer', { rival: rivalOne }));
+    expect(within(panel()).queryByRole('button')).toBeNull();
+    expect(memory().textContent).toContain(t('promise.offeredRow', { rival: rivalSeat }));
+    expect(memory().querySelector('[data-promise-status="active"]')).toBeNull();
+    expect(memory().textContent).toContain(t('promise.memory.empty'));
+    const questions = server.calls.decide.filter(
+      (call) => call.decisionPoint === 'promise_response',
+    );
+    expect(questions).toHaveLength(1);
+    const asked = questions[0]!;
+    expect(asked).toMatchObject({ decisionPoint: 'promise_response', seatIndex: 1 });
+    expect(asked.enabledActions.map((a) => a.id)).toEqual(['respond:accept', 'respond:reject']);
+    expect(asked.observation.own.seatIndex).toBe(1);
 
-  release();
-  await settle(1000);
-  const [made] = promisesOf(store);
-  expect(made).toMatchObject({ promiserSeatIndex: 0, recipientSeatIndex: 1 });
-  expect(store.getSession()!.state.pendingResponse).toBeUndefined();
-  expect(store.getSession()!.state.turnBudgets.tacticalAction).toBe(tactical);
-  expect(panel().querySelector('[data-promise-answer="accepted"]')).not.toBeNull();
-  expect(panel().textContent).toContain(t('promise.answer.accepted', { rival: rivalOne }));
-  expect(panel().textContent).toContain(
-    t('promise.expires', { whose: t('promise.possessive.you'), turn: made!.closesOwnTurnNo }),
-  );
-  expect(within(panel()).getByRole('button', { name: t('social.continue') })).toBeTruthy();
-  const row = memory().querySelector('[data-promise-status="active"]')!;
-  expect(row.textContent).toContain(t('promise.row', { promiser: you, recipient: rivalSeat }));
-  expect(row.textContent).toContain(
-    t('promise.row.active', {
-      created: made!.createdGlobalTurnNo,
-      whose: t('promise.possessive.you'),
-      turn: made!.closesOwnTurnNo,
-    }),
-  );
-  expect(memory().querySelector('[data-memory="accepted"]')).not.toBeNull();
-});
+    release();
+    await settle(1000);
+    const [made] = promisesOf(store);
+    expect(made).toMatchObject({ promiserSeatIndex: 0, recipientSeatIndex: 1 });
+    expect(store.getSession()!.state.pendingResponse).toBeUndefined();
+    expect(store.getSession()!.state.turnBudgets.tacticalAction).toBe(tactical);
+    expect(panel().querySelector('[data-promise-answer="accepted"]')).not.toBeNull();
+    expect(panel().textContent).toContain(t('promise.answer.accepted', { rival: rivalOne }));
+    expect(panel().textContent).toContain(
+      t('promise.expires', { whose: t('promise.possessive.you'), turn: made!.closesOwnTurnNo }),
+    );
+    expect(within(panel()).getByRole('button', { name: t('social.continue') })).toBeTruthy();
+    const row = memory().querySelector('[data-promise-status="active"]')!;
+    expect(row.textContent).toContain(t('promise.row', { promiser: you, recipient: rivalSeat }));
+    expect(row.textContent).toContain(
+      t('promise.row.active', {
+        created: made!.createdGlobalTurnNo,
+        whose: t('promise.possessive.you'),
+        turn: made!.closesOwnTurnNo,
+      }),
+    );
+    expect(memory().querySelector('[data-memory="accepted"]')).not.toBeNull();
+  },
+  SLOW_TEST_MS,
+);
 
 test('asking a rival to promise records the rival as the promiser and the player as the recipient', async () => {
   const { store } = await openWindow();

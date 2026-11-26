@@ -20,6 +20,9 @@ import {
 /** Seeded choice source for a policy; separate from the engine's private game RNG. */
 export type PolicyRng = { int(n: number): number };
 
+/** The deciding seat's chances to win, tie and lose a pending battle, each from the engine's exact odds. */
+export type BattleChances = { win: number; tie: number; loss: number };
+
 /**
  * Engine-computed numbers for the deciding seat that its observation does not carry (§5.2).
  * The caller asks the engine for them, so a policy never needs the game state.
@@ -33,6 +36,10 @@ export type PolicyFacts = {
   saleValue?: Readonly<Record<string, number>>;
   /** Lost Battle points for each own Pokémon if removed, from `saleFacts` (§5.6). */
   keepValue?: Readonly<Record<string, number>>;
+  /** The seat's chances in the pending PvP or Gym battle (`battlePreview`, `challengeOdds`; §4.4, §5.3). */
+  battle?: BattleChances;
+  /** The same chances after each open Ability activation, by action ID (`battlePreview().choices`). */
+  battleChoices?: Readonly<Record<string, BattleChances>>;
 };
 
 /** What `SimEngine.facts` returns: the numbers above plus the exploit facts the combat policies read. */

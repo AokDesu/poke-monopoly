@@ -5,11 +5,12 @@ import type {
   DecisionRequest,
 } from '../engine/contract/decision.ts';
 import { createPolicyRng, type PolicyChoice, type PolicyFacts } from '../sim/policy.ts';
+import { ownBattle } from './battle.ts';
 import { FallbackPolicy, PERSONALITIES } from './fallback/index.ts';
 import { HARD_ROLLOUT_MS } from './hard.ts';
 import { createSdkJevClient, jevEnabled, type JevClient } from './jev/client.ts';
 import type { DecisionEvent } from './jev/decision-log.ts';
-import { defaultUsageLedger, type UsageRecorder } from './jev/spend.ts';
+import { defaultUsageLedger, warnLedgerFailed, type UsageRecorder } from './jev/spend.ts';
 import type { SellFacts } from './questions/index.ts';
 import {
   GameQuota,
@@ -39,6 +40,9 @@ export type Decider = (request: DecisionRequest, context: DeciderContext) => Pro
 /**
  * Spec §9 kill switch, key presence and spend guard, read per call so the badge tells the truth.
  * The usage ledger is opened only once a key is set, so a keyless server never reads the log.
+ * A ledger that cannot be opened or read fails closed: with the spend unknown the guard counts as
+ * tripped (`budget_exceeded`, backup only), so the policy decides and the badge says so. The
+ * error's class is logged, never its message.
  */
 export const jevStatus = (
   usage: () => Pick<UsageRecorder, 'budgetExceeded'> = defaultUsageLedger,
@@ -47,7 +51,12 @@ export const jevStatus = (
   if (!process.env.TYPESAFE_API_KEY?.trim()) {
     return { jevEnabled: true, backupOnly: true, reason: 'missing_key' };
   }
-  if (usage().budgetExceeded()) {
+  try {
+    if (usage().budgetExceeded()) {
+      return { jevEnabled: true, backupOnly: true, reason: 'budget_exceeded' };
+    }
+  } catch (error) {
+    warnLedgerFailed('The spend ledger failed; Jev is on backup until it can be read', error);
     return { jevEnabled: true, backupOnly: true, reason: 'budget_exceeded' };
   }
   return { jevEnabled: true, backupOnly: false, reason: null };
@@ -149,6 +158,20 @@ const sellFactsOf = (
  * the Sell Phase's prices for the Sell Nouls and the policy's sale values.
  */
 const toFacts = (request: DecisionRequest): DecideFacts => {
+  const facts = numberFacts(request);
+  // A battle's chances, read for the asked seat's own side (spec §4.4, §5.3): the engine's own
+  // numbers, for the question's buckets and the fallback policy's scores.
+  const wire = request.facts.battle;
+  if (!wire) return facts;
+  const battle = ownBattle(request.observation, wire);
+  return {
+    ...facts,
+    battle,
+    policy: { ...facts.policy, battle: battle.now, battleChoices: battle.choices },
+  };
+};
+
+const numberFacts = (request: DecisionRequest): DecideFacts => {
   const sale = sellFactsOf(request);
   if (sale)
     return { policy: { saleValue: sale.saleValue, keepValue: sale.keepValue }, sell: sale.facts };
