@@ -723,24 +723,17 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
       }
       const enabledActions = legalActions(state, seatIndex).enabled;
       if (enabledActions.length <= 1) return false;
-      // A Deal Card question (§4.8) is answered by the engine's first listed choice, which is accept only when
-      // the terms are legal and within the rival's budget, else reject: the bounded fallback, with no service
-      // call, so a slow or failed service changes nothing and never commits (only the human's Confirm does).
-      // The answer is applied without `decision`: how a rival answered is never shown to the proposer, so its
-      // source and fallback reason never reach the feed, a notice, table talk or the Backup bot reason.
-      // shortcut: the rival's willingness is not asked yet; connect the deal response route here (#164 D3).
-      if (state.pendingResponse?.kind === 'deal') {
-        const choice = enabledActions[0]!;
-        const actorId = state.players.find((player) => player.seatIndex === seatIndex)!.actorId;
-        const result = submit({ actorId, kind: choice.kind, payload: choice.payload } as Command);
-        if ('rejected' in result) throw new Error('Opponent action was rejected');
-        return true;
-      }
-      // A promise question (§4.8) is asked of its responder at its own decision point, whatever
-      // phase the human's turn is in; the engine's pending record says so, not the phase.
+      // A Deal Card question (§4.8) and a promise question are each asked of their responder at their own
+      // decision point, whatever phase the human's turn is in; the engine's pending record says so, not the phase.
+      const dealQuestion = state.pendingResponse?.kind === 'deal';
       const promiseQuestion = state.pendingResponse?.kind === 'promise_offer';
-      const decisionPoint = promiseQuestion ? 'promise_response' : state.phase.kind;
+      const decisionPoint = dealQuestion
+        ? 'deal_response'
+        : promiseQuestion
+          ? 'promise_response'
+          : state.phase.kind;
       if (
+        !dealQuestion &&
         !promiseQuestion &&
         (state.pendingPickpocket ||
           !['strategy', 'encounter', 'sell', 'shop'].includes(decisionPoint) ||
@@ -769,7 +762,8 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
       // Demo mode shows a rival's private options, so only a game with a human seat to show them
       // to keeps anything: a watched game never does (spec §1, issue #220).
       const viewerSeat = humanSeat(state);
-      const keepDemo = demo() && viewerSeat !== undefined;
+      // A Deal Card is the proposer's own question: how the rival answered is never shown to them (§4.8).
+      const keepDemo = demo() && viewerSeat !== undefined && !dealQuestion;
       const answer = await requestOpponent(
         JSON.stringify({
           ...ids,
@@ -802,6 +796,20 @@ export function createGameStore({ demo = () => false }: { demo?: () => boolean }
       if (!answer || signal.aborted || token !== gameToken || session?.state !== snapshot.state)
         return false;
       reportOutcome(ids, answer);
+      // A Deal Card answer is applied bare: its source, fallback reason and spoken line never reach the feed, a
+      // notice, table talk or the Backup bot reason, since how a rival answered is never shown to the proposer.
+      // The bounded fallback (deadline, failed service, bad answer) is the server's own: it refuses, never accepts.
+      if (dealQuestion) {
+        if (!('choice' in answer) || typeof answer.choice !== 'string') {
+          throw new Error('Invalid opponent answer');
+        }
+        const choice = enabledActions.find((entry) => entry.id === answer.choice);
+        if (!choice) throw new Error('Opponent chose an unavailable action');
+        const actorId = state.players.find((player) => player.seatIndex === seatIndex)!.actorId;
+        const result = submit({ actorId, kind: choice.kind, payload: choice.payload } as Command);
+        if ('rejected' in result) throw new Error('Opponent action was rejected');
+        return true;
+      }
       const demoChoice =
         keepDemo && viewerSeat !== undefined
           ? demoChoiceOf({

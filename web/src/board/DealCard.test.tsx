@@ -69,8 +69,11 @@ const item = (instanceId: string, itemId: string, visibility: 'public' | 'secret
  * Seat 0 (the human, 20 coins) holds Porygon, a Pidgey, its public Potion and a secret Repel. Seat 1 holds two
  * Pokémon, a public Repel and a secret Pickpocket it must never show.
  */
-async function dealGame({ pidgey = true }: { pidgey?: boolean } = {}) {
-  const server = fakeServer();
+async function dealGame({
+  pidgey = true,
+  decide,
+}: { pidgey?: boolean; decide?: Parameters<typeof fakeServer>[2] } = {}) {
+  const server = fakeServer(undefined, undefined, decide);
   const store = socialGame(1);
   expect(await toHumanSocial(store)).toBe(true);
   edit(store, (state) => {
@@ -291,29 +294,109 @@ test('reloading while the rival is asked, or after its answer, never commits and
   expect(records(again, 'confirm_deal')).toHaveLength(1);
 });
 
-test('the rival’s answer is applied with no source or fallback reason, and no service is asked about the deal', async () => {
+const dealAnswer = (choice: string, source: 'jev' | 'fallback' = 'jev') =>
+  new Response(
+    JSON.stringify({
+      choice,
+      source,
+      ...(source === 'fallback' && { fallbackReason: 'timeout' }),
+    }),
+  );
+const dealRequests = (server: ReturnType<typeof fakeServer>) =>
+  server.calls.decide.filter((call) => call.decisionPoint === 'deal_response');
+
+test('a rival refuses the lopsided deal the first listed choice used to accept: the server’s deal_response answer is applied (§5.3, #164 D3)', async () => {
+  // A Pidgey-for-5-coins sale is within the engine's budget, so `respond-deal:accept` is listed first.
+  const { store, server } = await dealGame({
+    decide: (path, body) =>
+      body.decisionPoint === 'deal_response' && path === '/api/ai/decide'
+        ? dealAnswer('respond-deal:reject')
+        : undefined,
+  });
+  const before = holdings(store);
+  await proposeAndAnswer('sell', /Pidgey/, 5);
+
+  expect(dealRequests(server)).toHaveLength(1);
+  expect(stage(store)).toBeNull();
+  expect(card().textContent).toContain(t('deal.lead.declined', { rival }));
+  expect(holdings(store)).toEqual(before);
+  expect(records(store, 'confirm_deal')).toHaveLength(0);
+  expect(records(store, 'respond_deal')[0]!.action).toMatchObject({
+    kind: 'respond_deal',
+    payload: { answer: 'reject' },
+  });
+});
+
+test('the rival is asked at the deal_response point, by its own seat, with only the answers the engine lists', async () => {
   const { store, server } = await dealGame();
-  const paths = () => vi.mocked(fetch).mock.calls.map(([url]) => String(url));
-  const asked = paths().length;
-  const decided = server.calls.decide.length;
   await proposeAndAnswer('sell', /Pidgey/, 2);
-  expect(server.calls.decide).toHaveLength(decided);
-  expect(
-    paths()
-      .slice(asked)
-      .filter((path) => /decide|fallback|outcome/.test(path)),
-  ).toEqual([]);
-  const dealEntries = store
-    .getView()!
-    .feed.filter((entry) => entry.record.action.kind.endsWith('_deal'));
-  expect(dealEntries.map((entry) => entry.record.action.kind)).toEqual([
-    'propose_deal',
-    'respond_deal',
-  ]);
-  for (const entry of dealEntries) expect(entry.decision).toBeUndefined();
-  // Nothing on the card or the page names how the rival decided.
-  expect(document.body.textContent).not.toMatch(/fallbackReason|unsupported_decision_point/i);
-  expect(card().textContent).not.toMatch(/backup|fallback|jev|service|bot/i);
+  const [asked, ...rest] = dealRequests(server);
+  expect(rest).toEqual([]);
+  expect(asked).toMatchObject({ decisionPoint: 'deal_response', seatIndex: 1 });
+  expect(asked!.observation.own).toMatchObject({
+    seatIndex: 1,
+    pendingResponse: { kind: 'deal', stage: 'proposed', responderSeatIndex: 1 },
+  });
+  expect(asked!.enabledActions.length).toBeGreaterThan(1);
+  for (const action of asked!.enabledActions)
+    expect(['respond_deal', 'counter_deal']).toContain(action.kind);
+  expect(stage(store)).toBe('accepted');
+});
+
+test('the server’s counter is applied as a new price the player must confirm', async () => {
+  const { store, server } = await dealGame({
+    decide: (path, body) => {
+      if (path !== '/api/ai/decide' || body.decisionPoint !== 'deal_response') return undefined;
+      const counter = body.enabledActions.find((action) => action.kind === 'counter_deal');
+      return counter ? dealAnswer(counter.id) : undefined;
+    },
+  });
+  await proposeAndAnswer('buy', /Caterpie/, 1);
+  expect(dealRequests(server)).toHaveLength(1);
+  expect(stage(store)).toBe('countered');
+  expect(records(store, 'confirm_deal')).toHaveLength(0);
+});
+
+test('when the service fails the bounded fallback answers, and it refuses rather than accepts', async () => {
+  const { store, server } = await dealGame({
+    decide: (path, body) => {
+      if (body.decisionPoint !== 'deal_response') return undefined;
+      return path === '/api/ai/decide'
+        ? new Response('down', { status: 500 })
+        : dealAnswer('respond-deal:reject', 'fallback');
+    },
+  });
+  const before = holdings(store);
+  await proposeAndAnswer('sell', /Pidgey/, 5);
+  expect(dealRequests(server)).toHaveLength(1);
+  expect(card().textContent).toContain(t('deal.lead.declined', { rival }));
+  expect(holdings(store)).toEqual(before);
+});
+
+test('the rival’s answer is applied with no source or fallback reason, whoever gave it', async () => {
+  for (const source of ['jev', 'fallback'] as const) {
+    const { store } = await dealGame({
+      decide: (path, body) =>
+        body.decisionPoint === 'deal_response' && path === '/api/ai/decide'
+          ? dealAnswer('respond-deal:accept', source)
+          : undefined,
+    });
+    await proposeAndAnswer('sell', /Pidgey/, 2);
+    const dealEntries = store
+      .getView()!
+      .feed.filter((entry) => entry.record.action.kind.endsWith('_deal'));
+    expect(dealEntries.map((entry) => entry.record.action.kind)).toEqual([
+      'propose_deal',
+      'respond_deal',
+    ]);
+    for (const entry of dealEntries) expect(entry.decision).toBeUndefined();
+    for (const record of records(store, 'respond_deal'))
+      expect(record.events.map((event) => event.kind)).not.toContain('line_selected');
+    // Nothing on the card or the page names how the rival decided.
+    expect(document.body.textContent).not.toMatch(/fallbackReason|unsupported_decision_point/i);
+    expect(card().textContent).not.toMatch(/backup|fallback|jev|service|bot/i);
+    cleanup();
+  }
 });
 
 test('an AI refusal on its own quota reads as an ordinary no, and says nothing of why', async () => {
