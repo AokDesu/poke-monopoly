@@ -339,20 +339,90 @@ export const dailyBudgetFromEnv = (
   return budget;
 };
 
-/** A ledger over the usage log file: it reads every earlier line and appends each new one. */
+const salvaged = (raw: string, key: string): number | undefined => {
+  const found = new RegExp(`"${key}"\\s*:\\s*(\\d{1,12})`).exec(raw)?.[1];
+  return found === undefined ? undefined : Number(found);
+};
+
+/**
+ * Spec §9: lines the log holds that are not valid usage lines (a write cut short by a crash, a line
+ * damaged by hand, a field this version does not know) were still spend, so they are counted, never
+ * dropped. Each counts as a request at least the size of the configured estimate, or the tokens it
+ * still shows when that is more; one that does not say it is Haiku's is counted at the dearer of
+ * the two providers. `now` dates them, so the daily budget counts them too.
+ */
+export const unreadableLines = (
+  text: string,
+  invalid: readonly number[],
+  now: Date = new Date(),
+  config: SpendConfig = SPEND_CONFIG,
+): UsageLine[] => {
+  const rows = text.split('\n');
+  const make = (provider: UsageProvider, raw: string): UsageLine => {
+    const estimate =
+      provider === 'jev'
+        ? config.estimatedInputTokensPerRequest
+        : config.estimatedHaikuInputTokensPerRequest;
+    return {
+      time: now.toISOString(),
+      ...(provider === 'haiku' && { provider }),
+      gameId: 'unreadable',
+      requestId: null,
+      model: '',
+      inputTokens: Math.max(estimate, salvaged(raw, 'inputTokens') ?? 0),
+      outputTokens: Math.max(
+        provider === 'jev' ? 0 : config.estimatedHaikuOutputTokensPerRequest,
+        salvaged(raw, 'outputTokens') ?? 0,
+      ),
+      latencyMs: 0,
+      status: 'unreadable',
+      turnKey: '',
+      decision: 0,
+      decisionMs: 0,
+      estimated: true,
+    };
+  };
+  return invalid.map((number) => {
+    const raw = rows[number - 1] ?? '';
+    if (/"provider"\s*:\s*"haiku"/.test(raw)) return make('haiku', raw);
+    // `provider` is the second key, ahead of `gameId`: a line past it with no provider is Jev's.
+    if (/"gameId"/.test(raw) && !/"provider"/.test(raw)) return make('jev', raw);
+    const [jev, haiku] = [make('jev', raw), make('haiku', raw)];
+    return costUsd(haiku, config) > costUsd(jev, config) ? haiku : jev;
+  });
+};
+
+/**
+ * A ledger over the usage log file: it reads every earlier line and appends each new one. A line it
+ * cannot read is counted as spend (`unreadableLines`) and warned about by number, never by content.
+ * A log whose last line was cut short gets a newline before the next line, so that one is not
+ * joined to the debris and lost with it.
+ */
 export const openUsageLedger = (
   path: string = USAGE_LOG_PATH,
   options: Omit<SpendLedgerOptions, 'lines' | 'append'> = {},
-): SpendLedger =>
-  new SpendLedger({
+): SpendLedger => {
+  const text = existsSync(path) ? readFileSync(path, 'utf8') : '';
+  const { lines, invalid } = parseUsageLog(text);
+  const warn = options.warn ?? ((message: string) => console.warn(message));
+  if (invalid.length > 0) {
+    warn(
+      `The usage log has ${invalid.length} line(s) that cannot be read (line ${invalid.slice(0, 5).join(', ')}` +
+        `${invalid.length > 5 ? ', ...' : ''}); each is counted as spend (spec §9).`,
+    );
+  }
+  let mend = text !== '' && !text.endsWith('\n');
+  return new SpendLedger({
     dailyBudgetThb: dailyBudgetFromEnv(),
     ...options,
-    lines: readUsageLog(path).lines,
+    lines: [...lines, ...unreadableLines(text, invalid, options.now?.(), options.config)],
     append: (line) => {
       mkdirSync(dirname(path), { recursive: true });
-      appendFileSync(path, `${JSON.stringify(line)}\n`);
+      appendFileSync(path, `${mend ? '\n' : ''}${JSON.stringify(line)}\n`);
+      mend = false;
     },
   });
+};
 
 let processLedger: SpendLedger | undefined;
 

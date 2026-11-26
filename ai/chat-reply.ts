@@ -57,6 +57,8 @@ export const chatKey = (message: ChatMessage): string =>
 
 const MAX_GAMES = 64;
 const MAX_REPLIES_PER_GAME = 64;
+/** Refused messages kept per game, newest last; one is a short key, and a decision reads only recent chat. */
+const MAX_REFUSED_PER_GAME = 256;
 
 /**
  * What the server remembers of chats per game: the reply to each message, so a repeated request
@@ -100,13 +102,23 @@ export class ChatLedger {
         game.replies.delete(oldest);
       }
       pending.then(
-        (answer) => answer.refused && game.refused.add(key),
+        (answer) => answer.refused && this.#refuse(game, key),
         () => game.replies.delete(key),
       );
     }
     const answer = await pending;
-    if (answer.refused) game.refused.add(key);
+    if (answer.refused) this.#refuse(game, key);
     return answer;
+  }
+
+  /** Remembers a refused message, the oldest forgotten past the bound (#64: a game's state is bounded). */
+  #refuse(game: { refused: Set<string> }, key: string): void {
+    game.refused.delete(key);
+    game.refused.add(key);
+    for (const oldest of game.refused) {
+      if (game.refused.size <= MAX_REFUSED_PER_GAME) break;
+      game.refused.delete(oldest);
+    }
   }
 
   /** The observation without any message that was refused; the same object when none was. */

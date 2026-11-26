@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { chatTopicSchema, observationSchema } from './schema.ts';
+import { chatTopicSchema, observationSchema, gameIdSchema, turnKeySchema } from './schema.ts';
 
 // `POST /api/ai/chat` wire contract (spec §4.8, §5.3, §5.7): types and schemas only, so web/ and
 // ai/ share it without importing each other.
@@ -15,13 +15,13 @@ const count = z.int().nonnegative();
  */
 export const chatReplyRequestSchema = z
   .strictObject({
-    gameId: id,
+    gameId: gameIdSchema,
     /** The recipient: the AI seat that replies. */
     seatIndex: count,
     stateRevision: count,
     observation: observationSchema,
     personalityId: id,
-    turnKey: id,
+    turnKey: turnKeySchema,
   })
   .superRefine((request, ctx) => {
     const { observation } = request;

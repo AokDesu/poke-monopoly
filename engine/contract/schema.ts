@@ -2,6 +2,14 @@ import { z } from 'zod';
 import { gymSnapshotSchema, pvpSnapshotSchema } from './combat.ts';
 
 const id = z.string().min(1);
+
+// IDs the browser chooses reach the server's usage and decision logs (spec §9, #64), so each has a
+// charset and a length. A game ID is what a saved game keeps; a turn key is `<turn>:<seat>`,
+// `chat:…` or `talk:…` (and `:gate`); an action ID is the engine's (`sell:a+b`, `deal:seat-1:…`).
+export const gameIdSchema = z.string().regex(/^[\w-]{1,64}$/);
+export const turnKeySchema = z.string().regex(/^[\w:.-]{1,128}$/);
+export const actionIdSchema = z.string().regex(/^[\w:.+-]{1,512}$/);
+export const instanceIdSchema = z.string().regex(/^[\w:.-]{1,128}$/);
 const count = z.int().nonnegative();
 const ballType = z.enum(['poke', 'great', 'ultra']);
 export const ballPouchSchema = z.strictObject({ poke: count, great: count, ultra: count });

@@ -1,3 +1,6 @@
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import {
   aiStatusSchema,
@@ -16,17 +19,21 @@ import encounterFixture from '../engine/fixtures/encounter-with-balls.json';
 import strategyFixture from '../engine/fixtures/strategy-with-items.json';
 import { createPolicyRng } from '../sim/policy.ts';
 import { createApp } from './app.ts';
+import { ChatLedger } from './chat-reply.ts';
 import { FallbackPolicy, PERSONALITIES } from './fallback/index.ts';
 import { hardOutcomes } from './hard.ts';
 import { PINNED_JEV_MODEL, type JevAnswer, type JevRequest, type JevResult } from './jev/client.ts';
 import { createFakeJevClient } from './jev/fake.ts';
 import {
   costUsd,
+  openUsageLedger,
+  readUsageLog,
   SPEND_CONFIG,
   SpendLedger,
   type UsageLine,
   type UsageRecorder,
 } from './jev/spend.ts';
+import { DecisionJournal } from './jev/decision-journal.ts';
 import { isStrategyQuestionAction } from './questions/strategy.ts';
 
 // Server audit follow-ups (#64), findings 4, 6 and 9 (spec §9, §5.6, §8). Offline only: Hono's
@@ -434,4 +441,221 @@ describe('finding 9: Hard rollouts let other requests through while they run', (
       expect(secondSeat[0]).toBeLessThan(wholeRollout / 2);
     },
   );
+});
+
+describe('finding 5: a damaged usage log never undercounts spend (spec §9)', () => {
+  const estimateThb =
+    costUsd({ inputTokens: SPEND_CONFIG.estimatedInputTokensPerRequest, outputTokens: 0 }) *
+    SPEND_CONFIG.thbPerUsd;
+  const logFile = () => join(mkdtempSync(join(tmpdir(), 'jev-usage-')), 'jev-usage.jsonl');
+  const goodLine = JSON.stringify({
+    time: '2026-11-20T10:00:00.000Z',
+    gameId: 'g',
+    requestId: null,
+    model: PINNED_JEV_MODEL,
+    inputTokens: 1000,
+    outputTokens: 0,
+    latencyMs: 5,
+    status: 'ok',
+    turnKey: 't',
+    decision: 0,
+    decisionMs: 5,
+  });
+  // A line that says nothing of its provider counts at the dearer one, which is Haiku's estimate.
+  const unknownThb =
+    costUsd({
+      provider: 'haiku',
+      inputTokens: SPEND_CONFIG.estimatedHaikuInputTokensPerRequest,
+      outputTokens: SPEND_CONFIG.estimatedHaikuOutputTokensPerRequest,
+    }) * SPEND_CONFIG.thbPerUsd;
+  const goodThb = costUsd({ inputTokens: 1000, outputTokens: 0 }) * SPEND_CONFIG.thbPerUsd;
+
+  test('each unreadable line counts as a request, and the guard trips at the cap through the status route', async () => {
+    const file = logFile();
+    writeFileSync(
+      file,
+      `${goodLine}\n{"time":"2026-11-20T10:00:01.000Z","gameId":"g","inpu\nnot json at all\n`,
+    );
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const ledger = openUsageLedger(file, {
+      config: { ...SPEND_CONFIG, totalCapThb: goodThb + estimateThb + unknownThb * 1.5 },
+    });
+    expect(ledger.spentThb()).toBeCloseTo(goodThb + estimateThb + unknownThb, 9);
+    expect(ledger.budgetExceeded()).toBe(false);
+    const app = createApp({ usage: () => ledger, decisionLog: () => {} });
+    expect(aiStatusSchema.parse(await (await getStatus(app)).json()).reason).toBeNull();
+    // A third unreadable line (the log's own damage grows) pushes the same cap over.
+    writeFileSync(file, `${readFileSync(file, 'utf8')}{"oops\n`);
+    const again = openUsageLedger(file, {
+      config: { ...SPEND_CONFIG, totalCapThb: goodThb + estimateThb + unknownThb * 1.5 },
+    });
+    const status = aiStatusSchema.parse(
+      await (await getStatus(createApp({ usage: () => again, decisionLog: () => {} }))).json(),
+    );
+    expect(status).toMatchObject({ backupOnly: true, reason: 'budget_exceeded' });
+  });
+
+  test('a damaged line counts the tokens it still shows when that is more than the estimate', () => {
+    const file = logFile();
+    writeFileSync(file, '{"provider":"haiku","gameId":"g","inputTokens":900000,"outp\n');
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const ledger = openUsageLedger(file);
+    expect(ledger.spentThb('haiku')).toBeGreaterThan(
+      costUsd({ provider: 'haiku', inputTokens: 900_000, outputTokens: 0 }) *
+        SPEND_CONFIG.thbPerUsd,
+    );
+  });
+
+  test('the warning names line numbers and never the content', () => {
+    const file = logFile();
+    writeFileSync(file, `${goodLine}\nSECRET-DEBRIS-7c1\n`);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    openUsageLedger(file);
+    expect(JSON.stringify(warn.mock.calls)).toMatch(/line 2/);
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('SECRET-DEBRIS');
+  });
+
+  test('a log cut short mid-line does not swallow the next line', () => {
+    const file = logFile();
+    writeFileSync(file, `${goodLine}\n{"time":"2026-11-20T10:00:01.000Z","gameId":"g","inpu`);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const ledger = openUsageLedger(file);
+    ledger.record(JSON.parse(goodLine));
+    ledger.record(JSON.parse(goodLine));
+    const parsed = readUsageLog(file);
+    expect(parsed.lines).toHaveLength(3);
+    expect(parsed.invalid).toEqual([2]);
+    // The next start counts the debris once and every real line once.
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(openUsageLedger(file).spentThb()).toBeCloseTo(goodThb * 3 + estimateThb, 9);
+  });
+});
+
+describe('finding 8: every client string is bounded before it reaches the decision log (spec §9)', () => {
+  const outcome = (over: Record<string, unknown> = {}) => ({
+    gameId: 'game-audit-1',
+    seatIndex: 0,
+    turnKey: '0:1',
+    stateRevision: 1,
+    decisionPoint: 'strategy',
+    source: 'fallback',
+    fallbackReason: 'timeout',
+    choice: 'skip',
+    ...over,
+  });
+  const seen: unknown[] = [];
+  const logApp = () => createApp({ decisionLog: (record) => seen.push(record) });
+
+  beforeEach(() => {
+    seen.length = 0;
+  });
+
+  test('a normal outcome is logged with exactly its explicit fields', async () => {
+    const app = logApp();
+    // No key in this file's environment for the decider: the server falls back, and the browser applies that.
+    vi.stubEnv('TYPESAFE_API_KEY', '');
+    const answered = decisionResponseSchema.parse(await (await decide(app, strategy)).json());
+    const response = await decide(
+      app,
+      outcome({
+        seatIndex: strategy.seatIndex,
+        turnKey: strategy.turnKey,
+        stateRevision: strategy.stateRevision,
+        decisionPoint: strategy.decisionPoint,
+        choice: (answered as { choice: string }).choice,
+        fallbackReason: answered.fallbackReason,
+      }),
+      '/api/ai/outcome',
+    );
+    expect(response.status).toBe(204);
+    expect(seen).toHaveLength(1);
+    expect(Object.keys(seen[0] as object).sort()).toEqual(
+      [
+        'choice',
+        'confidence',
+        'decisionPoint',
+        'fallbackReason',
+        'gameId',
+        'model',
+        'probabilities',
+        'questionId',
+        'requestId',
+        'sampled',
+        'seatIndex',
+        'stateRevision',
+        'time',
+        'turnKey',
+      ].sort(),
+    );
+  });
+
+  test.each([
+    ['a game ID with a newline', { gameId: 'g\n{"forged":true}' }],
+    ['a game ID with spaces', { gameId: 'my game' }],
+    ['a game ID of 65 characters', { gameId: 'g'.repeat(65) }],
+    ['a turn key of 129 characters', { turnKey: 't'.repeat(129) }],
+    ['a turn key with a quote', { turnKey: '0:1"' }],
+    ['a choice with a newline', { choice: 'skip\nnext' }],
+    ['a choice of 513 characters', { choice: 'a'.repeat(513) }],
+    ['a Sell uid with a slash', { choice: undefined, sellUids: ['../etc/passwd'] }],
+  ])('%s is a 400 and writes nothing', async (_name, over) => {
+    const app = logApp();
+    const response = await decide(app, outcome(over), '/api/ai/outcome');
+    expect(response.status).toBe(400);
+    expect(seen).toHaveLength(0);
+  });
+
+  test('the same IDs are refused on every route that takes them', async () => {
+    const app = logApp();
+    for (const path of ['/api/ai/decide', '/api/ai/fallback']) {
+      expect((await decide(app, { ...strategy, gameId: 'bad id' }, path)).status).toBe(400);
+      expect((await decide(app, { ...strategy, turnKey: 'x'.repeat(129) }, path)).status).toBe(400);
+    }
+    expect((await decide(app, { gameId: 'bad id' }, '/api/ai/chat')).status).toBe(400);
+    expect((await decide(app, { gameId: 'bad id' }, '/api/ai/speak')).status).toBe(400);
+  });
+
+  test('the journal itself drops a record with an unsafe string, warning once and never with the text', () => {
+    const records: unknown[] = [];
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const journal = new DecisionJournal((record) => records.push(record));
+    const ids = { gameId: 'g', seatIndex: 0, turnKey: '0:1', stateRevision: 1, decisionPoint: 's' };
+    const answer = { source: 'fallback', fallbackReason: 'timeout' } as const;
+    for (const choice of ['ok-1', 'bad\nchoice', 'bad"choice']) {
+      journal.propose({ ...ids, stateRevision: records.length + 10 }, { ...answer, choice }, []);
+      journal.applied({ ...ids, stateRevision: records.length + 10 }, { ...answer, choice });
+    }
+    expect(records).toHaveLength(1);
+    expect(warn).toHaveBeenCalledOnce();
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('bad');
+  });
+});
+
+describe('finding 7: per-game state is bounded and eviction never resets a limit (spec §9)', () => {
+  const message = (turn: number) =>
+    ({ fromSeatIndex: 0, toSeatIndex: 1, globalTurnNo: turn, topic: 'truce' }) as never;
+  const refusal = {
+    fromSeatIndex: 0,
+    toSeatIndex: 1,
+    topic: 'truce',
+    situation: 'manipulation_refused',
+    lineId: 'x',
+    refused: true,
+    source: 'jev',
+  } as never;
+
+  test('a game keeps at most 256 refused messages, the newest, so its memory is bounded', async () => {
+    const ledger = new ChatLedger();
+    for (let turn = 0; turn < 300; turn++) {
+      await ledger.reply('game-chat', message(turn), async () => refusal);
+    }
+    const chats = Array.from({ length: 300 }, (_, turn) => message(turn));
+    const scrubbed = ledger.scrub('game-chat', {
+      ...strategy.observation,
+      own: { ...strategy.observation.own, chats },
+    });
+    // The newest 256 are removed from a decision; the 44 oldest are forgotten.
+    expect(scrubbed.own.chats).toHaveLength(300 - 256);
+    expect(scrubbed.own.chats!.every((chat) => chat.globalTurnNo < 44)).toBe(true);
+  });
 });

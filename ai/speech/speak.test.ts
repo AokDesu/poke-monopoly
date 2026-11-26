@@ -84,7 +84,7 @@ function setup(
   const app = createApp({
     usage: () => noCap,
     // These tests count the per-game limits; the server-wide window has its own tests (#64).
-    limits: { haikuWindow: new RequestWindow(Infinity) },
+    limits: { haikuWindow: new RequestWindow(Infinity), apiWindow: new RequestWindow(Infinity) },
     ...speech,
     speech: { client, env: ON, log: (line) => logs.push(line), ...speech.speech },
   });
@@ -345,13 +345,19 @@ describe('POST /api/ai/speak: hard stops (spec §9)', () => {
     expect((await next).json.source).toBe('haiku');
   });
 
-  test('a game past the number the server keeps limits for is never given a fresh count', async () => {
+  test('past the games the server keeps live, a new game is not locked out and an old one is not reset (#64)', async () => {
     const { speak, client } = setup();
     for (let n = 0; n < MAX_SPEECH_GAMES; n++) await speak(request({ gameId: `g-${n}` }));
-    const { json } = await speak(request({ gameId: 'one-too-many' }));
-    expect(json).toMatchObject({ source: 'bank', fallbackReason: 'game_limit' });
-    expect(client.requests).toHaveLength(MAX_SPEECH_GAMES);
-    expect((await speak(request({ gameId: 'g-0', turnKey: '0:9' }))).json.source).toBe('haiku');
+    // A new game takes the place of the least recently used one, which is retired.
+    const fresh = await speak(request({ gameId: 'one-too-many' }));
+    expect(fresh.json.source).toBe('haiku');
+    expect(client.requests).toHaveLength(MAX_SPEECH_GAMES + 1);
+    // The retired game is remembered as spent: never a fresh count, so no call goes out.
+    const old = await speak(request({ gameId: 'g-0', turnKey: '0:9' }));
+    expect(old.json).toMatchObject({ source: 'bank', fallbackReason: 'call_limit' });
+    expect(client.requests).toHaveLength(MAX_SPEECH_GAMES + 1);
+    // A game still live keeps speaking, and a read keeps it from being the next one dropped.
+    expect((await speak(request({ gameId: 'g-1', turnKey: '0:9' }))).json.source).toBe('haiku');
   });
 
   test('at the Haiku or total cap every game gets the bank and no call is made', async () => {

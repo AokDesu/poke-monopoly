@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { createApp } from '../ai/app.ts';
+import { RequestWindow } from '../ai/jev/window.ts';
 import { createOrchestratorDecider } from '../ai/decider.ts';
 import { FallbackPolicy, PERSONALITIES } from '../ai/fallback/index.ts';
 import { PINNED_JEV_MODEL, type JevAnswer, type JevRequest } from '../ai/jev/client.ts';
@@ -129,6 +130,8 @@ async function play(withJev: boolean): Promise<Played> {
           : { jevEnabled: true, backupOnly: true, reason: 'missing_key' },
       }),
     decisionLog: (line) => records.push(line),
+    // A whole game in a few seconds: the server's request limit (#64) is for a person's pace.
+    limits: { apiWindow: new RequestWindow(Infinity) },
   });
   const store = newGame();
   const played: Played = { decisions: 0, asked: 0, sells: [], records };
