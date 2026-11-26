@@ -5,6 +5,7 @@ import type {
   SeatEvent,
   SeatPromise,
 } from '../../../engine/index.ts';
+import { pendingDeal } from './deals.ts';
 import type { SeatFeedEntry, SeatView } from './store.ts';
 
 /**
@@ -42,11 +43,12 @@ export function pendingOffer(observation: Observation): PendingOffer | null {
 }
 
 /**
- * Whether a rival owes the answer to the human's promise question: the engine's pending decision
- * belongs to another seat while the human's window waits. Nothing else may move the game then.
+ * Whether a rival owes the answer to the human's open question (a promise offer or a Deal Card): the
+ * engine's pending decision belongs to another seat while the human's window waits. Nothing else may
+ * move the game then.
  */
 export const rivalOwesAnswer = (view: Pick<SeatView, 'observation' | 'decision' | 'seatIndex'>) =>
-  pendingOffer(view.observation) !== null &&
+  (pendingOffer(view.observation) !== null || pendingDeal(view.observation) !== null) &&
   view.decision !== null &&
   view.decision.seatIndex !== view.seatIndex;
 

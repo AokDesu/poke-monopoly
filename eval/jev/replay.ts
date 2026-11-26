@@ -16,6 +16,7 @@ import {
   type OrchestratorFallbackReason,
 } from '../../ai/orchestrator.ts';
 import {
+  buildDealQuestion,
   buildEncounterQuestion,
   buildPromiseResponseQuestion,
   buildPvpResponseQuestion,
@@ -39,6 +40,7 @@ export interface ScenarioRun {
     | 'strategy'
     | 'encounter'
     | 'sell'
+    | 'deal_response'
     | 'promise_response'
     | 'pvp_response'
     | 'ability_window'
@@ -80,6 +82,7 @@ export async function runScenario(
     decisionPoint !== 'strategy' &&
     decisionPoint !== 'encounter' &&
     decisionPoint !== 'sell' &&
+    decisionPoint !== 'deal_response' &&
     decisionPoint !== 'promise_response' &&
     decisionPoint !== 'pvp_response' &&
     decisionPoint !== 'ability_window' &&
@@ -101,7 +104,9 @@ export async function runScenario(
     new Orchestrator({ client: capture, usage }).decide(request),
   );
   const { choice, enabled } = resolveChoice(request.legalActions, decision.choice);
-  const actorId = state.config.seats.find((seat) => seat.seatIndex === 0)!.actorId;
+  const actorId = state.config.seats.find(
+    (seat) => seat.seatIndex === (scenario.seat ?? 0),
+  )!.actorId;
   const applied = choice && applyAction(state, command(state, actorId, choice));
   return {
     decisionPoint,
@@ -126,6 +131,18 @@ function acceptableLabels(
 ): Record<string, string[]> {
   const { acceptable } = scenario;
   const phase = decisionPoint ?? observation.public.phase.kind;
+  if (decisionPoint === 'deal_response') {
+    const decision = buildDealQuestion(observation, legalActions.enabled, facts.deal!, personality);
+    // Over budget code rejects and no question is asked, so there are no labels to accept (§5.3).
+    if (decision.kind !== 'ask') return {};
+    const labels = Object.entries(decision.options).flatMap(([label, id]) =>
+      Array.isArray(acceptable) && acceptable.includes(id) ? [label] : [],
+    );
+    if (!Array.isArray(acceptable) || labels.length !== acceptable.length) {
+      throw new RangeError(`${scenario.id}: an acceptable answer is not among the options`);
+    }
+    return { deal: labels };
+  }
   if (phase === 'sell') {
     if (Array.isArray(acceptable))
       throw new TypeError(`${scenario.id}: Sell needs per-Pokémon sets`);
@@ -175,7 +192,7 @@ export function expectedFallback(
   run: Pick<ScenarioRun, 'decisionPoint' | 'requests'>,
   result: JevSuccess,
 ): OrchestratorFallbackReason | null {
-  const question = run.decisionPoint;
+  const question = run.decisionPoint === 'deal_response' ? 'deal' : run.decisionPoint;
   if (question === 'sell') return null;
   const answer = result.answers[question];
   const criteria = run.requests[0]!.questions[question];

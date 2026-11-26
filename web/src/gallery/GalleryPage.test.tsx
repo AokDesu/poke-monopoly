@@ -51,6 +51,25 @@ const SHOWN = [
     keys: ['ai.backupBadge', 'ai.reason.timeout', 'ai.reason.rate_limited'],
   },
   {
+    id: 'jev-timeout-deal',
+    specRow: '6',
+    keys: [
+      'deal.open',
+      'deal.lead.build',
+      'fold.dealsOne',
+      'deal.lead.waiting',
+      'deal.lead.accepted',
+      'deal.reconfirmAfterFallback',
+      'deal.confirmPrice',
+      'deal.cancel',
+      'deal.lead.countered.offers',
+      'deal.yourOffer',
+      'deal.newPrice',
+      'deal.lead.declined',
+      'deal.lead.committed',
+    ],
+  },
+  {
     id: 'invalid-answer',
     specRow: '7',
     keys: ['ai.backupInvalidAnswer', 'ai.backupRevisionMismatch'],
@@ -232,8 +251,8 @@ const SHOWN = [
   },
 ] as const satisfies readonly { id: string; specRow: string; keys: readonly MessageKey[] }[];
 
-/** Rows with nothing for a player to see in this build (no free-text chat or deals screen, engine-only). */
-const PENDING = ['2', '6', '10', '11'];
+/** Rows with nothing for a player to see in this build (no free-text chat screen, engine-only). */
+const PENDING = ['2', '10', '11'];
 
 /** A catalog message as a pattern, so templated values (`{value}`) match whatever the engine says. */
 function shown(root: HTMLElement, key: MessageKey): boolean {

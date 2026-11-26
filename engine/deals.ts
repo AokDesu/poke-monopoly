@@ -9,6 +9,7 @@ import type {
   PendingResponse,
   Player,
   ProposeDealPayload,
+  ReasonCode,
 } from './contract/schema.ts';
 import { concessionWithinBudget, dealBudgetState, dealValuation } from './deal-facts.ts';
 import { bucketCount } from './observation-buckets.ts';
@@ -173,6 +174,40 @@ function proposal(
 }
 
 /**
+ * The reasons the proposer may be told for a ready-made proposal the engine does not list (§4.8, §3.1). Only what the
+ * proposer already knows: the AI's quota and budget are its own and never asked at the offer (`targetQuota: false`),
+ * and a format, duplicate, absent or secret-item problem cannot come from a listed candidate, so none has a reason.
+ */
+function dealReason(
+  problem: DealProblem,
+  side: 'give' | 'get',
+): { reasonCode: ReasonCode; reasonText: string } | undefined {
+  // The giver holds the asset; the receiver pays and holds it after the deal. `give`: the human gives.
+  const giverIsYou = side === 'give';
+  const payer = giverIsYou ? 'They do' : 'You do';
+  const receiver = giverIsYou ? 'Their' : 'Your';
+  switch (problem) {
+    case 'not_enough_coins':
+      return { reasonCode: 'NOT_ENOUGH_COINS', reasonText: `${payer} not have enough coins` };
+    case 'items_full':
+      return { reasonCode: 'ITEMS_FULL', reasonText: `${receiver} items are full` };
+    case 'quota':
+      return { reasonCode: 'DEAL_USED_THIS_LAP', reasonText: 'You already made a deal this Lap' };
+    case 'not_tradeable':
+      return { reasonCode: 'RESCUE_STARTER', reasonText: 'A Rescue Starter cannot be traded' };
+    case 'last_pokemon':
+      return {
+        reasonCode: 'LAST_POKEMON',
+        reasonText: giverIsYou
+          ? 'You cannot trade away your last Pokémon'
+          : 'They cannot trade away their last Pokémon',
+      };
+    default:
+      return undefined;
+  }
+}
+
+/**
  * The ready-made proposals the active human is offered: for each AI seat, each Pokémon of its own to sell and
  * each item of its own to reveal, and each Pokémon or **public** item of the AI to buy, at a few coin amounts.
  * A secret item of the AI is never listed, and nothing depends on what the AI holds beyond its public team,
@@ -228,9 +263,18 @@ export function dealProposalChoices(state: GameState, seatIndex: number, result:
         const terms: DealTerms =
           offer.side === 'give' ? { give: asset, get: money } : { give: money, get: asset };
         const action = proposal(seat.seatIndex, terms, offer.describe, coins);
-        if (dealProblem(state, seatIndex, seat.seatIndex, terms, { targetQuota: false }) === null) {
+        const problem = dealProblem(state, seatIndex, seat.seatIndex, terms, {
+          targetQuota: false,
+        });
+        if (problem === null) {
           result.enabled.push(action);
+          continue;
         }
+        const reason = dealReason(problem, offer.side);
+        if (!reason) continue;
+        result.disabled.push({ ...action, ...reason });
+        // Every reason but the price is the asset's own, the same at every rung: one entry says it.
+        if (problem !== 'not_enough_coins') break;
       }
     }
   }

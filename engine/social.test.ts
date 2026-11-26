@@ -114,7 +114,8 @@ test('the socialWindow flag is an optional boolean on the game config', () => {
 
 test('with the flag on, the human is offered Skip plus every valid chat message (§4.8)', () => {
   const two = legalActions(social(), 0);
-  expect(two.disabled).toEqual([]);
+  // Only a Deal Card proposal the engine will not allow is ever listed as disabled in the window (§4.8).
+  expect(two.disabled.filter((choice) => choice.kind !== 'propose_deal')).toEqual([]);
   expect(two.enabled.filter((choice) => choice.kind === 'skip')).toHaveLength(1);
   const payloads = chatsOf(social(), 0).map((choice) => choice.payload);
   // Truce, trade, and each of the four utility items for both item topics; no third seat to point at.
@@ -598,7 +599,7 @@ test('a chat changes nothing beyond its history and the social budget (§4.8 har
                   choice.kind !== 'offer_promise' &&
                   choice.kind !== 'propose_deal',
               ),
-              disabled: set.disabled,
+              disabled: set.disabled.filter((choice) => choice.kind !== 'propose_deal'),
             };
           };
           expect(without(after)).toEqual(without(before));

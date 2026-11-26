@@ -26,6 +26,9 @@ const CardFrameContext = createContext<CardFrame>({ live: false });
 
 export const CardFrameProvider = CardFrameContext.Provider;
 
+/** Whether this card is the live one on the board (it may take focus); a gallery card is not. */
+export const useCardLive = (): boolean => useContext(CardFrameContext).live;
+
 /** Focusable controls inside `root`, in tab order, skipping folded or disabled ones. */
 function focusables(root: HTMLElement): HTMLElement[] {
   return [
@@ -245,7 +248,7 @@ export function Folded({ label, children }: { label: string; children: ReactNode
 /** The fold's line for `count` greyed-out options of one kind. */
 export function foldLabel(
   count: number,
-  kind: 'items' | 'offers' | 'abilities' | 'challenges' | 'options',
+  kind: 'items' | 'offers' | 'abilities' | 'challenges' | 'options' | 'deals',
 ): string {
   return count === 1 ? t(`fold.${kind}One`) : t(`fold.${kind}Many`, { count });
 }

@@ -690,6 +690,11 @@ export const reasonCodeSchema = z.enum([
   'ABILITY_USED_THIS_LAP',
   'ABILITY_USED_THIS_GLOBAL_TURN',
   'ABILITY_WRONG_TIMING',
+  // Deal Card reasons (§4.8): what the proposer may be told about a proposal the engine does not list. Never the
+  // AI's own quota or budget, which the proposer sees as an ordinary refusal.
+  'RESCUE_STARTER',
+  'LAST_POKEMON',
+  'DEAL_USED_THIS_LAP',
 ]);
 export const disabledActionSchema = legalActionSchema.and(
   z.object({ reasonCode: reasonCodeSchema, reasonText: id }),

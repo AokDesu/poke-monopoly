@@ -219,9 +219,10 @@ real component: `TurnPanel` (turn copy, Shop, AI badge and banners, the Social w
 `EncounterDialog`, `SellPanel` and `SavePrompt`; one extra row, "PvP and Gym" (spec §4.4), shows the
 challenge, defender, forced, Ability-window, Gym and reward screens, and one more, "Promises and
 memory" (spec §4.8), shows the promise offers, an offer waiting for the rival, an accepted and a
-refused one, and the memory a kept, broken or game-ended promise leaves. A closing list names the rows
-with no screen yet (free-text chat, deals, engine-only cases) so every row of the table is accounted
-for.
+refused one, and the memory a kept, broken or game-ended promise leaves, and one for spec row 6 shows
+the Deal Card (spec §4.8): its entry in the Social window, the builder, what the engine will not
+allow with its reasons, waiting, accepted, countered, declined and committed. A closing list names the
+rows with no screen yet (free-text chat, engine-only cases) so every row of the table is accounted for.
 
 The states are engine fixtures moved on only through the store's own commands
 (`createFixtureStore` in `src/game/store.ts`, scenes in `src/gallery/scenes.ts`), so the screens
@@ -239,3 +240,30 @@ that no screen of the flow links to it. `GalleryPage.test.tsx` fails if a catalo
 listed row is not on screen, or if a row of the spec's §3.1 table is neither shown nor listed.
 When a screen gains a state for a pending row, move it into `src/gallery/catalog.tsx` and add its
 keys to `SHOWN` in the test.
+
+## Deal Cards
+
+Spec §4.8, §4.2, §3.1; engine contract "Deal Cards". `game/deals.ts` reads the human seat's own
+observation, legal actions and feed (never state): the engine's listed `propose_deal` proposals and the
+greyed-out ones with their `reasonCode` and `reasonText`, the pending question, and how this turn's deal
+ended. `board/DealCard.tsx` is the one card (kind `deal`) the Social window opens from "Make a deal";
+every proposal it sends is an engine-listed choice and every figure is the engine's.
+
+- **No commit without the player's Confirm on the terms in force.** `store.confirmDeal({ revision, terms })`
+  refuses (`{ stale: true }`, nothing submitted) unless the seat's revision and the pending terms are the
+  ones the button was drawn for and `confirm_deal` is still listed. The engine's own revision check cannot
+  catch a stale screen, because a command is stamped with the current revision. A refused Confirm, or terms
+  that change while a review is open, show "The terms changed" and the refreshed terms. A rival's yes, or a
+  counter's new price, only moves the card to review; the Confirm is never the Enter key's primary action.
+- **The rival's answer is applied with no `decision`.** `store.playOpponent` answers a pending Deal Card
+  with the engine's first listed choice (accept when legal and within the rival's budget, else reject)
+  and makes no service call until the deal response route (#164 D3) is connected; the answer's source and
+  fallback reason never reach the feed, a notice, table talk or the Backup bot reason. A refusal for the
+  rival's own quota or budget reads as an ordinary no.
+- **Reload.** The pending question is engine state in the save. A question the rival still owes is asked
+  again once; an answered one shows its review and waits for a fresh Confirm. `useTurnPlayback` never
+  applies `confirm_deal` (the sole-action step is skipped while the human's window waits).
+
+Tests: `board/DealCard.test.tsx` (both formats and both directions, a counteroffer, stale and refused
+Confirms, reload, privacy of the answer and of a rival's secret item, the engine reasons) and the
+engine's `deals.test.ts` ("listed disabled with its reason").

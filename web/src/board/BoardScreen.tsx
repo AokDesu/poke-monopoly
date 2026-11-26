@@ -84,6 +84,11 @@ function PlayerBoardScreen({
           social={social}
           onFinished={onFinished}
           quoteSale={store.quoteSale}
+          onConfirmDeal={(shown) => {
+            const result = store.confirmDeal(shown);
+            if ('rejected' in result) setActionError(game.stateRevision);
+            return result;
+          }}
           onSell={(pokemonInstanceIds) => {
             const result = store.submit({
               actorId: you.actorId,

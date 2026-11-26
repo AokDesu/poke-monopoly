@@ -1,0 +1,176 @@
+/* The Deal Card (spec §4.8; issue #138): a builder, then the terms ledger, inside one decision card. */
+.deal-body {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.deal-with {
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+.deal-asset,
+.deal-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--radius-row, 16px);
+  box-shadow: inset 0 0 0 2px var(--color-line);
+  cursor: pointer;
+}
+.deal-asset:hover,
+.deal-asset:has(input:focus-visible),
+.deal-chip:hover,
+.deal-chip:has(input:focus-visible) {
+  background: #e1ecff;
+}
+.deal-asset[data-selected='true'],
+.deal-chip[data-selected='true'] {
+  background: #fff4cc;
+  box-shadow: inset 0 0 0 2px var(--color-reward);
+}
+.deal-asset input,
+.deal-chip input {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+  accent-color: var(--color-ink);
+  cursor: pointer;
+}
+.deal-assets {
+  gap: 0.4rem;
+}
+.deal-asset-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+.deal-asset-line > span:last-child {
+  display: grid;
+  min-width: 0;
+}
+.deal-asset-line strong {
+  font-family: var(--font-display);
+  font-size: var(--fs-md, 1rem);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.deal-asset-line small {
+  color: var(--color-ink-soft);
+  font-size: var(--fs-xs, 0.75rem);
+  overflow-wrap: anywhere;
+}
+.deal-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.deal-chip {
+  font-weight: 800;
+}
+.deal-reasons {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+.deal-reasons li {
+  display: grid;
+  gap: 0.15rem;
+  font-size: var(--fs-sm, 0.875rem);
+  color: var(--color-ink-soft);
+}
+.deal-terms {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  background: var(--color-panel-tint);
+}
+.deal-terms:focus-visible {
+  outline: 3px solid var(--color-reward-lip);
+  outline-offset: 2px;
+}
+.deal-terms h3 {
+  font-size: var(--fs-md, 1rem);
+}
+.deal-ledger {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.deal-side {
+  display: grid;
+  align-content: start;
+  gap: 0.3rem;
+  min-width: 0;
+}
+.deal-side-label {
+  font-size: var(--fs-xs, 0.75rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--color-ink-soft);
+}
+.deal-coins {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+.deal-price-change {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.9rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-line);
+  font-weight: 800;
+}
+.deal-price-change s {
+  color: var(--color-ink-soft);
+  font-weight: 700;
+}
+.deal-new {
+  padding: 0.05rem 0.45rem;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--color-reward);
+  font-size: var(--fs-xs, 0.75rem);
+}
+/* Two actions side by side in the footer (Make a deal beside Skip; Send beside Back; Confirm beside Walk away):
+   one row, so the card keeps its height for the terms. */
+.decision-actions:has([data-deal-open]),
+.decision-actions:has([data-deal-send]),
+.decision-actions:has([data-deal-confirm]) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+.decision-actions:has([data-deal-confirm]) [data-deal-confirm] {
+  white-space: normal;
+}
+.deal-pick-choices .btn {
+  min-height: 2.25rem;
+  padding-block: 0.3rem;
+  font-size: 0.9rem;
+}
+/* "Deal with" and "You want to" are one row each: the label, then the choices beside it. */
+.deal-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.7rem;
+}
+.deal-pick-label {
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+.deal-pick-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.15rem;
+}
+@media (max-width: 24rem) {
+  .deal-ledger {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

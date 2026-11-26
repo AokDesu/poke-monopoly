@@ -10,6 +10,9 @@ import {
   type PromiseDirection,
   type PromiseOffer,
 } from '../game/promises.ts';
+import { dealCardOpen, dealOptions } from '../game/deals.ts';
+import type { ConfirmDealResult, SeatFeedEntry } from '../game/store.ts';
+import type { DealTerms } from '../../../engine/index.ts';
 import { en, t, type MessageKey } from '../i18n/en.ts';
 import { className, itemName } from '../i18n/names.ts';
 import { ActionButton } from '../ui/ActionButton.tsx';
@@ -18,6 +21,7 @@ import { backupReasonText } from './AiTurn.tsx';
 import { possessive, seatLabel } from './labels.ts';
 import type { ChatReplyControls } from './useChatReply.ts';
 import { DecisionCard } from './DecisionCard.tsx';
+import { DealCard } from './DealCard.tsx';
 import './social-panel.css';
 
 export interface SocialPanelProps {
@@ -32,6 +36,9 @@ export interface SocialPanelProps {
   heading?: string;
   lead?: string;
   onChoose: (id: string) => void;
+  /** The seat's feed and the final Confirm; with both, the window offers the Deal Card (spec §4.8). */
+  feed?: readonly SeatFeedEntry[];
+  onConfirmDeal?: (shown: { revision: number; terms: DealTerms }) => ConfirmDealResult;
 }
 
 const unique = <T,>(values: readonly T[]) => [...new Set(values)];
@@ -53,8 +60,11 @@ export function SocialPanel({
   heading = t('social.panel'),
   lead,
   onChoose,
+  feed,
+  onConfirmDeal,
 }: SocialPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const [dealing, setDealing] = useState(false);
   const ownSeat = observation.own.seatIndex;
   const players = observation.public.players;
   const chats = chatChoices(legalActions);
@@ -75,7 +85,8 @@ export function SocialPanel({
       {topic === 'truce' && <p>{t('social.noticeTruce')}</p>}
     </div>
   );
-  const done = chats.length === 0 && offers.length === 0;
+  const deals = feed && onConfirmDeal ? dealOptions(legalActions) : [];
+  const done = chats.length === 0 && offers.length === 0 && deals.length === 0;
   // Send remounts this window (its key is the state revision) and drops the pressed button, so focus
   // would fall to the page body. Keep a keyboard or screen-reader player's place on Continue; the
   // reply is announced by its live region. Focus that is anywhere else is left alone.
@@ -101,8 +112,39 @@ export function SocialPanel({
       {t(done ? 'social.continue' : 'social.skip')}
     </ActionButton>
   );
+  // Make a deal sits beside Skip in the footer, always in view, while the window is open (spec §4.8).
+  const dealButton = feed && onConfirmDeal && deals.length > 0 && !pending && !done && (
+    <ActionButton enabled variant="secondary" data-deal-open="" onClick={() => setDealing(true)}>
+      {t('deal.open')}
+    </ActionButton>
+  );
+  if (feed && onConfirmDeal && (dealing || dealCardOpen({ observation, feed }))) {
+    return (
+      <DealCard
+        observation={observation}
+        legalActions={legalActions}
+        feed={feed}
+        rivalName={(seat) =>
+          className(players.find((player) => player.seatIndex === seat)?.classId ?? '')
+        }
+        onBack={() => setDealing(false)}
+        onChoose={onChoose}
+        onConfirm={onConfirmDeal}
+      />
+    );
+  }
   return (
-    <DecisionCard kind="social" heading={heading} lead={lead} actions={continueButton}>
+    <DecisionCard
+      kind="social"
+      heading={heading}
+      lead={lead}
+      actions={
+        <>
+          {dealButton}
+          {continueButton}
+        </>
+      }
+    >
       {pending ? (
         <PendingPromise pending={pending} rivalName={rivalName}>
           {notices()}

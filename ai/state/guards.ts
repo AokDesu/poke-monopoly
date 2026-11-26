@@ -15,6 +15,7 @@ const stringIdentifierPaths = [
   /^you\.items\[\d+\]\.(?:id|item_id)$/,
   /^opponents\[\d+\]\.known_items\[\d+\]\.(?:id|item_id)$/,
   /^you\.private_results\[\d+\]\.event_id$/,
+  /^deal\.from_id$/,
   // The promise question's seats and the asker's quoted chat name actors by the same opaque ID.
   /^promise_offer\.(?:asked_by_id|promiser_id|recipient_id)$/,
   /^recent_chat\[\d+\]\.from$/,

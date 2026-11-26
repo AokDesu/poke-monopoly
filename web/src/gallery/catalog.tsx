@@ -1,7 +1,8 @@
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import type { AiSpeechEvent } from '../../../engine/index.ts';
 import type { PublicGame, VoiceReason } from '../game/tableTalk.ts';
 import { EncounterCard } from '../board/EncounterCard.tsx';
+import { DealCard } from '../board/DealCard.tsx';
 import { EventCard } from '../board/EventCard.tsx';
 import { HandStrip } from '../board/HandStrip.tsx';
 import { PromisePanel } from '../board/PromisePanel.tsx';
@@ -158,6 +159,18 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
     );
   const socialOpenTwo = once(() => scenes.socialWindowOpen(2));
   const socialOpenOne = once(() => scenes.socialWindowOpen(1));
+  const dealOpen = once(scenes.dealWindow);
+  const dealReasons = once(() =>
+    scenes.dealWindow((state) => {
+      Object.assign(state.players[0]!.team[1]!, { origin: 'rescue_starter', tradeable: false });
+      state.players[0]!.coins = 1;
+    }),
+  );
+  const dealProposed = once(() => scenes.dealAt('proposed'));
+  const dealAccepted = once(() => scenes.dealAt('accepted'));
+  const dealCountered = once(() => scenes.dealAt('countered'));
+  const dealDeclined = once(() => scenes.dealAt('declined'));
+  const dealCommitted = once(() => scenes.dealAt('committed'));
   const socialSent = once(scenes.socialMessageSent);
   const promiseBlocked = once(scenes.promiseOffersBlocked);
   const promiseOffered = once(scenes.promiseOffered);
@@ -204,7 +217,11 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
   ];
   const turnPanel = (
     scene: Pick<Scene, 'view'>,
-    extra?: { notice?: string; social?: ChatReplyControls },
+    extra?: {
+      notice?: string;
+      social?: ChatReplyControls;
+      onConfirmDeal?: ComponentProps<typeof TurnPanel>['onConfirmDeal'];
+    },
   ) => (
     <TurnPanel
       view={scene.view}
@@ -213,6 +230,25 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
       onChoose={noop}
       inline
       {...extra}
+    />
+  );
+  const dealTurn = (scene: Pick<Scene, 'view'>) =>
+    turnPanel(scene, { onConfirmDeal: () => ({ stale: true }) });
+  /** The builder, which a click on "Make a deal" opens in the Social window. */
+  const dealBuilder = (scene: Pick<Scene, 'view'>) => (
+    <DealCard
+      observation={scene.view.observation}
+      legalActions={scene.view.legalActions}
+      feed={scene.view.feed}
+      rivalName={(seat) =>
+        className(
+          scene.view.observation.public.players.find((player) => player.seatIndex === seat)
+            ?.classId ?? '',
+        )
+      }
+      onBack={noop}
+      onChoose={noop}
+      onConfirm={() => ({ stale: true })}
     />
   );
   /** A rival's turn as the player sees it: the banner, the seat rows with their badges, the card. */
@@ -362,6 +398,68 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
           id: 'rate-limited',
           caption: 'gallery.example.badgeRateLimited',
           render: () => aiTable(rateLimited()),
+        },
+      ],
+    },
+    {
+      id: 'jev-timeout-deal',
+      specRow: 6,
+      label: 'gallery.row.jevTimeoutDeal',
+      keys: [
+        'deal.open',
+        'deal.lead.build',
+        'fold.dealsOne',
+        'deal.lead.waiting',
+        'deal.lead.accepted',
+        'deal.reconfirmAfterFallback',
+        'deal.confirmPrice',
+        'deal.cancel',
+        'deal.lead.countered.offers',
+        'deal.yourOffer',
+        'deal.newPrice',
+        'deal.lead.declined',
+        'deal.lead.committed',
+      ],
+      examples: [
+        {
+          id: 'window',
+          caption: 'gallery.example.dealWindow',
+          render: () => dealTurn(dealOpen()),
+        },
+        {
+          id: 'builder',
+          caption: 'gallery.example.dealBuilder',
+          render: () => dealBuilder(dealOpen()),
+        },
+        {
+          id: 'reasons',
+          caption: 'gallery.example.dealReasons',
+          render: () => dealBuilder(dealReasons()),
+        },
+        {
+          id: 'waiting',
+          caption: 'gallery.example.dealWaiting',
+          render: () => dealTurn(dealProposed()),
+        },
+        {
+          id: 'accepted',
+          caption: 'gallery.example.dealAccepted',
+          render: () => dealTurn(dealAccepted()),
+        },
+        {
+          id: 'countered',
+          caption: 'gallery.example.dealCountered',
+          render: () => dealTurn(dealCountered()),
+        },
+        {
+          id: 'declined',
+          caption: 'gallery.example.dealDeclined',
+          render: () => dealTurn(dealDeclined()),
+        },
+        {
+          id: 'committed',
+          caption: 'gallery.example.dealCommitted',
+          render: () => dealTurn(dealCommitted()),
         },
       ],
     },
@@ -1127,7 +1225,6 @@ export function galleryRows(fixtures: GalleryFixtures): readonly GalleryRow[] {
 /** Every §3.1 row not in `GALLERY_ROWS`. The test holds both lists to the spec's table. */
 export const PENDING_ROWS: readonly PendingRow[] = [
   { specRow: 2, label: 'gallery.row.shortlistEmpty', reason: 'gallery.pending.engine' },
-  { specRow: 6, label: 'gallery.row.jevTimeoutDeal', reason: 'gallery.pending.dealsBadge' },
   { specRow: 10, label: 'gallery.row.chatUnclassified', reason: 'gallery.pending.chatFreeText' },
   { specRow: 11, label: 'gallery.row.chatManipulation', reason: 'gallery.pending.chatFreeText' },
 ];
