@@ -352,7 +352,7 @@ describe('analysis and the pre-registered verdict', () => {
                     ...s,
                     decisionMs: [400, 1700],
                     turnMs: [600, 2500],
-                    counts: { ...s.counts, 'fallback:timeout': 4 },
+                    counts: { ...s.counts, 'fallback:timeout': 1 },
                   }
                 : s,
             ),
@@ -426,6 +426,7 @@ describe('analysis and the pre-registered verdict', () => {
         invalidOutputRate: 0,
         fallbackRate: { total: 0, byCause: {} },
       },
+      counts: { decisions: 10, requests: 10 },
       timeoutRate: timeout,
       decisionMs: { n: 1, p50: 1, p95, max: p95 },
       turnMs: { n: 1, p50: 1, p95, max: p95 },
@@ -478,7 +479,10 @@ describe('Jev must have answered (pre-registered integrity, B2)', () => {
   const verdictOf = (all: G2Row[]) => analyzeG2(all, plan, { plannedBlocks: 120, ...fast }).verdict;
 
   test('the plan states the floor, the ceiling and the causes', () => {
-    expect(plan.rule.integrity.minJevAnsweredShare).toBe(0.3);
+    expect(plan.version).toBe(2);
+    expect(plan.rule.integrity.minJevAnsweredShare).toBe(0.8);
+    expect(plan.rule.integrity.jevAnsweredValidCauses).toEqual(['low_confidence']);
+    expect(plan.rule.integrity.jevAnsweredNotSentCauses).toEqual(['missing_facts']);
     expect(plan.rule.integrity.maxInfrastructureFallbackShare).toBe(0.05);
     expect(plan.rule.integrity.infrastructureCauses).toEqual(
       expect.arrayContaining(['timeout', 'network', 'auth']),
@@ -497,6 +501,10 @@ describe('Jev must have answered (pre-registered integrity, B2)', () => {
     const answered = report.verdict.checks.find((c) => c.id === 'jev-answered')!.detail;
     expect(answered).toContain('hard 0.000');
     expect(answered).toContain('normal 0.000');
+    // Under v2 the 100% timeout run still fails both checks: timeouts are sent decisions with no valid answer.
+    expect(report.verdict.checks.find((c) => c.id === 'infrastructure-fallbacks')!.pass).toBe(
+      false,
+    );
   });
 
   test('every other infrastructure cause is caught as well, with the numbers in the detail', () => {
@@ -518,18 +526,111 @@ describe('Jev must have answered (pre-registered integrity, B2)', () => {
     expect(verdict.checks.find((c) => c.id === 'infrastructure-fallbacks')!.pass).toBe(true);
   });
 
-  test('the floor is exact: answered 0.30 passes, below it gives no verdict', () => {
-    const at = withCounts({ decisions: 10, requests: 10, 'fallback:low_confidence': 7 });
+  test('the floor is exact: answered 0.80 passes, below it gives no verdict', () => {
+    // invalid_choice is Jev answering with an unusable choice: sent, not a valid answer.
+    const at = withCounts({ decisions: 10, requests: 10, 'fallback:invalid_choice': 2 });
     expect(verdictOf(at).checks.find((c) => c.id === 'jev-answered')!.pass).toBe(true);
-    const below = withCounts({ decisions: 10, requests: 10, 'fallback:low_confidence': 8 });
+    const below = withCounts({ decisions: 10, requests: 10, 'fallback:invalid_choice': 3 });
     const verdict = verdictOf(below);
     expect(verdict.status).toBe('no-verdict');
     expect(verdict.reasons.join()).toContain('jev-answered');
   });
 
+  test('low_confidence is a valid answer: a run that is all low_confidence passes jev-answered', () => {
+    const verdict = verdictOf(
+      withCounts({ decisions: 10, requests: 10, 'fallback:low_confidence': 10 }),
+    );
+    expect(verdict.checks.find((c) => c.id === 'jev-answered')!.pass).toBe(true);
+  });
+
+  test('synthetic rows shaped like the tuning-seed smoke run: v2 counts what Jev answered over what was sent', () => {
+    // SYNTHETIC counts built from the smoke run's decision totals and cause shares (hard 165, normal
+    // 464; low_confidence 0.545 / 0.664, missing_facts 0.091 / 0.093, nothing else). Not the smoke rows.
+    const hard = {
+      decisions: 165,
+      requests: 150,
+      'fallback:low_confidence': 90,
+      'fallback:missing_facts': 15,
+    };
+    const normal = {
+      decisions: 464,
+      requests: 421,
+      'fallback:low_confidence': 308,
+      'fallback:missing_facts': 43,
+    };
+    const mixed = rows(120, 100, 40).map((r) => ({
+      ...r,
+      seatStats: r.seatStats.map((s) => ({
+        ...s,
+        counts: s.difficulty === 'hard' ? hard : normal,
+      })),
+    }));
+    const report = analyzeG2(mixed, plan, { plannedBlocks: 120, resamples: 100 });
+    const check = report.verdict.checks.find((c) => c.id === 'jev-answered')!;
+    expect(check.pass).toBe(true);
+    // (165 - 15 sent) all valid; v1 would have read 0.364 and 0.244 of all decisions.
+    // Counts are summed over every seat of that difficulty.
+    const { hard: h, normal: n } = report.difficulty;
+    expect(check.detail).toContain(`hard 1.000 of ${150 * h.seatGames} decisions sent to Jev`);
+    expect(check.detail).toContain(`normal 1.000 of ${421 * n.seatGames} decisions sent to Jev`);
+    expect(report.difficulty.hard.rates.fallbackRate.total).toBeCloseTo(0.6364, 3);
+  });
+
+  test('applied, low_confidence, missing_facts and a failed answer: the share is exact', () => {
+    // 100 decisions: 20 missing_facts (out), 80 sent: 50 applied, 20 low_confidence, 10 invalid_choice.
+    const counts = {
+      decisions: 100,
+      requests: 80,
+      'fallback:missing_facts': 20,
+      'fallback:low_confidence': 20,
+      'fallback:invalid_choice': 10,
+    };
+    const report = analyzeG2(withCounts(counts), plan, { plannedBlocks: 120, resamples: 100 });
+    const check = report.verdict.checks.find((c) => c.id === 'jev-answered')!;
+    // 70 of 80 = 0.875
+    expect(check.detail).toContain(
+      `hard 0.875 of ${80 * report.difficulty.hard.seatGames} decisions sent to Jev`,
+    );
+    expect(check.pass).toBe(true);
+  });
+
+  test('a v1 plan (no cause lists) still reads as v1: no fallback over every decision, floor 0.30', () => {
+    const v1Integrity: Record<string, unknown> = { ...plan.rule.integrity };
+    delete v1Integrity.jevAnsweredValidCauses;
+    delete v1Integrity.jevAnsweredNotSentCauses;
+    const v1 = parseG2Plan({
+      ...plan,
+      version: 1,
+      rule: { ...plan.rule, integrity: { ...v1Integrity, minJevAnsweredShare: 0.3 } },
+    });
+    expect(v1.rule.integrity.jevAnsweredValidCauses).toEqual([]);
+    const smokeLike = withCounts({
+      decisions: 100,
+      requests: 90,
+      'fallback:low_confidence': 55,
+      'fallback:missing_facts': 9,
+    });
+    const check = analyzeG2(smokeLike, v1, {
+      plannedBlocks: 120,
+      resamples: 100,
+    }).verdict.checks.find((c) => c.id === 'jev-answered')!;
+    expect(check.pass).toBe(true);
+    expect(check.detail).toContain('hard 0.360 of ');
+    const v2 = verdictOf(smokeLike).checks.find((c) => c.id === 'jev-answered')!;
+    expect(v2.detail).toContain('hard 1.000 of ');
+  });
+
+  test('decisions that are all missing_facts sent nothing to Jev: no answered share to trust', () => {
+    const verdict = verdictOf(
+      withCounts({ decisions: 10, requests: 0, 'fallback:missing_facts': 10 }),
+    );
+    expect(verdict.status).toBe('no-verdict');
+    expect(verdict.checks.find((c) => c.id === 'jev-answered')!.pass).toBe(false);
+  });
+
   test("Hard's own timeouts are the latency rule's, not an outage: Normal answering keeps the verdict", () => {
-    // Hard times out on half its decisions (rollouts eat the deadline); Normal is healthy.
-    const slowHard = withCounts({ decisions: 10, requests: 10, 'fallback:timeout': 5 }, 'hard');
+    // Hard times out on one decision in ten (rollouts eat the deadline); Normal is healthy.
+    const slowHard = withCounts({ decisions: 10, requests: 10, 'fallback:timeout': 1 }, 'hard');
     const verdict = verdictOf(slowHard);
     expect(verdict.status).toBe('ship-2-levels');
     expect(verdict.checks.find((c) => c.id === 'infrastructure-fallbacks')!.pass).toBe(true);
