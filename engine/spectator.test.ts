@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import {
   actionRecordSchema,
+  actionVisibleTo,
   actionVisibleToSpectator,
   advanceAutomatically,
   aiSpeechEventSchema,
@@ -121,77 +122,85 @@ function step(state: GameState, pick: (n: number) => number) {
 const LEAKY_KEYS =
   /"(own|balls|privateResults|chats|chatsSent|rng|cursor|seed|rngVersion|eventDeck|drawPile)":|"(poke|great|ultra)":/;
 
-test('no spectator view, event or record of 25 seeded all-AI games of 2–4 seats holds a secret of any seat (§4.1, §4.8, §5.4, §8)', () => {
-  const kinds = new Set<string>();
-  let views = 0;
-  for (let game = 0; game < 25; game++) {
-    let state = newGame(2 + (game % 3), `${SEED}-${game}`);
-    plantSecrets(state, 'S');
-    let choices = createRng(game);
-    const pick = (n: number) => {
-      const draw = int(choices, n);
-      choices = draw.rng;
-      return draw.value;
-    };
-    let shown = 0;
-    for (let move = 1; move <= 60; move++) {
-      const before = state;
-      const result = step(before, pick);
-      state = structuredClone(result.state);
-      // A bought secret item gets a sentinel name too, so its leak is detectable.
-      for (const player of state.players) {
-        for (const item of player.items) {
-          if (item.visibility === 'secret') item.name = `S-NAME-${item.instanceId}`;
+// 25 invariant-free full games take ~3 s alone; the default 5 s timed out under load (ET-05), and a red
+// leak sweep gets ignored as noise. The sweep keeps all 25 games; only the budget is named.
+const SPECTATOR_SWEEP_MS = 60_000;
+
+test(
+  'no spectator view, event or record of 25 seeded all-AI games of 2–4 seats holds a secret of any seat (§4.1, §4.8, §5.4, §8)',
+  () => {
+    const kinds = new Set<string>();
+    let views = 0;
+    for (let game = 0; game < 25; game++) {
+      let state = newGame(2 + (game % 3), `${SEED}-${game}`);
+      plantSecrets(state, 'S');
+      let choices = createRng(game);
+      const pick = (n: number) => {
+        const draw = int(choices, n);
+        choices = draw.rng;
+        return draw.value;
+      };
+      let shown = 0;
+      for (let move = 1; move <= 60; move++) {
+        const before = state;
+        const result = step(before, pick);
+        state = structuredClone(result.state);
+        // A bought secret item gets a sentinel name too, so its leak is detectable.
+        for (const player of state.players) {
+          for (const item of player.items) {
+            if (item.visibility === 'secret') item.name = `S-NAME-${item.instanceId}`;
+          }
+        }
+        const record = result.records[0]!;
+        const secrets = [
+          ...secretsOf(before, state),
+          `"${before.rng.state}"`,
+          `"${state.rng.state}"`,
+          ...DECK,
+          SEED,
+        ];
+        for (const event of result.events) kinds.add(event.kind);
+
+        const events = eventsVisibleToSpectator(before, result.events);
+        const seen = actionVisibleToSpectator(before, record, shown)!;
+        expect(seen.events).toEqual(events);
+        expect(seen.action.actionSeq).toBe(shown + 1);
+        shown++;
+        const feed = JSON.stringify([events, seen]);
+        for (const secret of secrets) expect(feed).not.toContain(secret);
+        for (const event of events)
+          expect(['hostile_item_used', 'chat_sent']).not.toContain(event.kind);
+        expect(feed).not.toContain('"offerId"');
+        expect(feed).not.toContain('"order"');
+        // The drawn card is public; undealt cards remain hidden.
+
+        const projection = { ...state };
+        projection.eventDeck = { drawPile: [...DECK], discardPile: [] };
+        const view = observeSpectator(projection);
+        views++;
+        expect(view.public.stateRevision).toBe(shown);
+        const text = JSON.stringify(view);
+        for (const secret of secrets) expect(text).not.toContain(secret);
+        expect(text).not.toMatch(LEAKY_KEYS);
+        expect(view).not.toHaveProperty('own');
+        // Control: the public facts are there.
+        for (const player of state.players) {
+          expect(view.public.players[player.seatIndex]).toMatchObject({
+            coins: player.coins,
+            itemCount: player.items.length,
+            knownItems: player.items.filter((item) => item.visibility === 'public'),
+          });
         }
       }
-      const record = result.records[0]!;
-      const secrets = [
-        ...secretsOf(before, state),
-        `"${before.rng.state}"`,
-        `"${state.rng.state}"`,
-        ...DECK,
-        SEED,
-      ];
-      for (const event of result.events) kinds.add(event.kind);
-
-      const events = eventsVisibleToSpectator(before, result.events);
-      const seen = actionVisibleToSpectator(before, record, shown)!;
-      expect(seen.events).toEqual(events);
-      expect(seen.action.actionSeq).toBe(shown + 1);
-      shown++;
-      const feed = JSON.stringify([events, seen]);
-      for (const secret of secrets) expect(feed).not.toContain(secret);
-      for (const event of events)
-        expect(['hostile_item_used', 'chat_sent']).not.toContain(event.kind);
-      expect(feed).not.toContain('"offerId"');
-      expect(feed).not.toContain('"order"');
-      // The drawn card is public; undealt cards remain hidden.
-
-      const projection = { ...state };
-      projection.eventDeck = { drawPile: [...DECK], discardPile: [] };
-      const view = observeSpectator(projection);
-      views++;
-      expect(view.public.stateRevision).toBe(shown);
-      const text = JSON.stringify(view);
-      for (const secret of secrets) expect(text).not.toContain(secret);
-      expect(text).not.toMatch(LEAKY_KEYS);
-      expect(view).not.toHaveProperty('own');
-      // Control: the public facts are there.
-      for (const player of state.players) {
-        expect(view.public.players[player.seatIndex]).toMatchObject({
-          coins: player.coins,
-          itemCount: player.items.length,
-          knownItems: player.items.filter((item) => item.visibility === 'public'),
-        });
-      }
     }
-  }
-  expect(views).toBe(1500);
-  // Random play exercised the events the filter exists for.
-  expect(kinds).toContain('hostile_item_used');
-  expect(kinds).toContain('uid_created');
-  expect(kinds).toContain('coin_transfer');
-});
+    expect(views).toBe(1500);
+    // Random play exercised the events the filter exists for.
+    expect(kinds).toContain('hostile_item_used');
+    expect(kinds).toContain('uid_created');
+    expect(kinds).toContain('coin_transfer');
+  },
+  SPECTATOR_SWEEP_MS,
+);
 
 test('two states with the same public history and different secrets give the identical spectator view (§4.1)', () => {
   for (let game = 0; game < 25; game++) {
@@ -547,4 +556,25 @@ test('public PvP evidence omits internal sequence numbers and a battle window re
   expect(view).not.toHaveProperty('pendingDecision');
   expect(view).not.toHaveProperty('legalActions');
   expect(view.public.players[1]).not.toHaveProperty('armedShield');
+});
+
+test('a visible die leaves the RNG cursor out of every seat feed and the watcher feed, but not the log (§4.1, §8)', () => {
+  const state = newGame(4, 255, true);
+  const roll = advanceAutomatically(state);
+  const die = advanceAutomatically(roll.state);
+  const record = die.records[0]!;
+  const draws = record.events.filter((event) => event.kind === 'random_result');
+  expect(draws.length).toBeGreaterThan(0);
+  // The raw log keeps the cursor so a replay can verify it.
+  for (const draw of draws) expect(draw).toHaveProperty('drawCounter');
+  const feeds = [
+    ...state.players.map(({ seatIndex }) => actionVisibleTo(roll.state, record, seatIndex, 1)),
+    actionVisibleToSpectator(roll.state, record, 1),
+  ];
+  expect(feeds).toHaveLength(5);
+  for (const feed of feeds) {
+    const seen = feed!.events.filter((event) => event.kind === 'random_result');
+    expect(seen.length).toBeGreaterThan(0);
+    for (const event of seen) expect(event).not.toHaveProperty('drawCounter');
+  }
 });

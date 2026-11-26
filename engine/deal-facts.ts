@@ -1,6 +1,5 @@
 import type { Content, DealTerms, GameState, Player } from './contract/schema.ts';
 import { itemEffectStatus } from './items.ts';
-import { pokemonStatuses } from './status.ts';
 import { saleBasePrice } from './selling.ts';
 
 /**
@@ -39,8 +38,8 @@ const holds = (side: DealTerms['give']): boolean =>
  * A window is gone when the item's effect is only planned (held, but no legal use exists, §4.6), when the game is
  * finished, or when the Final Table Round has been announced and the holder has no turn left: it has played its
  * `targetOwnTurnNo` turns and is not the active seat, whose Strategy phase is still ahead of the Social window.
- * A Potion with no tired or debuffed Pokémon on the holder's team has no use either on the holder's last turn.
- * It reads public state only, so valuing an item reveals nothing.
+ * A Potion with no Tired Pokémon on the holder's team has no use either on the holder's last turn. Only the
+ * public Tired status counts: a combat debuff is private (§4.1, §5.4), so it never changes a Deal's value.
  */
 export function itemUseWindow(state: GameState, holder: Player, itemId: string): boolean {
   const content = state.content.items.find((entry) => entry.id === itemId);
@@ -49,9 +48,10 @@ export function itemUseWindow(state: GameState, holder: Player, itemId: string):
   const round = state.finalTableRound;
   if (!round) return true;
   const turnLeft = holder.ownTurnNo < round.targetOwnTurnNo;
-  // A Potion heals a tired or debuffed Pokémon (§4.6). With none on the holder's team, nothing can change that
-  // before the Strategy phase still ahead, so it is guaranteed unusable unless a later turn of the holder remains.
-  if (itemId === 'potion' && !holder.team.some((pokemon) => pokemonStatuses(pokemon).length > 0)) {
+  // With no Tired Pokémon on the holder's team, nothing can change that before the Strategy phase still ahead, so
+  // a Potion is guaranteed unusable unless a later turn of the holder remains. Tired is the public status; the
+  // private combat debuff is deliberately ignored (§4.8).
+  if (itemId === 'potion' && !holder.team.some((pokemon) => pokemon.tired)) {
     return turnLeft;
   }
   const strategyAhead =

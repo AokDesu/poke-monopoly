@@ -4,6 +4,13 @@ import fixture from '../engine/fixtures/shop-low-coins.json';
 import { createApp } from './app.ts';
 import type { DecisionRecord } from './jev/decision-log.ts';
 
+/** The loopback Host and its own Origin that every `/api/ai/*` route requires (spec §9). */
+const SAME_ORIGIN = {
+  host: 'localhost:5173',
+  origin: 'http://localhost:5173',
+  'content-type': 'application/json',
+};
+
 const parsed = fixtureSchema.parse(fixture);
 const request = {
   gameId: 'shop-offline-game',
@@ -20,7 +27,7 @@ const request = {
 const post = (body: unknown, app = createApp()) =>
   app.request('/api/ai/decide', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: SAME_ORIGIN,
     body: JSON.stringify(body),
   });
 
@@ -61,7 +68,7 @@ test('a Shop request naming an unknown personality is refused, not played as ano
 const apply = (answer: Record<string, unknown>, app: ReturnType<typeof createApp>) =>
   app.request('/api/ai/outcome', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: SAME_ORIGIN,
     body: JSON.stringify({
       gameId: request.gameId,
       seatIndex: request.seatIndex,
@@ -119,7 +126,7 @@ test('the speculative fallback for a Shop request is never logged', async () => 
   const app = createApp({ decisionLog: (line) => records.push(line) });
   const response = await app.request('/api/ai/fallback', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: SAME_ORIGIN,
     body: JSON.stringify(request),
   });
   await apply(await response.json(), app);

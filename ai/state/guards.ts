@@ -18,6 +18,11 @@ const stringIdentifierPaths = [
   // The promise question's seats and the asker's quoted chat name actors by the same opaque ID.
   /^promise_offer\.(?:asked_by_id|promiser_id|recipient_id)$/,
   /^recent_chat\[\d+\]\.from$/,
+  // A battle question names the other seat in the same way: the challenger, the winner's loser,
+  // the opponent of a window and the active seat that used a Pickpocket.
+  /^challenge\.from_id$/,
+  /^reward\.loser_id$/,
+  /^window\.(?:opponent_id|attacker_id)$/,
 ];
 
 /** Reject raw numeric data, including numeric strings; rank/Lap labels are prose. */

@@ -12,6 +12,9 @@ import { galleryRows, PENDING_ROWS } from './catalog.tsx';
 import { GalleryPage } from './GalleryPage.tsx';
 import type { GalleryFixtures } from './scenes.ts';
 
+// Named per-test budgets (ET-05): these take 2 to 8 s at full parallelism, so the 5 s default is too tight on a loaded machine.
+const SLOW_TEST_MS = 30_000;
+
 afterEach(cleanup);
 
 const fixtures: GalleryFixtures = {
@@ -274,38 +277,42 @@ function specSituations(): string[] {
     .map((line) => line.split('|')[1]!.trim());
 }
 
-test('every §3.1 row that has a screen shows each of its catalog keys, labelled with its spec row', () => {
-  render(<GalleryPage fixtures={fixtures} />);
-  expect(
-    [...document.querySelectorAll('[data-gallery-row]')].map((el) =>
-      el.getAttribute('data-gallery-row'),
-    ),
-  ).toEqual(SHOWN.map((row) => row.id));
-  for (const row of SHOWN) {
-    const el = section(row.id);
-    expect(el.getAttribute('data-spec-row'), row.id).toBe(row.specRow);
-    expect(missing(examples(row.id), row.keys), row.id).toEqual([]);
-    const label =
-      row.specRow === 'ai-turns'
-        ? t('gallery.specAiTurns')
-        : row.specRow === 'battle'
-          ? t('gallery.specBattle')
-          : row.specRow === 'social'
-            ? t('gallery.specSocial')
-            : row.specRow === 'promises'
-              ? t('gallery.specPromises')
-              : row.specRow === 'abilities'
-                ? t('gallery.specAbilities')
-                : row.specRow === 'howToPlay'
-                  ? t('gallery.specHowToPlay')
-                  : row.specRow === 'demo'
-                    ? t('gallery.specDemo')
-                    : row.specRow === 'board'
-                      ? t('gallery.specBoard')
-                      : t('gallery.specRow', { row: row.specRow });
-    expect(within(el).getByText(label), row.id).toBeTruthy();
-  }
-});
+test(
+  'every §3.1 row that has a screen shows each of its catalog keys, labelled with its spec row',
+  () => {
+    render(<GalleryPage fixtures={fixtures} />);
+    expect(
+      [...document.querySelectorAll('[data-gallery-row]')].map((el) =>
+        el.getAttribute('data-gallery-row'),
+      ),
+    ).toEqual(SHOWN.map((row) => row.id));
+    for (const row of SHOWN) {
+      const el = section(row.id);
+      expect(el.getAttribute('data-spec-row'), row.id).toBe(row.specRow);
+      expect(missing(examples(row.id), row.keys), row.id).toEqual([]);
+      const label =
+        row.specRow === 'ai-turns'
+          ? t('gallery.specAiTurns')
+          : row.specRow === 'battle'
+            ? t('gallery.specBattle')
+            : row.specRow === 'social'
+              ? t('gallery.specSocial')
+              : row.specRow === 'promises'
+                ? t('gallery.specPromises')
+                : row.specRow === 'abilities'
+                  ? t('gallery.specAbilities')
+                  : row.specRow === 'howToPlay'
+                    ? t('gallery.specHowToPlay')
+                    : row.specRow === 'demo'
+                      ? t('gallery.specDemo')
+                      : row.specRow === 'board'
+                        ? t('gallery.specBoard')
+                        : t('gallery.specRow', { row: row.specRow });
+      expect(within(el).getByText(label), row.id).toBeTruthy();
+    }
+  },
+  SLOW_TEST_MS,
+);
 
 test('the gallery fails to show a key when its screen no longer does (Shop with coins has no "Not enough coins")', () => {
   const rich = structuredClone(shopLowCoins);

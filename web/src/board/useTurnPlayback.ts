@@ -181,6 +181,10 @@ export function useTurnPlayback(
   if (skip === 'turn' && (finished || (viewer !== undefined && game?.activeSeatIndex === viewer))) {
     setSkip(null);
   }
+  // A pause belongs to the rivals' stretch: Pause and Resume are only offered while a rival plays,
+  // so a pause that reaches the viewing seat's own turn (stepped there with Next) ends with it and
+  // can never lock the game with no control left to release it.
+  if (paused && viewer !== undefined && game?.activeSeatIndex === viewer) setPaused(false);
 
   // Tells the next beats, holding each one; a beat with nothing to hold is told with the next.
   useEffect(() => {

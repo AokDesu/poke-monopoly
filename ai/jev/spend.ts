@@ -98,7 +98,27 @@ export interface UsageRecorder {
    * requests of that provider are not sent. Jev when no provider is named.
    */
   budgetExceeded(provider?: UsageProvider): boolean;
+  /**
+   * Holds back the estimated cost of one request about to go out, so concurrent requests cannot
+   * all pass `budgetExceeded` before any of them is recorded (spec §9). Returns the function that
+   * releases the hold once the request's usage line is recorded (or the request never went out),
+   * or `null` when the request would pass the cap or budget: it is then not sent. A recorder
+   * without it only checks `budgetExceeded`.
+   */
+  reserve?(provider?: UsageProvider): (() => void) | null;
 }
+
+/**
+ * An error's class name, never its message: a message could carry a path, a request or a key
+ * (spec §9). The only way a failure of the ledger, the log or a request reaches the server log.
+ */
+export const errorClass = (error: unknown): string =>
+  error instanceof Error ? error.constructor.name || error.name : typeof error;
+
+/** Logs that the usage log or the spend guard failed, by class only. */
+export const warnLedgerFailed = (what: string, error: unknown): void => {
+  console.warn(`${what} (${errorClass(error)}).`);
+};
 
 export const providerOf = (line: Pick<UsageLine, 'provider'>): UsageProvider =>
   line.provider ?? 'jev';
@@ -162,6 +182,8 @@ export class SpendLedger implements UsageRecorder {
   readonly #now: () => Date;
   readonly #byDay = new Map<string, number>();
   readonly #thb: Record<UsageProvider, number> = { jev: 0, haiku: 0 };
+  /** THB held for requests that are out but not yet recorded; counted by the guard, never reported as spend. */
+  readonly #reserved: Record<UsageProvider, number> = { jev: 0, haiku: 0 };
   readonly #warned = { total: false, haiku: false };
 
   constructor({
@@ -188,11 +210,38 @@ export class SpendLedger implements UsageRecorder {
     this.#append(line);
   }
 
+  /** Counts what is held for requests still in flight, so it never reports "fine" for money already promised. */
   budgetExceeded(provider: UsageProvider = 'jev'): boolean {
-    if (this.spentThb() >= this.#config.totalCapThb) return true;
-    if (provider === 'haiku') return this.#thb.haiku >= this.#config.haikuCapThb;
+    if (this.#committedThb() >= this.#config.totalCapThb) return true;
+    if (provider === 'haiku')
+      return this.#thb.haiku + this.#reserved.haiku >= this.#config.haikuCapThb;
     if (this.#dailyBudgetThb === undefined) return false;
-    return this.spentTodayThb() >= this.#dailyBudgetThb;
+    return this.spentTodayThb() + this.#reserved.jev >= this.#dailyBudgetThb;
+  }
+
+  /**
+   * Spec §9: reserves the configured estimate for one request, in the same synchronous step that
+   * checks the guard, so N concurrent decisions cannot all pass it. Requests are let through as
+   * they would be one at a time: while what is spent plus what is held is under a cap or budget,
+   * so the request that reaches it is the last. `null` when the guard is already tripped. The
+   * returned release is idempotent; call it once the request's real line is recorded, which
+   * replaces the estimate.
+   */
+  reserve(provider: UsageProvider = 'jev'): (() => void) | null {
+    if (this.budgetExceeded(provider)) return null;
+    const estimate = this.#estimateThb(provider);
+    this.#reserved[provider] += estimate;
+    let held = true;
+    return () => {
+      if (!held) return;
+      held = false;
+      this.#reserved[provider] = Math.max(0, this.#reserved[provider] - estimate);
+    };
+  }
+
+  /** THB held for requests in flight, by one provider or both. */
+  reservedThb(provider?: UsageProvider): number {
+    return provider ? this.#reserved[provider] : this.#reserved.jev + this.#reserved.haiku;
   }
 
   /** THB spent by one provider, or by both when none is named. */
@@ -203,6 +252,21 @@ export class SpendLedger implements UsageRecorder {
   /** THB Jev spent on the current UTC day, which `JEV_DAILY_BUDGET_THB` counts. */
   spentTodayThb(): number {
     return this.#byDay.get(dayOf(this.#now().toISOString())) ?? 0;
+  }
+
+  /** Spent plus held, over both providers: what the total cap is checked against. */
+  #committedThb(): number {
+    return this.spentThb() + this.reservedThb();
+  }
+
+  /** The configured token estimate for one request, as a timed-out request is counted (§9). */
+  #estimateThb(provider: UsageProvider): number {
+    const inputTokens =
+      provider === 'jev'
+        ? this.#config.estimatedInputTokensPerRequest
+        : this.#config.estimatedHaikuInputTokensPerRequest;
+    const outputTokens = provider === 'jev' ? 0 : this.#config.estimatedHaikuOutputTokensPerRequest;
+    return costUsd({ provider, inputTokens, outputTokens }, this.#config) * this.#config.thbPerUsd;
   }
 
   #add(line: UsageLine): void {

@@ -44,7 +44,9 @@ const ENTER_OWNERS =
 
 /**
  * Enter presses the card's primary action (`data-primary`), unless the key belongs to whatever has
- * focus (a button, a link, a field) or to an open dialog. A greyed-out primary does nothing.
+ * focus (a button, a link, a field) or to an open dialog. A greyed-out primary does nothing, and
+ * neither does one marked `data-no-enter`: an action that risks coins (accepting a PvP battle,
+ * challenging a Gym, spec §4.4) is never pressed by a key a player taps to move a rival's turn along.
  */
 function usePrimaryKey(card: RefObject<HTMLElement | null>, live: boolean) {
   useEffect(() => {
@@ -55,7 +57,7 @@ function usePrimaryKey(card: RefObject<HTMLElement | null>, live: boolean) {
       if (document.querySelector('dialog[open]')) return;
       if (event.target instanceof Element && event.target.closest(ENTER_OWNERS)) return;
       const primary = card.current?.querySelector<HTMLButtonElement>(
-        '[data-primary]:not(:disabled)',
+        '[data-primary]:not([data-no-enter]):not(:disabled)',
       );
       if (!primary) return;
       event.preventDefault();

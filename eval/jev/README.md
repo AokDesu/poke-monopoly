@@ -8,7 +8,7 @@ Spec §8 asks for at least 60 decision scenarios, 15 per personality, each with 
 npm run eval:jev -- --offline   # replays every fixture: no key, no network
 ```
 
-The report counts the scenarios per personality, and splits recorded fixtures from synthetic ones (see below). All 84 scenarios are recorded and none is synthetic: the 68 Strategy, Encounter and Sell scenarios (including the three last-Sell Gym twins) and the 16 promise response scenarios (below); see the results.
+The report counts the scenarios per personality, and splits recorded fixtures from synthetic ones (see below). The 84 Strategy, Encounter, Sell and promise response scenarios are recorded; the 32 battle decision scenarios (below) are synthetic placeholders until the captain records them; see the results.
 
 ## The scenarios
 
@@ -54,6 +54,23 @@ Some states are agreement controls (every personality gives the same answer), so
 | `promise-promiser-low-trust`   | the promiser: it is asked     | low   | one promise broken |
 
 Within a table the four personalities share the exact table state, so a pair differs only in the personality text. The acceptable sets (`respond:accept`, `respond:reject`) are judgements from `content/personalities/<id>.json` with a `reason` that cites the weights (a test checks the cited values). Greedy accepts at high trust and rejects at low trust in both roles; Cautious, the most loyal, accepts or rejects at low trust; Aggressive and Opportunist may accept or reject when asked to promise at high trust. The fallback policy's own answer is a cross-check: a test requires it to be an acceptable answer for every scenario. These are small counts and judgements, not a claim about Jev.
+
+## Battle decision scenarios (issue #56, C3)
+
+`battle-scenarios.ts`: 32 scenarios of the three battle decision points, eight tables by four personalities. Seat 0, the AI, is the Main Character; the human at seat 1 challenges it, uses Pickpocket on it, or loses to it (`battle-kit.ts` builds each table with the engine's own actions). The request is the real question builder over the engine's own observation and battle preview: the chances as named buckets (`low`, `medium`, `high`), the Ability by name and effect in words, the reward options; no number reaches Jev. A scenario ID is `<personality>-<table>`.
+
+| Table                      | Decision point   | The AI's question                                              |
+| -------------------------- | ---------------- | -------------------------------------------------------------- |
+| `pvp-response-even`        | `pvp_response`   | accept or decline a challenge at even odds                     |
+| `pvp-response-underdog`    | `pvp_response`   | the same as the underdog (the challenger is a Rival)           |
+| `pvp-response-favoured`    | `pvp_response`   | the same as the clear favourite (a Gyarados on its team)       |
+| `window-defender-underdog` | `ability_window` | use Blaze in its defender window, or none                      |
+| `window-defender-favoured` | `ability_window` | Blaze or Block (a Snorlax) while ahead, or none                |
+| `window-pickpocket-block`  | `ability_window` | react to a Pickpocket with Block, or not                       |
+| `reward-pvp-won`           | `reward`         | coins, or evolve its Charmander or one of three Eevee branches |
+| `reward-gym-won`           | `reward`         | coins from the bank, or evolve its Charmander                  |
+
+The acceptable sets are judgements from `content/personalities/<id>.json` with a `reason` that cites the weights (a test checks the cited values). The personalities differ in six of the eight tables (Aggressive takes an even or underdog PvP fight, spends Blaze and takes the evolution; Cautious and Greedy decline, may keep their Abilities and take coins); the favoured PvP table and the Pickpocket table are the controls where all four give the same answer. The fallback policy's own answer is a cross-check: a test requires it to be an acceptable answer for every scenario. The fixtures are synthetic placeholders (`synthetic: true`, a seeded stand-in answer): they prove the harness, count in the scenario totals and are left out of accuracy until recorded.
 
 ## Results of the recording
 
@@ -114,7 +131,42 @@ npm run eval:jev -- --record
 
 It makes one request per scenario that is missing, synthetic or stale, through the orchestrator, and writes each fixture with `synthetic: false`. Requests are logged to the usage ledger and stop at the spend cap or daily budget (spec §9). A scenario whose request changed (for example after a wording change) is stale and recorded again; a current recording is kept. Afterwards run `npm run eval:jev -- --offline` and commit the changed fixtures.
 
-Fixtures still to record: none. The 16 promise response fixtures were recorded by the captain on 2026-11-20 (`jev-1.13.0`, one request each, through the orchestrator):
+Fixtures still to record: the 32 battle decision fixtures (spec §4.4, §5.3, issue #56 C3), synthetic placeholders until the captain records them with `npm run eval:jev -- --record`. Eight tables by four personalities: the PvP challenge (`pvp_response`), the open Ability window (`ability_window`, a battle window and a Pickpocket reaction) and the winner's reward (`reward`, PvP and Gym).
+
+- `greedy-pvp-response-even`
+- `aggressive-pvp-response-even`
+- `cautious-pvp-response-even`
+- `opportunist-pvp-response-even`
+- `greedy-pvp-response-underdog`
+- `aggressive-pvp-response-underdog`
+- `cautious-pvp-response-underdog`
+- `opportunist-pvp-response-underdog`
+- `greedy-pvp-response-favoured`
+- `aggressive-pvp-response-favoured`
+- `cautious-pvp-response-favoured`
+- `opportunist-pvp-response-favoured`
+- `greedy-window-defender-underdog`
+- `aggressive-window-defender-underdog`
+- `cautious-window-defender-underdog`
+- `opportunist-window-defender-underdog`
+- `greedy-window-defender-favoured`
+- `aggressive-window-defender-favoured`
+- `cautious-window-defender-favoured`
+- `opportunist-window-defender-favoured`
+- `greedy-window-pickpocket-block`
+- `aggressive-window-pickpocket-block`
+- `cautious-window-pickpocket-block`
+- `opportunist-window-pickpocket-block`
+- `greedy-reward-pvp-won`
+- `aggressive-reward-pvp-won`
+- `cautious-reward-pvp-won`
+- `opportunist-reward-pvp-won`
+- `greedy-reward-gym-won`
+- `aggressive-reward-gym-won`
+- `cautious-reward-gym-won`
+- `opportunist-reward-gym-won`
+
+The 16 promise response fixtures were recorded by the captain on 2026-11-20 (`jev-1.13.0`, one request each, through the orchestrator):
 
 - `greedy-promise-recipient-high-trust`
 - `aggressive-promise-recipient-high-trust`

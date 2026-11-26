@@ -181,6 +181,9 @@ function Options({ view, onChoose }: { view: SeatView; onChoose: (id: string) =>
   const primary =
     enabled.find((action) => !quiet(action) && action.kind !== 'activate_ability') ??
     enabled.find(quiet);
+  // Accepting a PvP battle and challenging a Gym risk coins (§4.4); Enter never presses them.
+  const risksCoins = (action: LegalAction) =>
+    action.kind === 'challenge_gym' || action.id === 'accept-pvp';
   return (
     <ul className="battle-options">
       {enabled.map((action) => (
@@ -190,6 +193,7 @@ function Options({ view, onChoose }: { view: SeatView; onChoose: (id: string) =>
             // One red button per footer: the one Enter presses.
             variant={action === primary ? 'primary' : 'secondary'}
             data-primary={action === primary ? '' : undefined}
+            data-no-enter={action === primary && risksCoins(action) ? '' : undefined}
             onClick={() => onChoose(action.id)}
           >
             {choiceLabel(action, observation)}

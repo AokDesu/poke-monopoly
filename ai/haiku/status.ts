@@ -1,5 +1,5 @@
 import type { SpeechStatus } from '../../engine/contract/decision.ts';
-import { defaultUsageLedger, type UsageRecorder } from '../jev/spend.ts';
+import { defaultUsageLedger, warnLedgerFailed, type UsageRecorder } from '../jev/spend.ts';
 
 /** Spec §9: Haiku is off unless `HAIKU_ENABLED=true`. Read only here and in the client, inside ai/. */
 export const haikuEnabled = (env: NodeJS.ProcessEnv = process.env): boolean =>
@@ -14,7 +14,8 @@ export const haikuApiKey = (env: NodeJS.ProcessEnv = process.env): string | unde
 /**
  * The speech half of `GET /api/ai/status`: the kill switch, key presence and Haiku's own cap, read
  * per call so the "Voice off" badge tells the truth. The ledger is opened only once Haiku is on
- * and keyed, so a server without Haiku never reads the usage log.
+ * and keyed, so a server without Haiku never reads the usage log. A ledger that fails closes it:
+ * voice is off as `budget_exceeded`, and the error's class is logged, never its message.
  */
 export const speechStatus = (
   usage: () => Pick<UsageRecorder, 'budgetExceeded'> = defaultUsageLedger,
@@ -22,6 +23,11 @@ export const speechStatus = (
 ): SpeechStatus => {
   if (!haikuEnabled(env)) return { enabled: false, reason: 'disabled' };
   if (!haikuApiKey(env)) return { enabled: false, reason: 'missing_key' };
-  if (usage().budgetExceeded('haiku')) return { enabled: false, reason: 'budget_exceeded' };
+  try {
+    if (usage().budgetExceeded('haiku')) return { enabled: false, reason: 'budget_exceeded' };
+  } catch (error) {
+    warnLedgerFailed('The spend ledger failed; Haiku is off until it can be read', error);
+    return { enabled: false, reason: 'budget_exceeded' };
+  }
   return { enabled: true, reason: null };
 };

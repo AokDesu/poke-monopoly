@@ -241,6 +241,39 @@ test('Gym: Challenge and Skip the Gym sit in the footer (§4.4)', () => {
   inFooter(t('choice.challengeGym'), t('choice.skipGym'));
 });
 
+test('Enter never starts a Gym battle, which can cost coins (§4.4)', async () => {
+  const chosen: string[] = [];
+  const store = storeOf(gymEntry());
+  act(() => void store.advance({ human: true }));
+  render(<Live store={store} onChoose={(id) => chosen.push(id)} />);
+  inFooter(t('choice.challengeGym'), t('choice.skipGym'));
+  await userEvent.keyboard('{Enter}');
+  expect(chosen).toEqual([]);
+});
+
+test('Enter never accepts a challenge to PvP: accepting risks coins, declining costs nothing (§4.4)', async () => {
+  const chosen: string[] = [];
+  const state = gymEntry();
+  state.phase = { kind: 'strategy' };
+  state.activeSeatIndex = 1;
+  state.globalTurnNo = 2;
+  state.turnBudgets = { tacticalAction: 1, catchAttempt: 1, pokemonAbility: 1 };
+  for (const player of state.players) player.ownTurnNo = 2;
+  state.players[0]!.routeProgress = 0;
+  const store = storeOf(state);
+  const declared = store.submit({
+    actorId: 'p1',
+    kind: 'declare_pvp',
+    payload: { targetSeatIndex: 0 },
+  } as never);
+  expect('accepted' in declared).toBe(true);
+  render(<Live store={store} onChoose={(id) => chosen.push(id)} />);
+  expect(card().getAttribute('data-card')).toBe('battle');
+  expect(within(card()).getByRole('button', { name: /accept/i })).toBeTruthy();
+  await userEvent.keyboard('{Enter}');
+  expect(chosen).toEqual([]);
+});
+
 // --------------------------------------------- 3. every greyed option still says why, folded
 
 test('greyed Shop offers fold into one line that opens to the engine’s exact reasons (§3.1)', async () => {
