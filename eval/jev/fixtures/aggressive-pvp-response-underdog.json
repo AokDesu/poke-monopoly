@@ -95,21 +95,21 @@
   },
   "acceptable": { "pvp_response": ["accept", "decline"] },
   "reason": "Aggressive: risk 0.8 and aggression 0.9: it fights even as the underdog, though a worse chance makes declining defensible, so either answer fits.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "16a8de8a5577925316098519cbf7ac72396912ad1d882e9ffce2e2e4a2637d95",
   "recorded": {
     "ok": true,
     "answers": {
       "pvp_response": {
         "type": "choice",
-        "choice": "decline",
-        "confidence": 0.006,
-        "probabilities": { "accept": 0.497, "decline": 0.503 }
+        "choice": "accept",
+        "confidence": 0.78,
+        "probabilities": { "accept": 0.89, "decline": 0.11 }
       }
     },
-    "requestId": "synthetic-aggressive-pvp-response-underdog",
+    "requestId": "req_01a2133a68317240b5fec6f698e83cf6",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 256,
+    "usage": { "inputTokens": 1649, "outputTokens": 34 }
   }
 }

@@ -102,7 +102,7 @@
   },
   "acceptable": { "pvp_response": ["accept"] },
   "reason": "Cautious: risk 0.2 and aggression 0.2: it avoids fights it may lose, and this one it is very likely to win, so it accepts.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "62867fa65165cdce153554e0c66b82ef9ea94686f76a7ad4996c43a1f826e1cd",
   "recorded": {
     "ok": true,
@@ -110,13 +110,13 @@
       "pvp_response": {
         "type": "choice",
         "choice": "accept",
-        "confidence": 0.306,
-        "probabilities": { "accept": 0.653, "decline": 0.347 }
+        "confidence": 0.16,
+        "probabilities": { "accept": 0.58, "decline": 0.42 }
       }
     },
-    "requestId": "synthetic-cautious-pvp-response-favoured",
+    "requestId": "req_01a2133a6d9f70c28c025af30870784c",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 276,
+    "usage": { "inputTokens": 1695, "outputTokens": 34 }
   }
 }

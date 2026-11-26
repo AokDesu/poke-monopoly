@@ -108,7 +108,7 @@
   },
   "acceptable": { "ability_window": ["use_blaze_charmander", "none"] },
   "reason": "Greedy: aggression 0.3 and liquidity 0.9: it is already ahead, so keeping Blaze in hand or spending it both make sense.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "45056d5c83c34f755c7ad3f97d02a5ffc40f166b88aff05315c9c0f519eff692",
   "recorded": {
     "ok": true,
@@ -116,13 +116,13 @@
       "ability_window": {
         "type": "choice",
         "choice": "use_block_snorlax",
-        "confidence": 0.401,
-        "probabilities": { "use_blaze_charmander": 0.03, "use_block_snorlax": 0.601, "none": 0.369 }
+        "confidence": 0.13,
+        "probabilities": { "use_blaze_charmander": 0.17, "use_block_snorlax": 0.42, "none": 0.41 }
       }
     },
-    "requestId": "synthetic-greedy-window-defender-favoured",
+    "requestId": "req_01a2133a74be7ae59f88389b1749dc81",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 312,
+    "usage": { "inputTokens": 1666, "outputTokens": 52 }
   }
 }

@@ -100,7 +100,7 @@
   },
   "acceptable": { "ability_window": ["use_blaze_charmander", "none"] },
   "reason": "Greedy: aggression 0.3 and liquidity 0.9: Blaze helps a fight it would rather avoid, yet it likes to keep an Ability in hand, so either answer fits.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "454cf227d9dd60574327450b032807ba6b6b5b9e0c92ab91faa2e47f5817d134",
   "recorded": {
     "ok": true,
@@ -108,13 +108,13 @@
       "ability_window": {
         "type": "choice",
         "choice": "none",
-        "confidence": 0.29,
-        "probabilities": { "use_blaze_charmander": 0.355, "none": 0.645 }
+        "confidence": 0.56,
+        "probabilities": { "use_blaze_charmander": 0.22, "none": 0.78 }
       }
     },
-    "requestId": "synthetic-greedy-window-defender-underdog",
+    "requestId": "req_01a2133a6fd27fcf84410570d485a590",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 266,
+    "usage": { "inputTokens": 1556, "outputTokens": 37 }
   }
 }

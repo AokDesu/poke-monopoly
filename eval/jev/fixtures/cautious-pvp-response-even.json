@@ -95,21 +95,21 @@
   },
   "acceptable": { "pvp_response": ["decline"] },
   "reason": "Cautious: risk 0.2 and aggression 0.2: declining costs nothing and an even fight can lose coins, so it declines.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "e02e46cc7c16a2b4df40c81542fd2183714990ec0b71d03c3cdde548780e6e78",
   "recorded": {
     "ok": true,
     "answers": {
       "pvp_response": {
         "type": "choice",
-        "choice": "accept",
-        "confidence": 0.228,
-        "probabilities": { "accept": 0.614, "decline": 0.386 }
+        "choice": "decline",
+        "confidence": 0.96,
+        "probabilities": { "accept": 0.02, "decline": 0.98 }
       }
     },
-    "requestId": "synthetic-cautious-pvp-response-even",
+    "requestId": "req_01a2133a643670c6b863b83128252f46",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 290,
+    "usage": { "inputTokens": 1648, "outputTokens": 35 }
   }
 }

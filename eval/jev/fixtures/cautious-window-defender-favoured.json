@@ -108,21 +108,21 @@
   },
   "acceptable": { "ability_window": ["use_blaze_charmander", "none"] },
   "reason": "Cautious: aggression 0.2 and risk 0.2: already the favourite, it keeps its Abilities for later, though using one is no mistake.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "284a788effab8ec352d12a028581a716ffcd7306484aef3f87a77cf9babe55ef",
   "recorded": {
     "ok": true,
     "answers": {
       "ability_window": {
         "type": "choice",
-        "choice": "use_block_snorlax",
-        "confidence": 0.472,
-        "probabilities": { "use_blaze_charmander": 0.08, "use_block_snorlax": 0.648, "none": 0.272 }
+        "choice": "none",
+        "confidence": 0.31,
+        "probabilities": { "use_blaze_charmander": 0.12, "use_block_snorlax": 0.34, "none": 0.54 }
       }
     },
-    "requestId": "synthetic-cautious-window-defender-favoured",
+    "requestId": "req_01a2133a772271549cf66de08bcf0f2c",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 241,
+    "usage": { "inputTokens": 1671, "outputTokens": 48 }
   }
 }

@@ -95,21 +95,21 @@
   },
   "acceptable": { "pvp_response": ["accept", "decline"] },
   "reason": "Opportunist: risk 0.6 and aggression 0.5: it fights when the odds are at least level, and these are level, so either answer fits.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "23a2ae94450cc7510ff2b0bae891d4063296f0edba7c87727ed7246b4de5b573",
   "recorded": {
     "ok": true,
     "answers": {
       "pvp_response": {
         "type": "choice",
-        "choice": "decline",
-        "confidence": 0.238,
-        "probabilities": { "accept": 0.381, "decline": 0.619 }
+        "choice": "accept",
+        "confidence": 0.36,
+        "probabilities": { "accept": 0.68, "decline": 0.32 }
       }
     },
-    "requestId": "synthetic-opportunist-pvp-response-even",
+    "requestId": "req_01a2133a656d78e2aba2b5439d2b12af",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 421,
+    "usage": { "inputTokens": 1647, "outputTokens": 34 }
   }
 }

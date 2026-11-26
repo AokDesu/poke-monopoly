@@ -95,7 +95,7 @@
   },
   "acceptable": { "pvp_response": ["accept"] },
   "reason": "Aggressive: risk 0.8 and aggression 0.9: it takes an even fight for the bigger win, so it accepts.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "9e3f2bd058514ee84385148688e8208c4c025e59a1527cdd264625fdda445795",
   "recorded": {
     "ok": true,
@@ -103,13 +103,13 @@
       "pvp_response": {
         "type": "choice",
         "choice": "accept",
-        "confidence": 0.654,
-        "probabilities": { "accept": 0.827, "decline": 0.173 }
+        "confidence": 0.98,
+        "probabilities": { "accept": 0.99, "decline": 0.01 }
       }
     },
-    "requestId": "synthetic-aggressive-pvp-response-even",
+    "requestId": "req_01a2133a63037795ac7f5b7fb479dcd0",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 257,
+    "usage": { "inputTokens": 1649, "outputTokens": 34 }
   }
 }

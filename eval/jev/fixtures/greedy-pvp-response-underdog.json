@@ -95,21 +95,21 @@
   },
   "acceptable": { "pvp_response": ["decline"] },
   "reason": "Greedy: risk 0.3 and aggression 0.3: it will not stake coins on a fight it is likely to lose, so it declines.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "01d832ae4a30844f965cb33fddf8769abf49c6c44de5a55f76a79334bf026fab",
   "recorded": {
     "ok": true,
     "answers": {
       "pvp_response": {
         "type": "choice",
-        "choice": "accept",
-        "confidence": 0.39,
-        "probabilities": { "accept": 0.695, "decline": 0.305 }
+        "choice": "decline",
+        "confidence": 1,
+        "probabilities": { "accept": 0, "decline": 1 }
       }
     },
-    "requestId": "synthetic-greedy-pvp-response-underdog",
+    "requestId": "req_01a2133a671e75f080a7c6c09fa1cd98",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 264,
+    "usage": { "inputTokens": 1643, "outputTokens": 35 }
   }
 }

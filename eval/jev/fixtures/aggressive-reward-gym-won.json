@@ -95,21 +95,21 @@
   },
   "acceptable": { "reward": ["evolve_charmander_to_charmeleon"] },
   "reason": "Aggressive: aggression 0.9 and liquidity 0.3: a stronger Charmander makes the next Gym and fight easier, so it evolves.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "fbd0d2f0e2b69d5c3f57db4485ffa7cbb710d4a4d8a1e34d5fd7ba486eb60aab",
   "recorded": {
     "ok": true,
     "answers": {
       "reward": {
         "type": "choice",
-        "choice": "coins",
-        "confidence": 0.356,
-        "probabilities": { "coins": 0.678, "evolve_charmander_to_charmeleon": 0.322 }
+        "choice": "evolve_charmander_to_charmeleon",
+        "confidence": 0.64,
+        "probabilities": { "coins": 0.18, "evolve_charmander_to_charmeleon": 0.82 }
       }
     },
-    "requestId": "synthetic-aggressive-reward-gym-won",
+    "requestId": "req_01a2133a84d17975a6550349d3334081",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 256,
+    "usage": { "inputTokens": 1508, "outputTokens": 49 }
   }
 }

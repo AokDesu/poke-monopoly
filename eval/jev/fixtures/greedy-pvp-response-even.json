@@ -95,21 +95,21 @@
   },
   "acceptable": { "pvp_response": ["decline"] },
   "reason": "Greedy: risk 0.3 and aggression 0.3: it keeps its coins out of a battle that is a coin flip, so it declines.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "e368dfbdb2da92d867cf985b6e8aa89fd390db45c31548463835efb1300e4d6a",
   "recorded": {
     "ok": true,
     "answers": {
       "pvp_response": {
         "type": "choice",
-        "choice": "accept",
-        "confidence": 0.998,
-        "probabilities": { "accept": 0.999, "decline": 0.001 }
+        "choice": "decline",
+        "confidence": 0.8,
+        "probabilities": { "accept": 0.1, "decline": 0.9 }
       }
     },
-    "requestId": "synthetic-greedy-pvp-response-even",
+    "requestId": "req_01a2133a605d71f38ca0a12e5553ba73",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 679,
+    "usage": { "inputTokens": 1643, "outputTokens": 35 }
   }
 }

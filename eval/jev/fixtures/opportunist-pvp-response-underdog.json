@@ -95,7 +95,7 @@
   },
   "acceptable": { "pvp_response": ["decline"] },
   "reason": "Opportunist: risk 0.6 and aggression 0.5: it fights only when the odds are at least level, and they are against it, so it declines.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "7fcefa6622b6716ef0f61b0842aa5b5b53cc3604f45163421d05c4c7842214e1",
   "recorded": {
     "ok": true,
@@ -103,13 +103,13 @@
       "pvp_response": {
         "type": "choice",
         "choice": "decline",
-        "confidence": 0.832,
-        "probabilities": { "accept": 0.084, "decline": 0.916 }
+        "confidence": 0.82,
+        "probabilities": { "accept": 0.09, "decline": 0.91 }
       }
     },
-    "requestId": "synthetic-opportunist-pvp-response-underdog",
+    "requestId": "req_01a2133a6a687ed097f87871a0df308b",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 242,
+    "usage": { "inputTokens": 1647, "outputTokens": 35 }
   }
 }

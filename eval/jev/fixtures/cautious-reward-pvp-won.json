@@ -112,27 +112,27 @@
   },
   "acceptable": { "reward": ["coins"] },
   "reason": "Cautious: liquidity 0.5 and aggression 0.2: coins in hand are safe and a stronger team is not what it wants, so it takes the coins.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "4fc9bd7fa06dc97e42953a876ba949baa8da1c16e426c788605b35587687019a",
   "recorded": {
     "ok": true,
     "answers": {
       "reward": {
         "type": "choice",
-        "choice": "evolve_eevee_to_vaporeon",
-        "confidence": 0.344,
+        "choice": "coins",
+        "confidence": 0.73,
         "probabilities": {
-          "coins": 0.018,
-          "evolve_charmander_to_charmeleon": 0.002,
-          "evolve_eevee_to_vaporeon": 0.475,
-          "evolve_eevee_to_jolteon": 0.092,
-          "evolve_eevee_to_flareon": 0.413
+          "coins": 0.78,
+          "evolve_charmander_to_charmeleon": 0.15,
+          "evolve_eevee_to_vaporeon": 0.04,
+          "evolve_eevee_to_jolteon": 0.01,
+          "evolve_eevee_to_flareon": 0.02
         }
       }
     },
-    "requestId": "synthetic-cautious-reward-pvp-won",
+    "requestId": "req_01a2133a80f97ec3b707074986ac61bb",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 331,
+    "usage": { "inputTokens": 1825, "outputTokens": 86 }
   }
 }

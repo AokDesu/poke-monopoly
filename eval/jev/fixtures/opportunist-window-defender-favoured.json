@@ -108,25 +108,21 @@
   },
   "acceptable": { "ability_window": ["use_blaze_charmander", "none"] },
   "reason": "Opportunist: aggression 0.5 and risk 0.6: the gain from Blaze is small against the favourite lead, so it may keep it or spend it.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "9af60f5354b6be394256a1ea84ae8d7e3f168aff5c1217fc35314245e43b6d33",
   "recorded": {
     "ok": true,
     "answers": {
       "ability_window": {
         "type": "choice",
-        "choice": "none",
-        "confidence": 0.247,
-        "probabilities": {
-          "use_blaze_charmander": 0.438,
-          "use_block_snorlax": 0.064,
-          "none": 0.498
-        }
+        "choice": "use_blaze_charmander",
+        "confidence": 0.67,
+        "probabilities": { "use_blaze_charmander": 0.78, "use_block_snorlax": 0.07, "none": 0.15 }
       }
     },
-    "requestId": "synthetic-opportunist-window-defender-favoured",
+    "requestId": "req_01a2133a783f7e619e16439ab739ff67",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 255,
+    "usage": { "inputTokens": 1670, "outputTokens": 53 }
   }
 }

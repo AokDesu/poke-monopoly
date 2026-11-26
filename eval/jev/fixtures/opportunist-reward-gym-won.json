@@ -95,7 +95,7 @@
   },
   "acceptable": { "reward": ["coins", "evolve_charmander_to_charmeleon"] },
   "reason": "Opportunist: liquidity 0.7 and aggression 0.5: cash now and a stronger Starter both pay, so either answer fits.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "4d16872c390e207ef63b02822a3ef881d8237e7d54dbd32c40848e150c37edb7",
   "recorded": {
     "ok": true,
@@ -103,13 +103,13 @@
       "reward": {
         "type": "choice",
         "choice": "coins",
-        "confidence": 0.952,
-        "probabilities": { "coins": 0.976, "evolve_charmander_to_charmeleon": 0.024 }
+        "confidence": 0.88,
+        "probabilities": { "coins": 0.94, "evolve_charmander_to_charmeleon": 0.06 }
       }
     },
-    "requestId": "synthetic-opportunist-reward-gym-won",
+    "requestId": "req_01a2133a86f479ec9e5c07a2efe7f8e1",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 370,
+    "usage": { "inputTokens": 1506, "outputTokens": 40 }
   }
 }

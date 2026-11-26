@@ -102,21 +102,21 @@
   },
   "acceptable": { "ability_window": ["use_block_snorlax"] },
   "reason": "Greedy: liquidity 0.9: coins are what it values most and Block saves them, so it uses Block.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "0b1a0022c19ad1b608ea40cd93a6a6c295efaaae46fe9150f90151c335600359",
   "recorded": {
     "ok": true,
     "answers": {
       "ability_window": {
         "type": "choice",
-        "choice": "none",
-        "confidence": 0.418,
-        "probabilities": { "use_block_snorlax": 0.291, "none": 0.709 }
+        "choice": "use_block_snorlax",
+        "confidence": 0.44,
+        "probabilities": { "use_block_snorlax": 0.72, "none": 0.28 }
       }
     },
-    "requestId": "synthetic-greedy-window-pickpocket-block",
+    "requestId": "req_01a2133a79497ba8b8056b63ebce57b5",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 274,
+    "usage": { "inputTokens": 1580, "outputTokens": 40 }
   }
 }

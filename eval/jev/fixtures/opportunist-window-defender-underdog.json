@@ -100,7 +100,7 @@
   },
   "acceptable": { "ability_window": ["use_blaze_charmander"] },
   "reason": "Opportunist: aggression 0.5 and risk 0.6: a free boost that levels a battle it is already in is worth spending, so it uses Blaze.",
-  "synthetic": true,
+  "synthetic": false,
   "requestHash": "f12e155195e5b4fb432ae546f11232643997084d7f0d1e442137c227f949e79f",
   "recorded": {
     "ok": true,
@@ -108,13 +108,13 @@
       "ability_window": {
         "type": "choice",
         "choice": "use_blaze_charmander",
-        "confidence": 0.604,
-        "probabilities": { "use_blaze_charmander": 0.802, "none": 0.198 }
+        "confidence": 0.8,
+        "probabilities": { "use_blaze_charmander": 0.9, "none": 0.1 }
       }
     },
-    "requestId": "synthetic-opportunist-window-defender-underdog",
+    "requestId": "req_01a2133a73af75a698cb97f3eec212ca",
     "model": "jev-1.13.0",
-    "latencyMs": 0,
-    "usage": { "inputTokens": 0, "outputTokens": 0 }
+    "latencyMs": 247,
+    "usage": { "inputTokens": 1560, "outputTokens": 42 }
   }
 }
