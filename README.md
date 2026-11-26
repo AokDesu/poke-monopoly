@@ -29,6 +29,7 @@ Install with `npm ci`. Optionally copy `.env.example` to `.env`; the Jev key is 
 | `npm run eval:jev -- --offline`                    | Jev eval on recorded fixtures; no network, no key                      |
 | `npm run playtest:row -- <log.json> --code <code>` | Draft a playtest sheet row from an exported game log                   |
 | `npm run playtest:check -- <sheet.csv> [...]`      | Check playtest sheets against the template and the privacy rules       |
+| `npm run playtest:report -- <sheet.csv> [...]`     | Write result tables and charts with n from playtest sheets             |
 
 CI (job `ci`) runs typecheck, lint, format check, tests, the sim and the offline eval on every pull request.
 
@@ -94,7 +95,7 @@ Leave `DEMO_MODE` unset on any server used for real play. The kill switch (§11 
 | `web/`      | Browser UI (Vite, React, Tailwind CSS)    |
 | `sim/`      | Simulation CLI                            |
 | `eval/`     | Jev evaluation (`eval/jev/`)              |
-| `playtest/` | Playtest sheet tools (read files only)    |
+| `playtest/` | Playtest sheet tools (files only)         |
 | `docs/`     | The spec and team guides                  |
 | `skills/`   | Project skills for coding agents          |
 
